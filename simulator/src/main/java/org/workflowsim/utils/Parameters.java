@@ -88,8 +88,10 @@ public class Parameters {
         /**
          * 通信感知 HEFT 静态 DAG 规划器（Topcuoglu, Hariri &amp; Wu, IEEE TPDS 2002），
          * 对齐 LOCAL 文件系统执行模型：任务间数据传输按运行时历史规则逐位镜像
-         * （SOURCE→VM 带宽、VM 间 min(bw)、副本演进）；传输时间折算 MI 计入执行信封。
-         * 需要 LOCAL 文件系统、NONE 聚类、无故障/开销、legacy 数据移动模型与
+         * （SOURCE→VM 带宽、VM 间 min(bw)、副本演进）；传输建模为执行前网络延迟，
+         * 可与 VM 忙碌期重叠、VM 只被计算占用（论文 AST 语义）。
+         * 需要 LOCAL 文件系统、NONE 聚类、无故障/开销、
+         * {@code preExecutionTransferDelayV1} 数据移动模型与
          * {@code SchedulingAlgorithm.STATIC} 派发。
          */
         LOCAL_HEFT,

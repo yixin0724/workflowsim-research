@@ -14,7 +14,15 @@ public class NewFeaturesManualTest {
     public void manualTestNewVisualizations() throws Exception {
         Log.disable();
         
-        Path projectRoot = Paths.get(System.getProperty("user.dir"));
+        // 稳健定位仓库根：IDEA 直接运行时 user.dir 是仓库根，Maven surefire 运行时
+        // user.dir 是 experiments/ 模块目录，向上回溯直到找到 datasets/dax 标记目录。
+        Path projectRoot = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        while (projectRoot != null && !Files.exists(projectRoot.resolve("datasets/dax"))) {
+            projectRoot = projectRoot.getParent();
+        }
+        if (projectRoot == null) {
+            throw new IllegalStateException("Cannot locate repository root containing datasets/dax");
+        }
         Path workflowPath = projectRoot.resolve("datasets/dax/epigenomics/n24/Epigenomics_24.dax");
         
         SimulationConfig config = SimulationConfig.builder(workflowPath.toString(), 2)

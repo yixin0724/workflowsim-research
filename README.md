@@ -15,7 +15,7 @@ WorkflowSim 是面向科学工作流调度研究的离散事件模拟器。本�
 **基础验证：**
 
 ```bash
-mvn verify      # 核心测试，约 7 秒，应显示 Tests run: 159, Failures: 0
+mvn verify      # 核心测试，约 7 秒，应显示 Tests run: 203, Failures: 0
 ```
 
 ## 可用于什么研究
@@ -147,6 +147,9 @@ max(100, floor(runtimeInSeconds * runtimeReferenceMips * runtimeScale))
 | **在线 DAG ready-Job 调度** | `FCFS`、`READY_BATCH_ROUNDROBIN`、`READY_BATCH_MCT`、`READY_BATCH_MINMIN`、`READY_BATCH_MAXMIN`、`DATA` | 运行时决定的是依赖已满足后由引擎释放的 Job；不是离线 DAG 全局时序表。`DATA` 只依据非本地输入字节数，不依据端点带宽或延迟。 |
 | **静态独立任务映射** | `STATIC_OLB`、`STATIC_MET`、`STATIC_MCT`、`STATIC_MINMIN`、`STATIC_MAXMIN`、`STATIC_SUFFERAGE`、`STATIC_ROUND_ROBIN` | 只接受没有父子边的任务集合；不产生网络调度或完整离线执行 trace。 |
 | **受控 shared-storage 静态 DAG 映射** | `SHARED_STORAGE_HEFT`、`SHARED_STORAGE_CPOP`、`SHARED_STORAGE_DLS`、`SHARED_STORAGE_ETF`、`SHARED_STORAGE_PEFT` | 要求 `STATIC` 调度、共享存储、无聚类、无开销、禁用故障和 `SPACE_SHARED` VM；不表示网络拓扑、路由或共享链路争用。 |
+| **通信感知 LOCAL 静态 DAG 映射（论文复现）** | `LOCAL_HEFT`、`LOCAL_CPOP` | 要求 `STATIC` 调度、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、`preExecutionTransferDelayV1` 数据移动模型与 `SPACE_SHARED` VM；受控带宽模型（VM 对 `min(bw)`），不表示链路争用或网络拓扑。 |
+
+**论文复现验证**（Topcuoglu, Hariri &amp; Wu, IEEE TPDS 2002 规范算例，`LOCAL_HEFT`/`LOCAL_CPOP`）：HEFT 向上 rank 与论文逐一相同，VM 映射 10/10 且每任务区间逐位等于论文区间（相对 makespan 80.1 vs 论文 80）；CPOP 复现论文关键路径 {n1, n3, n7, n10} 与关键路径处理器，相对 makespan 87.1 vs 论文 86。传输按论文 AST 语义建模为执行前网络延迟（可与 VM 忙碌期重叠，VM 只被计算占用）。复现细节与平台适配声明见 [`docs/PLATFORM_AUDIT_REPORT.md`](docs/PLATFORM_AUDIT_REPORT.md) 与 [`docs/algorithms/CATALOG.md`](docs/algorithms/CATALOG.md)。
 
 旧 `HEFT`、`DHEFT`、`MINMIN`、`MAXMIN`、`MCT` 和 `ROUNDROBIN` 标签仍可由历史 API 或示例调用，但标准 `SimulationRunner` 会拒绝它们作为研究入口，以避免将兼容性实现误称为维护的算法复现。算法决策语义、确定性 tie-break 和测试范围见 [`docs/algorithms/CATALOG.md`](docs/algorithms/CATALOG.md) 与 [`docs/algorithms/CONTRACTS.md`](docs/algorithms/CONTRACTS.md)。
 

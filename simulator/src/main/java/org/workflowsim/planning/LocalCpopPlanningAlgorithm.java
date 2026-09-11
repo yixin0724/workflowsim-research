@@ -26,10 +26,9 @@ import org.workflowsim.Task;
  * </ol>
  *
  * <p><b>通信建模与执行语义</b>与 {@link LocalHeftPlanningAlgorithm} 完全一致（共享
- * {@link AbstractLocalCommPlanningAlgorithm}）：LOCAL stage-in 传输逐位镜像、传输
- * 折算 MI 计入执行信封、副本状态按调度顺序演进。适用前提与边界声明亦同——特别地，
- * 论文允许传输与处理器忙碌期重叠，本平台信封语义不允许，二者的 EFT 比较可能在个别
- * 任务上翻转（HEFT 复现中的 t6 即为一例），这是已记录的刻意平台边界。</p>
+ * {@link AbstractLocalCommPlanningAlgorithm}）：LOCAL stage-in 传输逐位镜像、传输为
+ * 执行前网络延迟（可与 VM 忙碌期重叠，VM 只被计算占用，论文 AST 语义）、副本状态按
+ * 调度顺序演进。适用前提与边界声明亦同。</p>
  */
 public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 
