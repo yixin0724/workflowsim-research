@@ -164,6 +164,17 @@ PlanningAlgorithm.SHARED_STORAGE_CPOP           // CPOP（关键路径优化）
 PlanningAlgorithm.SHARED_STORAGE_DLS            // DLS（动态层调度）
 PlanningAlgorithm.SHARED_STORAGE_ETF            // ETF（最早开始时间）
 PlanningAlgorithm.SHARED_STORAGE_PEFT           // PEFT（乐观代价表）
+PlanningAlgorithm.PSO                           // PSO（粒子群优化，论文复现）
+
+// === 通信感知静态 DAG 规划器（离线规划，需要 LOCAL 存储，论文复现）===
+// 必须同时设置：
+// .planningAlgorithm(PlanningAlgorithm.LOCAL_HEFT)
+// .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+// .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+// .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
+
+PlanningAlgorithm.LOCAL_HEFT                    // HEFT（通信感知，Topcuoglu TPDS 2002 复现）
+PlanningAlgorithm.LOCAL_CPOP                    // CPOP（通信感知，同上）
 
 // === 静态独立任务映射器（无依赖任务）===
 // 必须同时设置：

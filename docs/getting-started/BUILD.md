@@ -83,7 +83,7 @@ mvn compile
 ### 快速测试
 
 ```bash
-# 运行核心单元/语义测试（~7秒，159个测试）
+# 运行核心单元/语义测试（~7秒，203个测试）
 mvn test
 
 # 两个模块的快速测试
@@ -104,15 +104,15 @@ mvn test -Dtest=SimulationRunnerIntegrationTest#supportedAlgorithmCompletesAndPr
 # 核心模块完整验证（单元 + 集成，~15秒）
 mvn verify
 
-# 完整工程质量门禁（核心 + 实验，~2分钟，221个测试）
+# 完整工程质量门禁（核心 + 实验，~2分钟，312个测试）
 mvn verify
 ```
 
 **测试统计**：
-- 核心单元测试：159 个（Surefire）
-- 核心集成测试：42 个（Failsafe，`*IntegrationTest.java`）
-- 实验模块测试：62 个（默认构建）
-- **总计：221 个测试**
+- 核心单元测试：203 个（Surefire）
+- 核心集成测试：46 个（Failsafe，`*IntegrationTest.java`）
+- 实验模块测试：63 个（17 单元 + 46 集成）
+- **总计：312 个测试**
 
 **研究结论前的完整本地门禁应使用 `verify`**，不是只用 `test`。任何依赖示例、P7 参考矩阵或教程语料的门禁都必须使用 `mvn verify`。
 

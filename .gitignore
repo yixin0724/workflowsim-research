@@ -14,3 +14,4 @@ target/
 # datasets/dax fixtures needed for paper reproduction are kept)
 datasets/wfinstances/
 datasets/wfformat/
+output/test-new-features/

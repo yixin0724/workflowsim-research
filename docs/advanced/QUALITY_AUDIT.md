@@ -120,3 +120,7 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 - `mvn verify`：全模块 BUILD SUCCESS（71 组测试全绿，
   含 P7 基线 7 测试、示例冒烟 56+5 测试）
 - 数据集校验：wfformat INDEX 42 实例 × (json+manifest) 84 引用文件全部存在
+
+> **2026-09-11 更新**：上述计数为本审计日（2026-09-04）快照。此后新增了通信建模、
+> HEFT/CPOP 论文复现（LOCAL_HEFT/LOCAL_CPOP）、PSO 复现与 COMM-1 修复等测试，
+> 核心单元测试现为 **203 个**（以 `mvn test` 实际输出为准）。

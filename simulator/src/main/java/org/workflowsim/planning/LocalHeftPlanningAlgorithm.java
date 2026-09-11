@@ -21,19 +21,22 @@ import org.workflowsim.Task;
  * 同一文件多个副本取最快来源；stage-in 后副本目录增加目标 VM。副本状态按调度顺序演进，
  * 与运行时派发顺序一致。</p>
  *
- * <p><b>执行语义对齐</b>：传输时间折算为整数 MI 计入作业执行信封
- * （{@code totalMi = (long)(computeMi + mips × transferSeconds)}，镜像 CloudSim
- * {@code cloudletSubmit} 的截断行为），因此规划的任务时长 = 传输 + 计算；就绪时刻 =
- * 全部父任务计划完成时刻的最大值（根任务等待模型 stage-in Job 完成加一个内核间隔），
- * 与运行时的事件链一致。任务×VM 异构成本矩阵存在时按矩阵秒数折算 MI
- * （{@code Math.round}，镜像 STATIC 派发折算）；缺省时沿用解析期 MI/mips 缩放。</p>
+ * <p><b>执行语义对齐</b>：与论文的 AST（Actual Start Time）语义一致——输入传输是
+ * <em>执行前网络延迟</em>，不是 VM 工作：每个父任务的文件在其完成时刻开始传输
+ * （父任务间并行），可与目标 VM 忙碌期重叠；任务的计划开始时刻 =
+ * {@code max(VM 空闲, max_pred(parentFinish + Σc_files_from_pred))}，VM 只被计算
+ * MI 占用。该语义由 {@code DataMovementModel.preExecutionTransferDelayV1()} 在
+ * 运行时逐位镜像（引擎在任务就绪时按父任务估计传输延迟、传输完成后派发）。任务×VM
+ * 异构成本矩阵存在时按矩阵秒数折算 MI（{@code Math.round}，镜像 STATIC 派发折算）；
+ * 缺省时沿用解析期 MI/mips 缩放。</p>
  *
  * <p><b>适用前提</b>：LOCAL 文件系统、NONE 聚类、无故障、无建模开销、
- * {@code legacyWorkflowsimV1} 数据移动模型与 SPACE_SHARED VM；由
+ * {@code preExecutionTransferDelayV1} 数据移动模型与 SPACE_SHARED VM；由
  * {@link PlanningContext#validateLocalStaticDag()} 强制。规划器写出的每任务 VM 映射与
  * 计划开始时间由 {@code StaticSchedulePlan} 强制为运行时的每 VM 派发顺序。</p>
  *
- * <p><b>边界声明</b>：不建模链路争用、网络拓扑或多工作流并发传输；计划-运行时对齐在
+ * <p><b>边界声明</b>：不建模链路争用、网络拓扑或多工作流并发传输；运行时对传输延迟
+ * 施加最小事件间隔钳制而规划器不钳制，亚秒级传输可能产生微小漂移；计划-运行时对齐在
  * 任务时长 ≥ 最小事件间隔 + 完成保护量（0.11 秒）时成立，更短的任务会被运行时完成事件
  * 规则推后。它是抽象模型上的 HEFT，不是真实平台校准。同论文的 CPOP 算法由
  * {@link LocalCpopPlanningAlgorithm} 实现，两规划器共享
