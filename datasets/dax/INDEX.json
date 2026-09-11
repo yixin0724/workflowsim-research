@@ -1,0 +1,149 @@
+{
+  "generator": "Pegasus (classic DAX, Bharathi et al. 2008 characterization)",
+  "schema": "DAX 2.1 XML",
+  "source": "Pegasus classic DAX (Bharathi et al. 2008), originally bundled as WorkflowSim-1.0/config/dax",
+  "created_at": "2026-08-31T14:19:54.416095+08:00",
+  "n_instances": 20,
+  "instances": [
+    {
+      "family": "cybershake",
+      "application": "CyberShake",
+      "num_tasks": 100,
+      "dax_xml": "cybershake/n100/CyberShake_100.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "cybershake",
+      "application": "CyberShake",
+      "num_tasks": 1000,
+      "dax_xml": "cybershake/n1000/CyberShake_1000.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "cybershake",
+      "application": "CyberShake",
+      "num_tasks": 30,
+      "dax_xml": "cybershake/n30/CyberShake_30.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "cybershake",
+      "application": "CyberShake",
+      "num_tasks": 50,
+      "dax_xml": "cybershake/n50/CyberShake_50.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "epigenomics",
+      "application": "Epigenomics",
+      "num_tasks": 100,
+      "dax_xml": "epigenomics/n100/Epigenomics_100.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "epigenomics",
+      "application": "Epigenomics",
+      "num_tasks": 24,
+      "dax_xml": "epigenomics/n24/Epigenomics_24.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "epigenomics",
+      "application": "Epigenomics",
+      "num_tasks": 46,
+      "dax_xml": "epigenomics/n46/Epigenomics_46.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "epigenomics",
+      "application": "Epigenomics",
+      "num_tasks": 997,
+      "dax_xml": "epigenomics/n997/Epigenomics_997.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "inspiral",
+      "application": "LIGO Inspiral",
+      "num_tasks": 100,
+      "dax_xml": "inspiral/n100/Inspiral_100.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "inspiral",
+      "application": "LIGO Inspiral",
+      "num_tasks": 1000,
+      "dax_xml": "inspiral/n1000/Inspiral_1000.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "inspiral",
+      "application": "LIGO Inspiral",
+      "num_tasks": 30,
+      "dax_xml": "inspiral/n30/Inspiral_30.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "inspiral",
+      "application": "LIGO Inspiral",
+      "num_tasks": 50,
+      "dax_xml": "inspiral/n50/Inspiral_50.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "montage",
+      "application": "Montage",
+      "num_tasks": 100,
+      "dax_xml": "montage/n100/Montage_100.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "montage",
+      "application": "Montage",
+      "num_tasks": 1000,
+      "dax_xml": "montage/n1000/Montage_1000.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "montage",
+      "application": "Montage",
+      "num_tasks": 25,
+      "dax_xml": "montage/n25/Montage_25.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "montage",
+      "application": "Montage",
+      "num_tasks": 50,
+      "dax_xml": "montage/n50/Montage_50.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "sipht",
+      "application": "SIPHT",
+      "num_tasks": 100,
+      "dax_xml": "sipht/n100/Sipht_100.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "sipht",
+      "application": "SIPHT",
+      "num_tasks": 1000,
+      "dax_xml": "sipht/n1000/Sipht_1000.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "sipht",
+      "application": "SIPHT",
+      "num_tasks": 30,
+      "dax_xml": "sipht/n30/Sipht_30.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    },
+    {
+      "family": "sipht",
+      "application": "SIPHT",
+      "num_tasks": 60,
+      "dax_xml": "sipht/n60/Sipht_60.dax",
+      "source": "originally WorkflowSim-1.0/config/dax"
+    }
+  ]
+}

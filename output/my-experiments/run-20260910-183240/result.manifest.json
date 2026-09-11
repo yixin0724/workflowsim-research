@@ -1,0 +1,1271 @@
+{
+  "schema": "workflowsim-experiment-manifest-v3",
+  "configuration": {
+    "vmCount": 4,
+    "schedulingAlgorithm": "STATIC",
+    "planningAlgorithm": "PSO",
+    "algorithmContract": {
+      "scheduler": {
+        "id": "STATIC",
+        "decisionLayer": "STATIC_MAPPING_DISPATCH",
+        "inputDomain": "MAPPED_JOBS_ONLY",
+        "decisionRule": "Dispatches a Job to the VM assigned by the planning layer",
+        "verification": "REGRESSION_COVERED_WITH_STATIC_MCT",
+        "limitations": [
+          "A SimulationConfig requires a non-INVALID planner; model-generated stage-in Jobs use the legacy fallback mapping."
+        ]
+      },
+      "planner": {
+        "id": "PSO",
+        "decisionLayer": "STATIC_DAG_VM_MAPPING",
+        "inputDomain": "VALID_DAG",
+        "decisionRule": "Particle swarm optimization over Task-to-VM mappings: fitness \u003d 0.8 * sequential-load execution cost (price \u003d mips/1000) + 0.2 * per-VM load makespan; population 30, 100 iterations, w\u003d0.7, c1\u003dc2\u003d1.5, seeded named random stream",
+        "requiredScheduler": "STATIC",
+        "verification": "PAPER_REPRODUCTION_REGRESSION_COVERED",
+        "reproductionScope": "CORE_PSO_DECISION_SEMANTICS_OF_PANDEY_AINA_2010_PER_OPENSOURCE_WORKFLOWSIM_PSO_REFERENCE",
+        "limitations": [
+          "Fitness uses the reference implementation\u0027s sequential VM-load model and ignores DAG dependency edges; planning-side makespan estimates may differ from runtime makespan under engine-enforced dependencies.",
+          "The cost model is the abstract price \u003d mips/1000 heuristic, not calibrated cloud pricing.",
+          "Random stream comes from the campaign root seed, not the reference\u0027s hardcoded seed 42."
+        ]
+      },
+      "scopeStatement": "Algorithm labels describe this WorkflowSim implementation and its declared abstract-model scope; standard SimulationRunner evidence uses SPACE_SHARED VMs and no task clustering, and does not establish real-platform calibration.",
+      "reproductionStandard": "CORE_DECISION_SEMANTICS_UNDER_DECLARED_MODEL"
+    },
+    "reduceMethod": null,
+    "deadline": 0,
+    "deadlineSemantics": "OBSERVATION_ONLY_FROM_SIMULATION_TIME_ZERO_AGAINST_SIMULATION_END_SECONDS_NO_SCHEDULING_EFFECT",
+    "fileSystem": "SHARED",
+    "rootSeed": 42,
+    "runtimeScale": 1.0,
+    "runtimeReferenceMips": 1000.0,
+    "cloudSimMinEventIntervalSeconds": 0.1,
+    "costModel": "DATACENTER",
+    "modeledProcessingCostScope": "ABSTRACT_COST_UNITS;CPU_ENVELOPE_MAY_INCLUDE_MODELED_STAGE_IN;DECLARED_FILE_BYTES_ALL_JOB_FILE_ITEMS;DECIMAL_MB_1_000_000_BYTES;NO_INTERNAL_BILLING_ROUNDING;MEMORY_AND_STORAGE_PRICES_ARE_DECLARED_BUT_NOT_CHARGED_BY_THIS_MODEL",
+    "dataMovementModel": {
+      "kind": "LEGACY_WORKFLOWSIM_V1",
+      "accessLinkBandwidthMbPerSecond": 0.0,
+      "accessLinkLatencySeconds": 0.0,
+      "sourceEndpointBandwidthMbPerSecond": 0.0,
+      "contentionSemantics": "LEGACY_IMPLEMENTATION_DEFINED_NO_EXPLICIT_CONTENTION_MODEL"
+    },
+    "overheadModel": {
+      "workflowEngineDelayInterval": 0,
+      "bandwidth": 0.0,
+      "workflowEngineDelays": {},
+      "queueDelays": {},
+      "postDelays": {},
+      "clusteringDelays": {}
+    },
+    "clustering": {
+      "method": "NONE",
+      "clustersNum": 0,
+      "clustersSize": 0,
+      "code": null
+    },
+    "failureModel": {
+      "clusteringAlgorithm": "FTCLUSTERING_NOOP",
+      "monitorMode": "MONITOR_NONE",
+      "generatorMode": "FAILURE_NONE",
+      "distributionFamily": "WEIBULL",
+      "maxTotalRetryJobs": 0,
+      "generatorAddressing": "DENSE_VM_ID_MATRIX",
+      "generators": [],
+      "generatorsByVmId": {}
+    }
+  },
+  "platform": {
+    "name": "my-experiment-platform",
+    "hostCount": 4,
+    "vmCount": 4,
+    "hosts": [
+      {
+        "id": 0,
+        "pes": 2,
+        "mipsPerPe": 2000.0,
+        "ramMb": 2048,
+        "bandwidth": 10000,
+        "storageMb": 1000000
+      },
+      {
+        "id": 1,
+        "pes": 2,
+        "mipsPerPe": 2000.0,
+        "ramMb": 2048,
+        "bandwidth": 10000,
+        "storageMb": 1000000
+      },
+      {
+        "id": 2,
+        "pes": 2,
+        "mipsPerPe": 2000.0,
+        "ramMb": 2048,
+        "bandwidth": 10000,
+        "storageMb": 1000000
+      },
+      {
+        "id": 3,
+        "pes": 2,
+        "mipsPerPe": 2000.0,
+        "ramMb": 2048,
+        "bandwidth": 10000,
+        "storageMb": 1000000
+      }
+    ],
+    "vms": [
+      {
+        "id": 0,
+        "mips": 1000.0,
+        "pes": 1,
+        "ramMb": 512,
+        "bandwidth": 1000,
+        "imageSizeMb": 10000,
+        "vmm": "Xen",
+        "schedulerMode": "SPACE_SHARED",
+        "pinnedHostId": null,
+        "preflightHostId": 0,
+        "costs": null
+      },
+      {
+        "id": 1,
+        "mips": 1000.0,
+        "pes": 1,
+        "ramMb": 512,
+        "bandwidth": 1000,
+        "imageSizeMb": 10000,
+        "vmm": "Xen",
+        "schedulerMode": "SPACE_SHARED",
+        "pinnedHostId": null,
+        "preflightHostId": 1,
+        "costs": null
+      },
+      {
+        "id": 2,
+        "mips": 1000.0,
+        "pes": 1,
+        "ramMb": 512,
+        "bandwidth": 1000,
+        "imageSizeMb": 10000,
+        "vmm": "Xen",
+        "schedulerMode": "SPACE_SHARED",
+        "pinnedHostId": null,
+        "preflightHostId": 2,
+        "costs": null
+      },
+      {
+        "id": 3,
+        "mips": 1000.0,
+        "pes": 1,
+        "ramMb": 512,
+        "bandwidth": 1000,
+        "imageSizeMb": 10000,
+        "vmm": "Xen",
+        "schedulerMode": "SPACE_SHARED",
+        "pinnedHostId": null,
+        "preflightHostId": 3,
+        "costs": null
+      }
+    ],
+    "storage": {
+      "capacityMb": 1000000000000,
+      "maxTransferRateMbPerSecond": 15
+    },
+    "costs": {
+      "cpuPerSecond": 3.0,
+      "memory": 0.05,
+      "storage": 0.1,
+      "bandwidth": 0.1
+    }
+  },
+  "inputs": [
+    {
+      "path": "/Users/yixin/project/WorkflowSim-1.0/datasets/dax/montage/n25/Montage_25.dax",
+      "sha256": "3c791f17b8e57a06e5e7afad57fffc625c0611caf168036efeaa18b1888bab19",
+      "sizeBytes": 23087,
+      "format": "DAX_XML",
+      "declaredVersion": "2.1",
+      "taskCount": 25,
+      "normalizations": []
+    }
+  ],
+  "workflowProfile": {
+    "taskCount": 25,
+    "edgeCount": 45,
+    "rootTaskCount": 5,
+    "leafTaskCount": 1,
+    "maximumDepthEdges": 8,
+    "maximumWidthTasks": 9,
+    "totalTaskLengthMi": 227750,
+    "meanTaskLengthMi": 9110.0,
+    "taskLengthCoefficientOfVariation": 0.47205871126927584,
+    "fileReferenceCount": 134,
+    "distinctFileCount": 38,
+    "totalDistinctFileBytes": 1.99929371E8,
+    "externalInputReferenceCount": 23,
+    "distinctExternalInputFileCount": 9,
+    "totalDistinctExternalInputBytes": 2.1112623E7
+  },
+  "result": {
+    "makespan": 93.723,
+    "simulationEndSeconds": 93.723,
+    "logicalTaskCompletionStatus": "COMPLETED_SUCCESSFULLY",
+    "logicalTaskCompletionSeconds": 93.723,
+    "terminalLifecycleTailSeconds": 0.0,
+    "workflowCompletedSuccessfully": true,
+    "totalJobs": 26,
+    "successfulJobs": 26,
+    "failedJobs": 0,
+    "vmSummaries": [
+      {
+        "vmId": 0,
+        "jobs": 10,
+        "successfulJobs": 10,
+        "failedJobs": 0,
+        "totalCpuTime": 68.366,
+        "lastFinishTime": 93.723
+      },
+      {
+        "vmId": 1,
+        "jobs": 5,
+        "successfulJobs": 5,
+        "failedJobs": 0,
+        "totalCpuTime": 60.827999999999996,
+        "lastFinishTime": 64.521
+      },
+      {
+        "vmId": 2,
+        "jobs": 5,
+        "successfulJobs": 5,
+        "failedJobs": 0,
+        "totalCpuTime": 60.80099999999999,
+        "lastFinishTime": 64.15299999999999
+      },
+      {
+        "vmId": 3,
+        "jobs": 6,
+        "successfulJobs": 6,
+        "failedJobs": 0,
+        "totalCpuTime": 60.712,
+        "lastFinishTime": 75.89
+      }
+    ],
+    "jobs": [
+      {
+        "jobId": 25,
+        "vmId": 0,
+        "status": 4,
+        "classType": 1,
+        "submissionTime": 0.1,
+        "startTime": 0.1,
+        "finishTime": 0.21000000000000002,
+        "waitingTime": 0.0,
+        "executionTime": 0.11000000000000001,
+        "responseTime": 0.11000000000000001,
+        "cpuTime": 0.11000000000000001,
+        "modeledCpuEnvelopeCost": 0.33000000000000007,
+        "modeledDeclaredFileBandwidthCost": 2.1112623000000004,
+        "modeledDeclaredFileBytes": 2.1112623E7,
+        "modeledProcessingCost": 2.4412623000000004,
+        "taskCount": 0,
+        "taskIds": []
+      },
+      {
+        "jobId": 0,
+        "vmId": 2,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 0.21000000000000002,
+        "startTime": 0.21000000000000002,
+        "finishTime": 13.881,
+        "waitingTime": 0.0,
+        "executionTime": 13.671,
+        "responseTime": 13.671,
+        "cpuTime": 13.671,
+        "modeledCpuEnvelopeCost": 41.013,
+        "modeledDeclaredFileBandwidthCost": 1.2557008,
+        "modeledDeclaredFileBytes": 1.2557008E7,
+        "modeledProcessingCost": 42.2687008,
+        "taskCount": 1,
+        "taskIds": [
+          1
+        ]
+      },
+      {
+        "jobId": 3,
+        "vmId": 3,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 0.21000000000000002,
+        "startTime": 0.21000000000000002,
+        "finishTime": 14.091000000000001,
+        "waitingTime": 0.0,
+        "executionTime": 13.881,
+        "responseTime": 13.881,
+        "cpuTime": 13.881,
+        "modeledCpuEnvelopeCost": 41.643,
+        "modeledDeclaredFileBandwidthCost": 1.2570392,
+        "modeledDeclaredFileBytes": 1.2570392E7,
+        "modeledProcessingCost": 42.9000392,
+        "taskCount": 1,
+        "taskIds": [
+          4
+        ]
+      },
+      {
+        "jobId": 4,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 0.21000000000000002,
+        "startTime": 0.21000000000000002,
+        "finishTime": 14.271,
+        "waitingTime": 0.0,
+        "executionTime": 14.061,
+        "responseTime": 14.061,
+        "cpuTime": 14.061,
+        "modeledCpuEnvelopeCost": 42.183,
+        "modeledDeclaredFileBandwidthCost": 1.2529426000000001,
+        "modeledDeclaredFileBytes": 1.2529426E7,
+        "modeledProcessingCost": 43.4359426,
+        "taskCount": 1,
+        "taskIds": [
+          5
+        ]
+      },
+      {
+        "jobId": 1,
+        "vmId": 1,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 0.21000000000000002,
+        "startTime": 0.21000000000000002,
+        "finishTime": 14.381,
+        "waitingTime": 0.0,
+        "executionTime": 14.171,
+        "responseTime": 14.171,
+        "cpuTime": 14.171,
+        "modeledCpuEnvelopeCost": 42.513,
+        "modeledDeclaredFileBandwidthCost": 1.2566086,
+        "modeledDeclaredFileBytes": 1.2566086E7,
+        "modeledProcessingCost": 43.7696086,
+        "taskCount": 1,
+        "taskIds": [
+          2
+        ]
+      },
+      {
+        "jobId": 5,
+        "vmId": 3,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 14.381,
+        "startTime": 14.381,
+        "finishTime": 26.082,
+        "waitingTime": 0.0,
+        "executionTime": 11.701,
+        "responseTime": 11.701,
+        "cpuTime": 11.701,
+        "modeledCpuEnvelopeCost": 35.103,
+        "modeledDeclaredFileBandwidthCost": 1.7087306,
+        "modeledDeclaredFileBytes": 1.7087306E7,
+        "modeledProcessingCost": 36.811730600000004,
+        "taskCount": 1,
+        "taskIds": [
+          6
+        ]
+      },
+      {
+        "jobId": 7,
+        "vmId": 1,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 14.381,
+        "startTime": 14.381,
+        "finishTime": 26.373,
+        "waitingTime": 0.0,
+        "executionTime": 11.992,
+        "responseTime": 11.992,
+        "cpuTime": 11.992,
+        "modeledCpuEnvelopeCost": 35.976,
+        "modeledDeclaredFileBandwidthCost": 1.6920903,
+        "modeledDeclaredFileBytes": 1.6920903E7,
+        "modeledProcessingCost": 37.668090299999996,
+        "taskCount": 1,
+        "taskIds": [
+          8
+        ]
+      },
+      {
+        "jobId": 2,
+        "vmId": 2,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 13.881,
+        "startTime": 13.881,
+        "finishTime": 27.522,
+        "waitingTime": 0.0,
+        "executionTime": 13.640999999999998,
+        "responseTime": 13.640999999999998,
+        "cpuTime": 13.640999999999998,
+        "modeledCpuEnvelopeCost": 40.922999999999995,
+        "modeledDeclaredFileBandwidthCost": 1.2536628,
+        "modeledDeclaredFileBytes": 1.2536628E7,
+        "modeledProcessingCost": 42.176662799999995,
+        "taskCount": 1,
+        "taskIds": [
+          3
+        ]
+      },
+      {
+        "jobId": 6,
+        "vmId": 3,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 26.082,
+        "startTime": 26.082,
+        "finishTime": 37.783,
+        "waitingTime": 0.0,
+        "executionTime": 11.701,
+        "responseTime": 11.701,
+        "cpuTime": 11.701,
+        "modeledCpuEnvelopeCost": 35.103,
+        "modeledDeclaredFileBandwidthCost": 1.6993103,
+        "modeledDeclaredFileBytes": 1.6993103E7,
+        "modeledProcessingCost": 36.8023103,
+        "taskCount": 1,
+        "taskIds": [
+          7
+        ]
+      },
+      {
+        "jobId": 11,
+        "vmId": 1,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 26.373,
+        "startTime": 26.373,
+        "finishTime": 37.995000000000005,
+        "waitingTime": 0.0,
+        "executionTime": 11.622000000000003,
+        "responseTime": 11.622000000000003,
+        "cpuTime": 11.622000000000003,
+        "modeledCpuEnvelopeCost": 34.866000000000014,
+        "modeledDeclaredFileBandwidthCost": 1.6963536000000001,
+        "modeledDeclaredFileBytes": 1.6963536E7,
+        "modeledProcessingCost": 36.562353600000016,
+        "taskCount": 1,
+        "taskIds": [
+          12
+        ]
+      },
+      {
+        "jobId": 13,
+        "vmId": 2,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 27.522,
+        "startTime": 27.522,
+        "finishTime": 39.001999999999995,
+        "waitingTime": 0.0,
+        "executionTime": 11.479999999999997,
+        "responseTime": 11.479999999999997,
+        "cpuTime": 11.479999999999997,
+        "modeledCpuEnvelopeCost": 34.43999999999999,
+        "modeledDeclaredFileBandwidthCost": 1.6952882000000002,
+        "modeledDeclaredFileBytes": 1.6952882E7,
+        "modeledProcessingCost": 36.13528819999999,
+        "taskCount": 1,
+        "taskIds": [
+          14
+        ]
+      },
+      {
+        "jobId": 8,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 27.522,
+        "startTime": 27.522,
+        "finishTime": 39.440999999999995,
+        "waitingTime": 0.0,
+        "executionTime": 11.918999999999997,
+        "responseTime": 11.918999999999997,
+        "cpuTime": 11.918999999999997,
+        "modeledCpuEnvelopeCost": 35.75699999999999,
+        "modeledDeclaredFileBandwidthCost": 1.68258,
+        "modeledDeclaredFileBytes": 1.68258E7,
+        "modeledProcessingCost": 37.43957999999999,
+        "taskCount": 1,
+        "taskIds": [
+          9
+        ]
+      },
+      {
+        "jobId": 12,
+        "vmId": 1,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 37.995000000000005,
+        "startTime": 37.995000000000005,
+        "finishTime": 49.724999999999994,
+        "waitingTime": 0.0,
+        "executionTime": 11.72999999999999,
+        "responseTime": 11.72999999999999,
+        "cpuTime": 11.72999999999999,
+        "modeledCpuEnvelopeCost": 35.18999999999997,
+        "modeledDeclaredFileBandwidthCost": 1.6964447000000002,
+        "modeledDeclaredFileBytes": 1.6964447E7,
+        "modeledProcessingCost": 36.88644469999997,
+        "taskCount": 1,
+        "taskIds": [
+          13
+        ]
+      },
+      {
+        "jobId": 10,
+        "vmId": 2,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 39.001999999999995,
+        "startTime": 39.001999999999995,
+        "finishTime": 50.065999999999995,
+        "waitingTime": 0.0,
+        "executionTime": 11.064,
+        "responseTime": 11.064,
+        "cpuTime": 11.064,
+        "modeledCpuEnvelopeCost": 33.192,
+        "modeledDeclaredFileBandwidthCost": 0.8566021000000001,
+        "modeledDeclaredFileBytes": 8566021.0,
+        "modeledProcessingCost": 34.048602100000004,
+        "taskCount": 1,
+        "taskIds": [
+          11
+        ]
+      },
+      {
+        "jobId": 9,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 39.440999999999995,
+        "startTime": 39.440999999999995,
+        "finishTime": 51.041,
+        "waitingTime": 0.0,
+        "executionTime": 11.600000000000001,
+        "responseTime": 11.600000000000001,
+        "cpuTime": 11.600000000000001,
+        "modeledCpuEnvelopeCost": 34.800000000000004,
+        "modeledDeclaredFileBandwidthCost": 1.6891988,
+        "modeledDeclaredFileBytes": 1.6891988E7,
+        "modeledProcessingCost": 36.489198800000004,
+        "taskCount": 1,
+        "taskIds": [
+          10
+        ]
+      },
+      {
+        "jobId": 14,
+        "vmId": 3,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 51.041,
+        "startTime": 51.041,
+        "finishTime": 51.788,
+        "waitingTime": 0.0,
+        "executionTime": 0.7469999999999999,
+        "responseTime": 0.7469999999999999,
+        "cpuTime": 0.7469999999999999,
+        "modeledCpuEnvelopeCost": 2.2409999999999997,
+        "modeledDeclaredFileBandwidthCost": 0.041081,
+        "modeledDeclaredFileBytes": 410810.0,
+        "modeledProcessingCost": 2.282081,
+        "taskCount": 1,
+        "taskIds": [
+          15
+        ]
+      },
+      {
+        "jobId": 15,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 51.788,
+        "startTime": 51.788,
+        "finishTime": 53.208,
+        "waitingTime": 0.0,
+        "executionTime": 1.4200000000000017,
+        "responseTime": 1.4200000000000017,
+        "cpuTime": 1.4200000000000017,
+        "modeledCpuEnvelopeCost": 4.260000000000005,
+        "modeledDeclaredFileBandwidthCost": 2.991E-4,
+        "modeledDeclaredFileBytes": 2991.0,
+        "modeledProcessingCost": 4.2602991000000054,
+        "taskCount": 1,
+        "taskIds": [
+          16
+        ]
+      },
+      {
+        "jobId": 16,
+        "vmId": 2,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 53.208,
+        "startTime": 53.208,
+        "finishTime": 64.15299999999999,
+        "waitingTime": 0.0,
+        "executionTime": 10.944999999999993,
+        "responseTime": 10.944999999999993,
+        "cpuTime": 10.944999999999993,
+        "modeledCpuEnvelopeCost": 32.83499999999998,
+        "modeledDeclaredFileBandwidthCost": 1.6661057000000001,
+        "modeledDeclaredFileBytes": 1.6661057E7,
+        "modeledProcessingCost": 34.50110569999998,
+        "taskCount": 1,
+        "taskIds": [
+          17
+        ]
+      },
+      {
+        "jobId": 17,
+        "vmId": 3,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 53.208,
+        "startTime": 53.208,
+        "finishTime": 64.404,
+        "waitingTime": 0.0,
+        "executionTime": 11.195999999999998,
+        "responseTime": 11.195999999999998,
+        "cpuTime": 11.195999999999998,
+        "modeledCpuEnvelopeCost": 33.587999999999994,
+        "modeledDeclaredFileBandwidthCost": 1.6667629000000002,
+        "modeledDeclaredFileBytes": 1.6667629E7,
+        "modeledProcessingCost": 35.254762899999996,
+        "taskCount": 1,
+        "taskIds": [
+          18
+        ]
+      },
+      {
+        "jobId": 20,
+        "vmId": 1,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 53.208,
+        "startTime": 53.208,
+        "finishTime": 64.521,
+        "waitingTime": 0.0,
+        "executionTime": 11.313000000000002,
+        "responseTime": 11.313000000000002,
+        "cpuTime": 11.313000000000002,
+        "modeledCpuEnvelopeCost": 33.93900000000001,
+        "modeledDeclaredFileBandwidthCost": 1.6622601000000001,
+        "modeledDeclaredFileBytes": 1.6622601E7,
+        "modeledProcessingCost": 35.601260100000005,
+        "taskCount": 1,
+        "taskIds": [
+          21
+        ]
+      },
+      {
+        "jobId": 18,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 53.208,
+        "startTime": 53.208,
+        "finishTime": 64.631,
+        "waitingTime": 0.0,
+        "executionTime": 11.423000000000002,
+        "responseTime": 11.423000000000002,
+        "cpuTime": 11.423000000000002,
+        "modeledCpuEnvelopeCost": 34.269000000000005,
+        "modeledDeclaredFileBandwidthCost": 1.6679155,
+        "modeledDeclaredFileBytes": 1.6679155E7,
+        "modeledProcessingCost": 35.936915500000005,
+        "taskCount": 1,
+        "taskIds": [
+          19
+        ]
+      },
+      {
+        "jobId": 19,
+        "vmId": 3,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 64.404,
+        "startTime": 64.404,
+        "finishTime": 75.89,
+        "waitingTime": 0.0,
+        "executionTime": 11.486000000000004,
+        "responseTime": 11.486000000000004,
+        "cpuTime": 11.486000000000004,
+        "modeledCpuEnvelopeCost": 34.45800000000001,
+        "modeledDeclaredFileBandwidthCost": 1.6689989,
+        "modeledDeclaredFileBytes": 1.6689989E7,
+        "modeledProcessingCost": 36.12699890000001,
+        "taskCount": 1,
+        "taskIds": [
+          20
+        ]
+      },
+      {
+        "jobId": 21,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 75.89,
+        "startTime": 75.89,
+        "finishTime": 80.058,
+        "waitingTime": 0.0,
+        "executionTime": 4.168000000000006,
+        "responseTime": 4.168000000000006,
+        "cpuTime": 4.168000000000006,
+        "modeledCpuEnvelopeCost": 12.504000000000019,
+        "modeledDeclaredFileBandwidthCost": 4.1673922,
+        "modeledDeclaredFileBytes": 4.1673922E7,
+        "modeledProcessingCost": 16.67139220000002,
+        "taskCount": 1,
+        "taskIds": [
+          22
+        ]
+      },
+      {
+        "jobId": 22,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 80.058,
+        "startTime": 80.058,
+        "finishTime": 83.08800000000001,
+        "waitingTime": 0.0,
+        "executionTime": 3.030000000000001,
+        "responseTime": 3.030000000000001,
+        "cpuTime": 3.030000000000001,
+        "modeledCpuEnvelopeCost": 9.090000000000003,
+        "modeledDeclaredFileBandwidthCost": 9.3021131,
+        "modeledDeclaredFileBytes": 9.3021131E7,
+        "modeledProcessingCost": 18.392113100000003,
+        "taskCount": 1,
+        "taskIds": [
+          23
+        ]
+      },
+      {
+        "jobId": 23,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 83.08800000000001,
+        "startTime": 83.08800000000001,
+        "finishTime": 93.149,
+        "waitingTime": 0.0,
+        "executionTime": 10.060999999999993,
+        "responseTime": 10.060999999999993,
+        "cpuTime": 10.060999999999993,
+        "modeledCpuEnvelopeCost": 30.18299999999998,
+        "modeledDeclaredFileBandwidthCost": 9.488035700000001,
+        "modeledDeclaredFileBytes": 9.4880357E7,
+        "modeledProcessingCost": 39.671035699999976,
+        "taskCount": 1,
+        "taskIds": [
+          24
+        ]
+      },
+      {
+        "jobId": 24,
+        "vmId": 0,
+        "status": 4,
+        "classType": 2,
+        "submissionTime": 93.149,
+        "startTime": 93.149,
+        "finishTime": 93.723,
+        "waitingTime": 0.0,
+        "executionTime": 0.5739999999999981,
+        "responseTime": 0.5739999999999981,
+        "cpuTime": 0.5739999999999981,
+        "modeledCpuEnvelopeCost": 1.7219999999999942,
+        "modeledDeclaredFileBandwidthCost": 0.2065985,
+        "modeledDeclaredFileBytes": 2065985.0,
+        "modeledProcessingCost": 1.928598499999994,
+        "taskCount": 1,
+        "taskIds": [
+          25
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "taskId": 1,
+        "jobId": 0,
+        "vmId": 2,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 1,
+        "lengthMi": 13390,
+        "startTime": 0.49100000000000005,
+        "finishTime": 13.881,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 4,
+        "jobId": 3,
+        "vmId": 3,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 1,
+        "lengthMi": 13600,
+        "startTime": 0.49100000000000005,
+        "finishTime": 14.091,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 5,
+        "jobId": 4,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 1,
+        "lengthMi": 13780,
+        "startTime": 0.49100000000000005,
+        "finishTime": 14.270999999999999,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 2,
+        "jobId": 1,
+        "vmId": 1,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 1,
+        "lengthMi": 13830,
+        "startTime": 0.49100000000000005,
+        "finishTime": 14.321,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 6,
+        "jobId": 5,
+        "vmId": 3,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10590,
+        "startTime": 15.492,
+        "finishTime": 26.082,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 8,
+        "jobId": 7,
+        "vmId": 1,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10880,
+        "startTime": 15.493,
+        "finishTime": 26.373,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 3,
+        "jobId": 2,
+        "vmId": 2,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 1,
+        "lengthMi": 13360,
+        "startTime": 14.162,
+        "finishTime": 27.522,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 7,
+        "jobId": 6,
+        "vmId": 3,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10590,
+        "startTime": 27.193,
+        "finishTime": 37.783,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 12,
+        "jobId": 11,
+        "vmId": 1,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10510,
+        "startTime": 27.485,
+        "finishTime": 37.995,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 14,
+        "jobId": 13,
+        "vmId": 2,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10370,
+        "startTime": 28.631999999999998,
+        "finishTime": 39.001999999999995,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 9,
+        "jobId": 8,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10810,
+        "startTime": 28.631,
+        "finishTime": 39.441,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 13,
+        "jobId": 12,
+        "vmId": 1,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10620,
+        "startTime": 39.105000000000004,
+        "finishTime": 49.725,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 11,
+        "jobId": 10,
+        "vmId": 2,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10510,
+        "startTime": 39.556,
+        "finishTime": 50.065999999999995,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 10,
+        "jobId": 9,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 2,
+        "lengthMi": 10490,
+        "startTime": 40.550999999999995,
+        "finishTime": 51.041,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 15,
+        "jobId": 14,
+        "vmId": 3,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 3,
+        "lengthMi": 720,
+        "startTime": 51.068,
+        "finishTime": 51.788,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 16,
+        "jobId": 15,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 4,
+        "lengthMi": 1420,
+        "startTime": 51.788,
+        "finishTime": 53.208,
+        "exactJobTiming": true
+      },
+      {
+        "taskId": 17,
+        "jobId": 16,
+        "vmId": 2,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 5,
+        "lengthMi": 10390,
+        "startTime": 53.763,
+        "finishTime": 64.15299999999999,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 18,
+        "jobId": 17,
+        "vmId": 3,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 5,
+        "lengthMi": 10640,
+        "startTime": 53.763999999999996,
+        "finishTime": 64.404,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 21,
+        "jobId": 20,
+        "vmId": 1,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 5,
+        "lengthMi": 10760,
+        "startTime": 53.760999999999996,
+        "finishTime": 64.521,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 19,
+        "jobId": 18,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 5,
+        "lengthMi": 10830,
+        "startTime": 53.762,
+        "finishTime": 64.592,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 20,
+        "jobId": 19,
+        "vmId": 3,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 5,
+        "lengthMi": 10930,
+        "startTime": 64.96,
+        "finishTime": 75.88999999999999,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 22,
+        "jobId": 21,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 6,
+        "lengthMi": 1390,
+        "startTime": 78.668,
+        "finishTime": 80.058,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 23,
+        "jobId": 22,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 7,
+        "lengthMi": 3030,
+        "startTime": 80.058,
+        "finishTime": 83.08800000000001,
+        "exactJobTiming": true
+      },
+      {
+        "taskId": 24,
+        "jobId": 23,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 8,
+        "lengthMi": 3860,
+        "startTime": 89.289,
+        "finishTime": 93.149,
+        "exactJobTiming": false
+      },
+      {
+        "taskId": 25,
+        "jobId": 24,
+        "vmId": 0,
+        "jobStatus": 4,
+        "taskStatus": 4,
+        "depth": 9,
+        "lengthMi": 450,
+        "startTime": 93.273,
+        "finishTime": 93.723,
+        "exactJobTiming": false
+      }
+    ],
+    "actualVmHostAssignments": {
+      "0": 0,
+      "1": 1,
+      "2": 2,
+      "3": 3
+    },
+    "sharedStorageDagPlanTrace": null
+  },
+  "metrics": {
+    "makespanSeconds": 93.723,
+    "logicalTaskCompletionSeconds": 93.723,
+    "logicalTaskCompletionStatus": "COMPLETED_SUCCESSFULLY",
+    "terminalLifecycleTailSeconds": 0.0,
+    "jobOutcomeCount": 26,
+    "computeJobOutcomeCount": 25,
+    "stageInJobOutcomeCount": 1,
+    "successfulJobOutcomeCount": 26,
+    "failedJobOutcomeCount": 0,
+    "successfulComputeJobOutcomeCount": 25,
+    "failedComputeJobOutcomeCount": 0,
+    "successfulComputeJobOutcomeRate": 1.0,
+    "logicalTaskCount": 25,
+    "successfullyCompletedLogicalTaskCount": 25,
+    "logicalTasksNotYetSuccessfullyCompletedCount": 0,
+    "successfulLogicalTaskCompletionRate": 1.0,
+    "allLogicalTasksCompletedSuccessfully": true,
+    "initialComputeJobOutcomeCount": 25,
+    "retryJobCreatedCount": 0,
+    "completedRetryComputeJobOutcomeCount": 0,
+    "logicalTaskAttemptCount": 25,
+    "retriedLogicalTaskCount": 0,
+    "failedComputeAttemptEnvelopeSeconds": 0.0,
+    "failedComputeAttemptModeledProcessingCost": 0.0,
+    "retryComputeAttemptModeledProcessingCost": 0.0,
+    "computeJobOutcomeThroughputPerSecond": 0.2667434887914386,
+    "meanComputeJobRunTimeSeconds": 10.023879999999998,
+    "meanJobVmQueueWaitingTimeSeconds": 0.0,
+    "meanJobResponseTimeSeconds": 10.023879999999998,
+    "meanJobVmLevelSlowdown": 1.0,
+    "vmLevelSlowdownObservationCount": 25,
+    "meanComputeTotalWaitingTimeSeconds": 4.3529599999999995,
+    "meanComputeTrueSlowdown": 1.3696513496342817,
+    "trueSlowdownObservationCount": 25,
+    "totalWaitingTimeObservationCount": 25,
+    "medianComputeTotalWaitingTimeSeconds": 0.0,
+    "p95ComputeTotalWaitingTimeSeconds": 13.671,
+    "maxComputeTotalWaitingTimeSeconds": 23.614000000000004,
+    "medianComputeTrueSlowdown": 1.0,
+    "p95ComputeTrueSlowdown": 2.154268292682927,
+    "maxComputeTrueSlowdown": 3.013128729752773,
+    "successOnlyMeanComputeTotalWaitingTimeSeconds": 4.3529599999999995,
+    "successOnlyMeanComputeTrueSlowdown": 1.3696513496342817,
+    "successOnlyWaitingObservationCount": 25,
+    "retryAmplificationRatio": 1.0,
+    "meanComputeReadyToDecisionDelaySeconds": 4.3529599999999995,
+    "meanComputeDecisionToStartDelaySeconds": 0.0,
+    "readyToDecisionObservationCount": 25,
+    "decisionToStartObservationCount": 25,
+    "schedulingCycleCount": 23,
+    "totalSchedulingDecisionWallClockNanos": 275748,
+    "explicitPlannerDecisionObservationCount": 1,
+    "totalPlanningDecisionWallClockNanos": 13014750,
+    "dataStageInModelObservationCount": 25,
+    "modeledDataTransferFileCount": 89,
+    "totalModeledDataTransferSeconds": 22.759783666666664,
+    "totalModeledRequiredInputBytes": 3.41396755E8,
+    "meanModeledDataTransferSeconds": 0.9103913466666665,
+    "totalModeledProcessingCost": 806.4623775999999,
+    "totalModeledCpuEnvelopeCost": 752.1209999999999,
+    "totalModeledDeclaredFileBandwidthCost": 54.3413776,
+    "totalModeledDeclaredFileBytes": 5.43413776E8,
+    "vmMetrics": {
+      "0": {
+        "vmId": 0,
+        "jobOutcomeCount": 10,
+        "reportedCpuTimeSeconds": 68.366,
+        "modeledBusyIntervalSeconds": 68.366,
+        "modeledIntervalUtilization": 0.7294474141886197,
+        "reportedCpuTimeOverMakespan": 0.7294474141886197
+      },
+      "1": {
+        "vmId": 1,
+        "jobOutcomeCount": 5,
+        "reportedCpuTimeSeconds": 60.827999999999996,
+        "modeledBusyIntervalSeconds": 60.827999999999996,
+        "modeledIntervalUtilization": 0.649018917448225,
+        "reportedCpuTimeOverMakespan": 0.649018917448225
+      },
+      "2": {
+        "vmId": 2,
+        "jobOutcomeCount": 5,
+        "reportedCpuTimeSeconds": 60.80099999999999,
+        "modeledBusyIntervalSeconds": 60.80099999999999,
+        "modeledIntervalUtilization": 0.6487308344803302,
+        "reportedCpuTimeOverMakespan": 0.6487308344803302
+      },
+      "3": {
+        "vmId": 3,
+        "jobOutcomeCount": 6,
+        "reportedCpuTimeSeconds": 60.712,
+        "modeledBusyIntervalSeconds": 60.712,
+        "modeledIntervalUtilization": 0.6477812276602328,
+        "reportedCpuTimeOverMakespan": 0.6477812276602328
+      }
+    },
+    "totalVmModeledBusyIntervalSeconds": 250.707,
+    "meanVmModeledIntervalUtilization": 0.668744598444352,
+    "vmModeledBusyTimeCoefficientOfVariation": 0.05241130760838554,
+    "vmUtilizationJainFairnessIndex": 0.997260579871656,
+    "controlledSharedStorageCriticalPathReferenceAvailable": true,
+    "controlledSharedStorageCriticalPathReferenceScope": "SHARED_STORAGE_NO_CLUSTERING_NO_FAILURE_NO_OVERHEAD_SPACE_SHARED",
+    "controlledSharedStorageCriticalPathLowerBoundSeconds": 57.79900000000001,
+    "controlledSharedStorageScheduleLengthRatio": 1.6215332445198012,
+    "deadlineObservationEnabled": false,
+    "deadlineObservationTimeBasis": "SIMULATION_END_SECONDS",
+    "deadlineObservationOutcome": "NOT_REQUESTED",
+    "deadlineMet": false,
+    "deadlineSlackSeconds": 0.0,
+    "deadlineTardinessSeconds": 0.0,
+    "exactTaskTimingObservationCount": 2,
+    "modeledApproximateTaskTimingObservationCount": 23
+  },
+  "events": {
+    "schema": "workflowsim-simulation-events-v1",
+    "eventCount": 181,
+    "firstSequence": 0,
+    "lastSequence": 180
+  },
+  "artifacts": [
+    {
+      "role": "metrics",
+      "path": "result.metrics.json",
+      "sha256": "6a6d81a1777924002f1c54d581df4e1824d82506e6a30e79e0e3cf6ac59bfee5",
+      "sizeBytes": 5068
+    },
+    {
+      "role": "events",
+      "path": "result.events.jsonl",
+      "sha256": "678727d47190a4b6368343d0380e03f797e88d19bb5af4a2dd6bb99daeb7e9e7",
+      "sizeBytes": 39518
+    }
+  ],
+  "provenance": {
+    "schema": "workflowsim-provenance-v3",
+    "core": {
+      "groupId": "org.workflowsim",
+      "artifactId": "workflowsim",
+      "version": "1.0",
+      "anchorClass": "org.workflowsim.experiment.SimulationRunner",
+      "codeSource": "file:/Users/yixin/project/WorkflowSim-1.0/simulator/target/classes/",
+      "binarySha256": null,
+      "modulePomSha256": "cbedbffebcc3eba9767fca1c8064199b6d080738863c202b46d7d46e0a2d9184",
+      "sourceTreeSha256": "a1c680b0144c96cf6b673f0f87139db5f1c99f2f1747960e3cb13b705dc302ce",
+      "sourceFileCount": 280,
+      "sourceTreeScope": "src/main/java/**/*.java"
+    },
+    "study": null,
+    "execution": {
+      "javaClassPathSha256": "c5887ba46c2ed37879d101c38232ff59c7aa3cb409866f3ad296bad952f8f02e",
+      "workingDirectory": "/Users/yixin/project/WorkflowSim-1.0",
+      "reactorPomSha256": "41ff9d489492cb0811ffbb2f3c2f684a3d41c8eeb49abd5415be1cb6a363f39b"
+    }
+  },
+  "runtime": {
+    "javaVersion": "17.0.19",
+    "javaRuntimeVersion": "17.0.19+0",
+    "javaVendor": "Homebrew",
+    "javaVmName": "OpenJDK 64-Bit Server VM",
+    "osName": "Mac OS X",
+    "osArch": "aarch64"
+  }
+}

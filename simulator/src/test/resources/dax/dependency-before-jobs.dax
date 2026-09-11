@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag version="3.3" name="dependency-before-jobs">
+  <child ref="second">
+    <parent ref="first"/>
+  </child>
+  <job id="first" name="source" runtime="0.2">
+    <uses name="zero-input.dat" link="input" size="0"/>
+  </job>
+  <job id="second" name="sink" runtime="1.0">
+    <uses name="result.dat" link="output" size="10"/>
+  </job>
+</adag>

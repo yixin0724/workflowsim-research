@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" version="3.3">
+  <job id="A" name="independent-long" runtime="3.0"/>
+  <job id="B" name="independent-short-a" runtime="1.0"/>
+  <job id="C" name="independent-short-b" runtime="1.0"/>
+</adag>

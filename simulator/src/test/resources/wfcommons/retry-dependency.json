@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.5",
+  "workflow": {
+    "specification": {
+      "tasks": [
+        {
+          "id": "root",
+          "name": "root-task",
+          "parents": [],
+          "children": ["child"],
+          "inputFiles": [],
+          "outputFiles": ["root-output"]
+        },
+        {
+          "id": "child",
+          "name": "child-task",
+          "parents": ["root"],
+          "children": [],
+          "inputFiles": ["root-output"],
+          "outputFiles": ["child-output"]
+        }
+      ],
+      "files": [
+        {"id": "root-output", "sizeInBytes": 0},
+        {"id": "child-output", "sizeInBytes": 0}
+      ]
+    },
+    "execution": {
+      "tasks": [
+        {"id": "root", "runtimeInSeconds": 0.01},
+        {"id": "child", "runtimeInSeconds": 0.01}
+      ]
+    }
+  }
+}

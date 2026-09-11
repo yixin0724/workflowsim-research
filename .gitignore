@@ -1,0 +1,16 @@
+# Build artifacts
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Large community benchmark corpora (not required by tests/experiments;
+# datasets/dax fixtures needed for paper reproduction are kept)
+datasets/wfinstances/
+datasets/wfformat/

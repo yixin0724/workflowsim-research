@@ -1,0 +1,5 @@
+vmId,jobCount,reportedCpuTimeSeconds,modeledBusyIntervalSeconds,modeledUtilization,reportedCpuTimeOverMakespan
+0,10,68.366000,68.366000,0.729447,0.729447
+1,5,60.828000,60.828000,0.649019,0.649019
+2,5,60.801000,60.801000,0.648731,0.648731
+3,6,60.712000,60.712000,0.647781,0.647781

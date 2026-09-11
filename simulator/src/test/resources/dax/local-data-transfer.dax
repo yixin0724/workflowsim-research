@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" version="3.3">
+  <job id="parent" name="parent" runtime="1.0">
+    <uses file="parent-output" link="output" size="30000000"/>
+  </job>
+  <job id="child" name="child" runtime="1.0">
+    <uses file="parent-output" link="input" size="30000000"/>
+  </job>
+  <child ref="child"><parent ref="parent"/></child>
+</adag>

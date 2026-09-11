@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  HEFT 论文例精确复现 fixture（Topcuoglu, Hariri & Wu, "Performance-Effective
+  and Low-Complexity Task Scheduling for Heterogeneous Computing", IEEE TPDS
+  13(3), 2002 的示例 DAG / 计算成本矩阵 / 通信成本）。
+
+  数据来源核实记录（2026-06）：社区转录存在两个互斥变体；本 fixture 采用与
+  论文 Table II rank 表（rank_u: n1=108, n2=77, n3=80, n4=80, n5=69,
+  n6=63.33, n7=42.67, n8=35.67, n9=44.33, n10=14.67）及论文 HEFT makespan=80
+  完全自洽的变体，与开源参考实现 mackncheesiest/heft（heft/heft.py 注释
+  "Default computation matrix - taken from Topcuoglu 2002 HEFT paper"，
+  测试断言 makespan 恰为 80.0）一致。另一转录变体（如 chiachuanwu
+  FATS-WorkflowSim 的 HEFT_paper.xml）的边权与成本行与该 rank 表矛盾，弃用。
+
+  编码约定（与 HeftPaperReproductionExperiment / LocalHeftPaperReproductionTest
+  契约一致）：
+  - 10 个任务 t1..t10，解析后任务 ID 为 1..10（文档顺序）；任务 i 对应论文 n_i。
+  - 计算成本不写在本文件（DAX runtime 统一 1.0，仅占位）：真实成本由
+    TaskCostMatrix 按论文计算成本矩阵提供（3 台异构 VM，任意成本矩阵）：
+    n1:14,16,9  n2:13,19,18  n3:11,13,19  n4:13,8,17  n5:12,13,10
+    n6:13,16,9  n7:7,15,11   n8:5,11,14   n9:18,12,20 n10:21,7,16
+  - 边权编码为中间文件字节数 = 边权 × 1e6：复现平台 VM 带宽为 1 MB/s，
+    故跨 VM 传输秒数 = size/1e6/min(bw,bw) = 边权，逐位精确。
+  - 边权：c12=18, c13=12, c14=9, c15=11, c16=14, c28=19, c29=16, c37=23,
+    c48=27, c49=23, c59=13, c68=15, c7_10=17, c8_10=11, c9_10=13。
+-->
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" version="3.3" name="heft-paper-example">
+  <job id="t1" name="t1" runtime="1.0">
+    <uses file="c1_2" link="output" size="18000000"/>
+    <uses file="c1_3" link="output" size="12000000"/>
+    <uses file="c1_4" link="output" size="9000000"/>
+    <uses file="c1_5" link="output" size="11000000"/>
+    <uses file="c1_6" link="output" size="14000000"/>
+  </job>
+  <job id="t2" name="t2" runtime="1.0">
+    <uses file="c1_2" link="input" size="18000000"/>
+    <uses file="c2_8" link="output" size="19000000"/>
+    <uses file="c2_9" link="output" size="16000000"/>
+  </job>
+  <job id="t3" name="t3" runtime="1.0">
+    <uses file="c1_3" link="input" size="12000000"/>
+    <uses file="c3_7" link="output" size="23000000"/>
+  </job>
+  <job id="t4" name="t4" runtime="1.0">
+    <uses file="c1_4" link="input" size="9000000"/>
+    <uses file="c4_8" link="output" size="27000000"/>
+    <uses file="c4_9" link="output" size="23000000"/>
+  </job>
+  <job id="t5" name="t5" runtime="1.0">
+    <uses file="c1_5" link="input" size="11000000"/>
+    <uses file="c5_9" link="output" size="13000000"/>
+  </job>
+  <job id="t6" name="t6" runtime="1.0">
+    <uses file="c1_6" link="input" size="14000000"/>
+    <uses file="c6_8" link="output" size="15000000"/>
+  </job>
+  <job id="t7" name="t7" runtime="1.0">
+    <uses file="c3_7" link="input" size="23000000"/>
+    <uses file="c7_10" link="output" size="17000000"/>
+  </job>
+  <job id="t8" name="t8" runtime="1.0">
+    <uses file="c2_8" link="input" size="19000000"/>
+    <uses file="c4_8" link="input" size="27000000"/>
+    <uses file="c6_8" link="input" size="15000000"/>
+    <uses file="c8_10" link="output" size="11000000"/>
+  </job>
+  <job id="t9" name="t9" runtime="1.0">
+    <uses file="c2_9" link="input" size="16000000"/>
+    <uses file="c4_9" link="input" size="23000000"/>
+    <uses file="c5_9" link="input" size="13000000"/>
+    <uses file="c9_10" link="output" size="13000000"/>
+  </job>
+  <job id="t10" name="t10" runtime="1.0">
+    <uses file="c7_10" link="input" size="17000000"/>
+    <uses file="c8_10" link="input" size="11000000"/>
+    <uses file="c9_10" link="input" size="13000000"/>
+  </job>
+
+  <child ref="t2"><parent ref="t1"/></child>
+  <child ref="t3"><parent ref="t1"/></child>
+  <child ref="t4"><parent ref="t1"/></child>
+  <child ref="t5"><parent ref="t1"/></child>
+  <child ref="t6"><parent ref="t1"/></child>
+  <child ref="t7"><parent ref="t3"/></child>
+  <child ref="t8"><parent ref="t2"/><parent ref="t4"/><parent ref="t6"/></child>
+  <child ref="t9"><parent ref="t2"/><parent ref="t4"/><parent ref="t5"/></child>
+  <child ref="t10"><parent ref="t7"/><parent ref="t8"/><parent ref="t9"/></child>
+</adag>

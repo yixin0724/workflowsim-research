@@ -1,0 +1,107 @@
+package org.workflowsim.data;
+
+/**
+ * 一次仿真运行使用的不可变文件传输时延契约。
+ *
+ * <p>默认值严格保留 WorkflowSim 的历史传输计算。固定端点选项刻意采用
+ * Job 内串行、Job 间无争用的抽象模型；它不表示分组网络、排队、共享链路
+ * 竞争，也不表示经过现实数据校准的存储系统。</p>
+ */
+public final class DataMovementModel {
+
+    public enum Kind {
+        /** 历史共享/本地文件传输计算。 */
+        LEGACY_WORKFLOWSIM_V1,
+        /** 固定端点链路、逐文件附加时延且不存在共享争用。 */
+        FIXED_ENDPOINT_NO_CONTENTION_V1,
+        /**
+         * 论文语义的执行前传输延迟模型（Topcuoglu TPDS 2002 类列表调度的
+         * 通信模型）：计算 Job 的输入传输在其数据就绪（全部父任务完成）时开始，
+         * 可与目标 VM 的忙碌期重叠；VM 只被计算 MI 占用，传输不再折算进执行
+         * 信封。传输秒数沿用 {@link #LEGACY_WORKFLOWSIM_V1} 的带宽规则
+         * （SOURCE→VM 取目标 VM 带宽、VM→VM 取 {@code min(bw)}、副本本地
+         * 零传输）。
+         */
+        PRE_EXECUTION_TRANSFER_DELAY_V1
+    }
+
+    private static final DataMovementModel LEGACY = new DataMovementModel(
+            Kind.LEGACY_WORKFLOWSIM_V1, 0.0, 0.0, 0.0);
+    private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY = new DataMovementModel(
+            Kind.PRE_EXECUTION_TRANSFER_DELAY_V1, 0.0, 0.0, 0.0);
+
+    private final Kind kind;
+    private final double accessLinkBandwidthMbPerSecond;
+    private final double accessLinkLatencySeconds;
+    private final double sourceEndpointBandwidthMbPerSecond;
+
+    private DataMovementModel(Kind kind, double accessLinkBandwidthMbPerSecond,
+            double accessLinkLatencySeconds, double sourceEndpointBandwidthMbPerSecond) {
+        this.kind = kind;
+        this.accessLinkBandwidthMbPerSecond = accessLinkBandwidthMbPerSecond;
+        this.accessLinkLatencySeconds = accessLinkLatencySeconds;
+        this.sourceEndpointBandwidthMbPerSecond = sourceEndpointBandwidthMbPerSecond;
+    }
+
+    /**
+     * 返回 P10 以前仿真行为所使用的严格兼容默认模型。
+     *
+     * @return 历史 WorkflowSim 传输模型的共享不可变实例
+     */
+    public static DataMovementModel legacyWorkflowsimV1() {
+        return LEGACY;
+    }
+
+    /**
+     * 返回论文语义的执行前传输延迟模型。
+     *
+     * <p>计算 Job 的输入传输在数据就绪时开始并可与 VM 忙碌期重叠；VM 仅被计算占用。
+     * 这是 LOCAL_HEFT/LOCAL_CPOP 复现 Topcuoglu TPDS 2002 调度语义所需的通信模型。</p>
+     *
+     * @return 执行前传输延迟模型的共享不可变实例
+     */
+    public static DataMovementModel preExecutionTransferDelayV1() {
+        return PRE_EXECUTION_TRANSFER_DELAY;
+    }
+
+    /**
+     * 创建不含拓扑的固定端点模型。
+     *
+     * <p>每个非本地文件传输都在所属 Job 内串行处理，其耗时为固定时延加上
+     * 文件大小除以瓶颈速率；不同 Job 的同时传输不会竞争容量。</p>
+     *
+     * @param accessLinkBandwidthMbPerSecond 目标端点接入链路的每次传输速率上限，单位 MB/s
+     * @param accessLinkLatencySeconds 每个非本地文件传输附加的固定时延，单位秒
+     * @param sourceEndpointBandwidthMbPerSecond 外部源端点的传输速率上限，单位 MB/s
+     * @return 具有给定抽象端点参数的不可变数据移动模型
+     * @throws IllegalArgumentException 当带宽非正/非有限，或时延为负/非有限时抛出
+     */
+    public static DataMovementModel fixedEndpointNoContention(
+            double accessLinkBandwidthMbPerSecond, double accessLinkLatencySeconds,
+            double sourceEndpointBandwidthMbPerSecond) {
+        if (!positiveFinite(accessLinkBandwidthMbPerSecond)
+                || !nonNegativeFinite(accessLinkLatencySeconds)
+                || !positiveFinite(sourceEndpointBandwidthMbPerSecond)) {
+            throw new IllegalArgumentException("Fixed endpoint data movement requires positive finite access and "
+                    + "source bandwidths and a finite non-negative latency");
+        }
+        return new DataMovementModel(Kind.FIXED_ENDPOINT_NO_CONTENTION_V1,
+                accessLinkBandwidthMbPerSecond, accessLinkLatencySeconds,
+                sourceEndpointBandwidthMbPerSecond);
+    }
+
+    private static boolean positiveFinite(double value) {
+        return value > 0.0 && !Double.isNaN(value) && !Double.isInfinite(value);
+    }
+
+    private static boolean nonNegativeFinite(double value) {
+        return value >= 0.0 && !Double.isNaN(value) && !Double.isInfinite(value);
+    }
+
+    public Kind getKind() { return kind; }
+    public double getAccessLinkBandwidthMbPerSecond() { return accessLinkBandwidthMbPerSecond; }
+    public double getAccessLinkLatencySeconds() { return accessLinkLatencySeconds; }
+    public double getSourceEndpointBandwidthMbPerSecond() { return sourceEndpointBandwidthMbPerSecond; }
+    public boolean isLegacyWorkflowsimV1() { return kind == Kind.LEGACY_WORKFLOWSIM_V1; }
+    public boolean isPreExecutionTransferDelayV1() { return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_V1; }
+}

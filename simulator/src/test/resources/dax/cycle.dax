@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag version="3.3" name="cycle">
+  <job id="one" name="one" runtime="1.0"/>
+  <job id="two" name="two" runtime="1.0"/>
+  <child ref="one"><parent ref="two"/></child>
+  <child ref="two"><parent ref="one"/></child>
+</adag>

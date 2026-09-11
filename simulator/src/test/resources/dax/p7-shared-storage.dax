@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" version="3.3">
+  <job id="A" name="single-input-task" runtime="1.0">
+    <uses file="p7-input-30mb" link="input" size="30000000"/>
+  </job>
+</adag>

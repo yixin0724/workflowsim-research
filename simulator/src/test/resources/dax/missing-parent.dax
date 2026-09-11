@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag version="3.3" name="missing-parent">
+  <job id="only" name="task" runtime="1.0"/>
+  <child ref="only">
+    <parent ref="not-present"/>
+  </child>
+</adag>

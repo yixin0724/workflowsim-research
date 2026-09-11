@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" version="3.3">
+  <job id="A" name="root-a" runtime="1.0">
+    <uses file="input-a" link="input" size="1000"/>
+    <uses file="a.out" link="output" size="1000"/>
+  </job>
+  <job id="B" name="root-b" runtime="1.4">
+    <uses file="input-b" link="input" size="1000"/>
+    <uses file="b.out" link="output" size="1000"/>
+  </job>
+  <job id="C" name="middle-a" runtime="0.8">
+    <uses file="a.out" link="input" size="1000"/>
+    <uses file="c.out" link="output" size="1000"/>
+  </job>
+  <job id="D" name="middle-b" runtime="0.6">
+    <uses file="b.out" link="input" size="1000"/>
+    <uses file="d.out" link="output" size="1000"/>
+  </job>
+  <job id="E" name="join" runtime="1.1">
+    <uses file="c.out" link="input" size="1000"/>
+    <uses file="d.out" link="input" size="1000"/>
+    <uses file="final.out" link="output" size="1000"/>
+  </job>
+  <child ref="C"><parent ref="A"/></child>
+  <child ref="D"><parent ref="B"/></child>
+  <child ref="E"><parent ref="C"/><parent ref="D"/></child>
+</adag>

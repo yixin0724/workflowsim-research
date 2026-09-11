@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.5",
+  "workflow": {
+    "specification": {
+      "tasks": [
+        {
+          "id": "tiny",
+          "name": "tiny-task",
+          "parents": [],
+          "children": [],
+          "inputFiles": [],
+          "outputFiles": ["zero-output"]
+        }
+      ],
+      "files": [
+        {"id": "zero-output", "sizeInBytes": 0}
+      ]
+    },
+    "execution": {
+      "tasks": [
+        {"id": "tiny", "runtimeInSeconds": 0.01}
+      ]
+    }
+  }
+}
