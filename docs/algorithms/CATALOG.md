@@ -184,6 +184,14 @@ Known reproduction limits (declared in the manifest contract):
 - Tasks shorter than the minimum event interval plus the completion safety
   margin can drift from their planned completion under the runtime
   completion-event rule.
+- The LOCAL planners model files in a flat global filename namespace and
+  reject inputs where the same filename carries conflicting size declarations
+  (`AbstractLocalCommPlanningAlgorithm` size guard). Stock Pegasus Montage DAX
+  files rely on per-job directories for same-named outputs (e.g. each
+  mDiffFit job emits its own `fit.txt`), so they collide in the flat namespace
+  and are rejected by design; this boundary was surfaced by the 1000-task
+  scale regression (`LargeWorkflowScaleRegressionTest` uses the
+  collision-free Epigenomics_997 for the LOCAL track).
 
 ## Provisional Legacy DAG Planners
 
