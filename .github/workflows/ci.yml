@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  full-quality-gate:
+    name: Full quality gate (JDK 17)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run full quality gate (unit + integration, core + experiments)
+        run: mvn -B verify
+
+      # wfformat/wfinstances 大型语料未纳入版本库（见 .gitignore），相关测试在
+      # 语料缺失时自动跳过；本地有语料的环境会完整执行这些测试。

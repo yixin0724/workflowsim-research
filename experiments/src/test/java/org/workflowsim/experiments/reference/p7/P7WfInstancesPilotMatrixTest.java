@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.util.List;
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.WorkflowInputReport;
 import org.workflowsim.experiment.SimulationReport;
@@ -31,6 +32,13 @@ class P7WfInstancesPilotMatrixTest {
         Path root = datasetRoot();
         List<P7WfInstancesPilotMatrix.Scenario> scenarios = P7WfInstancesPilotMatrix.scenarios();
         assertEquals(4, scenarios.size());
+        // wfinstances 语料体积较大且未纳入版本库（见 .gitignore）；缺失时跳过本 pilot 矩阵，
+        // 保证无大型语料的环境（如 CI 检出）仍可执行完整门禁。
+        for (P7WfInstancesPilotMatrix.Scenario scenario : scenarios) {
+            Assumptions.assumeTrue(Files.isRegularFile(scenario.resolve(root)),
+                    "Skipping: optional WfInstances corpus not present for "
+                            + scenario.getRelativePath());
+        }
         Log.disable();
 
         for (P7WfInstancesPilotMatrix.Scenario scenario : scenarios) {
