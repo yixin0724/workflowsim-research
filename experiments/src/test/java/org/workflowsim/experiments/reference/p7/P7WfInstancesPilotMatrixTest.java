@@ -33,9 +33,11 @@ class P7WfInstancesPilotMatrixTest {
         List<P7WfInstancesPilotMatrix.Scenario> scenarios = P7WfInstancesPilotMatrix.scenarios();
         assertEquals(4, scenarios.size());
         // wfinstances 语料体积较大且未纳入版本库（见 .gitignore）；缺失时跳过本 pilot 矩阵，
-        // 保证无大型语料的环境（如 CI 检出）仍可执行完整门禁。
+        // 保证无大型语料的环境（如 CI 检出）仍可执行完整门禁。注意这里必须直接拼路径：
+        // scenario.resolve(root) 自带严格校验，文件缺失时会在 assumeTrue 之前抛异常。
         for (P7WfInstancesPilotMatrix.Scenario scenario : scenarios) {
-            Assumptions.assumeTrue(Files.isRegularFile(scenario.resolve(root)),
+            Assumptions.assumeTrue(
+                    Files.isRegularFile(root.resolve(scenario.getRelativePath()).normalize()),
                     "Skipping: optional WfInstances corpus not present for "
                             + scenario.getRelativePath());
         }
