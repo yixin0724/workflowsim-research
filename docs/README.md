@@ -30,6 +30,7 @@ docs/
 └── advanced/                   # 专题与维护者文档
     ├── QUALITY_AUDIT.md        # 质量审计报告（算法正确性/指标准确性）
     ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
+    ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R5 轮次规划）
     └── CODE_STYLE.md           # 源码注释规范
 ```
 
@@ -52,12 +53,13 @@ docs/
 | P7 冻结基线的矩阵和结果？ | [`experiments/reference-baselines/P7_PROTOCOL.md`](experiments/reference-baselines/P7_PROTOCOL.md)、[`P7_RESULTS.md`](experiments/reference-baselines/P7_RESULTS.md) |
 | 代码质量是否可信？ | [`advanced/QUALITY_AUDIT.md`](advanced/QUALITY_AUDIT.md) |
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
+| 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |
 | 源码注释怎么写？ | [`advanced/CODE_STYLE.md`](advanced/CODE_STYLE.md) |
 
 ## 推荐阅读路径
 
 **新用户**：QUICK_START → CODE_CONFIG_EXPERIMENTS → ALGORITHMS → DATASETS → BUILD
 
-**准备发论文的研究者**：algorithms/CATALOG → algorithms/CONTRACTS → experiments/REPRODUCIBILITY → experiments/CAMPAIGNS → advanced/QUALITY_AUDIT
+**准备发论文的研究者**：algorithms/CATALOG → algorithms/CONTRACTS → experiments/REPRODUCIBILITY → experiments/CAMPAIGNS → advanced/QUALITY_AUDIT → advanced/RESEARCH_ROADMAP
 
 **项目维护者**：advanced/CODE_STYLE → algorithms/LEGACY_MIGRATION → advanced/QUALITY_AUDIT
