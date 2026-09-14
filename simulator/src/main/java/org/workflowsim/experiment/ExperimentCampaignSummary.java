@@ -284,7 +284,10 @@ public final class ExperimentCampaignSummary {
 
     /**
      * 候选方案减去基线方案的 makespan 比较。
-     * 在随机抽样尚未按事件键控之前，系统有意不提供配对推断主张。
+     *
+     * <p>配对序列上的 Wilcoxon 符号秩检验（{@link #getPairedSignificance()}）提供
+     * 保守的分布差异判定；由于随机抽样尚未按事件键控，该检验结论不构成
+     * CRN 配对推断主张（见 {@link PairedWilcoxonSignificance} 的推断边界声明）。</p>
      */
     public static final class ComparisonSummary {
         private final String comparisonGroup;
@@ -303,6 +306,7 @@ public final class ExperimentCampaignSummary {
         private final double successfulLogicalTaskCompletionRateDelta;
         private final Double successfulWorkflowRunRateDelta;
         private final String inferenceStatus;
+        private final PairedWilcoxonSignificance pairedSignificance;
 
         private ComparisonSummary(String comparisonGroup, String baselineCellId, String candidateCellId,
                 int matchedRootSeedCount, Double meanMatchedMakespanDeltaSeconds,
@@ -312,7 +316,7 @@ public final class ExperimentCampaignSummary {
                 double candidateMeanModeledProcessingCost, Double meanModeledProcessingCostRatio,
                 double successfulLogicalTaskCompletionRateDelta,
                 Double successfulWorkflowRunRateDelta,
-                String inferenceStatus) {
+                String inferenceStatus, PairedWilcoxonSignificance pairedSignificance) {
             this.comparisonGroup = comparisonGroup;
             this.baselineCellId = baselineCellId;
             this.candidateCellId = candidateCellId;
@@ -329,6 +333,7 @@ public final class ExperimentCampaignSummary {
             this.successfulLogicalTaskCompletionRateDelta = successfulLogicalTaskCompletionRateDelta;
             this.successfulWorkflowRunRateDelta = successfulWorkflowRunRateDelta;
             this.inferenceStatus = inferenceStatus;
+            this.pairedSignificance = pairedSignificance;
         }
 
         private static ComparisonSummary from(CellSummary baseline, CellSummary candidate) {
@@ -352,15 +357,20 @@ public final class ExperimentCampaignSummary {
                         candidate.getCellId(), 0, null, baselineMakespan, candidateMakespan,
                         makespanRatio, speedup, improvementPercent, baselineCost, candidateCost,
                         costRatio, completionRateDelta, workflowSuccessRateDelta,
-                        "UNPAIRED_INDEPENDENT_REPLICATIONS");
+                        "UNPAIRED_INDEPENDENT_REPLICATIONS",
+                        PairedWilcoxonSignificance.unavailableUnpaired());
             }
             Map<Long, Double> baselineBySeed = valuesBySeed(baseline);
             Map<Long, Double> candidateBySeed = valuesBySeed(candidate);
             List<Double> deltas = new ArrayList<Double>();
+            List<Double> matchedBaseline = new ArrayList<Double>();
+            List<Double> matchedCandidate = new ArrayList<Double>();
             for (Map.Entry<Long, Double> entry : candidateBySeed.entrySet()) {
                 Double reference = baselineBySeed.get(entry.getKey());
                 if (reference != null) {
                     deltas.add(Double.valueOf(entry.getValue().doubleValue() - reference.doubleValue()));
+                    matchedBaseline.add(reference);
+                    matchedCandidate.add(entry.getValue());
                 }
             }
             Double meanDelta = deltas.isEmpty() ? null : Double.valueOf(mean(deltas));
@@ -370,7 +380,8 @@ public final class ExperimentCampaignSummary {
             return new ComparisonSummary(baseline.getComparisonGroup(), baseline.getCellId(),
                     candidate.getCellId(), deltas.size(), meanDelta, baselineMakespan, candidateMakespan,
                     makespanRatio, speedup, improvementPercent, baselineCost, candidateCost,
-                    costRatio, completionRateDelta, workflowSuccessRateDelta, status);
+                    costRatio, completionRateDelta, workflowSuccessRateDelta, status,
+                    PairedWilcoxonSignificance.evaluate(matchedBaseline, matchedCandidate));
         }
 
         private static Double ratio(double numerator, double denominator) {
@@ -437,6 +448,11 @@ public final class ExperimentCampaignSummary {
             return successfulWorkflowRunRateDelta;
         }
         public String getInferenceStatus() { return inferenceStatus; }
+        /**
+         * @return 配对 makespan 序列上的 Wilcoxon 符号秩显著性检验结果；
+         * 独立重复设计时状态为 {@code UNAVAILABLE_INDEPENDENT_REPLICATIONS_ARE_NOT_PAIRED}
+         */
+        public PairedWilcoxonSignificance getPairedSignificance() { return pairedSignificance; }
     }
 
     /**

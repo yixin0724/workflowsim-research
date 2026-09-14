@@ -123,5 +123,8 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 
 > **2026-09-11 更新**：上述计数为本审计日（2026-09-04）快照。此后新增了通信建模、
 > HEFT/CPOP 论文复现（LOCAL_HEFT/LOCAL_CPOP）、PSO 复现、COMM-1 修复与千任务级规模
-> 回归（Montage_1000/Epigenomics_997）等测试，核心单元测试现为 **207 个**、完整门禁
-> **316 个**（以 `mvn verify` 实际输出为准）。
+> 回归（Montage_1000/Epigenomics_997）等测试。
+>
+> **2026-09-14 更新**：R1 多 seed 统计框架落地（`PairedWilcoxonSignificance` 配对
+> Wilcoxon 符号秩检验 + 端到端验收测试），核心单元测试现为 **216 个**、核心集成
+> **47 个**、完整门禁 **326 个**（以 `mvn verify` 实际输出为准）。

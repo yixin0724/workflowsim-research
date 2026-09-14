@@ -68,7 +68,7 @@ three interpretations:
 | --- | --- |
 | `DETERMINISTIC` | One reproducible model result. Report exact values, a workflow-run completion fact, and descriptive deltas only; no confidence interval. |
 | `INDEPENDENT_REPLICATIONS` | Per-cell sample mean, sample standard deviation, min/max, and two-sided 95% Student-t mean interval when at least two replications exist. Eligible workflow-run completion additionally has a cell-local Wilson score interval. |
-| `COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN` | Per-cell descriptive summaries, descriptive workflow-run completion rate, and equal-root-seed matched simulation-end deltas only. No paired confidence interval or hypothesis test. |
+| `COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN` | Per-cell descriptive summaries, descriptive workflow-run completion rate, equal-root-seed matched simulation-end deltas, and a paired Wilcoxon signed-rank test on the matched makespan deltas (see below). No paired confidence interval and no CRN-paired treatment-effect claim. |
 
 The important distinction is that equal root seeds do not establish common
 random numbers. Scheduling choices can alter which component stream is
@@ -76,6 +76,31 @@ consumed next. A true CRN comparison needs a future event-keyed stochastic
 contract: each logical random event must be assigned a stable key independent
 of algorithm control flow, and that property must receive dedicated regression
 tests.
+
+Since R1 (paired significance framework), `ComparisonSummary` additionally
+exposes `getPairedSignificance()` — a two-sided Wilcoxon signed-rank test
+(`PairedWilcoxonSignificance`) over the matched-seed makespan deltas
+(candidate minus baseline). The test is non-parametric, needs no normality
+assumption, and is computed on the same matched-root-seed pairs as the
+descriptive deltas. Machine-readable statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `AVAILABLE_WILCOXON_SIGNED_RANK_EXACT` | Exact distribution p-value (effective nonzero-difference count ≤ 25). |
+| `AVAILABLE_WILCOXON_SIGNED_RANK_NORMAL_APPROXIMATION` | Normal-approximation p-value with continuity correction (effective count > 25). |
+| `UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO` | Every paired makespan delta is zero (e.g. algorithms converge on identical schedules); no test is fabricated. |
+| `UNAVAILABLE_SINGLE_NONZERO_PAIRED_DIFFERENCE` | Only one nonzero delta; the rank test is undefined. |
+| `UNAVAILABLE_FEWER_THAN_TWO_PAIRED_SAMPLES` | Not enough matched seeds. |
+| `UNAVAILABLE_INDEPENDENT_REPLICATIONS_ARE_NOT_PAIRED` | Independent-replication cells share no seeds; no paired test exists. |
+
+Interpretation boundary: because the stochastic model is not event-keyed, this
+test answers "do the two paired seed series differ in distribution", not a
+variance-reduced CRN treatment-effect claim. Zero deltas are reported honestly
+rather than silently dropped, and `medianDifference` provides the direction
+and typical magnitude of the candidate-minus-baseline delta. The acceptance
+regression `MultiSeedSignificanceIntegrationTest` demonstrates the full path
+on a heterogeneous 16-VM platform with Montage_1000 and a failure model
+(FCFS vs READY_BATCH_MCT, 10 shared root seeds, exact p-value reported).
 
 The Wilson interval is mathematically defined with one eligible observation,
 but one replication is not sufficient research evidence. It is a per-cell
@@ -119,7 +144,7 @@ is deliberately machine-readable:
 | --- | --- |
 | `DESCRIPTIVE_ONLY_DETERMINISTIC` | Exact deterministic comparison, not sampling inference. |
 | `UNPAIRED_INDEPENDENT_REPLICATIONS` | Independent-cell samples; the simulator computes per-cell continuous-metric mean intervals and workflow-run Wilson intervals, but no treatment-effect interval or test. A treatment-effect analysis requires preregistration. |
-| `DESCRIPTIVE_ONLY_COMMON_ROOT_SEEDS_ARE_NOT_EVENT_KEYED_CRN` | Same root seeds occur in both cells, but paired inference is unavailable. |
+| `DESCRIPTIVE_ONLY_COMMON_ROOT_SEEDS_ARE_NOT_EVENT_KEYED_CRN` | Same root seeds occur in both cells; matched deltas are descriptive and the paired Wilcoxon signed-rank test (`getPairedSignificance()`) is available, but CRN-paired treatment-effect inference remains unavailable. |
 
 Before a stochastic paper run, freeze the workload/platform matrix, candidate
 set, primary metric, effect size of practical interest, minimum and maximum
