@@ -59,8 +59,10 @@ public final class PlanningContext {
      *
      * <p>LOCAL_HEFT/LOCAL_CPOP 的规划侧 AST（按父任务并行传输、传输与 VM 忙碌期重叠）
      * 逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输延迟模型，因此
-     * 要求 LOCAL 文件系统、preExecutionTransferDelayV1 数据移动模型、NONE 聚类、
-     * 无故障与无建模开销。</p>
+     * 要求 LOCAL 文件系统、NONE 聚类、无故障与无建模开销；数据移动模型可为
+     * preExecutionTransferDelayV1（规划与执行逐位对齐）或链路争用模型
+     * preExecutionTransferDelayWithContentionV1（规划侧仍按无争用 AST 估计，运行期
+     * 并发传输公平共享 VM 端点带宽，并发负载下存在文档声明的可解释偏差）。</p>
      */
     public void validateLocalStaticDag() {
         if (config.getFileSystem() != ReplicaCatalog.FileSystem.LOCAL) {
@@ -75,10 +77,12 @@ public final class PlanningContext {
         if (!isNoOverhead()) {
             throw new IllegalArgumentException("LOCAL static DAG planning requires OverheadModelConfig.none()");
         }
-        if (!config.getDataMovementModel().isPreExecutionTransferDelayV1()) {
+        if (!config.getDataMovementModel().isPreExecutionTransferDelayV1()
+                && !config.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()) {
             throw new IllegalArgumentException("LOCAL static DAG planning requires "
-                    + "DataMovementModel.preExecutionTransferDelayV1() so planning AST and "
-                    + "runtime pre-execution transfer delays remain aligned");
+                    + "DataMovementModel.preExecutionTransferDelayV1() (planning AST and runtime "
+                    + "transfer delays bit-aligned) or preExecutionTransferDelayWithContentionV1() "
+                    + "(runtime link contention, documented divergence under concurrency)");
         }
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
             if (vm.getSchedulerMode() != PlatformProfile.CloudletSchedulerMode.SPACE_SHARED) {
