@@ -135,6 +135,64 @@ public class TransferContentionEngineTest {
         assertEquals(50.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
     }
 
+    /** 资源集重载：两条传输共享一条链路键时各得该链路容量的半速。 */
+    @Test
+    public void resourceSetTransfersShareSingleLink() {
+        TransferContentionEngine engine = new TransferContentionEngine();
+        engine.setEndpointCapacity("LINK:CORE:0", 100.0);
+        engine.setEndpointCapacity("VM:0", 1000.0);
+        engine.setEndpointCapacity("VM:1", 1000.0);
+        engine.addTransfer(1L, 1000L,
+                java.util.Arrays.asList("VM:0", "VM:1", "LINK:CORE:0"), 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L,
+                java.util.Arrays.asList("VM:2", "VM:3", "LINK:CORE:0"), 100.0, 0.0);
+        // 链路 100/2 = 50 字节/秒（端点份额 1000 不构成瓶颈）→ 各 20 秒。
+        assertEquals(50.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
+        assertEquals(50.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
+        assertEquals(20.0, second.getNextCompletionTime(), 1.0e-9);
+    }
+
+    /** 资源集速率取全部占用资源份额最小值：端点与链路同时约束。 */
+    @Test
+    public void resourceSetRateIsMinAcrossEndpointsAndLinks() {
+        TransferContentionEngine engine = new TransferContentionEngine();
+        engine.setEndpointCapacity("VM:1", 60.0);
+        engine.setEndpointCapacity("LINK:CORE:0", 100.0);
+        engine.addTransfer(1L, 600L,
+                java.util.Arrays.asList("VM:0", "VM:1", "LINK:CORE:0"), 100.0, 0.0);
+        // min(名义 100, VM:0 ∞, VM:1 60, 链路 100) = 60 → 10 秒。
+        assertEquals(60.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
+        assertEquals(10.0, engine.advance(0.0).getNextCompletionTime(), 1.0e-9);
+    }
+
+    /** 资源集不相交的两条传输互不影响（无阻塞语义）。 */
+    @Test
+    public void disjointResourceSetsDoNotInterfere() {
+        TransferContentionEngine engine = new TransferContentionEngine();
+        engine.setEndpointCapacity("LINK:A", 100.0);
+        engine.setEndpointCapacity("LINK:B", 100.0);
+        engine.addTransfer(1L, 1000L,
+                java.util.Collections.singletonList("LINK:A"), 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L,
+                java.util.Collections.singletonList("LINK:B"), 100.0, 0.0);
+        assertEquals(100.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
+        assertEquals(100.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
+        assertEquals(10.0, second.getNextCompletionTime(), 1.0e-9);
+    }
+
+    /** 空资源集 + 未注册资源键：无争用约束，按名义速率传输。 */
+    @Test
+    public void emptyOrUnregisteredResourcesLeaveNominalRate() {
+        TransferContentionEngine engine = new TransferContentionEngine();
+        engine.addTransfer(1L, 1000L, java.util.Collections.<String>emptyList(), 100.0, 0.0);
+        engine.addTransfer(2L, 1000L,
+                java.util.Collections.singletonList("LINK:UNREGISTERED"), 100.0, 0.0);
+        assertEquals(100.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
+        assertEquals(100.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
+        assertThrows(IllegalArgumentException.class, () ->
+                engine.addTransfer(3L, 1000L, (java.util.List<String>) null, 100.0, 0.0));
+    }
+
     /** 参数校验：重复 ID、非正字节、时间倒流、非正速率、非正容量。 */
     @Test
     public void validationRejectsInvalidArguments() {

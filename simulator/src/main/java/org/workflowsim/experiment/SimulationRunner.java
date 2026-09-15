@@ -49,6 +49,11 @@ public final class SimulationRunner {
                     + " does not match platform VM count " + platform.getVms().size());
         }
         validateCostModel(config, platform);
+        // Fat-tree 链路争用模型：在会话外装配拓扑并校验模型与拓扑声明的双向契约
+        // （配置异常在此直接以 SimulationConfigurationException 抛出，不被执行期
+        // 包装；拓扑构造是纯配置计算，不触碰 CloudSim 状态）。
+        org.workflowsim.network.FatTreeTopology fatTreeTopology =
+                prepareFatTreeTopology(config, platform);
 
         try (SimulationSession session = SimulationSession.open(config)) {
             SimulationEventRecorder events = new SimulationEventRecorder();
@@ -56,6 +61,9 @@ public final class SimulationRunner {
             WorkflowDatacenter datacenter = PlatformFactory.createDatacenter("datacenter-0", platform);
             datacenter.setEventRecorder(events);
             datacenter.setDataMovementModel(config.getDataMovementModel());
+            if (fatTreeTopology != null) {
+                datacenter.setFatTreeTopology(fatTreeTopology);
+            }
             WorkflowPlanner planner = new WorkflowPlanner("planner-0", 1);
             planner.setEventRecorder(events);
             planner.setPlanningContext(new PlanningContext(config, platform));
@@ -140,6 +148,43 @@ public final class SimulationRunner {
                         + "VM " + vm.getId() + " has none");
             }
         }
+    }
+
+    /**
+     * 装配 Fat-tree 拓扑并校验其与数据移动模型的双向契约。
+     *
+     * <p>使用 {@code fatTreeContentionV1()} 的配置必须通过
+     * {@code PlatformProfile.networkTopology(...)} 声明拓扑；反之，声明了拓扑的
+     * 平台必须搭配使用该模型（避免拓扑声明被静默忽略）。</p>
+     *
+     * @param config 仿真配置
+     * @param platform 平台描述
+     * @return 已放置拓扑；模型不使用拓扑时为 {@code null}
+     * @throws SimulationConfigurationException 当双向契约任一方向不满足时
+     */
+    private static org.workflowsim.network.FatTreeTopology prepareFatTreeTopology(
+            SimulationConfig config, PlatformProfile platform) {
+        if (config.getDataMovementModel().isFatTreeContentionV1()) {
+            if (platform.getNetworkTopology() == null) {
+                throw new SimulationConfigurationException(config.getDataMovementModel().getKind()
+                        + " requires PlatformProfile.builder(...).networkTopology("
+                        + "NetworkTopologySpec.fatTree(...)) so VM-to-VM transfers can be "
+                        + "routed along deterministic fat-tree paths");
+            }
+            List<Integer> hostIds = new java.util.ArrayList<Integer>();
+            for (PlatformProfile.HostSpec host : platform.getHosts()) {
+                hostIds.add(Integer.valueOf(host.getId()));
+            }
+            return org.workflowsim.network.FatTreeTopology.fromSpec(
+                    platform.getNetworkTopology(), hostIds);
+        }
+        if (platform.getNetworkTopology() != null) {
+            throw new SimulationConfigurationException("Platform declares a network topology but the "
+                    + "data movement model " + config.getDataMovementModel().getKind()
+                    + " does not use it; declare the topology only with "
+                    + "DataMovementModel.fatTreeContentionV1()");
+        }
+        return null;
     }
 
     /**

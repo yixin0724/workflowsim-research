@@ -30,6 +30,7 @@ public final class PlatformProfile {
     private final java.util.Map<Integer, Integer> vmHostAssignments;
     private final StorageSpec storage;
     private final CostSpec costs;
+    private final org.workflowsim.network.NetworkTopologySpec networkTopology;
 
     private PlatformProfile(Builder builder) {
         this.name = builder.name;
@@ -41,6 +42,7 @@ public final class PlatformProfile {
                 new LinkedHashMap<Integer, Integer>(builder.vmHostAssignments));
         this.storage = builder.storage;
         this.costs = builder.costs;
+        this.networkTopology = builder.networkTopology;
     }
 
     public String getName() {
@@ -84,6 +86,17 @@ public final class PlatformProfile {
     }
 
     /**
+     * 返回平台声明的网络拓扑；未声明时为 {@code null}。
+     *
+     * <p>Fat-tree 链路争用数据移动模型要求此声明存在。</p>
+     *
+     * @return 不可变网络拓扑声明，或 null
+     */
+    public org.workflowsim.network.NetworkTopologySpec getNetworkTopology() {
+        return networkTopology;
+    }
+
+    /**
      * 创建一个空的平台描述构建器。
      *
      * @param name 用于报告和证据工件的平台名称，不能为空
@@ -106,6 +119,7 @@ public final class PlatformProfile {
                 Collections.emptyMap();
         private StorageSpec storage = new StorageSpec(1_000_000_000_000L, 15);
         private CostSpec costs = new CostSpec(3.0, 0.05, 0.1, 0.1);
+        private org.workflowsim.network.NetworkTopologySpec networkTopology;
 
         private Builder(String name) {
             if (name == null || name.trim().isEmpty()) {
@@ -181,6 +195,22 @@ public final class PlatformProfile {
          */
         public Builder costs(CostSpec value) {
             this.costs = requireNonNull(value, "Cost specification");
+            return this;
+        }
+
+        /**
+         * 声明平台的网络拓扑（v1 仅支持 Al-Fares k-Pod Fat-tree，见
+         * {@link org.workflowsim.network.NetworkTopologySpec#fatTree}）。
+         *
+         * <p>仅供 Fat-tree 链路争用数据移动模型使用；声明后必须与该模型组合
+         * （标准运行器拒绝声明了拓扑却不使用该模型的配置）。</p>
+         *
+         * @param value 非空的拓扑声明
+         * @return 当前构建器
+         * @throws IllegalArgumentException 当 {@code value} 为空时抛出
+         */
+        public Builder networkTopology(org.workflowsim.network.NetworkTopologySpec value) {
+            this.networkTopology = requireNonNull(value, "Network topology specification");
             return this;
         }
 

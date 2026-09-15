@@ -134,7 +134,7 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 > `RL_POLICY` 在线调度器 + 贪心基线 episode 黄金值 5116.1 + 轨迹恒等验收）；
 > R5 多工作流动态到达落地（`workflowArrivalSeconds` 错峰提交 + 引擎到达门控 +
 > `WORKFLOW_ARRIVED` 证据 + 每工作流流时报告，黄金值 8118.1 / 8168.0 / 8118.0）。
-> 核心单元测试现为 **249 个**、核心集成 **62 个**、完整门禁 **374 个**
+> 核心单元测试现为 **262 个**、核心集成 **69 个**、完整门禁 **394 个**
 > （以 `mvn verify` 实际输出为准）。
 >
 > **平台健康审计更新（R1-R5 合并后）**：新增 `PlatformHealthMatrixIntegrationTest`
@@ -145,3 +145,15 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 > 争用模型落地前的过时"无争用"表述（改为争用模型边界声明 + R5 多工作流到达 +
 > R4 RL 轨道行），README 研究入口补 `RlEnvironment`，算法轨道表补 `RL_POLICY` 行，
 > QUICK_START 补齐 RL 轨道与多工作流到达配置示例。文档计数同步更新至 374。
+>
+> **R6 Fat-tree 拓扑感知链路争用更新（2026-09-15）**：先原理研读
+> （`docs/research/FAT_TREE_PRINCIPLES.md`：Al-Fares k-Pod 结构、确定性路由、
+> 超收敛 + SimGrid FatTreeZone / 仓库内 CloudSim network.datacenter 源码精读
+> ——后者为退化树非胖树，判定不可复用）后设计实现（`docs/research/
+> FAT_TREE_DESIGN.md`）：`org.workflowsim.network` 新包（`NetworkTopologySpec`
+> 声明 + `FatTreeTopology` 结构/路由/容量注册）；`TransferContentionEngine`
+> 资源集泛化（双端点重载委托、R2 行为逐位不变，既有 12 个引擎测试全绿）；
+> `fatTreeContentionV1()` 并列模型 + 配置契约 + 运行器双向契约（模型⇄拓扑
+> 声明互检）；新增 13 个单元 + 7 个端到端测试，e2e 黄金值 **1032.1** 锁定
+> （约束超集性质：≥ R2 黄金值 284.1 > 无争用 190.1）；覆盖率实测
+> 49.41%/43.94%（较 48.81%/43.52% 上升）。文档计数同步更新至 394。

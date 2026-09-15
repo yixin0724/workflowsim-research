@@ -67,6 +67,8 @@ public class WorkflowDatacenter extends Datacenter {
     private DataMovementModel dataMovementModel = DataMovementModel.legacyWorkflowsimV1();
     /** 链路争用模型下的流体传输争用引擎（惰性创建，见 {@link #getTransferContentionEngine()}）。 */
     private TransferContentionEngine transferContentionEngine;
+    /** Fat-tree 链路争用模型使用的已放置拓扑（标准运行器安装，可为 null）。 */
+    private org.workflowsim.network.FatTreeTopology fatTreeTopology;
 
     /**
      * 创建一个工作流数据中心。
@@ -124,17 +126,37 @@ public class WorkflowDatacenter extends Datacenter {
     }
 
     /**
+     * 安装 Fat-tree 链路争用模型使用的已放置拓扑。
+     *
+     * @param value 非空的已放置拓扑（主机覆盖平台全部 Host）
+     * @throws IllegalArgumentException 当拓扑为 {@code null} 时抛出
+     */
+    public void setFatTreeTopology(org.workflowsim.network.FatTreeTopology value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Fat-tree topology cannot be null");
+        }
+        this.fatTreeTopology = value;
+    }
+
+    /** 返回已安装的 Fat-tree 拓扑；未声明拓扑的模型返回 {@code null}。 */
+    public org.workflowsim.network.FatTreeTopology getFatTreeTopology() {
+        return fatTreeTopology;
+    }
+
+    /**
      * 返回（惰性创建）链路争用模型使用的流体传输争用引擎；其他数据移动模型返回
      * {@code null}。
      *
      * <p>创建时把全部 VM 的网卡带宽注册为端点容量（键 {@code "VM:<vmId>"}，容量
-     * {@code vm.getBw() × 10⁶} 字节/秒）；SOURCE 端点不注册容量（无上限）。引擎状态
-     * 由工作流引擎在数据就绪与推进检查事件中驱动。</p>
+     * {@code vm.getBw() × 10⁶} 字节/秒）；SOURCE 端点不注册容量（无上限）。
+     * Fat-tree 模型额外注册拓扑全部链路容量（双工分方向资源键，容量 = 统一
+     * 链路带宽）。引擎状态由工作流引擎在数据就绪与推进检查事件中驱动。</p>
      *
      * @return 争用引擎实例；数据移动模型不是链路争用模型时为 {@code null}
      */
     public TransferContentionEngine getTransferContentionEngine() {
-        if (!dataMovementModel.isPreExecutionTransferDelayWithContentionV1()) {
+        if (!dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                && !dataMovementModel.isFatTreeContentionV1()) {
             return null;
         }
         if (transferContentionEngine == null) {
@@ -145,8 +167,38 @@ public class WorkflowDatacenter extends Datacenter {
                             vm.getBw() * (double) Consts.MILLION);
                 }
             }
+            if (dataMovementModel.isFatTreeContentionV1()) {
+                if (fatTreeTopology == null) {
+                    throw new IllegalStateException("Fat-tree contention model requires an installed "
+                            + "topology (WorkflowDatacenter.setFatTreeTopology)");
+                }
+                fatTreeTopology.registerCapacities(transferContentionEngine);
+            }
         }
         return transferContentionEngine;
+    }
+
+    /**
+     * 返回 Fat-tree 拓扑下源 VM 到目标 VM 传输占用的链路资源键序列；非 Fat-tree
+     * 模型返回空列表。同主机 VM 间传输不占用拓扑链路。
+     *
+     * @param sourceVmId 源 VM 标识
+     * @param destinationVmId 目标 VM 标识
+     * @param userId 用户标识
+     * @return 确定性路由的链路资源键列表
+     */
+    public java.util.List<String> fatTreePathResources(int sourceVmId, int destinationVmId,
+            int userId) {
+        if (!dataMovementModel.isFatTreeContentionV1() || fatTreeTopology == null) {
+            return java.util.Collections.emptyList();
+        }
+        Host sourceHost = getVmAllocationPolicy().getHost(sourceVmId, userId);
+        Host destinationHost = getVmAllocationPolicy().getHost(destinationVmId, userId);
+        if (sourceHost == null || destinationHost == null) {
+            throw new IllegalStateException("Fat-tree contention requires placed source and "
+                    + "destination VMs (" + sourceVmId + " -> " + destinationVmId + ")");
+        }
+        return fatTreeTopology.route(sourceHost.getId(), destinationHost.getId());
     }
 
     /**
@@ -406,13 +458,16 @@ public class WorkflowDatacenter extends Datacenter {
             double fileTransferTime = 0.0;
             if (job.getClassType() == ClassType.COMPUTE.value) {
                 if (dataMovementModel.isPreExecutionTransferDelayV1()
-                        || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()) {
-                    // 论文语义路径（PRE_EXECUTION_TRANSFER_DELAY_V1）与链路争用路径
-                    // （R2 PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1）：输入传输已由
-                    // 引擎在数据就绪时作为执行前延迟建模（争用模型下并发传输公平共享
-                    // VM 端点带宽），传输窗口可与目标 VM 的忙碌期重叠，此处不再把传输
-                    // 折算进执行信封——VM 只被计算 MI 占用，计算从提交时刻开始。
-                    // DATA_STAGE_IN_MODELED 证据与输入副本登记由引擎在传输窗口处理。
+                        || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                        || dataMovementModel.isFatTreeContentionV1()) {
+                    // 论文语义路径（PRE_EXECUTION_TRANSFER_DELAY_V1）、链路争用路径
+                    // （R2 PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1）与 Fat-tree
+                    // 拓扑争用路径：输入传输已由引擎在数据就绪时作为执行前延迟建模
+                    // （争用模型下并发传输公平共享 VM 端点带宽，Fat-tree 下再叠加
+                    // 确定性路由路径上的共享链路），传输窗口可与目标 VM 的忙碌期
+                    // 重叠，此处不再把传输折算进执行信封——VM 只被计算 MI 占用，
+                    // 计算从提交时刻开始。DATA_STAGE_IN_MODELED 证据与输入副本登记
+                    // 由引擎在传输窗口处理。
                     fileTransferTime = 0.0;
                 } else {
                     DataTransferEstimate estimate = estimateDataStageInForComputeJob(job.getFileList(), job);

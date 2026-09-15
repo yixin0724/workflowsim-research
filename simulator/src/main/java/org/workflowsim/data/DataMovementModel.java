@@ -32,7 +32,20 @@ public final class DataMovementModel {
          * 完成时刻不早于无争用模型的对应值。规划器侧 AST 仍按无争用速率估计，
          * 规划与执行在并发负载下预期出现可解释的偏差。
          */
-        PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1
+        PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1,
+        /**
+         * Fat-tree 拓扑感知链路争用版执行前传输延迟模型：传输窗口语义与
+         * {@link #PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1} 相同，但争用
+         * 域从 VM 端点推广为确定性路由路径上的每条共享链路（Al-Fares k-Pod
+         * Fat-tree，流级 max-min 公平共享）；端点与链路容量同时生效、速率取
+         * 全部占用资源份额的最小值。要求平台通过
+         * {@code PlatformProfile.networkTopology(...)} 声明拓扑（
+         * {@code org.workflowsim.network.NetworkTopologySpec}）。外部输入
+         * （SOURCE）流量 v1 不经过拓扑，只占用目标 VM 端点。原理与设计见
+         * {@code docs/research/FAT_TREE_PRINCIPLES.md} 与
+         * {@code docs/research/FAT_TREE_DESIGN.md}。
+         */
+        PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1
     }
 
     private static final DataMovementModel LEGACY = new DataMovementModel(
@@ -42,6 +55,8 @@ public final class DataMovementModel {
     private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION =
             new DataMovementModel(
                     Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1, 0.0, 0.0, 0.0);
+    private static final DataMovementModel FAT_TREE_CONTENTION = new DataMovementModel(
+            Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1, 0.0, 0.0, 0.0);
 
     private final Kind kind;
     private final double accessLinkBandwidthMbPerSecond;
@@ -91,6 +106,20 @@ public final class DataMovementModel {
     }
 
     /**
+     * 返回 Fat-tree 拓扑感知链路争用版执行前传输延迟模型。
+     *
+     * <p>传输窗口语义与 {@link #preExecutionTransferDelayWithContentionV1()}
+     * 相同；差异在于争用域推广为 Fat-tree 确定性路由路径上的每条共享链路 +
+     * VM 端点（流级 max-min 公平共享）。平台必须通过
+     * {@code PlatformProfile.Builder.networkTopology(...)} 声明拓扑。</p>
+     *
+     * @return Fat-tree 链路争用模型的共享不可变实例
+     */
+    public static DataMovementModel fatTreeContentionV1() {
+        return FAT_TREE_CONTENTION;
+    }
+
+    /**
      * 创建不含拓扑的固定端点模型。
      *
      * <p>每个非本地文件传输都在所属 Job 内串行处理，其耗时为固定时延加上
@@ -132,5 +161,8 @@ public final class DataMovementModel {
     public boolean isPreExecutionTransferDelayV1() { return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_V1; }
     public boolean isPreExecutionTransferDelayWithContentionV1() {
         return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1;
+    }
+    public boolean isFatTreeContentionV1() {
+        return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1;
     }
 }

@@ -511,23 +511,51 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException(label + " requires OverheadModelConfig.none()");
                 }
                 if (!dataMovementModel.isPreExecutionTransferDelayV1()
-                        && !dataMovementModel.isPreExecutionTransferDelayWithContentionV1()) {
+                        && !dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                        && !dataMovementModel.isFatTreeContentionV1()) {
                     throw new IllegalArgumentException(label + " requires "
                             + "DataMovementModel.preExecutionTransferDelayV1() (planning AST and "
-                            + "runtime transfer delays bit-aligned) or "
-                            + "preExecutionTransferDelayWithContentionV1() (runtime link contention, "
-                            + "documented planner/execution divergence under concurrency)");
+                            + "runtime transfer delays bit-aligned), "
+                            + "preExecutionTransferDelayWithContentionV1() (runtime endpoint link "
+                            + "contention, documented planner/execution divergence under "
+                            + "concurrency), or fatTreeContentionV1() (runtime fat-tree path link "
+                            + "contention, same divergence policy)");
                 }
             }
             // 执行前传输延迟（含链路争用模型）在任务就绪时按目标 VM 估计与登记副本，
             // 要求规划器在规划阶段完成静态 VM 映射；INVALID 规划层在释放时刻没有目标 VM。
             if ((dataMovementModel.isPreExecutionTransferDelayV1()
-                    || dataMovementModel.isPreExecutionTransferDelayWithContentionV1())
+                    || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                    || dataMovementModel.isFatTreeContentionV1())
                     && planningAlgorithm == PlanningAlgorithm.INVALID) {
                 throw new IllegalArgumentException(dataMovementModel.getKind() + " requires a "
                         + "planning algorithm that assigns static VM mappings (e.g. LOCAL_HEFT, "
                         + "LOCAL_CPOP, RANDOM); the INVALID planning layer leaves the destination "
                         + "VM unknown at release time");
+            }
+            // Fat-tree 链路争用模型：VM→VM 传输沿确定性路由占用共享链路，前提是
+            // LOCAL 文件系统（VM→VM 通信被建模）、静态映射（路径就绪期可知）、
+            // NONE 聚类与无故障/无开销（与 LOCAL_HEFT 轨道同一组前提）。平台侧
+            // 拓扑声明的存在性由标准运行器校验（PlatformProfile.networkTopology）。
+            if (dataMovementModel.isFatTreeContentionV1()) {
+                if (fileSystem != ReplicaCatalog.FileSystem.LOCAL) {
+                    throw new IllegalArgumentException(dataMovementModel.getKind()
+                            + " requires ReplicaCatalog.FileSystem.LOCAL; inter-VM communication "
+                            + "along fat-tree paths is only modeled under the LOCAL file system");
+                }
+                if (clusteringParameters.getClusteringMethod()
+                        != ClusteringParameters.ClusteringMethod.NONE) {
+                    throw new IllegalArgumentException(dataMovementModel.getKind()
+                            + " requires clustering method NONE");
+                }
+                if (failureModel.isEnabled()) {
+                    throw new IllegalArgumentException(dataMovementModel.getKind()
+                            + " requires the failure model to be disabled");
+                }
+                if (!isNoOverhead(overheadModel)) {
+                    throw new IllegalArgumentException(dataMovementModel.getKind()
+                            + " requires OverheadModelConfig.none()");
+                }
             }
             return new SimulationConfig(this);
         }
@@ -543,10 +571,4 @@ public final class SimulationConfig {
         }
     }
 }
-    /**
-     * 从多个工作流输入创建构建器。
-     *
-     * @param workflowPaths 工作流输入文件路径列表
-     * @param vmCount 可用虚拟机数量
-     * @return 新的配置构建器
-     */
+
