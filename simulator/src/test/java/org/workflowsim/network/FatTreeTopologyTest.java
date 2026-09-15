@@ -224,7 +224,8 @@ public class FatTreeTopologyTest {
         assertEquals(linkBw, engine.currentRateBytesPerSecond(2L), 1.0e-6);
     }
 
-    /** 构造与声明校验：k 奇偶、带宽、core 范围、主机数上限、重复/空主机、未放置路由。 */
+    /** 构造与声明校验：k 奇偶、带宽（含 NaN/Inf）、core 范围、放置项 null/负索引、
+     *  主机数上限、重复/空/null 主机、未放置路由。 */
     @Test
     public void specAndConstructionValidation() {
         assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(3, 100.0));
@@ -232,31 +233,54 @@ public class FatTreeTopologyTest {
         assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, 0.0));
         assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, -1.0));
         assertThrows(IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(4, Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(4, Double.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class,
                 () -> NetworkTopologySpec.fatTree(4, 100.0, 0));
         assertThrows(IllegalArgumentException.class,
                 () -> NetworkTopologySpec.fatTree(4, 100.0, 5));
         assertThrows(IllegalArgumentException.class,
                 () -> NetworkTopologySpec.fatTree(2, 100.0, null,
                         Collections.singletonMap(Integer.valueOf(0), Integer.valueOf(2))));
+        // 显式放置：null 键/值与负索引 → 拒绝。
+        Map<Integer, Integer> nullValue = new LinkedHashMap<Integer, Integer>();
+        nullValue.put(Integer.valueOf(0), null);
+        IllegalArgumentException nullEntry = assertThrows(IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(2, 100.0, null, nullValue));
+        assertTrue(nullEntry.getMessage().contains("cannot contain null"), nullEntry.getMessage());
+        Map<Integer, Integer> nullKey = new LinkedHashMap<Integer, Integer>();
+        nullKey.put(null, Integer.valueOf(0));
+        assertThrows(IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(2, 100.0, null, nullKey));
+        IllegalArgumentException negativeIdx = assertThrows(IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(2, 100.0, null,
+                        Collections.singletonMap(Integer.valueOf(0), Integer.valueOf(-1))));
+        assertTrue(negativeIdx.getMessage().contains("k*k/2"), negativeIdx.getMessage());
         // 主机数超过 k³/4 → 拒绝。
         IllegalArgumentException tooMany = assertThrows(IllegalArgumentException.class,
                 () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(2, 100.0), hosts(3)));
         assertTrue(tooMany.getMessage().contains("k^3/4"), tooMany.getMessage());
-        // 重复主机 ID → 拒绝；空主机列表 → 拒绝。
+        // 重复主机 ID → 拒绝；空/null 主机列表 → 拒绝。
         assertThrows(IllegalArgumentException.class,
                 () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0),
                         Arrays.asList(0, 0, 1)));
         assertThrows(IllegalArgumentException.class,
                 () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0),
                         Collections.<Integer>emptyList()));
+        assertThrows(IllegalArgumentException.class,
+                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), null));
         // 未放置主机的路由 → 拒绝。
         FatTreeTopology topology = FatTreeTopology.fromSpec(
                 NetworkTopologySpec.fatTree(4, 100.0), hosts(4));
         IllegalArgumentException unplaced = assertThrows(IllegalArgumentException.class,
                 () -> topology.route(0, 77));
         assertTrue(unplaced.getMessage().contains("not placed"), unplaced.getMessage());
-        // 非 FAT_TREE 声明 / null → 拒绝。
+        // 非 FAT_TREE 声明 / null → 拒绝；null 引擎注册 → 拒绝。
         assertThrows(IllegalArgumentException.class,
                 () -> FatTreeTopology.fromSpec(null, hosts(2)));
+        IllegalArgumentException nullEngine = assertThrows(IllegalArgumentException.class,
+                () -> topology.registerCapacities(null));
+        assertTrue(nullEngine.getMessage().contains("cannot be null"), nullEngine.getMessage());
     }
 }

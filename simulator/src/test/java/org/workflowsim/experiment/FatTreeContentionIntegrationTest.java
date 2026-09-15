@@ -6,13 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.exception.SimulationConfigurationException;
+import org.workflowsim.failure.FailureModelConfig;
+import org.workflowsim.failure.FailureParameters;
 import org.workflowsim.network.NetworkTopologySpec;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.ClusteringParameters;
+import org.workflowsim.utils.DistributionGenerator;
+import org.workflowsim.utils.DistributionSpec;
+import org.workflowsim.utils.OverheadModelConfig;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
@@ -34,8 +41,9 @@ import org.workflowsim.utils.TaskCostMatrix;
  *   <li>黄金值锁定 + 确定性复跑逐位一致；</li>
  *   <li>证据链：DATA_STAGE_IN_MODELED 携带新模型 kind 与 fatTreePathLinkCount；</li>
  *   <li>健康不变量：全部逻辑任务成功完成、Job 数守恒；</li>
- *   <li>配置契约：SHARED fs / INVALID 规划 / 非 NONE 聚类拒绝；LOCAL_HEFT 允许；
- *       运行器双向契约——模型无拓扑声明拒绝、拓扑声明无模型拒绝。</li>
+ *   <li>配置契约：SHARED fs / INVALID 规划 / 非 NONE 聚类 / 故障启用 / 非零
+ *       开销拒绝；LOCAL_HEFT 允许；运行器双向契约——模型无拓扑声明拒绝、
+ *       拓扑声明无模型拒绝。</li>
  * </ul>
  */
 class FatTreeContentionIntegrationTest {
@@ -152,6 +160,42 @@ class FatTreeContentionIntegrationTest {
                         .build());
         assertTrue(clustered.getMessage().contains("clustering method NONE"),
                 clustered.getMessage());
+        // 故障模型启用：fat-tree 路径要求确定性无故障语义。
+        Map<Integer, DistributionSpec[]> failureRows =
+                new LinkedHashMap<Integer, DistributionSpec[]>();
+        for (int vmId = 0; vmId < 3; vmId++) {
+            failureRows.put(Integer.valueOf(vmId), new DistributionSpec[]{
+                    DistributionSpec.of(
+                            DistributionGenerator.DistributionFamily.WEIBULL, 1.0e9, 1.0)});
+        }
+        FailureModelConfig enabledFailure = FailureModelConfig.builder()
+                .generatorMode(FailureParameters.FTCFailure.FAILURE_VM)
+                .generatorSpecsByVmId(failureRows)
+                .maxTotalRetryJobs(1)
+                .build();
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> SimulationConfig.builder(workflow, 3)
+                        .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
+                        .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
+                        .taskCostMatrix(paperCostMatrix())
+                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                        .dataMovementModel(DataMovementModel.fatTreeContentionV1())
+                        .failureModel(enabledFailure)
+                        .build());
+        assertTrue(failure.getMessage().contains("failure model to be disabled"),
+                failure.getMessage());
+        // 非零开销：与 LOCAL 静态 DAG 轨道同一前提。
+        IllegalArgumentException overhead = assertThrows(IllegalArgumentException.class,
+                () -> SimulationConfig.builder(workflow, 3)
+                        .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
+                        .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
+                        .taskCostMatrix(paperCostMatrix())
+                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                        .dataMovementModel(DataMovementModel.fatTreeContentionV1())
+                        .overheadModel(OverheadModelConfig.builder().bandwidth(1.0).build())
+                        .build());
+        assertTrue(overhead.getMessage().contains("OverheadModelConfig.none()"),
+                overhead.getMessage());
         // LOCAL_HEFT + Fat-tree 争用：允许（规划侧无争用 AST、运行期链路争用）。
         assertNotNull(SimulationConfig.builder(workflow, 3)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)

@@ -172,6 +172,9 @@ PlanningAlgorithm.PSO                           // PSO（粒子群优化，论�
 // .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
 // .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
 // .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
+// 争用研究变体（非论文复现组合）：preExecutionTransferDelayWithContentionV1()
+// （R2 端点争用）或 fatTreeContentionV1()（R6 Fat-tree 链路争用，还需平台声明
+// PlatformProfile.builder(...).networkTopology(NetworkTopologySpec.fatTree(...))）
 
 PlanningAlgorithm.LOCAL_HEFT                    // HEFT（通信感知，Topcuoglu TPDS 2002 复现）
 PlanningAlgorithm.LOCAL_CPOP                    // CPOP（通信感知，同上）

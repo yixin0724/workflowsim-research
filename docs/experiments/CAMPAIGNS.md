@@ -218,6 +218,25 @@ The model has no topology, route selection, TCP behavior, data striping,
 concurrent read/write contention, cache-eviction policy, or measured service
 trace. Its fields are therefore abstract parameters, not hardware calibration.
 
+The preExecution family (used by the LOCAL static-DAG tracks such as
+`LOCAL_HEFT`/`LOCAL_CPOP`) models input transfers as pre-execution network
+delays instead of extending the VM execution envelope: each real input file
+transfers at `bytes / (1e6 × rate)` starting when its producer finishes
+(SOURCE inputs start at dispatch), may overlap destination-VM busy time, and
+VMs are occupied by compute only. Two contention variants share the same
+window semantics while adding fluid max-min fair sharing over a wider resource
+domain: `PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1` (R2) fair-shares
+each VM endpoint's bandwidth; `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1`
+(R6) additionally fair-shares every shared link on a deterministic Al-Fares
+k-Pod fat-tree route declared through `PlatformProfile.networkTopology`
+(rate = minimum over endpoint and path-link shares). Under concurrent load the
+runtime diverges from the contention-free plan in a documented, explainable
+way (contention can only delay transfers). These models require static VM
+mapping; the fat-tree model additionally requires the LOCAL file system, NONE
+clustering, and disabled failure/overhead models, and the runner enforces a
+bidirectional contract between the model and the topology declaration
+(`SimulationConfig`/`SimulationRunner` reject other combinations).
+
 The model decides a compute-attempt outcome at its Job-envelope completion
 boundary. A declared output is committed to the replica catalog only for a
 successful Task; an output from a failed Task never becomes a local or shared
@@ -240,7 +259,9 @@ model observations: model-event count, modeled real-input demand file count,
 total required input-demand bytes, total modeled transfer seconds, and mean
 modeled transfer seconds. The demand count/bytes do not mean that that amount
 crossed a physical link: a local replica can give a zero modeled transfer
-delay, and the simulator has no link-level traffic ledger. These are model
+delay, and the simulator has no link-level traffic ledger (the R6 fat-tree
+contention events additionally record `fatTreePathLinkCount`, the number of
+routed path links per stage-in group). These are model
 observations. They are not measured I/O throughput, network utilization,
 storage utilization, or a trace-validation result.
 
