@@ -22,13 +22,26 @@ public final class DataMovementModel {
          * （SOURCE→VM 取目标 VM 带宽、VM→VM 取 {@code min(bw)}、副本本地
          * 零传输）。
          */
-        PRE_EXECUTION_TRANSFER_DELAY_V1
+        PRE_EXECUTION_TRANSFER_DELAY_V1,
+        /**
+         * 链路争用版执行前传输延迟模型：传输窗口语义与
+         * {@link #PRE_EXECUTION_TRANSFER_DELAY_V1} 相同（数据就绪时开始、可与目标
+         * VM 忙碌期重叠），但同一 VM 端点上同时活动的传输公平共享该端点的带宽
+         * 容量（流体公平共享模型），并发传输互相减速。传输组在所属 Job 数据就绪
+         * 时刻统一开始（不追溯父任务更早完成时点的部分传输进度），因此本模型的
+         * 完成时刻不早于无争用模型的对应值。规划器侧 AST 仍按无争用速率估计，
+         * 规划与执行在并发负载下预期出现可解释的偏差。
+         */
+        PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1
     }
 
     private static final DataMovementModel LEGACY = new DataMovementModel(
             Kind.LEGACY_WORKFLOWSIM_V1, 0.0, 0.0, 0.0);
     private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY = new DataMovementModel(
             Kind.PRE_EXECUTION_TRANSFER_DELAY_V1, 0.0, 0.0, 0.0);
+    private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION =
+            new DataMovementModel(
+                    Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1, 0.0, 0.0, 0.0);
 
     private final Kind kind;
     private final double accessLinkBandwidthMbPerSecond;
@@ -62,6 +75,19 @@ public final class DataMovementModel {
      */
     public static DataMovementModel preExecutionTransferDelayV1() {
         return PRE_EXECUTION_TRANSFER_DELAY;
+    }
+
+    /**
+     * 返回链路争用版执行前传输延迟模型。
+     *
+     * <p>传输窗口语义与 {@link #preExecutionTransferDelayV1()} 相同；差异在于同一
+     * VM 端点上并发的传输公平共享该端点带宽，互相减速（流体公平共享模型）。
+     * VM 端点容量取各自 {@code vm.getBw()}；SOURCE 端点不设容量上限。</p>
+     *
+     * @return 链路争用模型的共享不可变实例
+     */
+    public static DataMovementModel preExecutionTransferDelayWithContentionV1() {
+        return PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION;
     }
 
     /**
@@ -104,4 +130,7 @@ public final class DataMovementModel {
     public double getSourceEndpointBandwidthMbPerSecond() { return sourceEndpointBandwidthMbPerSecond; }
     public boolean isLegacyWorkflowsimV1() { return kind == Kind.LEGACY_WORKFLOWSIM_V1; }
     public boolean isPreExecutionTransferDelayV1() { return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_V1; }
+    public boolean isPreExecutionTransferDelayWithContentionV1() {
+        return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1;
+    }
 }

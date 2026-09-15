@@ -431,7 +431,9 @@ public final class SimulationConfig {
             }
             // LOCAL_HEFT/LOCAL_CPOP 的规划侧 AST（按父任务并行传输、传输与 VM 忙碌期
             // 重叠）逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输延迟模型，
-            // 模型前提在配置层提前强制（规划器运行时还会再次校验）。
+            // 模型前提在配置层提前强制（规划器运行时还会再次校验）。链路争用模型
+            // （R2）同样可用于本轨道：规划侧仍按无争用 AST 估计，运行期并发传输公平
+            // 共享 VM 端点带宽，两者在并发负载下的可解释偏差由文档声明。
             if (planningAlgorithm == PlanningAlgorithm.LOCAL_HEFT
                     || planningAlgorithm == PlanningAlgorithm.LOCAL_CPOP) {
                 String label = planningAlgorithm.name();
@@ -449,17 +451,21 @@ public final class SimulationConfig {
                 if (!isNoOverhead(overheadModel)) {
                     throw new IllegalArgumentException(label + " requires OverheadModelConfig.none()");
                 }
-                if (!dataMovementModel.isPreExecutionTransferDelayV1()) {
+                if (!dataMovementModel.isPreExecutionTransferDelayV1()
+                        && !dataMovementModel.isPreExecutionTransferDelayWithContentionV1()) {
                     throw new IllegalArgumentException(label + " requires "
-                            + "DataMovementModel.preExecutionTransferDelayV1() so planning AST and "
-                            + "runtime pre-execution transfer delays remain aligned");
+                            + "DataMovementModel.preExecutionTransferDelayV1() (planning AST and "
+                            + "runtime transfer delays bit-aligned) or "
+                            + "preExecutionTransferDelayWithContentionV1() (runtime link contention, "
+                            + "documented planner/execution divergence under concurrency)");
                 }
             }
-            // 执行前传输延迟在任务就绪时按目标 VM 估计与登记副本，要求规划器在
-            // 规划阶段完成静态 VM 映射；INVALID 规划层在释放时刻没有目标 VM。
-            if (dataMovementModel.isPreExecutionTransferDelayV1()
+            // 执行前传输延迟（含链路争用模型）在任务就绪时按目标 VM 估计与登记副本，
+            // 要求规划器在规划阶段完成静态 VM 映射；INVALID 规划层在释放时刻没有目标 VM。
+            if ((dataMovementModel.isPreExecutionTransferDelayV1()
+                    || dataMovementModel.isPreExecutionTransferDelayWithContentionV1())
                     && planningAlgorithm == PlanningAlgorithm.INVALID) {
-                throw new IllegalArgumentException("preExecutionTransferDelayV1 requires a "
+                throw new IllegalArgumentException(dataMovementModel.getKind() + " requires a "
                         + "planning algorithm that assigns static VM mappings (e.g. LOCAL_HEFT, "
                         + "LOCAL_CPOP, RANDOM); the INVALID planning layer leaves the destination "
                         + "VM unknown at release time");

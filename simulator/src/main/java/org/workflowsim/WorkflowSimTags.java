@@ -45,6 +45,12 @@ public class WorkflowSimTags {
      * 的 {@code PRE_EXECUTION_TRANSFER_DELAY_V1}）。
      */
     public static final int JOB_STAGE_IN_COMPLETE = BASE + 7;
+    /**
+     * 链路争用数据移动模型（{@code PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1}）
+     * 下，引擎向自己发送的流体传输推进检查事件：按当前时钟积分推进所有活动传输，
+     * 结算已完成的传输组并在仍有活动传输时重排下一次检查。
+     */
+    public static final int TRANSFER_CONTENTION_CHECK = BASE + 8;
 
     /** 禁止实例化常量类。 */
     private WorkflowSimTags() {

@@ -19,16 +19,20 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.cloudbus.cloudsim.Cloudlet;
+import org.cloudbus.cloudsim.Consts;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.Vm;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.failure.FailureParameters;
@@ -37,6 +41,7 @@ import org.workflowsim.reclustering.ReclusteringEngine;
 import org.workflowsim.scheduling.StaticSchedulePlan;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.ClassType;
+import org.workflowsim.utils.ReplicaCatalog;
 
 /**
  * 面向一个工作流用户的引擎实体，负责把工作流 Job 与运行时 {@link WorkflowScheduler}
@@ -96,6 +101,20 @@ public final class WorkflowEngine extends SimEntity {
      * 向数据中心请求传输秒数估算与副本登记，因此引擎需要保存数据中心实体引用。</p>
      */
     private int boundDatacenterId = -1;
+    /**
+     * 链路争用传输 ID → 所属计算 Job 的映射（R2 争用模型）。
+     *
+     * <p>争用模型下一条传输组完成时经本映射定位所属 Job；一个 Job 的全部传输组
+     * 完成后才登记输入副本并释放。按插入顺序迭代保证确定性。</p>
+     */
+    private final Map<Long, Job> contentionTransferJobs = new LinkedHashMap<Long, Job>();
+    /**
+     * 计算 Job ID → 其未完成争用传输组 ID 集合的映射（R2 争用模型）。
+     */
+    private final Map<Integer, Set<Long>> contentionJobPendingTransfers =
+            new LinkedHashMap<Integer, Set<Long>>();
+    /** 引擎分配的下一个争用传输 ID（确定性递增）。 */
+    private long nextContentionTransferId = 1L;
 
     /**
      * 创建包含一个运行时调度器的工作流引擎。
@@ -263,6 +282,10 @@ public final class WorkflowEngine extends SimEntity {
             case WorkflowSimTags.JOB_STAGE_IN_COMPLETE:
                 // COMM-1 修复：执行前传输延迟模型下，传输窗口结束并把计算 Job 释放给调度器。
                 processPreExecutionStageInComplete(ev);
+                break;
+            case WorkflowSimTags.TRANSFER_CONTENTION_CHECK:
+                // R2 链路争用模型：按当前时钟积分推进全部活动传输并结算完成的传输组。
+                processTransferContentionCheck(ev);
                 break;
             default:
                 processOtherEvent(ev);
@@ -465,6 +488,196 @@ public final class WorkflowEngine extends SimEntity {
     }
 
     /**
+     * R2 链路争用模型：在数据就绪时把计算 Job 的输入传输组登记进流体争用引擎。
+     *
+     * <p>传输组划分与无争用执行前模型一致（按父任务产出归组 + 外部输入一组）；每组
+     * 的名义速率取历史带宽规则的聚合速率（字节量 / 无争用估算秒数）。组内文件串行、
+     * 组间在同一 VM 端点上公平共享容量。传输组在数据就绪时刻统一开始（不追溯父任务
+     * 更早完成时点的部分进度），因此完成时刻不早于无争用模型的对应值。</p>
+     *
+     * <p>全部输入为本地副本（零传输）时立即登记副本并释放，与无争用模型的零持有
+     * 语义一致；否则调度 {@link WorkflowSimTags#TRANSFER_CONTENTION_CHECK} 检查事件。</p>
+     *
+     * @param job 刚被依赖门控释放的计算 Job
+     * @return true 表示争用路径已接管本 Job；false 表示模型不适用（走常规释放路径）
+     */
+    private boolean startContentionStageIn(Job job) {
+        if (boundDatacenterId < 0) {
+            return false;
+        }
+        SimEntity entity = CloudSim.getEntity(boundDatacenterId);
+        if (!(entity instanceof WorkflowDatacenter)) {
+            return false;
+        }
+        WorkflowDatacenter datacenter = (WorkflowDatacenter) entity;
+        if (!datacenter.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()) {
+            return false;
+        }
+        if (job.getClassType() != ClassType.COMPUTE.value) {
+            return false;
+        }
+        // 防御性守卫：就绪时刻没有静态 VM 映射时无法确定目标端点（配置层已拒绝
+        // INVALID 规划层 + 争用模型的组合，此处仅作兜底）。
+        if (job.getVmId() < 0) {
+            return false;
+        }
+        TransferContentionEngine contention = datacenter.getTransferContentionEngine();
+        double now = CloudSim.clock();
+        List<FileItem> fileList = job.getFileList();
+        Set<Long> pending = new LinkedHashSet<Long>();
+        long requiredBytes = 0L;
+        int fileCount = 0;
+        double modeledSeconds = 0.0;
+        boolean localFileSystem =
+                ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.LOCAL;
+        try {
+            Set<String> attributedNames = new HashSet<String>();
+            // 按父任务产出归组：LOCAL 文件系统下源端点取父任务所在 VM；SHARED 文件系统
+            // 下文件经由共享存储，源端点视为 SOURCE（容量无上限）。
+            for (Object parentObj : job.getParentList()) {
+                Job parent = (Job) parentObj;
+                Set<String> produced = new HashSet<String>();
+                for (FileItem producedFile : parent.getFileList()) {
+                    if (producedFile.getType() == Parameters.FileType.OUTPUT) {
+                        produced.add(producedFile.getName());
+                    }
+                }
+                List<FileItem> fromParent = new ArrayList<FileItem>();
+                for (FileItem file : fileList) {
+                    if (file.isRealInputFile(fileList) && produced.contains(file.getName())) {
+                        fromParent.add(file);
+                        attributedNames.add(file.getName());
+                    }
+                }
+                if (fromParent.isEmpty()) {
+                    continue;
+                }
+                double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
+                long bytes = sumRealInputBytes(fromParent);
+                requiredBytes += bytes;
+                fileCount += fromParent.size();
+                modeledSeconds += seconds;
+                if (seconds <= 0.0 || bytes <= 0L) {
+                    continue; // 副本已在目标 VM 上，零传输。
+                }
+                String sourceEndpoint = localFileSystem
+                        ? "VM:" + parent.getVmId() : Parameters.SOURCE;
+                long transferId = nextContentionTransferId++;
+                contention.addTransfer(transferId, bytes, sourceEndpoint,
+                        "VM:" + job.getVmId(), bytes / seconds, now);
+                contentionTransferJobs.put(transferId, job);
+                pending.add(transferId);
+            }
+            // 外部输入（SOURCE 副本）单独一组。
+            List<FileItem> external = new ArrayList<FileItem>();
+            for (FileItem file : fileList) {
+                if (file.isRealInputFile(fileList) && !attributedNames.contains(file.getName())) {
+                    external.add(file);
+                }
+            }
+            if (!external.isEmpty()) {
+                double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
+                long bytes = sumRealInputBytes(external);
+                requiredBytes += bytes;
+                fileCount += external.size();
+                modeledSeconds += seconds;
+                if (seconds > 0.0 && bytes > 0L) {
+                    long transferId = nextContentionTransferId++;
+                    contention.addTransfer(transferId, bytes, Parameters.SOURCE,
+                            "VM:" + job.getVmId(), bytes / seconds, now);
+                    contentionTransferJobs.put(transferId, job);
+                    pending.add(transferId);
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("WorkflowEngine could not register contention stage-in "
+                    + "for Job " + job.getCloudletId(), e);
+        }
+        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job,
+                SimulationEventRecorder.attributes("modeledTransferSeconds", modeledSeconds,
+                        "requiredFileBytes", (double) requiredBytes,
+                        "modeledTransferFileCount", fileCount,
+                        "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
+                        "contentionTransferGroupCount", (double) pending.size()));
+        if (pending.isEmpty()) {
+            // 全部输入本地（或零传输）：立即登记副本并释放。
+            dispatchContentionStageInComplete(datacenter, job);
+            return true;
+        }
+        contentionJobPendingTransfers.put(job.getCloudletId(), pending);
+        Double nextCompletion = contention.advance(now).getNextCompletionTime();
+        schedule(getId(),
+                Math.max(nextCompletion.doubleValue() - now, CloudSim.getMinTimeBetweenEvents()),
+                WorkflowSimTags.TRANSFER_CONTENTION_CHECK, null);
+        return true;
+    }
+
+    /** 累计一组文件的字节量（组内均为真实输入文件）。 */
+    private static long sumRealInputBytes(List<FileItem> files) {
+        long bytes = 0L;
+        for (FileItem file : files) {
+            bytes += file.getSize();
+        }
+        return bytes;
+    }
+
+    /**
+     * 处理 {@link WorkflowSimTags#TRANSFER_CONTENTION_CHECK}：把流体争用引擎积分推进
+     * 到当前时钟，结算完成的传输组；当一个计算 Job 的全部传输组完成时登记输入副本
+     * 并把它释放给调度器；仍有活动传输时重排下一次检查。
+     *
+     * @param ev 无负载的检查事件
+     */
+    protected void processTransferContentionCheck(SimEvent ev) {
+        WorkflowDatacenter datacenter = (WorkflowDatacenter) CloudSim.getEntity(boundDatacenterId);
+        TransferContentionEngine contention = datacenter.getTransferContentionEngine();
+        double now = CloudSim.clock();
+        TransferContentionEngine.AdvanceResult result = contention.advance(now);
+        List<Job> readyJobs = new ArrayList<Job>();
+        for (Long transferId : result.getCompletedTransferIds()) {
+            Job job = contentionTransferJobs.remove(transferId);
+            if (job == null) {
+                continue;
+            }
+            Set<Long> pending = contentionJobPendingTransfers.get(job.getCloudletId());
+            if (pending == null) {
+                continue;
+            }
+            pending.remove(transferId);
+            if (pending.isEmpty()) {
+                contentionJobPendingTransfers.remove(job.getCloudletId());
+                readyJobs.add(job);
+            }
+        }
+        for (Job job : readyJobs) {
+            dispatchContentionStageInComplete(datacenter, job);
+        }
+        Double nextCompletion = result.getNextCompletionTime();
+        if (nextCompletion != null) {
+            schedule(getId(),
+                    Math.max(nextCompletion.doubleValue() - now, CloudSim.getMinTimeBetweenEvents()),
+                    WorkflowSimTags.TRANSFER_CONTENTION_CHECK, null);
+        }
+    }
+
+    /** 争用传输全部完成后登记输入副本并把计算 Job 释放给所属调度器。 */
+    private void dispatchContentionStageInComplete(WorkflowDatacenter datacenter, Job job) {
+        try {
+            datacenter.registerStageInReplicasForComputeJob(job);
+        } catch (Exception e) {
+            throw new IllegalStateException("WorkflowEngine could not register contention stage-in "
+                    + "replicas for Job " + job.getCloudletId(), e);
+        }
+        List<Job> batch = new ArrayList<Job>();
+        batch.add(job);
+        double delay = 0.0;
+        if (Parameters.getOverheadParams().getWEDDelay() != null) {
+            delay = Parameters.getOverheadParams().getWEDDelay(batch);
+        }
+        schedule(job.getUserId(), delay, CloudSimTags.CLOUDLET_SUBMIT, batch);
+    }
+
+    /**
      * 处理调度器返回的 Job，并推进失败恢复或工作流终止状态。
      *
      * <p>失败 Job 交给 {@link ReclusteringEngine} 产生一个或多个重试 Job；每个新 Job 都会
@@ -627,12 +840,16 @@ public final class WorkflowEngine extends SimEntity {
                     // 论文语义）。数据就绪时即开始传输计算 Job 的输入，传输窗口可与目标
                     // VM 的忙碌期重叠；传输完成后才把 Job 释放进派发队列，VM 只被计算
                     // MI 占用。负值表示模型不适用（常规释放路径，行为与历史一致）。
-                    double stageInHoldSeconds = preExecutionStageInHoldSeconds(job);
-                    if (stageInHoldSeconds < 0.0 || stageInHoldSeconds == 0.0) {
-                        allocationList.get(job.getUserId()).add(job);
-                    } else {
-                        schedule(getId(), stageInHoldSeconds,
-                                WorkflowSimTags.JOB_STAGE_IN_COMPLETE, job);
+                    // R2：链路争用模型优先——传输组登记进争用引擎后由争用检查事件
+                    // 在全部传输组完成时释放；返回 true 表示争用路径已接管本 Job。
+                    if (!startContentionStageIn(job)) {
+                        double stageInHoldSeconds = preExecutionStageInHoldSeconds(job);
+                        if (stageInHoldSeconds < 0.0 || stageInHoldSeconds == 0.0) {
+                            allocationList.get(job.getUserId()).add(job);
+                        } else {
+                            schedule(getId(), stageInHoldSeconds,
+                                    WorkflowSimTags.JOB_STAGE_IN_COMPLETE, job);
+                        }
                     }
                 }
             }

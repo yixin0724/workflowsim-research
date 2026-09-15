@@ -153,6 +153,15 @@ compute only; planned start = `max(VM free, arrival)`, matching the runtime
 pre-execution hold (`JOB_STAGE_IN_COMPLETE` release) exactly. Replica state
 evolves in scheduling order — mirroring the runtime LOCAL stage-in rules.
 
+**Link-contention variant (R2)**: both planners also accept
+`DataMovementModel.preExecutionTransferDelayWithContentionV1()`. Planning still
+uses the contention-free AST estimates above; at runtime, concurrent transfers
+fair-share each VM endpoint's bandwidth (`vm.getBw()` capacity, `capacity/n`
+per active transfer, fluid model in `TransferContentionEngine`). Under
+concurrent load the runtime therefore diverges from the plan in a documented,
+explainable way (contention can only delay transfers). Measured on the HEFT
+paper fixture: contention makespan 284.1 vs no-contention golden 190.1.
+
 - `LOCAL_HEFT`: upward rank `r_u = w̄ + max_child(c̄ + r_u(child))` descending
   priority (ties → lower task id), insertion-based earliest-finish-time VM
   choice (ties → lower VM id).

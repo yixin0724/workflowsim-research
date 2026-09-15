@@ -83,7 +83,7 @@ mvn compile
 ### 快速测试
 
 ```bash
-# 运行核心单元/语义测试（~7秒，216个测试）
+# 运行核心单元/语义测试（~7秒，229个测试）
 mvn test
 
 # 两个模块的快速测试
@@ -104,15 +104,15 @@ mvn test -Dtest=SimulationRunnerIntegrationTest#supportedAlgorithmCompletesAndPr
 # 核心模块完整验证（单元 + 集成，~15秒）
 mvn verify
 
-# 完整工程质量门禁（核心 + 实验，~2分钟，326个测试）
+# 完整工程质量门禁（核心 + 实验，~2分钟，339个测试）
 mvn verify
 ```
 
 **测试统计**：
-- 核心单元测试：216 个（Surefire，含千任务级规模回归与配对显著性检验）
+- 核心单元测试：229 个（Surefire，含千任务级规模回归、配对显著性检验与链路争用流体模型）
 - 核心集成测试：47 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收）
 - 实验模块测试：63 个（17 单元 + 46 集成）
-- **总计：326 个测试**
+- **总计：339 个测试**
 
 CI：`.github/workflows/ci.yml` 在每次 push/PR 到 `main` 时以 JDK 17 执行完整门禁；
 `wfformat`/`wfinstances` 大型语料未纳入版本库，相关测试在语料缺失时自动跳过（本地

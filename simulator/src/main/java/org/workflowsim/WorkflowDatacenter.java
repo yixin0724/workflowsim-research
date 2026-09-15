@@ -33,6 +33,7 @@ import org.cloudbus.cloudsim.core.SimEvent;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.data.DataMovementModel;
+import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.failure.FailureGenerator;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.Parameters;
@@ -64,6 +65,8 @@ public class WorkflowDatacenter extends Datacenter {
     private SimulationEventRecorder eventRecorder = SimulationEventRecorder.disabled();
     /** 本次运行的输入数据移动模型，默认保留 WorkflowSim v1 历史语义。 */
     private DataMovementModel dataMovementModel = DataMovementModel.legacyWorkflowsimV1();
+    /** 链路争用模型下的流体传输争用引擎（惰性创建，见 {@link #getTransferContentionEngine()}）。 */
+    private TransferContentionEngine transferContentionEngine;
 
     /**
      * 创建一个工作流数据中心。
@@ -118,6 +121,32 @@ public class WorkflowDatacenter extends Datacenter {
     /** 返回本次运行的数据移动时间模型。 */
     public DataMovementModel getDataMovementModel() {
         return dataMovementModel;
+    }
+
+    /**
+     * 返回（惰性创建）链路争用模型使用的流体传输争用引擎；其他数据移动模型返回
+     * {@code null}。
+     *
+     * <p>创建时把全部 VM 的网卡带宽注册为端点容量（键 {@code "VM:<vmId>"}，容量
+     * {@code vm.getBw() × 10⁶} 字节/秒）；SOURCE 端点不注册容量（无上限）。引擎状态
+     * 由工作流引擎在数据就绪与推进检查事件中驱动。</p>
+     *
+     * @return 争用引擎实例；数据移动模型不是链路争用模型时为 {@code null}
+     */
+    public TransferContentionEngine getTransferContentionEngine() {
+        if (!dataMovementModel.isPreExecutionTransferDelayWithContentionV1()) {
+            return null;
+        }
+        if (transferContentionEngine == null) {
+            transferContentionEngine = new TransferContentionEngine();
+            for (Host host : getVmAllocationPolicy().getHostList()) {
+                for (Vm vm : host.getVmList()) {
+                    transferContentionEngine.setEndpointCapacity("VM:" + vm.getId(),
+                            vm.getBw() * (double) Consts.MILLION);
+                }
+            }
+        }
+        return transferContentionEngine;
     }
 
     /**
@@ -376,11 +405,14 @@ public class WorkflowDatacenter extends Datacenter {
             /** 计算 Job 的输入数据移动时间作为 CloudletScheduler 的传输耗时参数。 */
             double fileTransferTime = 0.0;
             if (job.getClassType() == ClassType.COMPUTE.value) {
-                if (dataMovementModel.isPreExecutionTransferDelayV1()) {
-                    // 论文语义路径（PRE_EXECUTION_TRANSFER_DELAY_V1）：输入传输已由引擎在
-                    // 数据就绪时作为执行前延迟建模，传输窗口可与目标 VM 的忙碌期重叠，
-                    // 此处不再把传输折算进执行信封——VM 只被计算 MI 占用，计算从提交时刻
-                    // 开始。DATA_STAGE_IN_MODELED 证据与输入副本登记由引擎在传输窗口处理。
+                if (dataMovementModel.isPreExecutionTransferDelayV1()
+                        || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()) {
+                    // 论文语义路径（PRE_EXECUTION_TRANSFER_DELAY_V1）与链路争用路径
+                    // （R2 PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1）：输入传输已由
+                    // 引擎在数据就绪时作为执行前延迟建模（争用模型下并发传输公平共享
+                    // VM 端点带宽），传输窗口可与目标 VM 的忙碌期重叠，此处不再把传输
+                    // 折算进执行信封——VM 只被计算 MI 占用，计算从提交时刻开始。
+                    // DATA_STAGE_IN_MODELED 证据与输入副本登记由引擎在传输窗口处理。
                     fileTransferTime = 0.0;
                 } else {
                     DataTransferEstimate estimate = estimateDataStageInForComputeJob(job.getFileList(), job);

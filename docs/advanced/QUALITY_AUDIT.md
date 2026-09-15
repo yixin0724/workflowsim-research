@@ -126,5 +126,7 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 > 回归（Montage_1000/Epigenomics_997）等测试。
 >
 > **2026-09-14 更新**：R1 多 seed 统计框架落地（`PairedWilcoxonSignificance` 配对
-> Wilcoxon 符号秩检验 + 端到端验收测试），核心单元测试现为 **216 个**、核心集成
-> **47 个**、完整门禁 **326 个**（以 `mvn verify` 实际输出为准）。
+> Wilcoxon 符号秩检验 + 端到端验收测试）；R2 链路争用带宽模型落地
+> （`TransferContentionEngine` 流体公平共享 + 争用版数据移动模型 + 端到端语义验收）。
+> 核心单元测试现为 **229 个**、核心集成 **47 个**、完整门禁 **339 个**
+> （以 `mvn verify` 实际输出为准）。
