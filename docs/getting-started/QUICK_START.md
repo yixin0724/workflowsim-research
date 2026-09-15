@@ -241,6 +241,21 @@ System.out.println("实验证据已保存到 output/");
 // 静态独立任务
 .planningAlgorithm(PlanningAlgorithm.STATIC_MINMIN)
 .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+
+// RL 轨道（R4）：外部策略函数 + 环境闭环
+SimulationConfig rlConfig = SimulationConfig.builder("workflow.dax", 3)
+        .schedulingAlgorithm(SchedulingAlgorithm.RL_POLICY)
+        .build();
+RlEpisodeResult episode = new RlEnvironment().runEpisode(
+        rlConfig, platform, new EarliestFinishGreedyPolicy());
+// episode.getMakespan() / episode.getReward()（= −makespan）/ episode.getDecisions()
+
+// 多工作流错峰到达（R5）：两份输入，第二份在 t=2000 提交
+SimulationConfig arrivalConfig = SimulationConfig.builder(
+                Arrays.asList("workflow-a.dax", "workflow-b.dax"), 3)
+        .workflowArrivalSeconds(Arrays.asList(0.0, 2000.0))
+        .build();
+// report.getWorkflowOutcomes() 给出每个工作流的提交时刻与流时（完成 − 提交）
 ```
 
 ### 增加 VM 数量
