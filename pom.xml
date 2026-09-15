@@ -31,6 +31,9 @@
         <workflowsim.experiments.exec.skip>false</workflowsim.experiments.exec.skip>
         <!-- JaCoCo 在生命周期中写入；默认空值使直接 Surefire/Failsafe 调用安全。 -->
         <argLine></argLine>
+        <!-- R3 覆盖率门禁默认阈值（0 = 不设限）；各模块在自身 pom 覆盖为实测棘轮值。 -->
+        <workflowsim.jacoco.instruction.minimum>0.00</workflowsim.jacoco.instruction.minimum>
+        <workflowsim.jacoco.branch.minimum>0.00</workflowsim.jacoco.branch.minimum>
     </properties>
 
     <build>
@@ -184,6 +187,35 @@
                                     <format>HTML</format>
                                     <format>XML</format>
                                 </formats>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <!-- R3 覆盖率门禁：对单元测试覆盖率（target/jacoco.exec）
+                                 强制 BUNDLE 级 instruction/branch 下限；阈值由各模块
+                                 属性给出，棘轮式只升不降（实测值向下取整留裕量）。 -->
+                            <id>check-unit-coverage</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <limit>
+                                                <counter>INSTRUCTION</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>${workflowsim.jacoco.instruction.minimum}</minimum>
+                                            </limit>
+                                            <limit>
+                                                <counter>BRANCH</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>${workflowsim.jacoco.branch.minimum}</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
                             </configuration>
                         </execution>
                     </executions>
