@@ -60,9 +60,10 @@ public final class PlanningContext {
      * <p>LOCAL_HEFT/LOCAL_CPOP 的规划侧 AST（按父任务并行传输、传输与 VM 忙碌期重叠）
      * 逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输延迟模型，因此
      * 要求 LOCAL 文件系统、NONE 聚类、无故障与无建模开销；数据移动模型可为
-     * preExecutionTransferDelayV1（规划与执行逐位对齐）或链路争用模型
+     * preExecutionTransferDelayV1（规划与执行逐位对齐）、链路争用模型
      * preExecutionTransferDelayWithContentionV1（规划侧仍按无争用 AST 估计，运行期
-     * 并发传输公平共享 VM 端点带宽，并发负载下存在文档声明的可解释偏差）。</p>
+     * 并发传输公平共享 VM 端点带宽）或 Fat-tree 拓扑争用模型 fatTreeContentionV1
+     * （运行期沿确定性路由公平共享路径链路 + 端点，同一偏差声明）。</p>
      */
     public void validateLocalStaticDag() {
         if (config.getFileSystem() != ReplicaCatalog.FileSystem.LOCAL) {
@@ -78,11 +79,14 @@ public final class PlanningContext {
             throw new IllegalArgumentException("LOCAL static DAG planning requires OverheadModelConfig.none()");
         }
         if (!config.getDataMovementModel().isPreExecutionTransferDelayV1()
-                && !config.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()) {
+                && !config.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()
+                && !config.getDataMovementModel().isFatTreeContentionV1()) {
             throw new IllegalArgumentException("LOCAL static DAG planning requires "
                     + "DataMovementModel.preExecutionTransferDelayV1() (planning AST and runtime "
-                    + "transfer delays bit-aligned) or preExecutionTransferDelayWithContentionV1() "
-                    + "(runtime link contention, documented divergence under concurrency)");
+                    + "transfer delays bit-aligned), preExecutionTransferDelayWithContentionV1() "
+                    + "(runtime endpoint link contention, documented divergence under concurrency), "
+                    + "or fatTreeContentionV1() (runtime fat-tree path link contention, same "
+                    + "divergence policy)");
         }
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
             if (vm.getSchedulerMode() != PlatformProfile.CloudletSchedulerMode.SPACE_SHARED) {

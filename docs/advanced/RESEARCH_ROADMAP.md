@@ -1,6 +1,6 @@
 # 科研工作流模拟器演进路线图（Research Roadmap）
 
-> 状态：**R1-R5 全部完成**（2026-09-14）；后续方向见「长期候选项」（本文档随轮次推进持续更新）
+> 状态：**R1-R6 全部完成**（R1-R5 于 2026-09-14，R6 Fat-tree 于 2026-09-15）；后续方向见「长期候选项」（本文档随轮次推进持续更新）
 > 创建日期：2026-09-11
 > 维护约定：每完成一个轮次，将对应条目从「计划」移入「已完成」并记录实测结论与证据位置。
 
@@ -9,8 +9,9 @@
 本平台是**受控、确定性、无争用的抽象环境**下的工作流调度模拟器。这一边界适合做算法
 语义对比与论文复现（见 `docs/algorithms/CATALOG.md`），但以下问题域当前**无法**回答：
 
-- 多任务并发传输的分组级/拓扑级网络细节（R2 已提供流体公平共享争用近似，
-  可回答"并发传输减速多少"，不回答丢包/排队/拓扑）；
+- 分组级网络细节（丢包/排队/ECN/自适应路由）——R2 提供端点流体公平共享近似，
+  R6 提供 Fat-tree 拓扑感知链路争用（确定性路由 + 链路级公平共享），两者都
+  不是包级仿真；
 - 真正的多租户平台语义（R5 已支持多工作流错峰共享同一 VM 池并报告每工作流
   流时，但无租户级配额/计费/抢占隔离；同一 JVM 仍是单会话串行）；
 - 超售（overcommitment）下的 Host 层 CPU 干扰；
@@ -164,6 +165,46 @@ makespan）。
 同一 VM 池与调度器，无租户级配额/计费/抢占隔离；到达门控与聚类互斥（见上）；
 静态规划算法在 t=0 预映射 VM，与错峰到达可组合但"规划时刻 ≠ 执行时刻"的语义
 需研究者自行声明。
+
+### R6：Fat-tree 拓扑感知链路争用模型 —— 已完成（2026-09-15）
+
+**动机**：R2 的争用域只有 VM 端点——并发传输是否互相减速与它们在网络中的
+位置无关。数据中心网络研究的标准拓扑是 Al-Fares SIGCOMM 2008 的 k-Pod
+Fat-tree（满二分带宽 + 确定性路由），争用发生在路径上的共享链路。先研读原理
+（Phase 0：`docs/research/FAT_TREE_PRINCIPLES.md`，含 SimGrid FatTreeZone 与
+仓库内 CloudSim network.datacenter 源码精读——后者是退化的树非胖树，不可复用），
+再设计（Phase 1：`docs/research/FAT_TREE_DESIGN.md`），后实现。
+
+**已交付内容**：
+
+- `org.workflowsim.network.NetworkTopologySpec`：平台拓扑不可变声明
+  （`fatTree(k, 链路带宽MB/s[, core数量][, 显式放置])`）；
+- `org.workflowsim.network.FatTreeTopology`：k-Pod 结构构造（core 可减量
+  超收敛，收敛比 (k²/4)/m）+ **确定性路由**（上行 a = srcEdge mod availA；
+  跨 Pod core j = (srcEdge+dstEdge+srcPod+dstPod) mod jCount；下行唯一）
+  返回双工分方向的链路资源键序列；
+- `TransferContentionEngine` 资源集泛化：传输占用"端点 + 路径链路"资源集，
+  速率 = min(名义, 各占用资源份额)；双端点重载委托资源集重载，R2 行为逐位
+  不变（既有 12 个引擎测试全绿）；
+- `DataMovementModel.fatTreeContentionV1()`（kind
+  `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1`）：窗口语义与
+  R2 相同，争用域推广到路径链路；
+- 配置契约：LOCAL 文件系统 + 静态映射 + NONE 聚类 + 无故障/无开销；
+  `SimulationRunner` 双向契约——模型缺拓扑声明拒绝、拓扑声明无模型拒绝；
+- 证据：`DATA_STAGE_IN_MODELED` 追加 `fatTreePathLinkCount`；
+- 测试：`FatTreeTopologyTest`（9：结构计数、三类路由黄金值、超收敛确定性、
+  重叠路径半速/不相交零干扰、全量参数校验）+ 引擎资源集单测（+4）+
+  `FatTreeContentionIntegrationTest`（7：端到端黄金值 **1032.1** 锁定、
+  ≥ R2 黄金值 284.1 的约束超集性质、确定性、健康不变量、契约拒绝组）。
+
+**验收实测**：HEFT 论文例 × LOCAL_HEFT × 3 主机（默认轮转放置到 pod0/edge0、
+pod0/edge1、pod1/edge0）× k=4 满配、链路 1 MB/s——makespan 从无争用 190.1 →
+R2 端点争用 284.1 → Fat-tree 链路争用 **1032.1**（共享链路进一步减速），
+三级模型族构成可对照的研究维度。
+
+**诚实边界**：流级流体模型（无丢包/排队细节/ECN）；确定性最短路径（无自适应
+路由/ECMP 哈希）；交换机内部转发不设容量约束；均匀链路带宽；链路延迟不建模；
+外部 SOURCE 流量不经过拓扑；无链路/交换机故障。
 
 ## 三、长期候选项（未排期）
 

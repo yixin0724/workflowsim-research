@@ -619,7 +619,9 @@ public final class WorkflowEngine extends SimEntity {
             return false;
         }
         WorkflowDatacenter datacenter = (WorkflowDatacenter) entity;
-        if (!datacenter.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()) {
+        boolean fatTree = datacenter.getDataMovementModel().isFatTreeContentionV1();
+        if (!datacenter.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()
+                && !fatTree) {
             return false;
         }
         if (job.getClassType() != ClassType.COMPUTE.value) {
@@ -636,6 +638,7 @@ public final class WorkflowEngine extends SimEntity {
         Set<Long> pending = new LinkedHashSet<Long>();
         long requiredBytes = 0L;
         int fileCount = 0;
+        int pathLinkCount = 0;
         double modeledSeconds = 0.0;
         boolean localFileSystem =
                 ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.LOCAL;
@@ -672,8 +675,22 @@ public final class WorkflowEngine extends SimEntity {
                 String sourceEndpoint = localFileSystem
                         ? "VM:" + parent.getVmId() : Parameters.SOURCE;
                 long transferId = nextContentionTransferId++;
-                contention.addTransfer(transferId, bytes, sourceEndpoint,
-                        "VM:" + job.getVmId(), bytes / seconds, now);
+                if (fatTree) {
+                    // Fat-tree：资源集 = 两端点 + 确定性路由的全部链路键。
+                    List<String> pathLinks = Parameters.SOURCE.equals(sourceEndpoint)
+                            ? java.util.Collections.<String>emptyList()
+                            : datacenter.fatTreePathResources(parent.getVmId(), job.getVmId(),
+                                    job.getUserId());
+                    pathLinkCount += pathLinks.size();
+                    List<String> resources = new ArrayList<String>();
+                    resources.add(sourceEndpoint);
+                    resources.add("VM:" + job.getVmId());
+                    resources.addAll(pathLinks);
+                    contention.addTransfer(transferId, bytes, resources, bytes / seconds, now);
+                } else {
+                    contention.addTransfer(transferId, bytes, sourceEndpoint,
+                            "VM:" + job.getVmId(), bytes / seconds, now);
+                }
                 contentionTransferJobs.put(transferId, job);
                 pending.add(transferId);
             }
@@ -692,8 +709,15 @@ public final class WorkflowEngine extends SimEntity {
                 modeledSeconds += seconds;
                 if (seconds > 0.0 && bytes > 0L) {
                     long transferId = nextContentionTransferId++;
-                    contention.addTransfer(transferId, bytes, Parameters.SOURCE,
-                            "VM:" + job.getVmId(), bytes / seconds, now);
+                    if (fatTree) {
+                        // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
+                        contention.addTransfer(transferId, bytes,
+                                java.util.Collections.singletonList("VM:" + job.getVmId()),
+                                bytes / seconds, now);
+                    } else {
+                        contention.addTransfer(transferId, bytes, Parameters.SOURCE,
+                                "VM:" + job.getVmId(), bytes / seconds, now);
+                    }
                     contentionTransferJobs.put(transferId, job);
                     pending.add(transferId);
                 }
@@ -702,12 +726,17 @@ public final class WorkflowEngine extends SimEntity {
             throw new IllegalStateException("WorkflowEngine could not register contention stage-in "
                     + "for Job " + job.getCloudletId(), e);
         }
+        Map<String, Object> stageInAttributes = SimulationEventRecorder.attributes(
+                "modeledTransferSeconds", modeledSeconds,
+                "requiredFileBytes", (double) requiredBytes,
+                "modeledTransferFileCount", fileCount,
+                "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
+                "contentionTransferGroupCount", (double) pending.size());
+        if (fatTree) {
+            stageInAttributes.put("fatTreePathLinkCount", (double) pathLinkCount);
+        }
         eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job,
-                SimulationEventRecorder.attributes("modeledTransferSeconds", modeledSeconds,
-                        "requiredFileBytes", (double) requiredBytes,
-                        "modeledTransferFileCount", fileCount,
-                        "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
-                        "contentionTransferGroupCount", (double) pending.size()));
+                stageInAttributes);
         if (pending.isEmpty()) {
             // 全部输入本地（或零传输）：立即登记副本并释放。
             dispatchContentionStageInComplete(datacenter, job);

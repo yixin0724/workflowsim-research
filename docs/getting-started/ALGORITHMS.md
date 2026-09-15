@@ -125,11 +125,16 @@ SOURCE→VM 取目标 VM 带宽、VM→VM 取 `min(bw_src, bw_dst)`、副本已�
 CPOP 复现关键路径与关键路径处理器（相对 makespan 87.1 ≈ 论文 86）。
 
 要求：`STATIC` 分派、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、
-`preExecutionTransferDelayV1` 数据移动模型与 `SPACE_SHARED` VM。边界：受控带宽模型
-（无链路争用/网络拓扑），是抽象模型上的复现而非真实平台校准。另可选链路争用变体
+preExecution 家族数据移动模型与 `SPACE_SHARED` VM。边界：受控带宽模型
+（论文复现组合无链路争用/网络拓扑），是抽象模型上的复现而非真实平台校准。
+另可选两个争用变体：
 `preExecutionTransferDelayWithContentionV1()`（R2）：规划侧仍按无争用 AST 估计，
 运行期并发传输公平共享 VM 端点带宽（流体公平共享模型），并发负载下规划/执行出现
-文档声明的可解释偏差——用于数据感知调度的争用权衡研究，不用于论文复现。
+文档声明的可解释偏差——用于数据感知调度的争用权衡研究，不用于论文复现；
+`fatTreeContentionV1()`（R6）：争用域推广到 Al-Fares k-Pod Fat-tree 确定性路由
+路径上的每条共享链路（端点 + 链路取最小），要求平台经
+`PlatformProfile.Builder.networkTopology(NetworkTopologySpec.fatTree(...))`
+声明拓扑（可超收敛）——用于拓扑感知的数据放置/调度研究，同样不用于论文复现。
 
 ## 六、如何选择
 

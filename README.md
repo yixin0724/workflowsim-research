@@ -28,7 +28,8 @@ mvn verify      # 核心测试，约 7 秒，应显示 Tests run: 249, Failures:
 | VM、Host、存储和确定性 VM-to-Host 放置 | 不建模 Host CPU 争用、VM 迁移或真实基础设施利用率。 |
 | 在线 ready-Job 调度和受控静态 Task-to-VM 映射 | 不同决策层的算法不能混入同一个基线比较。 |
 | 可选开销、故障重试、deadline 观察和成本模型 | 分布参数、云价格和失败行为未由现实数据校准时，只能解释为情景假设。 |
-| 兼容数据移动模型、可选执行前传输延迟模型与链路争用流体公平共享模型（R2） | 争用模型回答"并发传输减速多少"，不包含网络拓扑、路由、丢包、排队细节。 |
+| 兼容数据移动模型、可选执行前传输延迟模型与链路争用流体公平共享模型（R2） | 端点争用模型回答"并发传输减速多少"，不包含网络拓扑、路由、丢包、排队细节。 |
+| Fat-tree 拓扑感知链路争用模型（R6，`fatTreeContentionV1` + `PlatformProfile.networkTopology`） | 流级流体模型：Al-Fares k-Pod 确定性路由 + 链路级公平共享（可超收敛）；不包含丢包、排队细节、ECN、自适应路由与链路故障。 |
 | 多工作流并发提交与错峰动态到达（R5，`workflowArrivalSeconds`） | 提交时刻是 t=0 已知配置，不是到达前未知的在线流；无租户级配额/计费/抢占隔离。 |
 | RL 调度轨道（R4，`RlEnvironment` + `RL_POLICY`） | 提供状态/动作/奖励环境契约与确定性闭环，不含学习算法本身；外部训练器需进程外桥接。 |
 
@@ -132,6 +133,7 @@ max(100, floor(runtimeInSeconds * runtimeReferenceMips * runtimeScale))
 - `PlatformProfile`：不可变的抽象 Host/VM/存储/成本描述，并预检 VM-to-Host 放置可行性。
 - `SimulationRunner`：同一 JVM 内串行执行一次解析、规划、调度和 CloudSim 仿真，返回不可变 `SimulationReport`。
 - `RlEnvironment`：RL 调度轨道入口（R4）——注册 `RlPolicy` 策略 → 标准 runner 运行 `RL_POLICY` → 返回 `RlEpisodeResult`（makespan、reward = −makespan、决策轨迹）。
+- `NetworkTopologySpec` / `FatTreeTopology`：Fat-tree 拓扑感知链路争用轨道（R6）——Al-Fares k-Pod 结构声明（可超收敛）、确定性路由与链路容量注册；搭配 `DataMovementModel.fatTreeContentionV1()` 使用，原理与设计见 `docs/research/FAT_TREE_PRINCIPLES.md` 与 `docs/research/FAT_TREE_DESIGN.md`。
 - `ExperimentManifestWriter` / `ExperimentArtifactWriter`：写出可验证的 `manifest.json`、`metrics.json` 与 `events.jsonl` 工件。
 - `ExperimentPlan` / campaign 工具：声明和执行多场景、多重复实验；它们不把相同 root seed 误标记为 event-keyed CRN。仅显式独立重复的 cell 才会给模型运行完成率提供 Wilson 区间，且不自动产生算法差异推断。
 
@@ -151,7 +153,7 @@ max(100, floor(runtimeInSeconds * runtimeReferenceMips * runtimeScale))
 | **RL 环境轨道（R4）** | `RL_POLICY`（经 `RlEnvironment.runEpisode`） | 外部策略函数决定每个就绪 Job 的目标 VM；环境提供状态/动作/奖励契约与决策轨迹，不含学习算法本身。 |
 | **静态独立任务映射** | `STATIC_OLB`、`STATIC_MET`、`STATIC_MCT`、`STATIC_MINMIN`、`STATIC_MAXMIN`、`STATIC_SUFFERAGE`、`STATIC_ROUND_ROBIN` | 只接受没有父子边的任务集合；不产生网络调度或完整离线执行 trace。 |
 | **受控 shared-storage 静态 DAG 映射** | `SHARED_STORAGE_HEFT`、`SHARED_STORAGE_CPOP`、`SHARED_STORAGE_DLS`、`SHARED_STORAGE_ETF`、`SHARED_STORAGE_PEFT` | 要求 `STATIC` 调度、共享存储、无聚类、无开销、禁用故障和 `SPACE_SHARED` VM；不表示网络拓扑、路由或共享链路争用。 |
-| **通信感知 LOCAL 静态 DAG 映射（论文复现）** | `LOCAL_HEFT`、`LOCAL_CPOP` | 要求 `STATIC` 调度、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、`preExecutionTransferDelayV1` 数据移动模型与 `SPACE_SHARED` VM；受控带宽模型（VM 对 `min(bw)`），不表示链路争用或网络拓扑。 |
+| **通信感知 LOCAL 静态 DAG 映射（论文复现）** | `LOCAL_HEFT`、`LOCAL_CPOP` | 要求 `STATIC` 调度、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、preExecution 家族数据移动模型（`preExecutionTransferDelayV1` / `preExecutionTransferDelayWithContentionV1` / `fatTreeContentionV1`）与 `SPACE_SHARED` VM；受控带宽模型（VM 对 `min(bw)`），争用变体下规划侧仍按无争用 AST 估计（偏差由文档声明）。 |
 
 **论文复现验证**（Topcuoglu, Hariri &amp; Wu, IEEE TPDS 2002 规范算例，`LOCAL_HEFT`/`LOCAL_CPOP`）：HEFT 向上 rank 与论文逐一相同，VM 映射 10/10 且每任务区间逐位等于论文区间（相对 makespan 80.1 vs 论文 80）；CPOP 复现论文关键路径 {n1, n3, n7, n10} 与关键路径处理器，相对 makespan 87.1 vs 论文 86。传输按论文 AST 语义建模为执行前网络延迟（可与 VM 忙碌期重叠，VM 只被计算占用）。复现细节与平台适配声明见 [`docs/PLATFORM_AUDIT_REPORT.md`](docs/PLATFORM_AUDIT_REPORT.md) 与 [`docs/algorithms/CATALOG.md`](docs/algorithms/CATALOG.md)。
 
