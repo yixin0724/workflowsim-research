@@ -27,10 +27,14 @@ docs/
 │       ├── P7_PROTOCOL.md      # 冻结参考基线 P7 的实验协议
 │       └── P7_RESULTS.md       # P7 已记录结果（历史记录）
 │
+├── research/                   # 专题原理研读与设计记录
+│   ├── FAT_TREE_PRINCIPLES.md  # Al-Fares k-Pod Fat-tree 原理研读（R6 Phase 0）
+│   └── FAT_TREE_DESIGN.md      # Fat-tree 链路争用模型设计（R6 Phase 1）
+│
 └── advanced/                   # 专题与维护者文档
     ├── QUALITY_AUDIT.md        # 质量审计报告（算法正确性/指标准确性）
     ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
-    ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R5 轮次规划）
+    ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R6 轮次规划）
     └── CODE_STYLE.md           # 源码注释规范
 ```
 
@@ -54,6 +58,7 @@ docs/
 | 代码质量是否可信？ | [`advanced/QUALITY_AUDIT.md`](advanced/QUALITY_AUDIT.md) |
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
 | 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |
+| Fat-tree 网络拓扑的原理与设计？ | [`research/FAT_TREE_PRINCIPLES.md`](research/FAT_TREE_PRINCIPLES.md)、[`research/FAT_TREE_DESIGN.md`](research/FAT_TREE_DESIGN.md) |
 | 源码注释怎么写？ | [`advanced/CODE_STYLE.md`](advanced/CODE_STYLE.md) |
 
 ## 推荐阅读路径

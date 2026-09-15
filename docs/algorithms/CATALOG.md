@@ -153,7 +153,9 @@ Topcuoglu, Hariri, and Wu, *Performance-Effective and Low-Complexity Task
 Scheduling for Heterogeneous Computing*, IEEE TPDS 13(4), 2002, adapted to the
 controlled LOCAL-file-system execution model. They require `STATIC` dispatch,
 the LOCAL file system, NONE clustering, disabled overhead/failure models,
-`DataMovementModel.preExecutionTransferDelayV1()`, and SPACE_SHARED VMs
+a preExecution-family data movement model (`preExecutionTransferDelayV1()`,
+`preExecutionTransferDelayWithContentionV1()`, or `fatTreeContentionV1()`),
+and SPACE_SHARED VMs
 (`SimulationConfig` rejects any other combination). Unlike the
 `SHARED_STORAGE_*` family, these planners model inter-task communication with
 the paper's AST semantics: each real input file transfers at
@@ -175,6 +177,24 @@ per active transfer, fluid model in `TransferContentionEngine`). Under
 concurrent load the runtime therefore diverges from the plan in a documented,
 explainable way (contention can only delay transfers). Measured on the HEFT
 paper fixture: contention makespan 284.1 vs no-contention golden 190.1.
+
+**Fat-tree contention variant (R6)**: both planners also accept
+`DataMovementModel.fatTreeContentionV1()`. Planning again uses the
+contention-free AST estimates; at runtime the contention domain extends from VM
+endpoints to every shared link on a deterministic Al-Fares k-Pod fat-tree route
+(`a = srcEdge mod availA` uplink choice; cross-pod core
+`j = (srcEdge + dstEdge + srcPod + dstPod) mod jCount`), declared via
+`PlatformProfile.Builder.networkTopology(NetworkTopologySpec.fatTree(k,
+linkMbPerSecond[, coreSwitchCount][, hostEdgePlacements]))`; transfer rate is
+the minimum over endpoint and link shares (fluid max-min fair sharing in
+`TransferContentionEngine`). The runner enforces a bidirectional contract: the
+model requires a topology declaration and a declared topology requires the
+model. Measured on the HEFT paper fixture (k=4 fully provisioned, 1 MB/s
+links, hosts round-robin placed): fat-tree makespan 1032.1 ≥ R2 endpoint
+golden 284.1 > no-contention 190.1. Honest boundaries: flow-level fluid model
+(no loss/queueing/ECN), deterministic shortest-path routing (no adaptive
+routing), uniform link bandwidth, external SOURCE flows bypass the topology.
+See `docs/research/FAT_TREE_PRINCIPLES.md` and `docs/research/FAT_TREE_DESIGN.md`.
 
 - `LOCAL_HEFT`: upward rank `r_u = w̄ + max_child(c̄ + r_u(child))` descending
   priority (ties → lower task id), insertion-based earliest-finish-time VM

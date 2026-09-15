@@ -180,7 +180,7 @@ public class TransferContentionEngineTest {
         assertEquals(10.0, second.getNextCompletionTime(), 1.0e-9);
     }
 
-    /** 空资源集 + 未注册资源键：无争用约束，按名义速率传输。 */
+    /** 空资源集 + 未注册资源键：无争用约束，按名义速率传输；null 列表/元素拒绝。 */
     @Test
     public void emptyOrUnregisteredResourcesLeaveNominalRate() {
         TransferContentionEngine engine = new TransferContentionEngine();
@@ -191,6 +191,11 @@ public class TransferContentionEngineTest {
         assertEquals(100.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
         assertThrows(IllegalArgumentException.class, () ->
                 engine.addTransfer(3L, 1000L, (java.util.List<String>) null, 100.0, 0.0));
+        IllegalArgumentException nullElement = assertThrows(IllegalArgumentException.class, () ->
+                engine.addTransfer(4L, 1000L,
+                        java.util.Arrays.asList("VM:0", null), 100.0, 0.0));
+        assertTrue(nullElement.getMessage().contains("cannot contain null"),
+                nullElement.getMessage());
     }
 
     /** 参数校验：重复 ID、非正字节、时间倒流、非正速率、非正容量。 */
