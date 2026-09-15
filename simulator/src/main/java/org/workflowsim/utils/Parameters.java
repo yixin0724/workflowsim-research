@@ -50,7 +50,15 @@ public class Parameters {
         /** @deprecated vmIndex 死代码,实际 First-Fit-Idle。用 READY_BATCH_ROUNDROBIN 替代 */
         @Deprecated ROUNDROBIN,
         // 以下枚举值保留其现有调度语义。
-        DATA, STATIC, FCFS, INVALID
+        DATA, STATIC, FCFS,
+        /**
+         * R4 RL 轨道：策略驱动的在线调度。每次 ready-batch 更新向经
+         * {@code RlPolicyRegistry} 注册的 {@code RlPolicy} 请求 Job→VM 动作；
+         * 必须通过 {@code RlEnvironment.runEpisode} 运行（规划层 INVALID），
+         * 直接用 {@code SimulationRunner} 运行会因缺少注册策略而显式失败。
+         */
+        RL_POLICY,
+        INVALID
     }
     
     /** 离线（全局）规划算法。 */

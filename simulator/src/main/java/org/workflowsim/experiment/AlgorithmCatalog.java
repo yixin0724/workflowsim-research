@@ -42,6 +42,7 @@ public final class AlgorithmCatalog {
             case READY_BATCH_ROUNDROBIN:
             case DATA:
             case STATIC:
+            case RL_POLICY:
                 return true;
             case MINMIN:
             case MAXMIN:
@@ -167,6 +168,19 @@ public final class AlgorithmCatalog {
                 values.put("decisionRule", "Dispatches a Job to the VM assigned by the planning layer");
                 values.put("verification", "REGRESSION_COVERED_WITH_STATIC_MCT");
                 values.put("limitations", limitations("A SimulationConfig requires a non-INVALID planner; model-generated stage-in Jobs use the legacy fallback mapping."));
+                break;
+            case RL_POLICY:
+                values.put("decisionLayer", "ONLINE_READY_JOB");
+                values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
+                values.put("decisionRule", "Registered RlPolicy selects a VM index per ready Job "
+                        + "(RlEnvironment episode; reward = negative makespan)");
+                values.put("verification", "RL_EPISODE_ENVIRONMENT_REGRESSION_COVERED");
+                values.put("limitations", limitations("The policy is an external decision function; the platform "
+                        + "guarantees deterministic episodes and action validation only.",
+                        "Actions on busy/incompatible/reserved VMs skip the Job for that update; no built-in "
+                        + "learning algorithm is provided.",
+                        "Must run through RlEnvironment.runEpisode; SimulationRunner alone fails without a "
+                        + "registered policy."));
                 break;
             case MINMIN:
                 legacyScheduler(values, "SPT-fastest-idle ready-job variant", "READY_BATCH_MINMIN");
