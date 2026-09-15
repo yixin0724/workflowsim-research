@@ -15,7 +15,7 @@ WorkflowSim 是面向科学工作流调度研究的离散事件模拟器。本�
 **基础验证：**
 
 ```bash
-mvn verify      # 核心测试，约 7 秒，应显示 Tests run: 237, Failures: 0
+mvn verify      # 核心测试，约 7 秒，应显示 Tests run: 243, Failures: 0
 ```
 
 ## 可用于什么研究

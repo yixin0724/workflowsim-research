@@ -34,6 +34,20 @@ The legacy labels `MINMIN`, `MAXMIN`, `MCT`, and `ROUNDROBIN` have distinct
 legacy semantics and are not presented as canonical versions of the named
 classical heuristics.
 
+## RL Environment Track (R4)
+
+`RL_POLICY` is a policy-driven online scheduler over the same ready-Job domain:
+each scheduling update asks a registered `RlPolicy` for a VM index per ready Job.
+Episodes run through `RlEnvironment.runEpisode` (observation = ready-queue + VM
+load views; action = Job→VM index; reward = −makespan). The deterministic
+greedy baseline `EarliestFinishGreedyPolicy` pins environment behavior
+(episode golden makespan 5116.1 on the HEFT paper fixture, online track); the
+decision trace equals the report's final VM assignments Job-for-Job. Running
+`RL_POLICY` without the environment facade fails explicitly. The track provides
+the state/action/reward contract and deterministic episodes, not a learning
+algorithm: external trainers need out-of-process bridging because the platform
+is a single-process Java event loop.
+
 ## Offline Independent-Task Mapping
 
 The following planners are maintained deterministic implementations of common

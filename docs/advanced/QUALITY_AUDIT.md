@@ -129,6 +129,8 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 > Wilcoxon 符号秩检验 + 端到端验收测试）；R2 链路争用带宽模型落地
 > （`TransferContentionEngine` 流体公平共享 + 争用版数据移动模型 + 端到端语义验收）；
 > R3 故障分布 KS 检验（8 个，含效力对照）与 JaCoCo 覆盖率棘轮门禁落地
-> （simulator instruction ≥ 0.48 / branch ≥ 0.43，experiments ≥ 0.23 / ≥ 0.25）。
-> 核心单元测试现为 **237 个**、核心集成 **47 个**、完整门禁 **347 个**
+> （simulator instruction ≥ 0.48 / branch ≥ 0.43，experiments ≥ 0.23 / ≥ 0.25）；
+> R4 RL 调度轨道落地（`org.workflowsim.rl` 环境闭环：观测/动作/奖励契约 +
+> `RL_POLICY` 在线调度器 + 贪心基线 episode 黄金值 5116.1 + 轨迹恒等验收）。
+> 核心单元测试现为 **243 个**、核心集成 **52 个**、完整门禁 **358 个**
 > （以 `mvn verify` 实际输出为准）。

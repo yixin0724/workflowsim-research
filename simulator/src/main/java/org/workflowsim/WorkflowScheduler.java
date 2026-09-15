@@ -37,6 +37,7 @@ import org.workflowsim.scheduling.ReadyBatchMaxMinSchedulingAlgorithm;
 import org.workflowsim.scheduling.ReadyBatchMCTSchedulingAlgorithm;
 import org.workflowsim.scheduling.ReadyBatchMinMinSchedulingAlgorithm;
 import org.workflowsim.scheduling.ReadyBatchRoundRobinSchedulingAlgorithm;
+import org.workflowsim.scheduling.RlPolicySchedulingAlgorithm;
 import org.workflowsim.scheduling.FastestVmSchedulingAlgorithm;
 import org.workflowsim.scheduling.FirstFitIdleSchedulingAlgorithm;
 import org.workflowsim.scheduling.LjfFastestIdleSchedulingAlgorithm;
@@ -221,6 +222,10 @@ public class WorkflowScheduler extends DatacenterBroker {
                 break;
             case READY_BATCH_ROUNDROBIN:
                 algorithm = new ReadyBatchRoundRobinSchedulingAlgorithm();
+                break;
+            case RL_POLICY:
+                // R4 RL 轨道：策略经 RlPolicyRegistry 送达；episode 外运行显式失败。
+                algorithm = new RlPolicySchedulingAlgorithm();
                 break;
             case MINMIN:
                 // 保留旧行为:SPT-fastest-idle 变体

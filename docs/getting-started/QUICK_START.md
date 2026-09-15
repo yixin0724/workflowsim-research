@@ -18,7 +18,7 @@ cd WorkflowSim-1.0
 mvn verify      # 核心测试，约 7 秒
 ```
 
-看到 `BUILD SUCCESS` 和 `Tests run: 237, Failures: 0` 即通过。
+看到 `BUILD SUCCESS` 和 `Tests run: 243, Failures: 0` 即通过。
 
 ## 第一个仿真：单文件示例
 

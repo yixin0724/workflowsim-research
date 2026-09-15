@@ -24,7 +24,8 @@ class AlgorithmSupportMatrixTest {
                 SchedulingAlgorithm.READY_BATCH_MCT,
                 SchedulingAlgorithm.READY_BATCH_ROUNDROBIN,
                 SchedulingAlgorithm.DATA,
-                SchedulingAlgorithm.STATIC);
+                SchedulingAlgorithm.STATIC,
+                SchedulingAlgorithm.RL_POLICY);
         EnumSet<SchedulingAlgorithm> unavailable = EnumSet.of(
                 SchedulingAlgorithm.MINMIN, SchedulingAlgorithm.MAXMIN,
                 SchedulingAlgorithm.MCT, SchedulingAlgorithm.ROUNDROBIN,
