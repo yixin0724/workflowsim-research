@@ -104,15 +104,15 @@ mvn test -Dtest=SimulationRunnerIntegrationTest#supportedAlgorithmCompletesAndPr
 # 核心模块完整验证（单元 + 集成，~15秒）
 mvn verify
 
-# 完整工程质量门禁（核心 + 实验，~2分钟，368个测试 + 覆盖率阈值检查）
+# 完整工程质量门禁（核心 + 实验，~2分钟，374个测试 + 覆盖率阈值检查）
 mvn verify
 ```
 
 **测试统计**：
 - 核心单元测试：249 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、故障分布 KS 检验、RL 策略契约与动态到达配置契约）
-- 核心集成测试：56 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收与多工作流动态到达验收）
+- 核心集成测试：62 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收、多工作流动态到达验收与全平台健康矩阵——全部在线调度器/独立规划器/DAG 规划器/传输模型/错峰到达/RL 轨道交叉 + 统一报告不变量校验器）
 - 实验模块测试：63 个（17 单元 + 46 集成）
-- **总计：368 个测试**
+- **总计：374 个测试**
 
 **覆盖率门禁（R3）**：JaCoCo `check-unit-coverage` 在 verify 阶段对单元测试覆盖率
 （`target/jacoco.exec`）强制 BUNDLE 级下限——simulator instruction ≥ 0.48 /
