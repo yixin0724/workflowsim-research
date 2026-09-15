@@ -17,6 +17,8 @@ package org.workflowsim.experiment;
  */
 public enum SimulationEventType {
     WORKFLOW_PARSED,
+    /** R5 动态到达：某个工作流输入在其配置提交时刻变为可调度（根作业解除到达门控）。 */
+    WORKFLOW_ARRIVED,
     PLANNING_COMPLETED,
     JOBS_CLUSTERED,
     STAGE_IN_JOB_CREATED,

@@ -16,6 +16,7 @@
 package org.workflowsim;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -115,6 +116,18 @@ public final class WorkflowEngine extends SimEntity {
             new LinkedHashMap<Integer, Set<Long>>();
     /** 引擎分配的下一个争用传输 ID（确定性递增）。 */
     private long nextContentionTransferId = 1L;
+
+    /** R5 动态到达：每个工作流输入的提交时刻（模拟秒）；null 表示未配置（全部 t=0）。 */
+    private List<Double> workflowArrivalSeconds;
+
+    /** R5 动态到达：任务编号→来源输入下标的映射。 */
+    private Map<Integer, Integer> taskWorkflowIndices = Collections.emptyMap();
+
+    /** 已排入事件队列的到达重扫时刻；null 表示没有待处理的到达重扫。 */
+    private Double pendingArrivalScanSecond;
+
+    /** 已记录 WORKFLOW_ARRIVED 证据的工作流下标集合。 */
+    private final Set<Integer> announcedWorkflowIndices = new HashSet<>();
 
     /**
      * 创建包含一个运行时调度器的工作流引擎。
@@ -287,6 +300,11 @@ public final class WorkflowEngine extends SimEntity {
                 // R2 链路争用模型：按当前时钟积分推进全部活动传输并结算完成的传输组。
                 processTransferContentionCheck(ev);
                 break;
+            case WorkflowSimTags.WORKFLOW_ARRIVAL_SCAN:
+                // R5 动态到达：最早未到达时刻触发的幂等就绪重扫。
+                pendingArrivalScanSecond = null;
+                submitJobs();
+                break;
             default:
                 processOtherEvent(ev);
                 break;
@@ -347,6 +365,97 @@ public final class WorkflowEngine extends SimEntity {
         setJobsList(list);
         // 幂等就绪扫描：不依赖 JOB_SUBMIT 与 CLOUDLET_SUBMIT 的事件到达顺序。
         submitJobs();
+    }
+
+    /**
+     * R5 动态到达：登记每个工作流输入的提交时刻与任务归属映射。
+     *
+     * <p>由 {@link WorkflowPlanner} 在解析完成后、投递任务前调用。{@code arrivalSeconds}
+     * 为 {@code null} 或全部为 0.0 时行为与历史单时刻提交逐位一致。</p>
+     *
+     * @param arrivalSeconds 每个工作流输入的提交时刻（模拟秒），与输入路径一一对应
+     * @param taskWorkflowIndices 任务编号→来源输入下标的映射
+     */
+    public void setWorkflowArrivals(List<Double> arrivalSeconds,
+            Map<Integer, Integer> taskWorkflowIndices) {
+        this.workflowArrivalSeconds = arrivalSeconds == null
+                ? null : new ArrayList<>(arrivalSeconds);
+        this.taskWorkflowIndices = taskWorkflowIndices == null
+                ? Collections.<Integer, Integer>emptyMap()
+                : new HashMap<>(taskWorkflowIndices);
+    }
+
+    /**
+     * 返回指定 Job 所属工作流输入的提交时刻（模拟秒）。
+     *
+     * @param job 待查询的 Job
+     * @return 提交时刻；未配置到达信息或映射缺失时为 0.0
+     */
+    private double arrivalSecondFor(Job job) {
+        if (workflowArrivalSeconds == null || taskWorkflowIndices.isEmpty()) {
+            return 0.0;
+        }
+        Integer workflowIndex = taskWorkflowIndices.get(job.getCloudletId());
+        if (workflowIndex == null || workflowIndex < 0
+                || workflowIndex >= workflowArrivalSeconds.size()) {
+            return 0.0;
+        }
+        Double arrivalSecond = workflowArrivalSeconds.get(workflowIndex);
+        return arrivalSecond == null ? 0.0 : arrivalSecond;
+    }
+
+    /**
+     * R5 动态到达是否产生 WORKFLOW_ARRIVED 证据。
+     *
+     * <p>仅当提交是多输入或含非零提交时刻时启用，保证历史单工作流 t=0 提交的事件
+     * 轨迹逐位不变。</p>
+     */
+    private boolean arrivalEvidenceEnabled() {
+        if (workflowArrivalSeconds == null) {
+            return false;
+        }
+        if (workflowArrivalSeconds.size() > 1) {
+            return true;
+        }
+        for (Double arrivalSecond : workflowArrivalSeconds) {
+            if (arrivalSecond != null && arrivalSecond > 0.0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 为刚越过到达门控的 Job 所属工作流记录一次 WORKFLOW_ARRIVED 证据（每工作流一次）。
+     *
+     * @param job 刚被释放的 Job
+     */
+    private void announceWorkflowArrivalFor(Job job) {
+        if (!arrivalEvidenceEnabled()) {
+            return;
+        }
+        Integer workflowIndex = taskWorkflowIndices.get(job.getCloudletId());
+        if (workflowIndex == null || announcedWorkflowIndices.contains(workflowIndex)) {
+            return;
+        }
+        announcedWorkflowIndices.add(workflowIndex);
+        double arrivalSecond = workflowArrivalSeconds.get(workflowIndex);
+        eventRecorder.record(SimulationEventType.WORKFLOW_ARRIVED, CloudSim.clock(), job,
+                SimulationEventRecorder.attributes("workflowIndex", workflowIndex,
+                        "arrivalSecond", arrivalSecond));
+    }
+
+    /**
+     * 在最早未到达的提交时刻排入一次到达重扫事件；更早的重扫已排队时不重复排队。
+     *
+     * @param arrivalSecond 触发重扫的目标时刻
+     */
+    private void scheduleArrivalRescan(double arrivalSecond) {
+        if (pendingArrivalScanSecond == null || arrivalSecond < pendingArrivalScanSecond) {
+            schedule(getId(), arrivalSecond - CloudSim.clock(),
+                    WorkflowSimTags.WORKFLOW_ARRIVAL_SCAN, null);
+            pendingArrivalScanSecond = arrivalSecond;
+        }
     }
 
     /**
@@ -823,6 +932,14 @@ public final class WorkflowEngine extends SimEntity {
                 }
                 /** 当前已返回列表中已出现该 Job 的全部父 Job ID，可以进入投递队列。 */
                 if (flag) {
+                    // R5 动态到达：提交时刻未到的 Job 留在就绪列表；到达重扫事件会在
+                    // 最早未到达的提交时刻再次触发幂等就绪扫描。
+                    double arrivalSecond = arrivalSecondFor(job);
+                    if (arrivalSecond > CloudSim.clock()) {
+                        scheduleArrivalRescan(arrivalSecond);
+                        continue;
+                    }
+                    announceWorkflowArrivalFor(job);
                     // PLAT-13：retry Job 的 JOB_READY 补充与失败原 Job 的关联属性，
                     // 使下游事件消费者能直接识别重试尝试（attempt 语义）。
                     Integer retryOfFailedJobId = retryOfFailedJobIds.get(job.getCloudletId());

@@ -56,6 +56,7 @@ public final class SimulationSession implements AutoCloseable {
                     config.getSchedulingAlgorithm(), config.getPlanningAlgorithm(),
                     config.getReduceMethod(), config.getDeadline());
         }
+        Parameters.setWorkflowArrivalSeconds(config.getWorkflowArrivalSeconds());
         ReplicaCatalog.init(config.getFileSystem());
         FailureParameters.reset();
         FailureMonitor.init();

@@ -41,6 +41,7 @@ public final class SimulationReport {
     private final WorkflowProfile workflowProfile;
     private final SimulationMetrics metrics;
     private final SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
+    private final List<WorkflowOutcome> workflowOutcomes;
 
     private SimulationReport(SimulationConfig config, PlatformProfile platform,
             double makespan, List<InputArtifact> inputs, List<WorkflowInputReport> inputReports,
@@ -65,6 +66,40 @@ public final class SimulationReport {
         this.workflowProfile = WorkflowProfile.fromTasks(sourceTasks);
         this.metrics = SimulationMetrics.calculate(makespan, this.jobs, this.vmSummaries, this.events,
                 this.tasks, sourceTasks, config, platform);
+        this.workflowOutcomes = computeWorkflowOutcomes();
+    }
+
+    /**
+     * R5 动态到达：按输入下标计算每个工作流的到达/完成/流时证据。
+     *
+     * <p>任务编号在输入间连续分配，任务区间由各输入报告的 taskCount 推导；流时取该工作流
+     * 全部成功任务的最大完成时刻减去其配置提交时刻。没有任何成功任务时流时为 {@code NaN}。</p>
+     */
+    private List<WorkflowOutcome> computeWorkflowOutcomes() {
+        List<Double> arrivals = config.getWorkflowArrivalSeconds();
+        List<WorkflowOutcome> outcomes = new ArrayList<>();
+        int firstTaskId = 1;
+        for (int i = 0; i < inputReports.size(); i++) {
+            int taskCount = inputReports.get(i).getTaskCount();
+            int lastTaskId = firstTaskId + taskCount - 1;
+            double arrivalSecond = (arrivals != null && i < arrivals.size())
+                    ? arrivals.get(i) : 0.0;
+            double lastSuccessFinishSecond = Double.NaN;
+            for (TaskOutcome task : tasks) {
+                if (task.getTaskId() >= firstTaskId && task.getTaskId() <= lastTaskId
+                        && task.getTaskStatus() == Cloudlet.SUCCESS
+                        && (Double.isNaN(lastSuccessFinishSecond)
+                                || task.getFinishTime() > lastSuccessFinishSecond)) {
+                    lastSuccessFinishSecond = task.getFinishTime();
+                }
+            }
+            outcomes.add(new WorkflowOutcome(i, config.getWorkflowPaths().get(i),
+                    arrivalSecond, firstTaskId, lastTaskId, taskCount, lastSuccessFinishSecond,
+                    Double.isNaN(lastSuccessFinishSecond) ? Double.NaN
+                            : lastSuccessFinishSecond - arrivalSecond));
+            firstTaskId = lastTaskId + 1;
+        }
+        return Collections.unmodifiableList(outcomes);
     }
 
     static SimulationReport capture(SimulationConfig config, PlatformProfile platform,
@@ -184,6 +219,13 @@ public final class SimulationReport {
     public List<WorkflowInputReport> getInputReports() { return inputReports; }
     public List<JobOutcome> getJobs() { return jobs; }
     public List<TaskOutcome> getTasks() { return tasks; }
+
+    /**
+     * R5 动态到达：按输入下标返回每个工作流的到达/流时证据。
+     *
+     * @return 与 {@link #getInputReports()} 同序的每工作流结果
+     */
+    public List<WorkflowOutcome> getWorkflowOutcomes() { return workflowOutcomes; }
     public Map<Integer, VmSummary> getVmSummaries() { return vmSummaries; }
     /**
      * 已与平台预检结果比对过的实际 CloudSim VM 到 Host 放置。
@@ -435,6 +477,49 @@ public final class SimulationReport {
          * @return 此任务是否具有精确 Job 时序
          */
         public boolean hasExactJobTiming() { return exactJobTiming; }
+    }
+
+    /** R5 动态到达：单个工作流输入的到达时刻、任务区间与流时证据。 */
+    public static final class WorkflowOutcome {
+
+        private final int index;
+        private final String path;
+        private final double arrivalSecond;
+        private final int firstTaskId;
+        private final int lastTaskId;
+        private final int taskCount;
+        private final double lastSuccessFinishSecond;
+        private final double flowTimeSeconds;
+
+        WorkflowOutcome(int index, String path, double arrivalSecond, int firstTaskId,
+                int lastTaskId, int taskCount, double lastSuccessFinishSecond,
+                double flowTimeSeconds) {
+            this.index = index;
+            this.path = path;
+            this.arrivalSecond = arrivalSecond;
+            this.firstTaskId = firstTaskId;
+            this.lastTaskId = lastTaskId;
+            this.taskCount = taskCount;
+            this.lastSuccessFinishSecond = lastSuccessFinishSecond;
+            this.flowTimeSeconds = flowTimeSeconds;
+        }
+
+        /** @return 输入在本次提交中的下标（0 起） */
+        public int getIndex() { return index; }
+        /** @return 输入文件路径 */
+        public String getPath() { return path; }
+        /** @return 配置的提交时刻（模拟秒） */
+        public double getArrivalSecond() { return arrivalSecond; }
+        /** @return 该输入的首个任务编号 */
+        public int getFirstTaskId() { return firstTaskId; }
+        /** @return 该输入的末个任务编号 */
+        public int getLastTaskId() { return lastTaskId; }
+        /** @return 该输入的任务数量 */
+        public int getTaskCount() { return taskCount; }
+        /** @return 全部成功任务的最大完成时刻；无成功任务时为 {@code NaN} */
+        public double getLastSuccessFinishSecond() { return lastSuccessFinishSecond; }
+        /** @return 流时 = 最大成功完成时刻 − 提交时刻；无成功任务时为 {@code NaN} */
+        public double getFlowTimeSeconds() { return flowTimeSeconds; }
     }
 
     /** 基于已完成 Job 的每 VM 聚合值，不是 Host 利用率模型。 */

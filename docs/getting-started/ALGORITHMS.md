@@ -139,6 +139,7 @@ CPOP 复现关键路径与关键路径处理器（相对 makespan 87.1 ≈ 论�
 | 复现 Braun 2001 风格的独立任务映射对比 | 静态独立任务映射 |
 | 比较 DAG 感知的离线规划算法（HEFT 家族，共享存储） | 受控静态 DAG 映射 |
 | 复现 Topcuoglu 2002 风格的通信感知 HEFT/CPOP 对比 | 通信感知 LOCAL 静态 DAG 映射 |
+| 多个工作流错峰到达、共享 VM 池，比较每工作流流时 | 任意在线调度器 + `workflowArrivalSeconds`（R5） |
 
 支持的完整标签列表以 `AlgorithmCatalog.isSupportedBySimulationRunner()` 为准。
 跨类比较无效——请为每一类建立独立的实验矩阵。

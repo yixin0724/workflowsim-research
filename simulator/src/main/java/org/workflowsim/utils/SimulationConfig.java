@@ -19,6 +19,7 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 public final class SimulationConfig {
 
     private final List<String> workflowPaths;
+    private final List<Double> workflowArrivalSeconds;
     private final int vmCount;
     private final OverheadModelConfig overheadModel;
     private final ClusteringParameters clusteringParameters;
@@ -38,6 +39,8 @@ public final class SimulationConfig {
 
     private SimulationConfig(Builder builder) {
         this.workflowPaths = Collections.unmodifiableList(new ArrayList<>(builder.workflowPaths));
+        this.workflowArrivalSeconds = Collections.unmodifiableList(
+                new ArrayList<>(builder.workflowArrivalSeconds));
         this.vmCount = builder.vmCount;
         this.overheadModel = builder.overheadModel;
         this.clusteringParameters = builder.clusteringParameters;
@@ -74,6 +77,14 @@ public final class SimulationConfig {
     /** @return 不可修改的工作流输入文件路径列表 */
     public List<String> getWorkflowPaths() {
         return workflowPaths;
+    }
+
+    /**
+     * @return 每个工作流输入的提交时刻（模拟秒），与 {@link #getWorkflowPaths()}
+     *         一一对应；全部为 0.0 时行为与单时刻提交逐位一致
+     */
+    public List<Double> getWorkflowArrivalSeconds() {
+        return workflowArrivalSeconds;
     }
 
     /** @return 可用虚拟机数量 */
@@ -166,6 +177,7 @@ public final class SimulationConfig {
      */
     public Builder toBuilder() {
         return new Builder(workflowPaths, vmCount)
+                .workflowArrivalSeconds(workflowArrivalSeconds)
                 .overheadModel(overheadModel)
                 .clusteringParameters(clusteringParameters)
                 .schedulingAlgorithm(schedulingAlgorithm)
@@ -205,6 +217,7 @@ public final class SimulationConfig {
     public static final class Builder {
 
         private final List<String> workflowPaths;
+        private List<Double> workflowArrivalSeconds;
         private final int vmCount;
         private OverheadModelConfig overheadModel = OverheadModelConfig.none();
         private ClusteringParameters clusteringParameters = new ClusteringParameters(
@@ -228,6 +241,9 @@ public final class SimulationConfig {
                 throw new IllegalArgumentException("At least one workflow input is required");
             }
             this.workflowPaths = new ArrayList<>(workflowPaths);
+            // R5 默认：全部工作流在 t=0 提交——与历史单时刻提交逐位一致。
+            this.workflowArrivalSeconds = new ArrayList<>(
+                    Collections.nCopies(workflowPaths.size(), 0.0));
             this.vmCount = vmCount;
         }
 
@@ -341,6 +357,21 @@ public final class SimulationConfig {
         }
 
         /**
+         * R5：设置每个工作流输入的提交时刻（动态到达）。
+         *
+         * @param value 与输入路径一一对应的提交时刻列表（模拟秒）
+         * @return 当前构建器
+         */
+        public Builder workflowArrivalSeconds(List<Double> value) {
+            if (value == null) {
+                throw new IllegalArgumentException("Workflow arrival seconds cannot be null; "
+                        + "use an explicit list of zeros for simultaneous submission");
+            }
+            this.workflowArrivalSeconds = new ArrayList<>(value);
+            return this;
+        }
+
+        /**
          * 校验全部模型前提并创建不可变配置。
          *
          * @return 可用于 {@link SimulationSession} 的配置
@@ -351,6 +382,34 @@ public final class SimulationConfig {
                 if (path == null || path.trim().isEmpty()) {
                     throw new IllegalArgumentException("Workflow input paths cannot be empty");
                 }
+            }
+            if (workflowArrivalSeconds == null
+                    || workflowArrivalSeconds.size() != workflowPaths.size()) {
+                throw new IllegalArgumentException("Workflow arrival seconds must cover every "
+                        + "workflow input path");
+            }
+            for (Double arrivalSecond : workflowArrivalSeconds) {
+                if (arrivalSecond == null || !Double.isFinite(arrivalSecond.doubleValue())
+                        || arrivalSecond < 0.0) {
+                    throw new IllegalArgumentException("Workflow arrival seconds must be finite "
+                            + "and non-negative");
+                }
+            }
+            boolean hasNonZeroArrival = false;
+            for (Double arrivalSecond : workflowArrivalSeconds) {
+                if (arrivalSecond > 0.0) {
+                    hasNonZeroArrival = true;
+                    break;
+                }
+            }
+            // R5：到达门控按原始任务编号归属工作流；聚类会生成新 Job ID，
+            // 无法可靠归属，故非零提交时刻与非 NONE 聚类互斥（显式拒绝而非静默失效）。
+            if (hasNonZeroArrival
+                    && clusteringParameters.getClusteringMethod()
+                            != ClusteringParameters.ClusteringMethod.NONE) {
+                throw new IllegalArgumentException("Non-zero workflow arrival seconds require "
+                        + "clustering method NONE: clustered jobs no longer carry the original "
+                        + "task ids used for arrival gating");
             }
             if (vmCount <= 0) {
                 throw new IllegalArgumentException("VM count must be positive");
