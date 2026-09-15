@@ -131,6 +131,8 @@ DAG 依赖防御完善（带依赖任务 fail-fast 拒绝）。
 > R3 故障分布 KS 检验（8 个，含效力对照）与 JaCoCo 覆盖率棘轮门禁落地
 > （simulator instruction ≥ 0.48 / branch ≥ 0.43，experiments ≥ 0.23 / ≥ 0.25）；
 > R4 RL 调度轨道落地（`org.workflowsim.rl` 环境闭环：观测/动作/奖励契约 +
-> `RL_POLICY` 在线调度器 + 贪心基线 episode 黄金值 5116.1 + 轨迹恒等验收）。
-> 核心单元测试现为 **243 个**、核心集成 **52 个**、完整门禁 **358 个**
+> `RL_POLICY` 在线调度器 + 贪心基线 episode 黄金值 5116.1 + 轨迹恒等验收）；
+> R5 多工作流动态到达落地（`workflowArrivalSeconds` 错峰提交 + 引擎到达门控 +
+> `WORKFLOW_ARRIVED` 证据 + 每工作流流时报告，黄金值 8118.1 / 8168.0 / 8118.0）。
+> 核心单元测试现为 **249 个**、核心集成 **56 个**、完整门禁 **368 个**
 > （以 `mvn verify` 实际输出为准）。

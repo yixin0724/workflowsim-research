@@ -57,6 +57,13 @@ public final class WorkflowParser {
 
     /** 最近一次解析中每个已消费输入的转换报告。 */
     private final List<WorkflowInputReport> inputReports;
+
+    /**
+     * R5 动态到达：最近一次解析中每个任务编号到其来源输入下标的映射。
+     *
+     * <p>任务编号在各输入间连续分配，输入下标与 {@link #inputReports} 的位置一一对应。</p>
+     */
+    private final Map<Integer, Integer> taskWorkflowIndices;
     /** 创建任务时写入的 CloudSim 用户编号。 */
     private final int userId;
 
@@ -94,6 +101,7 @@ public final class WorkflowParser {
 
         setTaskList(new ArrayList<>());
         this.inputReports = new ArrayList<>();
+        this.taskWorkflowIndices = new HashMap<>();
     }
 
     /**
@@ -108,9 +116,10 @@ public final class WorkflowParser {
         setTaskList(new ArrayList<Task>());
         mName2Task.clear();
         inputReports.clear();
+        taskWorkflowIndices.clear();
         jobIdStartsFrom = 1;
         if (this.daxPath != null) {
-            parseWorkflowFile(this.daxPath, null);
+            parseInputWithWorkflowIndex(this.daxPath, null, 0);
         } else if (this.daxPaths != null) {
             if (this.daxPaths.isEmpty()) {
                 throw new WorkflowValidationException("No workflow input path was configured");
@@ -120,11 +129,35 @@ public final class WorkflowParser {
                 String fileNamespace = isolateInputFiles
                         ? "workflow-" + inputIndex
                         : null;
-                parseWorkflowFile(this.daxPaths.get(inputIndex), fileNamespace);
+                parseInputWithWorkflowIndex(this.daxPaths.get(inputIndex), fileNamespace, inputIndex);
             }
         } else {
             throw new WorkflowValidationException("No workflow input path was configured");
         }
+    }
+
+    /**
+     * 解析单个输入并把它产生的任务登记到指定工作流下标（R5 动态到达用）。
+     *
+     * @param path 输入文件路径
+     * @param fileNamespace 多输入提交的文件作用域；单输入时为 {@code null}
+     * @param workflowIndex 该输入在本次提交中的下标
+     */
+    private void parseInputWithWorkflowIndex(String path, String fileNamespace, int workflowIndex) {
+        int firstTaskId = this.jobIdStartsFrom;
+        parseWorkflowFile(path, fileNamespace);
+        for (int taskId = firstTaskId; taskId < this.jobIdStartsFrom; taskId++) {
+            taskWorkflowIndices.put(taskId, workflowIndex);
+        }
+    }
+
+    /**
+     * 获取最近一次解析的任务编号→来源输入下标映射（R5 动态到达用）。
+     *
+     * @return 不可修改映射；单输入时全部任务下标为 0
+     */
+    public Map<Integer, Integer> getTaskWorkflowIndices() {
+        return Collections.unmodifiableMap(taskWorkflowIndices);
     }
 
     /**

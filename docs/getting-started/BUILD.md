@@ -83,7 +83,7 @@ mvn compile
 ### 快速测试
 
 ```bash
-# 运行核心单元/语义测试（~7秒，243个测试）
+# 运行核心单元/语义测试（~7秒，249个测试）
 mvn test
 
 # 两个模块的快速测试
@@ -104,20 +104,20 @@ mvn test -Dtest=SimulationRunnerIntegrationTest#supportedAlgorithmCompletesAndPr
 # 核心模块完整验证（单元 + 集成，~15秒）
 mvn verify
 
-# 完整工程质量门禁（核心 + 实验，~2分钟，358个测试 + 覆盖率阈值检查）
+# 完整工程质量门禁（核心 + 实验，~2分钟，368个测试 + 覆盖率阈值检查）
 mvn verify
 ```
 
 **测试统计**：
-- 核心单元测试：243 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、故障分布 KS 检验与 RL 策略契约）
-- 核心集成测试：52 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收与 RL episode 端到端验收）
+- 核心单元测试：249 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、故障分布 KS 检验、RL 策略契约与动态到达配置契约）
+- 核心集成测试：56 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收与多工作流动态到达验收）
 - 实验模块测试：63 个（17 单元 + 46 集成）
-- **总计：358 个测试**
+- **总计：368 个测试**
 
 **覆盖率门禁（R3）**：JaCoCo `check-unit-coverage` 在 verify 阶段对单元测试覆盖率
 （`target/jacoco.exec`）强制 BUNDLE 级下限——simulator instruction ≥ 0.48 /
 branch ≥ 0.43，experiments ≥ 0.23 / ≥ 0.25（棘轮值，只升不降；实测 2026-09-14：
-48.51%/43.25%、24.03%/26.81%）。报告输出在 `target/site/jacoco/`（HTML+XML）与
+48.81%/43.52%、24.03%/26.81%）。报告输出在 `target/site/jacoco/`（HTML+XML）与
 `target/site/jacoco-it/`（集成覆盖率）。
 
 CI：`.github/workflows/ci.yml` 在每次 push/PR 到 `main` 时以 JDK 17 执行完整门禁；

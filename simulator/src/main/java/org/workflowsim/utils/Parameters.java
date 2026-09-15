@@ -213,6 +213,13 @@ public class Parameters {
     
     /** 默认使用与 CloudSim 一致的数据中心级成本模型。 */
     private static CostModel costModel = CostModel.DATACENTER;
+
+    /**
+     * R5 动态到达：每个工作流输入的提交时刻（模拟秒），与输入路径一一对应。
+     *
+     * <p>{@code null} 或全零表示全部输入在 t=0 提交（历史行为）。</p>
+     */
+    private static List<Double> workflowArrivalSeconds;
     
     /**
      * 初始化单输入工作流的历史全局参数。
@@ -473,11 +480,28 @@ public class Parameters {
         runtimeReferenceMips = 1000.0;
         randomSeed = 0L;
         costModel = CostModel.DATACENTER;
+        workflowArrivalSeconds = null;
         SimulationRandom.reset(randomSeed);
     }
     
     /** @return 不可修改的多输入路径列表；单输入配置时为 {@code null} */
     public static List<String> getDAXPaths() {
         return daxPaths == null ? null : Collections.unmodifiableList(daxPaths);
+    }
+
+    /**
+     * 设置每个工作流输入的提交时刻（模拟秒），与输入路径一一对应。
+     *
+     * @param arrivalSeconds 每个输入的提交时刻；{@code null} 表示全部 t=0
+     */
+    public static void setWorkflowArrivalSeconds(List<Double> arrivalSeconds) {
+        workflowArrivalSeconds = arrivalSeconds == null
+                ? null : new ArrayList<>(arrivalSeconds);
+    }
+
+    /** @return 每个输入的提交时刻列表（模拟秒）；未配置时为 {@code null} */
+    public static List<Double> getWorkflowArrivalSeconds() {
+        return workflowArrivalSeconds == null
+                ? null : Collections.unmodifiableList(workflowArrivalSeconds);
     }
 }

@@ -205,6 +205,10 @@ public final class WorkflowPlanner extends SimEntity {
                                 "plannedTaskCount", sharedStorageDagPlanTrace == null ? 0
                                         : sharedStorageDagPlanTrace.getTaskPlans().size()));
                 processImpactFactors(getTaskList());
+                // R5 动态到达：把每个输入的提交时刻与任务归属登记给引擎；全部 t=0 时
+                // 引擎行为与历史单时刻提交逐位一致。
+                getWorkflowEngine().setWorkflowArrivals(Parameters.getWorkflowArrivalSeconds(),
+                        getWorkflowParser().getTaskWorkflowIndices());
                 sendNow(getClusteringEngineId(), WorkflowSimTags.JOB_SUBMIT, getTaskList());
                 break;
             case CloudSimTags.END_OF_SIMULATION:

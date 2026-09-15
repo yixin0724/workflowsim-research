@@ -52,6 +52,13 @@ public class WorkflowSimTags {
      */
     public static final int TRANSFER_CONTENTION_CHECK = BASE + 8;
 
+    /**
+     * R5 动态到达：多工作流错峰提交时，引擎向自己发送的到达重扫事件。
+     * 在最早未到达工作流的提交时刻触发一次幂等就绪扫描，释放该时刻已到达
+     * 工作流的根作业。
+     */
+    public static final int WORKFLOW_ARRIVAL_SCAN = BASE + 9;
+
     /** 禁止实例化常量类。 */
     private WorkflowSimTags() {
         throw new UnsupportedOperationException("WorkflowSim Tags cannot be instantiated");
