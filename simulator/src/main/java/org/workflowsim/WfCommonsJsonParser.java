@@ -197,7 +197,14 @@ public final class WfCommonsJsonParser {
                     || Double.isInfinite(file.sizeInBytes) || file.sizeInBytes < 0.0) {
                 throw new WorkflowValidationException("Invalid WfCommons file size for " + file.id);
             }
-            fileSizes.put(file.id, file.sizeInBytes);
+            // R8 审计修复（架构通道 P1-4）：重复文件 id 原为 last-wins 静默覆盖，
+            // 两处声明尺寸不同时传输字节数取决于 JSON 声明顺序。fail-fast。
+            Double previousSize = fileSizes.put(file.id, file.sizeInBytes);
+            if (previousSize != null
+                    && Double.compare(previousSize.doubleValue(), file.sizeInBytes) != 0) {
+                throw new WorkflowValidationException("Duplicate WfCommons file id " + file.id
+                        + " with conflicting sizes: " + previousSize + " vs " + file.sizeInBytes);
+            }
         }
         return fileSizes;
     }
@@ -211,7 +218,15 @@ public final class WfCommonsJsonParser {
             if (task.runtimeInSeconds == null) {
                 throw new WorkflowValidationException("Missing WfCommons execution runtime for task " + task.id);
             }
-            runtimes.put(task.id, task.runtimeInSeconds);
+            // R8 审计修复（架构通道 P1-4）：重复 execution task id 原为 last-wins
+            // 静默覆盖，任务长度取决于 JSON 声明顺序。fail-fast。
+            Double previousRuntime = runtimes.put(task.id, task.runtimeInSeconds);
+            if (previousRuntime != null
+                    && Double.compare(previousRuntime.doubleValue(), task.runtimeInSeconds) != 0) {
+                throw new WorkflowValidationException("Duplicate WfCommons execution task id "
+                        + task.id + " with conflicting runtimes: " + previousRuntime
+                        + " vs " + task.runtimeInSeconds);
+            }
         }
         return runtimes;
     }
@@ -246,6 +261,13 @@ public final class WfCommonsJsonParser {
             WorkflowInputReport report) {
         double length = Parameters.getRuntimeReferenceMips() * runtimeSeconds
                 * Parameters.getRuntimeScale();
+        // R8 审计修复（架构通道 P1-4）：镜像 DAX 路径的溢出防护——超大 runtime ×
+        // 参考 MIPS × scale 可能为 Infinity 或超过 Long.MAX_VALUE，原实现经
+        // (long) 强转静默钳到 Long.MAX_VALUE，产生无法追溯的长度污染。
+        if (Double.isNaN(length) || Double.isInfinite(length) || length > Long.MAX_VALUE) {
+            throw new WorkflowValidationException("Invalid converted runtime for WfCommons task "
+                    + taskId + ": " + runtimeSeconds + " s overflows cloudlet length");
+        }
         if (length < MIN_CLOUDLET_LENGTH) {
             report.recordNormalization(
                     WorkflowInputReport.NormalizationKind.TASK_RUNTIME_FLOORED_TO_MINIMUM,

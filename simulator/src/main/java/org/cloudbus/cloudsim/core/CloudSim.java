@@ -196,9 +196,10 @@ public class CloudSim {
 
 			return clock;
 		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
-			throw new NullPointerException("CloudSim.startCloudSimulation() :"
-					+ " Error - you haven't initialized CloudSim.");
+			// R8 审计修复（P1-1）：原实现把事件循环内的一切 IAE 改写为误导性
+			// NPE("you haven't initialized CloudSim")且不保留 cause——坏 DAX 的
+			// WorkflowValidationException 等真实根因被埋两层。现原样重抛根因。
+			throw e;
 		}
 	}
 
@@ -218,8 +219,8 @@ public class CloudSim {
 		try {
 			runStop();
 		} catch (IllegalArgumentException e) {
-			throw new NullPointerException("CloudSim.stopCloudSimulation() : "
-					+ "Error - can't stop Cloud Simulation.");
+			// R8 审计修复（P1-1）：原样重抛根因，不再改写为无 cause 的 NPE。
+			throw e;
 		}
 	}
 

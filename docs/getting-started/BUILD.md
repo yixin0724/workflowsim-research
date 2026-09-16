@@ -83,7 +83,7 @@ mvn compile
 ### 快速测试
 
 ```bash
-# 运行核心单元/语义测试（~7秒，263个测试）
+# 运行核心单元/语义测试（~7秒，290个测试）
 mvn test
 
 # 两个模块的快速测试
@@ -104,20 +104,21 @@ mvn test -Dtest=SimulationRunnerIntegrationTest#supportedAlgorithmCompletesAndPr
 # 核心模块完整验证（单元 + 集成，~15秒）
 mvn verify
 
-# 完整工程质量门禁（核心 + 实验，~2分钟，416个测试 + 覆盖率阈值检查）
+# 完整工程质量门禁（核心 + 实验，~2分钟，446个测试 + 覆盖率阈值检查）
 mvn verify
 ```
 
-**测试统计**：
-- 核心单元测试：263 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、Fat-tree 拓扑结构与确定性路由、故障分布 KS 检验、RL 策略契约与动态到达配置契约）
-- 核心集成测试：72 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收、多工作流动态到达验收、Fat-tree 链路争用端到端验收、Fat-tree × 调度规划器兼容性验收（论文成本矩阵 fixture 下排名翻转黄金值）与全平台健康矩阵——全部在线调度器/独立规划器/DAG 规划器/传输模型/错峰到达/RL 轨道交叉 + 统一报告不变量校验器）
-- 实验模块测试：81 个（27 单元 + 54 集成，含 Fat-tree × 调度 campaign 执行器纯逻辑单测与 campaign 黄金值/DAG 兼容性验收）
-- **总计：416 个测试**
+**测试统计**（2026-09-16 R8 审计轮 clean 门禁实录）：
+- 核心单元测试：290 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、Fat-tree 拓扑结构/确定性路由/路由-容量闭包契约、故障分布 KS 检验与分布/开销声明边界校验、PSO 适应度手算值与非正 MIPS fail-fast、规划器方向性契约、解析器溢出/重复 id 拒绝、RL 策略契约与动态到达配置契约）
+- 核心集成测试：75 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收、多工作流动态到达验收（修复后黄金 8118.1/8068.1）、Fat-tree 链路争用端到端验收（对称供给 284.1 == R2 单位契约锁 + 慢链路 588.1 模型有效性锁）、Fat-tree × 调度规划器兼容性验收（论文成本矩阵 fixture 下排名翻转黄金值）、规划器方向性验收（HEFT/CPOP ≤ 同种子 RANDOM）与全平台健康矩阵——全部在线调度器/独立规划器/DAG 规划器/传输模型/错峰到达/RL 轨道交叉 + 统一报告不变量校验器）
+- 实验模块测试：81 个（27 单元 + 54 集成，含 Fat-tree × 调度 campaign 执行器纯逻辑单测与 campaign 黄金值/DAG 兼容性验收（R8 重录值锁定，含退化恒等契约））
+- **总计：446 个测试**
 
 **覆盖率门禁（R3）**：JaCoCo `check-unit-coverage` 在 verify 阶段对单元测试覆盖率
-（`target/jacoco.exec`）强制 BUNDLE 级下限——simulator instruction ≥ 0.48 /
-branch ≥ 0.43，experiments ≥ 0.23 / ≥ 0.25（棘轮值，只升不降；实测 2026-09-16：
-49.43%/44.02%、32.87%/34.94%）。报告输出在 `target/site/jacoco/`（HTML+XML）与
+（`target/jacoco.exec`）强制 BUNDLE 级下限——simulator instruction ≥ 0.49 /
+branch ≥ 0.44（R8 审计轮随实测上调），experiments ≥ 0.23 / ≥ 0.25（棘轮值，只升不降；
+experiments 不上调因大型语料缺失时相关单测自动跳过；实测 2026-09-16 R8
+审计轮：49.90%/44.78%、32.85%/34.91%）。报告输出在 `target/site/jacoco/`（HTML+XML）与
 `target/site/jacoco-it/`（集成覆盖率）。
 
 CI：`.github/workflows/ci.yml` 在每次 push/PR 到 `main` 时以 JDK 17 执行完整门禁；

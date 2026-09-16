@@ -388,20 +388,70 @@ public final class WorkflowEngine extends SimEntity {
     /**
      * 返回指定 Job 所属工作流输入的提交时刻（模拟秒）。
      *
+     * <p>R8 审计修复（P0-1）：归属按 Job 携带的原始任务 ID 判定。Job ID（NONE 聚类下
+     * 0..N-1）与解析任务 ID（1..N）空间错位一位，直接以 Job ID 查任务归属表会把每个
+     * Job 归到前一个任务的工作流，且统一 stage-in Job（ID=N）恰命中最后一个任务键、
+     * 被门控到最晚到达时刻，导致早到工作流被静默推迟。现在：stage-in Job 显式视为
+     * t=0 的平台数据准备（错峰门控由各根 Job 按自身归属执行）；compute/retry Job 按
+     * 任务副本归属，归属缺失或跨输入即 fail-fast，不再静默回退 0.0。</p>
+     *
      * @param job 待查询的 Job
-     * @return 提交时刻；未配置到达信息或映射缺失时为 0.0
+     * @return 提交时刻；未配置到达信息时为 0.0
      */
     private double arrivalSecondFor(Job job) {
         if (workflowArrivalSeconds == null || taskWorkflowIndices.isEmpty()) {
             return 0.0;
         }
-        Integer workflowIndex = taskWorkflowIndices.get(job.getCloudletId());
-        if (workflowIndex == null || workflowIndex < 0
-                || workflowIndex >= workflowArrivalSeconds.size()) {
+        if (job.getClassType() == ClassType.STAGE_IN.value) {
             return 0.0;
         }
-        Double arrivalSecond = workflowArrivalSeconds.get(workflowIndex);
-        return arrivalSecond == null ? 0.0 : arrivalSecond;
+        Integer workflowIndex = workflowIndexOf(job);
+        if (workflowIndex == null) {
+            return 0.0;
+        }
+        if (workflowIndex.intValue() < 0 || workflowIndex.intValue() >= workflowArrivalSeconds.size()) {
+            throw new IllegalStateException("Workflow index " + workflowIndex + " of Job "
+                    + job.getCloudletId() + " is outside the configured arrival seconds");
+        }
+        Double arrivalSecond = workflowArrivalSeconds.get(workflowIndex.intValue());
+        return arrivalSecond == null ? 0.0 : arrivalSecond.doubleValue();
+    }
+
+    /**
+     * 按 Job 携带的原始任务 ID 判定其工作流输入下标（R8 审计修复 P0-1）。
+     *
+     * <p>Job ID（NONE 聚类下 0..N-1）与解析任务 ID（1..N）空间错位一位，直接以
+     * Job ID 查 {@code taskWorkflowIndices} 会把每个 Job 归到前一个任务的工作流，
+     * 且统一 stage-in Job（ID=N）恰命中最后一个任务键。现在归属一律经任务副本
+     * 判定；compute/retry Job 归属缺失或跨输入即 fail-fast，不再静默回退。</p>
+     *
+     * @param job 待归属的 Job（stage-in 类 Job 不应调用，调用方先行过滤）
+     * @return 工作流输入下标；非 compute 且无任务副本时返回 {@code null}
+     */
+    private Integer workflowIndexOf(Job job) {
+        List<Task> tasks = job.getTaskList();
+        if (tasks == null || tasks.isEmpty()) {
+            if (job.getClassType() == ClassType.COMPUTE.value) {
+                throw new IllegalStateException("Job " + job.getCloudletId()
+                        + " carries no task for workflow arrival attribution");
+            }
+            return null;
+        }
+        Integer workflowIndex = null;
+        for (Task task : tasks) {
+            Integer index = taskWorkflowIndices.get(task.getCloudletId());
+            if (index == null) {
+                throw new IllegalStateException("Task " + task.getCloudletId() + " of Job "
+                        + job.getCloudletId() + " has no workflow arrival attribution");
+            }
+            if (workflowIndex == null) {
+                workflowIndex = index;
+            } else if (!workflowIndex.equals(index)) {
+                throw new IllegalStateException("Job " + job.getCloudletId()
+                        + " spans multiple workflow inputs; arrival attribution is ambiguous");
+            }
+        }
+        return workflowIndex;
     }
 
     /**
@@ -434,7 +484,11 @@ public final class WorkflowEngine extends SimEntity {
         if (!arrivalEvidenceEnabled()) {
             return;
         }
-        Integer workflowIndex = taskWorkflowIndices.get(job.getCloudletId());
+        // stage-in 是平台准备、无单一工作流归属，不产生到达证据（R8 审计 P0-1）。
+        if (job.getClassType() == ClassType.STAGE_IN.value) {
+            return;
+        }
+        Integer workflowIndex = workflowIndexOf(job);
         if (workflowIndex == null || announcedWorkflowIndices.contains(workflowIndex)) {
             return;
         }
@@ -669,7 +723,10 @@ public final class WorkflowEngine extends SimEntity {
                 requiredBytes += bytes;
                 fileCount += fromParent.size();
                 modeledSeconds += seconds;
-                if (seconds <= 0.0 || bytes <= 0L) {
+                // R8 审计修复（F2）：争用流只携带真正需要传输的字节（与 seconds
+                // 同口径）——已本地文件贡献零秒，也不再计入争用字节量。
+                long transferredBytes = sumTransferableBytes(fromParent, job, datacenter);
+                if (seconds <= 0.0 || transferredBytes <= 0L) {
                     continue; // 副本已在目标 VM 上，零传输。
                 }
                 String sourceEndpoint = localFileSystem
@@ -686,10 +743,11 @@ public final class WorkflowEngine extends SimEntity {
                     resources.add(sourceEndpoint);
                     resources.add("VM:" + job.getVmId());
                     resources.addAll(pathLinks);
-                    contention.addTransfer(transferId, bytes, resources, bytes / seconds, now);
+                    contention.addTransfer(transferId, transferredBytes, resources,
+                            transferredBytes / seconds, now);
                 } else {
-                    contention.addTransfer(transferId, bytes, sourceEndpoint,
-                            "VM:" + job.getVmId(), bytes / seconds, now);
+                    contention.addTransfer(transferId, transferredBytes, sourceEndpoint,
+                            "VM:" + job.getVmId(), transferredBytes / seconds, now);
                 }
                 contentionTransferJobs.put(transferId, job);
                 pending.add(transferId);
@@ -707,16 +765,18 @@ public final class WorkflowEngine extends SimEntity {
                 requiredBytes += bytes;
                 fileCount += external.size();
                 modeledSeconds += seconds;
-                if (seconds > 0.0 && bytes > 0L) {
+                // R8 审计修复（F2）：与父组同口径，只对真正传输的字节建流。
+                long transferredBytes = sumTransferableBytes(external, job, datacenter);
+                if (seconds > 0.0 && transferredBytes > 0L) {
                     long transferId = nextContentionTransferId++;
                     if (fatTree) {
                         // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
-                        contention.addTransfer(transferId, bytes,
+                        contention.addTransfer(transferId, transferredBytes,
                                 java.util.Collections.singletonList("VM:" + job.getVmId()),
-                                bytes / seconds, now);
+                                transferredBytes / seconds, now);
                     } else {
-                        contention.addTransfer(transferId, bytes, Parameters.SOURCE,
-                                "VM:" + job.getVmId(), bytes / seconds, now);
+                        contention.addTransfer(transferId, transferredBytes, Parameters.SOURCE,
+                                "VM:" + job.getVmId(), transferredBytes / seconds, now);
                     }
                     contentionTransferJobs.put(transferId, job);
                     pending.add(transferId);
@@ -755,6 +815,23 @@ public final class WorkflowEngine extends SimEntity {
         long bytes = 0L;
         for (FileItem file : files) {
             bytes += file.getSize();
+        }
+        return bytes;
+    }
+
+    /**
+     * 组内真正需要传输的字节总量（与 estimateTransferSecondsForFiles 同口径）。
+     *
+     * <p>组内文件已按真实输入过滤；本地命中文件贡献零秒也不计入字节，保证争用流
+     * 的字节/秒比例与 V1 逐文件估算一致（R8 审计修复 F2）。</p>
+     */
+    private long sumTransferableBytes(List<FileItem> files, Job job,
+            WorkflowDatacenter datacenter) {
+        long bytes = 0L;
+        for (FileItem file : files) {
+            if (!datacenter.isFileLocalForJob(file, job)) {
+                bytes += file.getSize();
+            }
         }
         return bytes;
     }

@@ -39,6 +39,13 @@ import org.workflowsim.utils.ReplicaCatalog;
  * 秒级运行时间按参考 MIPS 和运行时间缩放系数转换为百万条指令（MI），并对过小长度
  * 进行显式记录的归一化。</p>
  *
+ * <p>版本契约（R8 审计，架构通道 P1-4）：DAX {@code version} 属性与 WfCommons
+ * {@code schemaVersion} 仅记录进 {@link WorkflowInputReport} 作为证据，不做强制校验。
+ * 解析语义按 Pegasus DAX 3.x 结构与 WfCommons 1.x 实现；DAX 的 {@code size} 属性
+ * 沿用上游 WorkflowSim 历史约定直接按字节解释（Pegasus 3.x schema 名义单位为 KB，
+ * 两者相差 1024 倍——平台带宽标定与黄金值均基于"按字节"语义）；DAX 2.x 或未来
+ * 大版本的单位/结构差异未经验证，使用非目标版本输入前应人工对账单位语义。</p>
+ *
  * @author Weiwei Chen
  * @since WorkflowSim Toolkit 1.0
  * @date Aug 23, 2013
@@ -332,6 +339,15 @@ public final class WorkflowParser {
             item = new FileItem(fileName, size);
             if (type == FileType.INPUT) {
                 ReplicaCatalog.setFile(fileName, item);
+            } else if (ReplicaCatalog.containsFile(fileName)
+                    && Double.compare(ReplicaCatalog.getFile(fileName).getSize(), size) != 0) {
+                // R8 审计修复（架构通道 P1-4）：OUTPUT 与已注册同名 INPUT 尺寸不一致
+                // 原为完全静默——中间文件（上游 output = 下游 input）两处声明分叉时，
+                // 传输字节数取决于解析顺序。与 INPUT 分支对齐记录警告。
+                Log.printLine("WARNING: DAX file '" + originalFileName
+                        + "' output size " + size + " differs from registered input size "
+                        + ReplicaCatalog.getFile(fileName).getSize()
+                        + " (transfers use the registered input declaration)");
             }
         }
         item.setType(type);

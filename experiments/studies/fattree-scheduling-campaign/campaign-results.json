@@ -1,6 +1,6 @@
 {
   "schema": "workflowsim-fattree-campaign-v1",
-  "generatedAt": "2026-09-16T09:55:32.651410+08:00",
+  "generatedAt": "2026-09-16T11:51:11.133778+08:00",
   "fixedSeed": 91,
   "vmCount": 3,
   "planners": [
@@ -39,7 +39,7 @@
       "scale": "n10",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 5738.1,
+      "makespanSeconds": 5195.1,
       "totalJobs": 11
     },
     {
@@ -66,7 +66,7 @@
       "scale": "n10",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 5854.1,
+      "makespanSeconds": 5205.1,
       "totalJobs": 11
     },
     {
@@ -93,7 +93,7 @@
       "scale": "n10",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7206.1,
+      "makespanSeconds": 6281.1,
       "totalJobs": 11
     },
     {
@@ -120,7 +120,7 @@
       "scale": "n10",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7262.1,
+      "makespanSeconds": 6254.1,
       "totalJobs": 11
     },
     {
@@ -147,7 +147,7 @@
       "scale": "n24",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7583112.2968150005,
+      "makespanSeconds": 7580371.700286001,
       "totalJobs": 25
     },
     {
@@ -174,7 +174,7 @@
       "scale": "n24",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7583163.891071001,
+      "makespanSeconds": 7580378.149568001,
       "totalJobs": 25
     },
     {
@@ -201,7 +201,7 @@
       "scale": "n24",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.7669355527037002E7,
+      "makespanSeconds": 1.7665920591560997E7,
       "totalJobs": 25
     },
     {
@@ -228,7 +228,7 @@
       "scale": "n24",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 8346924.364821,
+      "makespanSeconds": 8345221.094478,
       "totalJobs": 25
     },
     {
@@ -255,7 +255,7 @@
       "scale": "n46",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.6092490112636998E7,
+      "makespanSeconds": 1.6091409814278E7,
       "totalJobs": 48
     },
     {
@@ -282,7 +282,7 @@
       "scale": "n46",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.6092455511261E7,
+      "makespanSeconds": 1.6091405489106E7,
       "totalJobs": 48
     },
     {
@@ -309,7 +309,7 @@
       "scale": "n46",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2.8128377156089E7,
+      "makespanSeconds": 2.812753629415E7,
       "totalJobs": 48
     },
     {
@@ -336,7 +336,7 @@
       "scale": "n46",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.5798816290304998E7,
+      "makespanSeconds": 1.5797681770583E7,
       "totalJobs": 48
     },
     {
@@ -363,7 +363,7 @@
       "scale": "n100",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.4006552439759004E8,
+      "makespanSeconds": 1.4006534924997973E8,
       "totalJobs": 101
     },
     {
@@ -390,7 +390,7 @@
       "scale": "n100",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.4006552439759004E8,
+      "makespanSeconds": 1.4006534924997973E8,
       "totalJobs": 101
     },
     {
@@ -417,7 +417,7 @@
       "scale": "n100",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.5737764075457016E8,
+      "makespanSeconds": 1.573759702860544E8,
       "totalJobs": 101
     },
     {
@@ -444,7 +444,7 @@
       "scale": "n100",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1.4119337306993002E8,
+      "makespanSeconds": 1.4120392084013668E8,
       "totalJobs": 101
     },
     {
@@ -471,7 +471,7 @@
       "scale": "n30",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 349025.85822299996,
+      "makespanSeconds": 329859.00852000003,
       "totalJobs": 31
     },
     {
@@ -498,7 +498,7 @@
       "scale": "n30",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 349025.85822299996,
+      "makespanSeconds": 329859.00852000003,
       "totalJobs": 31
     },
     {
@@ -552,7 +552,7 @@
       "scale": "n30",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 417346.2226,
+      "makespanSeconds": 394340.2226,
       "totalJobs": 31
     },
     {
@@ -579,7 +579,7 @@
       "scale": "n50",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 588227.184174,
+      "makespanSeconds": 588230.4408446667,
       "totalJobs": 51
     },
     {
@@ -606,7 +606,7 @@
       "scale": "n50",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 588227.184174,
+      "makespanSeconds": 588230.4408446667,
       "totalJobs": 51
     },
     {
@@ -633,7 +633,7 @@
       "scale": "n50",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 741222.232976,
+      "makespanSeconds": 741221.875812,
       "totalJobs": 51
     },
     {
@@ -660,7 +660,7 @@
       "scale": "n50",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 587921.609939,
+      "makespanSeconds": 587924.0246860001,
       "totalJobs": 51
     },
     {
@@ -687,7 +687,7 @@
       "scale": "n100",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1190383.3967880001,
+      "makespanSeconds": 1190382.3967880001,
       "totalJobs": 101
     },
     {
@@ -741,7 +741,7 @@
       "scale": "n100",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 1480129.325906,
+      "makespanSeconds": 1473786.2341345,
       "totalJobs": 101
     },
     {
@@ -786,7 +786,7 @@
       "scale": "n30",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 2541516.993501667,
+      "makespanSeconds": 2541451.769398667,
       "totalJobs": 31
     },
     {
@@ -795,7 +795,7 @@
       "scale": "n30",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2541536.986978,
+      "makespanSeconds": 2541451.769398667,
       "totalJobs": 31
     },
     {
@@ -813,7 +813,7 @@
       "scale": "n30",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 2541517.5615390004,
+      "makespanSeconds": 2541453.2442060006,
       "totalJobs": 31
     },
     {
@@ -822,7 +822,7 @@
       "scale": "n30",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2541540.7768180002,
+      "makespanSeconds": 2541453.2442060006,
       "totalJobs": 31
     },
     {
@@ -840,7 +840,7 @@
       "scale": "n30",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 3218045.4072620003,
+      "makespanSeconds": 3218030.6671600007,
       "totalJobs": 31
     },
     {
@@ -849,7 +849,7 @@
       "scale": "n30",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 3218071.281605,
+      "makespanSeconds": 3218030.6671600007,
       "totalJobs": 31
     },
     {
@@ -867,7 +867,7 @@
       "scale": "n30",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 2618396.9787870003,
+      "makespanSeconds": 2618396.6605310002,
       "totalJobs": 31
     },
     {
@@ -876,7 +876,7 @@
       "scale": "n30",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2618418.7651910004,
+      "makespanSeconds": 2618396.6605310002,
       "totalJobs": 31
     },
     {
@@ -894,7 +894,7 @@
       "scale": "n50",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 3977802.961689667,
+      "makespanSeconds": 3977749.820514667,
       "totalJobs": 51
     },
     {
@@ -903,7 +903,7 @@
       "scale": "n50",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 3977834.7842160002,
+      "makespanSeconds": 3977749.820514667,
       "totalJobs": 51
     },
     {
@@ -921,7 +921,7 @@
       "scale": "n50",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 3977803.8359720004,
+      "makespanSeconds": 3977749.7548900004,
       "totalJobs": 51
     },
     {
@@ -930,7 +930,7 @@
       "scale": "n50",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 3977837.679688,
+      "makespanSeconds": 3977749.7548900004,
       "totalJobs": 51
     },
     {
@@ -957,7 +957,7 @@
       "scale": "n50",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 6832948.959383999,
+      "makespanSeconds": 6832906.259939094,
       "totalJobs": 51
     },
     {
@@ -984,7 +984,7 @@
       "scale": "n50",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 5695612.187655111,
+      "makespanSeconds": 5695574.894699888,
       "totalJobs": 51
     },
     {
@@ -1002,7 +1002,7 @@
       "scale": "n100",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 7020492.741652666,
+      "makespanSeconds": 7020414.128544999,
       "totalJobs": 101
     },
     {
@@ -1011,7 +1011,7 @@
       "scale": "n100",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7020520.259684111,
+      "makespanSeconds": 7020414.128544999,
       "totalJobs": 101
     },
     {
@@ -1029,7 +1029,7 @@
       "scale": "n100",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 7071063.508330825,
+      "makespanSeconds": 7070971.113255713,
       "totalJobs": 101
     },
     {
@@ -1038,7 +1038,7 @@
       "scale": "n100",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7071072.131727,
+      "makespanSeconds": 7070971.113255713,
       "totalJobs": 101
     },
     {
@@ -1065,7 +1065,7 @@
       "scale": "n100",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 9770014.48808,
+      "makespanSeconds": 9770002.273913046,
       "totalJobs": 101
     },
     {
@@ -1092,7 +1092,7 @@
       "scale": "n100",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7564029.948645333,
+      "makespanSeconds": 7563998.153801998,
       "totalJobs": 101
     }
   ],
@@ -1101,25 +1101,25 @@
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5738.1
+      "makespanSeconds": 5195.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5738.1
+      "makespanSeconds": 5195.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5738.1
+      "makespanSeconds": 5195.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5738.1
+      "makespanSeconds": 5195.1
     },
     {
       "dax": "heft-paper-example",
@@ -1131,31 +1131,31 @@
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 5738.1
+      "makespanSeconds": 5195.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5854.1
+      "makespanSeconds": 5205.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5854.1
+      "makespanSeconds": 5205.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5854.1
+      "makespanSeconds": 5205.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5854.1
+      "makespanSeconds": 5205.1
     },
     {
       "dax": "heft-paper-example",
@@ -1167,31 +1167,31 @@
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 5854.1
+      "makespanSeconds": 5205.1
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 7583112.2968150005
+      "makespanSeconds": 7580371.700286001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 7583112.2968150005
+      "makespanSeconds": 7580371.700286001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 7583112.2968150005
+      "makespanSeconds": 7580371.700286001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 7583112.2968150005
+      "makespanSeconds": 7580371.700286001
     },
     {
       "dax": "epigenomics-n24",
@@ -1203,31 +1203,31 @@
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 7583112.2968150005
+      "makespanSeconds": 7580371.700286001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 7583163.891071001
+      "makespanSeconds": 7580378.149568001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 7583163.891071001
+      "makespanSeconds": 7580378.149568001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 7583163.891071001
+      "makespanSeconds": 7580378.149568001
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 7583163.891071001
+      "makespanSeconds": 7580378.149568001
     },
     {
       "dax": "epigenomics-n24",
@@ -1239,31 +1239,31 @@
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 7583163.891071001
+      "makespanSeconds": 7580378.149568001
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.6092490112636998E7
+      "makespanSeconds": 1.6091409814278E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.6092490112636998E7
+      "makespanSeconds": 1.6091409814278E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.6092490112636998E7
+      "makespanSeconds": 1.6091409814278E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.6092490112636998E7
+      "makespanSeconds": 1.6091409814278E7
     },
     {
       "dax": "epigenomics-n46",
@@ -1275,31 +1275,31 @@
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 1.6092490112636998E7
+      "makespanSeconds": 1.6091409814278E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.6092455511261E7
+      "makespanSeconds": 1.6091405489106E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.6092455511261E7
+      "makespanSeconds": 1.6091405489106E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.6092455511261E7
+      "makespanSeconds": 1.6091405489106E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.6092455511261E7
+      "makespanSeconds": 1.6091405489106E7
     },
     {
       "dax": "epigenomics-n46",
@@ -1311,31 +1311,31 @@
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 1.6092455511261E7
+      "makespanSeconds": 1.6091405489106E7
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
@@ -1347,31 +1347,31 @@
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "epigenomics-n100",
@@ -1383,31 +1383,31 @@
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 1.4006552439759004E8
+      "makespanSeconds": 1.4006534924997973E8
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
@@ -1419,31 +1419,31 @@
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n30",
@@ -1455,31 +1455,31 @@
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 349025.85822299996
+      "makespanSeconds": 329859.00852000003
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
@@ -1491,31 +1491,31 @@
       "dax": "cybershake-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n50",
@@ -1527,31 +1527,31 @@
       "dax": "cybershake-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 588227.184174
+      "makespanSeconds": 588230.4408446667
     },
     {
       "dax": "cybershake-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1190383.3967880001
+      "makespanSeconds": 1190382.3967880001
     },
     {
       "dax": "cybershake-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1190383.3967880001
+      "makespanSeconds": 1190382.3967880001
     },
     {
       "dax": "cybershake-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1190383.3967880001
+      "makespanSeconds": 1190382.3967880001
     },
     {
       "dax": "cybershake-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1190383.3967880001
+      "makespanSeconds": 1190382.3967880001
     },
     {
       "dax": "cybershake-n100",
@@ -1563,7 +1563,7 @@
       "dax": "cybershake-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 1190383.3967880001
+      "makespanSeconds": 1190382.3967880001
     },
     {
       "dax": "cybershake-n100",
@@ -1605,217 +1605,217 @@
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 2541516.993501667
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 2541517.5615390004
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3977802.961689667
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3977803.8359720004
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 7020492.741652666
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070971.113255713
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070971.113255713
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070971.113255713
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070971.113255713
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 7071063.508330825
+      "makespanSeconds": 7070971.113255713
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070971.113255713
     }
   ],
   "structuralSensitivity": [
@@ -1823,25 +1823,25 @@
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5718.1
+      "makespanSeconds": 5186.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5718.1
+      "makespanSeconds": 5186.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5718.1
+      "makespanSeconds": 5186.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5718.1
+      "makespanSeconds": 5186.1
     },
     {
       "dax": "heft-paper-example",
@@ -1853,31 +1853,31 @@
       "dax": "heft-paper-example",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 5718.1
+      "makespanSeconds": 5186.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5574.1
+      "makespanSeconds": 5168.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5574.1
+      "makespanSeconds": 5168.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5574.1
+      "makespanSeconds": 5168.1
     },
     {
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5574.1
+      "makespanSeconds": 5168.1
     },
     {
       "dax": "heft-paper-example",
@@ -1889,31 +1889,31 @@
       "dax": "heft-paper-example",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 5574.1
+      "makespanSeconds": 5168.1
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 6786973.887375001
+      "makespanSeconds": 6784397.404498
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 6786973.887375001
+      "makespanSeconds": 6784397.404498
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 6786973.887375001
+      "makespanSeconds": 6784397.404498
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 6786973.887375001
+      "makespanSeconds": 6784397.404498
     },
     {
       "dax": "epigenomics-n24",
@@ -1925,31 +1925,31 @@
       "dax": "epigenomics-n24",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 6786973.887375001
+      "makespanSeconds": 6784397.404498
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 6787007.245247001
+      "makespanSeconds": 6784401.549805
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 6787007.245247001
+      "makespanSeconds": 6784401.549805
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 6787007.245247001
+      "makespanSeconds": 6784401.549805
     },
     {
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 6787007.245247001
+      "makespanSeconds": 6784401.549805
     },
     {
       "dax": "epigenomics-n24",
@@ -1961,31 +1961,31 @@
       "dax": "epigenomics-n24",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 6787007.245247001
+      "makespanSeconds": 6784401.549805
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.2790649179884E7
+      "makespanSeconds": 1.2789207378449E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.2790649179884E7
+      "makespanSeconds": 1.2789207378449E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.2790649179884E7
+      "makespanSeconds": 1.2789207378449E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.2790649179884E7
+      "makespanSeconds": 1.2789207378449E7
     },
     {
       "dax": "epigenomics-n46",
@@ -1997,31 +1997,31 @@
       "dax": "epigenomics-n46",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1.2790649179884E7
+      "makespanSeconds": 1.2789207378449E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.2790588669812E7
+      "makespanSeconds": 1.278919981469E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.2790588669812E7
+      "makespanSeconds": 1.278919981469E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.2790588669812E7
+      "makespanSeconds": 1.278919981469E7
     },
     {
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.2790588669812E7
+      "makespanSeconds": 1.278919981469E7
     },
     {
       "dax": "epigenomics-n46",
@@ -2033,31 +2033,31 @@
       "dax": "epigenomics-n46",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1.2790588669812E7
+      "makespanSeconds": 1.278919981469E7
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.0659203782912126E8
+      "makespanSeconds": 1.0659125666037025E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.0659203782912126E8
+      "makespanSeconds": 1.0659125666037025E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.0659203782912126E8
+      "makespanSeconds": 1.0659125666037025E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.0659203782912126E8
+      "makespanSeconds": 1.0659125666037025E8
     },
     {
       "dax": "epigenomics-n100",
@@ -2069,31 +2069,31 @@
       "dax": "epigenomics-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1.0659203782912126E8
+      "makespanSeconds": 1.0659125666037025E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1.06592020070545E8
+      "makespanSeconds": 1.065912544394284E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1.06592020070545E8
+      "makespanSeconds": 1.065912544394284E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1.06592020070545E8
+      "makespanSeconds": 1.065912544394284E8
     },
     {
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1.06592020070545E8
+      "makespanSeconds": 1.065912544394284E8
     },
     {
       "dax": "epigenomics-n100",
@@ -2105,31 +2105,31 @@
       "dax": "epigenomics-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1.06592020070545E8
+      "makespanSeconds": 1.065912544394284E8
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
@@ -2141,31 +2141,31 @@
       "dax": "cybershake-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n30",
@@ -2177,7 +2177,7 @@
       "dax": "cybershake-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 311974.13876
+      "makespanSeconds": 294564.00852000003
     },
     {
       "dax": "cybershake-n50",
@@ -2327,228 +2327,220 @@
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 1834159.0220893335
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 1834159.6449243333
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3000139.8401884763
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3000140.109711381
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 5264465.043965001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.230443046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.230443046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.230443046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.230443046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 5265033.976783001
+      "makespanSeconds": 5264981.230443046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.230443046
     }
   ],
   "weakMonotonicityViolations": [
-    {
-      "dax": "epigenomics-n100",
-      "planner": "PSO",
-      "v1MakespanSeconds": 1.4117336051199502E8,
-      "r2MakespanSeconds": 1.4120392084013668E8,
-      "r6MakespanSeconds": 1.4119337306993002E8,
-      "maxRelativeDeviation": 7.470442824137327E-5
-    },
     {
       "dax": "cybershake-n30",
       "planner": "RANDOM",
@@ -2556,30 +2548,6 @@
       "r2MakespanSeconds": 387773.50477400003,
       "r6MakespanSeconds": 387773.50477400003,
       "maxRelativeDeviation": 3.69809691044794E-6
-    },
-    {
-      "dax": "cybershake-n50",
-      "planner": "LOCAL_HEFT",
-      "v1MakespanSeconds": 548831.232976,
-      "r2MakespanSeconds": 588230.4408446667,
-      "r6MakespanSeconds": 588227.184174,
-      "maxRelativeDeviation": 5.53641646330712E-6
-    },
-    {
-      "dax": "cybershake-n50",
-      "planner": "LOCAL_CPOP",
-      "v1MakespanSeconds": 548831.232976,
-      "r2MakespanSeconds": 588230.4408446667,
-      "r6MakespanSeconds": 588227.184174,
-      "maxRelativeDeviation": 5.53641646330712E-6
-    },
-    {
-      "dax": "cybershake-n50",
-      "planner": "PSO",
-      "v1MakespanSeconds": 549893.1168440001,
-      "r2MakespanSeconds": 587924.0246860001,
-      "r6MakespanSeconds": 587921.609939,
-      "maxRelativeDeviation": 4.10726015044827E-6
     }
   ],
   "averageRankings": {
@@ -2624,7 +2592,7 @@
       "cybershake-n50": "PSO",
       "cybershake-n100": "PSO",
       "inspiral-n30": "LOCAL_HEFT",
-      "inspiral-n50": "LOCAL_HEFT",
+      "inspiral-n50": "LOCAL_CPOP",
       "inspiral-n100": "LOCAL_HEFT"
     },
     "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1": {
@@ -2636,7 +2604,7 @@
       "cybershake-n50": "PSO",
       "cybershake-n100": "PSO",
       "inspiral-n30": "LOCAL_HEFT",
-      "inspiral-n50": "LOCAL_HEFT",
+      "inspiral-n50": "LOCAL_CPOP",
       "inspiral-n100": "LOCAL_HEFT"
     }
   },
@@ -2649,7 +2617,7 @@
       "effectiveSampleCount": 7,
       "medianDifferenceSeconds": 1.3372714996803552,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.232421875,
+      "pValue": 0.21875,
       "significantAtAlpha005": false
     },
     {
@@ -2680,9 +2648,9 @@
       "candidate": "LOCAL_CPOP",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 7,
-      "medianDifferenceSeconds": 0.2840186667162925,
+      "medianDifferenceSeconds": 0.0,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.556640625,
+      "pValue": 0.578125,
       "significantAtAlpha005": false
     },
     {
@@ -2691,7 +2659,7 @@
       "candidate": "RANDOM",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 1713018.973010357,
+      "medianDifferenceSeconds": 1713083.5215646904,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2702,7 +2670,7 @@
       "candidate": "PSO",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 70680.59968266665,
+      "medianDifferenceSeconds": 70713.05260616663,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.064453125,
       "significantAtAlpha005": false
@@ -2713,9 +2681,9 @@
       "candidate": "LOCAL_CPOP",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 7,
-      "medianDifferenceSeconds": 1.4477359999436885,
+      "medianDifferenceSeconds": 0.0,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.4921875,
+      "pValue": 0.578125,
       "significantAtAlpha005": false
     },
     {
@@ -2724,7 +2692,7 @@
       "candidate": "RANDOM",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 1713014.2615114448,
+      "medianDifferenceSeconds": 1713083.5215646904,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2735,7 +2703,7 @@
       "candidate": "PSO",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 72601.0712950002,
+      "medianDifferenceSeconds": 70713.05260616663,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.064453125,
       "significantAtAlpha005": false
@@ -2746,7 +2714,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 221.84354533348233,
+      "medianDifferenceSeconds": 199.3254924993962,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2756,11 +2724,11 @@
       "baseline": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 103.48506832006387,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.005859375,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "model-r6-vs-v1@LOCAL_HEFT",
@@ -2768,7 +2736,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 899.6616484988481,
+      "medianDifferenceSeconds": 199.3254924993962,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2779,7 +2747,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 220.44234150042757,
+      "medianDifferenceSeconds": 193.00580949988216,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2789,11 +2757,11 @@
       "baseline": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 9,
-      "medianDifferenceSeconds": 104.49566315324046,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.009765625,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "model-r6-vs-v1@LOCAL_CPOP",
@@ -2801,7 +2769,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 926.0425279997289,
+      "medianDifferenceSeconds": 193.00580949988216,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2822,11 +2790,11 @@
       "baseline": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 9,
-      "medianDifferenceSeconds": 441.78069195337594,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.00390625,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "model-r6-vs-v1@RANDOM",
@@ -2834,7 +2802,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 960.9004355017096,
+      "medianDifferenceSeconds": 238.50379302259535,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.00390625,
       "significantAtAlpha005": true
@@ -2855,10 +2823,10 @@
       "baseline": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 9,
-      "medianDifferenceSeconds": 34.54389927862212,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.130859375,
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
       "significantAtAlpha005": false
     },
     {
@@ -2867,7 +2835,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 1500.8074394995347,
+      "medianDifferenceSeconds": 261.651708942838,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2912,11 +2880,11 @@
       "baseline": "baseline-k4-full",
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": -103.48506832006387,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.005859375,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "sensitivity@LOCAL_HEFT",
@@ -2967,11 +2935,11 @@
       "baseline": "baseline-k4-full",
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 9,
-      "medianDifferenceSeconds": -104.49566315324046,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.005859375,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "sensitivity@LOCAL_CPOP",
@@ -3024,11 +2992,11 @@
       "baseline": "baseline-k4-full",
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 8,
-      "medianDifferenceSeconds": -285.37513876194134,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.001953125,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "structural@LOCAL_HEFT",
@@ -3079,11 +3047,11 @@
       "baseline": "baseline-k4-full",
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
-      "effectiveSampleCount": 8,
-      "medianDifferenceSeconds": -223.5186403093394,
-      "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.001953125,
-      "significantAtAlpha005": true
+      "effectiveSampleCount": 0,
+      "medianDifferenceSeconds": 0.0,
+      "status": "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+      "pValue": null,
+      "significantAtAlpha005": false
     },
     {
       "axis": "structural@LOCAL_CPOP",

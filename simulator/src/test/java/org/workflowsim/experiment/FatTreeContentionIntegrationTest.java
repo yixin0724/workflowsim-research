@@ -29,16 +29,23 @@ import org.workflowsim.utils.TaskCostMatrix;
  * Fat-tree 拓扑感知链路争用模型的端到端语义验收（HEFT 论文例 fixture）。
  *
  * <p>与 R2 端点争用模型（{@link LinkContentionSemanticsTest}，黄金值 284.1）同一
- * fixture、同一平台，差异只在数据移动模型与平台拓扑声明：k=4 Fat-tree、链路
- * 带宽 1 MB/s（与 VM 端点 1 MB/s 同量级，使链路争用成为可见瓶颈）。默认轮转
- * 放置把 3 台主机分到 (pod0,edge0)、(pod0,edge1)、(pod1,edge0)——VM 间传输
- * 沿确定性路由占用共享链路，同 Pod 跨 edge 与跨 Pod 路径都会出现。</p>
+ * fixture、同一平台，差异只在数据移动模型与平台拓扑声明：k=4 Fat-tree，默认轮转
+ * 放置把 3 台主机分到 (pod0,edge0)、(pod0,edge1)、(pod1,edge0)。两个链路带宽场景：</p>
+ * <ul>
+ *   <li><b>对称场景（链路 = 端点 = 1 MB/s）</b>：R8 审计修复（F1 单位契约）后链路
+ *       容量按声明值 MB/s 解释，与 VM 端点同量级——单流永远不会因链路慢于端点，
+ *       Fat-tree makespan 与 R2 逐位相等（284.1）。该等式是单位契约的端到端回归锁：
+ *       修复前同一声明值链路只有端点的 1/8（÷8 单位 bug），makespan 被推到 1032.1。</li>
+ *   <li><b>慢链路场景（链路 0.25 MB/s = 端点 1/4）</b>：链路成为真实瓶颈，共享
+ *       链路的并发流进一步减速，makespan 严格大于 R2——锁定"链路争用语义确实
+ *       生效"，防止模型退化为纯端点争用。</li>
+ * </ul>
  *
  * <p>断言结构：</p>
  * <ul>
  *   <li>速率约束是 R2 端点约束的超集（端点 + 路径链路取最小），因此 Fat-tree
  *       makespan ≥ R2 黄金值 284.1，且严格大于无争用基线 190.1；</li>
- *   <li>黄金值锁定 + 确定性复跑逐位一致；</li>
+ *   <li>两个场景黄金值锁定 + 确定性复跑逐位一致；</li>
  *   <li>证据链：DATA_STAGE_IN_MODELED 携带新模型 kind 与 fatTreePathLinkCount；</li>
  *   <li>健康不变量：全部逻辑任务成功完成、Job 数守恒；</li>
  *   <li>配置契约：SHARED fs / INVALID 规划 / 非 NONE 聚类 / 故障启用 / 非零
@@ -53,13 +60,18 @@ class FatTreeContentionIntegrationTest {
     /** R2 端点争用黄金值（LinkContentionSemanticsTest）：Fat-tree 的下界。 */
     private static final double R2_ENDPOINT_GOLDEN = 284.1;
     /**
-     * Fat-tree 争用黄金值：由本 fixture 实测锁定（2026-09-15），复跑逐位稳定。
-     * 链路带宽 1 MB/s 与端点同量级：与 R2（284.1）相比，凡两条并发流共享任一
-     * 链路（接入、edge↔aggregate、aggregate↔core）都会进一步减速——18 MB 的
-     * t2 输入沿跨 Pod 路径（6 条链路）与并发流公平共享，后续传输链依次推迟，
-     * 总 makespan 从 R2 的 284.1 增至 1032.1。
+     * 对称场景黄金值（R8 审计 F1 修复后重录 2026-09-16，复跑逐位稳定）：
+     * 链路 1 MB/s = 端点 1 MB/s，链路永不束缚单流，R6 与 R2 逐位相等。
+     * 该等式即单位契约的端到端锁（修复前链路被 ÷8，同一场景为 1032.1）。
      */
-    private static final double FAT_TREE_GOLDEN_MAKESPAN = 1032.1;
+    private static final double FAT_TREE_GOLDEN_MAKESPAN = 284.1;
+    /** 慢链路场景链路带宽（MB/s）：端点 1 MB/s 的 1/4。 */
+    private static final double SLOW_LINK_BANDWIDTH_MB = 0.25;
+    /**
+     * 慢链路场景黄金值：由本 fixture 实测锁定（R8 审计重录 2026-09-16），复跑
+     * 逐位稳定。链路慢于端点时共享链路的并发流被限速，makespan 严格大于 R2。
+     */
+    private static final double SLOW_LINK_GOLDEN_MAKESPAN = 588.1;
 
     /** 论文成本矩阵（与 LocalHeftPaperReproductionTest 相同）。 */
     private static final double[][] PAPER_COST_SECONDS = {
@@ -68,7 +80,7 @@ class FatTreeContentionIntegrationTest {
 
     @Test
     void fatTreeMakespanExceedsNoContentionBaselineAndR2EndpointGolden() throws Exception {
-        SimulationReport report = runFatTree();
+        SimulationReport report = runFatTree(1.0);
         assertTrue(report.getMakespan() > NO_CONTENTION_BASELINE,
                 "Fat-tree makespan " + report.getMakespan() + " 应严格大于无争用基线 "
                         + NO_CONTENTION_BASELINE);
@@ -79,15 +91,28 @@ class FatTreeContentionIntegrationTest {
 
     @Test
     void fatTreeGoldenMakespanIsLocked() throws Exception {
-        SimulationReport report = runFatTree();
+        SimulationReport report = runFatTree(1.0);
         assertEquals(FAT_TREE_GOLDEN_MAKESPAN, report.getMakespan(), 0.0,
-                "Fat-tree 黄金值漂移：fixture、拓扑或争用语义发生变化，须显式审查");
+                "Fat-tree 黄金值漂移：fixture、拓扑、单位契约或争用语义发生变化，须显式审查");
+        // 单位契约：对称供给下 R6 与 R2 逐位相等（链路不束缚任何单流）。
+        assertEquals(R2_ENDPOINT_GOLDEN, report.getMakespan(), 0.0,
+                "链路=端点带宽时 R6 必须与 R2 端点争用逐位相等");
+    }
+
+    @Test
+    void slowLinksSlowTransfersBeyondEndpointContention() throws Exception {
+        SimulationReport report = runFatTree(SLOW_LINK_BANDWIDTH_MB);
+        assertTrue(report.getMakespan() > R2_ENDPOINT_GOLDEN,
+                "慢链路 makespan " + report.getMakespan() + " 应严格大于 R2 端点争用 "
+                        + R2_ENDPOINT_GOLDEN + "（链路成为真实瓶颈）");
+        assertEquals(SLOW_LINK_GOLDEN_MAKESPAN, report.getMakespan(), 0.0,
+                "慢链路黄金值漂移：拓扑、单位契约或争用语义发生变化，须显式审查");
     }
 
     @Test
     void fatTreeScheduleIsDeterministic() throws Exception {
-        SimulationReport first = runFatTree();
-        SimulationReport second = runFatTree();
+        SimulationReport first = runFatTree(1.0);
+        SimulationReport second = runFatTree(1.0);
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
         for (int taskId = 1; taskId <= 10; taskId++) {
             assertEquals(computeFinish(first, taskId), computeFinish(second, taskId), 0.0,
@@ -97,7 +122,7 @@ class FatTreeContentionIntegrationTest {
 
     @Test
     void fatTreeEvidenceIsRecordedOnStageInEvents() throws Exception {
-        SimulationReport report = runFatTree();
+        SimulationReport report = runFatTree(1.0);
         int observed = 0;
         int totalPathLinks = 0;
         for (SimulationEvent event : report.getEvents()) {
@@ -118,7 +143,7 @@ class FatTreeContentionIntegrationTest {
 
     @Test
     void fatTreeRunIsHealthy() throws Exception {
-        SimulationReport report = runFatTree();
+        SimulationReport report = runFatTree(1.0);
         assertEquals("COMPLETED_SUCCESSFULLY",
                 report.getMetrics().getLogicalTaskCompletionStatus());
         assertTrue(report.getMakespan() > 0.0 && Double.isFinite(report.getMakespan()));
@@ -236,7 +261,7 @@ class FatTreeContentionIntegrationTest {
         assertTrue(unused.getMessage().contains("does not use it"), unused.getMessage());
     }
 
-    private static SimulationReport runFatTree() throws Exception {
+    private static SimulationReport runFatTree(double linkBandwidthMb) throws Exception {
         Log.disable();
         SimulationConfig config = SimulationConfig.builder(
                         resourcePath("/dax/heft-paper-example.dax"), 3)
@@ -247,7 +272,7 @@ class FatTreeContentionIntegrationTest {
                 .dataMovementModel(DataMovementModel.fatTreeContentionV1())
                 .build();
         return new SimulationRunner().run(config, paperPlatform(
-                NetworkTopologySpec.fatTree(4, 1.0)));
+                NetworkTopologySpec.fatTree(4, linkBandwidthMb)));
     }
 
     /** 与论文例相同的平台：3 主机 3 VM（mips=1.0、带宽 1 MB/s），可选拓扑声明。 */

@@ -82,6 +82,33 @@ class WfCommonsJsonParserValidationTest {
                 "[]", "[{\"id\":\"a\",\"runtimeInSeconds\":1},{\"id\":\"b\",\"runtimeInSeconds\":1}]")));
     }
 
+    /** R8 审计（架构通道 P1-4）：重复 id 且值冲突必须 fail-fast，不得 last-wins。 */
+    @Test
+    void rejectsConflictingDuplicateFileAndExecutionTaskDeclarations() throws Exception {
+        // 文件 id 重复且尺寸冲突 → 拒绝（原为静默 last-wins，字节数取决于声明顺序）。
+        assertThrows(WorkflowValidationException.class, () -> parse(document(
+                "[{\"id\":\"a\",\"inputFiles\":[\"f\"]}]",
+                "[{\"id\":\"f\",\"sizeInBytes\":100},{\"id\":\"f\",\"sizeInBytes\":200}]",
+                "[{\"id\":\"a\",\"runtimeInSeconds\":1}]")));
+        // execution task id 重复且 runtime 冲突 → 拒绝。
+        assertThrows(WorkflowValidationException.class, () -> parse(document(
+                "[{\"id\":\"a\"}]", "[]",
+                "[{\"id\":\"a\",\"runtimeInSeconds\":1},{\"id\":\"a\",\"runtimeInSeconds\":2}]")));
+        // 值完全一致的重复声明保持兼容（合法去重，不拒绝）。
+        parse(document(
+                "[{\"id\":\"a\",\"inputFiles\":[\"f\"]}]",
+                "[{\"id\":\"f\",\"sizeInBytes\":100},{\"id\":\"f\",\"sizeInBytes\":100}]",
+                "[{\"id\":\"a\",\"runtimeInSeconds\":1},{\"id\":\"a\",\"runtimeInSeconds\":1}]"));
+    }
+
+    /** R8 审计（架构通道 P1-4）：runtime×参考MIPS 溢出必须显式拒绝，不得静默钳位。 */
+    @Test
+    void rejectsRuntimeThatOverflowsCloudletLength() throws Exception {
+        assertThrows(WorkflowValidationException.class, () -> parse(document(
+                "[{\"id\":\"a\"}]", "[]",
+                "[{\"id\":\"a\",\"runtimeInSeconds\":1.0e308}]")));
+    }
+
     private void parse(String contents) throws Exception {
         Path input = temporaryDirectory.resolve("workflow.json");
         Files.write(input, contents.getBytes(StandardCharsets.UTF_8));

@@ -27,18 +27,19 @@ import org.workflowsim.utils.Parameters;
  * LOCAL_PSO；cybershake-n100 V1 LOCAL_CPOP → R2/R6 PSO；论文例三模型下
  * LOCAL_HEFT 始终第一（campaign 配置下平均排名不翻转，翻转出现在逐 DAG
  * 粒度——这是结果文档的核心结论之一）；</li>
- * <li>弱单调性诊断：论文例子集严格成立；子集内任何交叉必须为噪声级
- * （相对偏差 ≤ 1e-4）；</li>
+ * <li>弱单调性诊断：论文例子集严格成立（R8 审计后 R6 ≡ R2，c==b 情形）；子集内
+ * 任何交叉必须为噪声级（相对偏差 ≤ 1e-4）；</li>
  * <li>确定性：同配置双跑主矩阵逐位一致；</li>
- * <li>3 主机敏感性：基线拓扑 ≡ 主矩阵 R6；结构轴（k/超收敛/放置）在
- * 3 主机平台退化（实测恒等）；带宽比轴 A4 精确收敛回主矩阵 R2 值；</li>
- * <li>4 主机结构块：结构轴仍恒等（交叉流从未并发经过差异链路），A4 有效
- * ——与路由单测（FatTreeTopologyTest 结构轴契约）共同证明恒等是动态层的
- * 真实现象而非拓扑参数未生效。</li>
+ * <li>3 主机敏感性：基线拓扑 ≡ 主矩阵 R6；全部拓扑变体（结构轴 + 带宽轴 A4）
+ * 实测恒等并收敛于 R2——R8 审计（F1 单位修复）后 campaign 声明链路带宽 ≥ 端点
+ * 带宽，链路层永不束缚流；</li>
+ * <li>4 主机结构块：全部变体（含 A4）仍恒等——"模型确实生效"的判别证据由
+ * simulator 慢链路探针（FatTreeContentionIntegrationTest，0.25 MB/s）承担。</li>
  * </ul></p>
  *
- * <p>黄金值来源：campaign 正式运行 /tmp/fattree-campaign-run2
- * （workflowsim-fattree-campaign-v1 工件）。</p>
+ * <p>黄金值来源：R8 审计重录 campaign 正式运行（2026-09-16，
+ * experiments/studies/fattree-scheduling-campaign 工件，F1/F2 修复后）。修复前
+ * R6 列黄金值（5738.1 等）产自链路被 ÷8 单位 bug 压到端点 1/8 的旧物理。</p>
  */
 class FatTreeCampaignGoldenIntegrationTest {
 
@@ -65,16 +66,19 @@ class FatTreeCampaignGoldenIntegrationTest {
         FatTreeSchedulingCampaignExecutor.CampaignResults results = runSubset(false, false);
         assertMakespan(results, HEFT_EXAMPLE, HEFT, V1, 5123.1);
         assertMakespan(results, HEFT_EXAMPLE, HEFT, R2, 5195.1);
-        assertMakespan(results, HEFT_EXAMPLE, HEFT, R6, 5738.1);
+        assertMakespan(results, HEFT_EXAMPLE, HEFT, R6, 5195.1);
         assertMakespan(results, HEFT_EXAMPLE, CPOP, V1, 5145.1);
         assertMakespan(results, HEFT_EXAMPLE, CPOP, R2, 5205.1);
-        assertMakespan(results, HEFT_EXAMPLE, CPOP, R6, 5854.1);
+        assertMakespan(results, HEFT_EXAMPLE, CPOP, R6, 5205.1);
         assertMakespan(results, HEFT_EXAMPLE, RANDOM, V1, 6159.1);
         assertMakespan(results, HEFT_EXAMPLE, RANDOM, R2, 6281.1);
-        assertMakespan(results, HEFT_EXAMPLE, RANDOM, R6, 7206.1);
+        assertMakespan(results, HEFT_EXAMPLE, RANDOM, R6, 6281.1);
         assertMakespan(results, HEFT_EXAMPLE, PSO, V1, 6132.1);
         assertMakespan(results, HEFT_EXAMPLE, PSO, R2, 6254.1);
-        assertMakespan(results, HEFT_EXAMPLE, PSO, R6, 7262.1);
+        assertMakespan(results, HEFT_EXAMPLE, PSO, R6, 6254.1);
+        // R8 审计（F1 单位修复）后 R6 与 R2 逐位相等：campaign 声明链路带宽
+        // 1 MB/s == VM 端点带宽，链路层永不束缚单流。修复前同一声明值链路只有
+        // 端点的 1/8（÷8 单位 bug），R6 列曾为 5738.1/5854.1/7206.1/7262.1。
     }
 
     /** 争用把 cybershake 的逐 DAG 第一名翻转为 PSO；论文例保持 HEFT。 */
@@ -93,9 +97,10 @@ class FatTreeCampaignGoldenIntegrationTest {
             assertEquals(HEFT, winners.get(model).get(HEFT_EXAMPLE),
                     model + ": 论文例第一名应始终为 LOCAL_HEFT");
         }
-        // 黄金 makespan（翻转的直接数值证据，秒）。
+        // 黄金 makespan（翻转的直接数值证据，秒）。R8 审计后 N50 PSO 的 R6 与
+        // R2 逐位相等（链路=端点带宽时链路层无附加争用；修复前 R6 为 587921.6099）。
         assertMakespan(results, CYBERSHAKE_N50, PSO, R2, 587924.0247);
-        assertMakespan(results, CYBERSHAKE_N50, PSO, R6, 587921.6099);
+        assertMakespan(results, CYBERSHAKE_N50, PSO, R6, 587924.0247);
         assertMakespan(results, CYBERSHAKE_N50, HEFT, R2, 588230.4408);
         assertMakespan(results, CYBERSHAKE_N100, PSO, R2, 1189487.4983);
         assertMakespan(results, CYBERSHAKE_N100, PSO, R6, 1189487.4983);
@@ -131,8 +136,9 @@ class FatTreeCampaignGoldenIntegrationTest {
     }
 
     /**
-     * 3 主机敏感性：基线 ≡ 主矩阵 R6；结构轴（A1/A2/A3/A5）实测恒等
-     * （3 主机退化）；带宽比轴 A4 精确收敛回主矩阵 R2（链路不再瓶颈）。
+     * 3 主机敏感性：基线 ≡ 主矩阵 R6；全部拓扑变体（A1/A2/A3/A5 与带宽轴 A4）
+     * 实测恒等且收敛于主矩阵 R2——R8 审计后链路 ≥ 端点带宽，链路层退化，
+     * "A4 收敛回 R2"从带宽效应退化为全轴恒等的特例。
      */
     @Test
     void sensitivityLocksDegenerateStructureAxesAndConvergingBandwidthAxis() throws Exception {
@@ -158,11 +164,15 @@ class FatTreeCampaignGoldenIntegrationTest {
     }
 
     /**
-     * 4 主机结构块：结构轴仍恒等、A4 仍有效——与路由单测共同证明恒等是
-     * 动态层真实现象（差异链路从未被并发流共享），不是拓扑参数失效。
+     * 4 主机结构块：R8 审计（F1 单位修复）后全部拓扑变体（含带宽轴 A4）实测
+     * 恒等——campaign 声明链路带宽 ≥ 端点带宽，链路层永不束缚任何流，结构轴
+     * 与带宽轴同时退化。"模型确实生效"的判别证据由 simulator 侧慢链路探针承担
+     * （FatTreeContentionIntegrationTest：链路 0.25 MB/s &lt; 端点时 makespan
+     * 588.1 &gt; R2 284.1）。修复前 A4（链路 10×）曾严格降低 makespan
+     * （5718.1→5186.1 / 5574.1→5168.1），那是链路被 ÷8 后成为瓶颈的产物。
      */
     @Test
-    void structuralBlockLocksFourHostDegeneracyAndBandwidthEffect() throws Exception {
+    void structuralBlockLocksFourHostFullDegeneracyAtSymmetricProvisioning() throws Exception {
         Log.disable();
         FatTreeSchedulingCampaignExecutor.CampaignResults results = runSubset(false, true);
         assertEquals(12, results.structural.size(),
@@ -170,18 +180,15 @@ class FatTreeCampaignGoldenIntegrationTest {
         for (String planner : new String[] {HEFT, CPOP}) {
             double baseline = results.structuralMakespan(HEFT_EXAMPLE, planner, BASELINE);
             for (String variant : new String[] {"A1-k4-oversub2x", "A2-k8-full",
-                    "A3-k8-oversub2x", "A5-k4-full-same-edge-pairs"}) {
+                    "A3-k8-oversub2x", "A5-k4-full-same-edge-pairs", A4}) {
                 assertEquals(baseline,
                         results.structuralMakespan(HEFT_EXAMPLE, planner, variant), 1.0e-9,
-                        planner + " × " + variant + ": 4 主机下结构轴仍恒等");
+                        planner + " × " + variant
+                                + ": 链路≥端点带宽时全部拓扑变体（含 A4）必须恒等");
             }
-            assertTrue(results.structuralMakespan(HEFT_EXAMPLE, planner, A4) < baseline,
-                    planner + ": A4（链路 10×）应严格降低 makespan");
         }
-        assertEquals(5718.1, results.structuralMakespan(HEFT_EXAMPLE, HEFT, BASELINE), 1.0e-6);
-        assertEquals(5574.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, BASELINE), 1.0e-6);
-        assertEquals(5186.1, results.structuralMakespan(HEFT_EXAMPLE, HEFT, A4), 1.0e-6);
-        assertEquals(5168.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, A4), 1.0e-6);
+        assertEquals(5186.1, results.structuralMakespan(HEFT_EXAMPLE, HEFT, BASELINE), 1.0e-6);
+        assertEquals(5168.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, BASELINE), 1.0e-6);
     }
 
     /** 敏感性/结构块仅跑论文例（其余 DAG 由全量 campaign 覆盖），主矩阵跑子集。 */

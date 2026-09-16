@@ -1,6 +1,7 @@
 package org.workflowsim.utils;
 
 import java.util.Calendar;
+import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.failure.FailureGenerator;
 import org.workflowsim.failure.FailureMonitor;
@@ -20,9 +21,12 @@ public final class SimulationSession implements AutoCloseable {
     private final SimulationConfig config;
     private boolean closed;
     private boolean cloudSimInitialized;
+    /** 会话打开时的 Log 全局开关状态，close 时恢复（R8 审计修复 P1-5）。 */
+    private final boolean logDisabledAtOpen;
 
     private SimulationSession(SimulationConfig config) {
         this.config = config;
+        this.logDisabledAtOpen = Log.isDisabled();
     }
 
     /**
@@ -85,6 +89,13 @@ public final class SimulationSession implements AutoCloseable {
             throw new IllegalArgumentException("CloudSim user count cannot be negative");
         }
         CloudSim.init(users, calendar, trace, config.getCloudSimMinEventIntervalSeconds());
+        // R8 审计修复（P1-3）：vendored CloudSim.init 吞掉全部初始化异常（仅 Log），
+        // 失败后 cisId 保持 -1——标准路径不可达，但任何扩展踩中会产出静默停滞或
+        // 0 任务"成功"报告。此处断言内核服务实体确实注册成功。
+        if (CloudSim.getCloudInfoServiceEntityId() < 0) {
+            throw new IllegalStateException("CloudSim kernel initialization failed: "
+                    + "Cloud Information Service entity was not registered");
+        }
         cloudSimInitialized = true;
     }
 
@@ -117,6 +128,9 @@ public final class SimulationSession implements AutoCloseable {
             FailureParameters.reset();
             ReplicaCatalog.reset();
             Parameters.reset();
+            // R8 审计修复（P1-5）：Log 是 JVM 全局静态开关且无会话管理，测试/执行器
+            // disable 后不恢复会让下一会话继承关闭状态，吞掉内核所有"仅日志"诊断。
+            Log.setDisabled(logDisabledAtOpen);
             closed = true;
             activeSession = null;
         }

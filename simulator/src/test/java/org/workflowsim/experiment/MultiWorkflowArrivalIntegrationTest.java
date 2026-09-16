@@ -24,10 +24,16 @@ class MultiWorkflowArrivalIntegrationTest {
 
     /** 全零到达（默认）黄金 makespan：两份 10 任务 HEFT 例并发共享 3 VM。 */
     private static final double SIMULTANEOUS_GOLDEN_MAKESPAN = 8118.1;
-    /** 错峰到达 [0, 50] 黄金 makespan。 */
-    private static final double STAGGERED_GOLDEN_MAKESPAN = 8168.0;
+    /**
+     * 错峰到达 [0, 50] 黄金 makespan（R8 审计 P0-1 修复后重录 2026-09-16）。
+     * 修复前统一 stage-in Job（ID=N）被错误归属到最后工作流、门控到 50 秒，
+     * 早到工作流被静默推迟 50 秒，该黄金值曾污染锁定为 8168.0。修复后
+     * stage-in 为 t=0 平台准备、各根 Job 按自身归属门控：3 VM 全程饱和下
+     * 晚到 50 秒不改变总 makespan，故与同时提交逐位相等。
+     */
+    private static final double STAGGERED_GOLDEN_MAKESPAN = 8118.1;
     /** 错峰到达下工作流 1 的黄金流时（完成 − 提交时刻 50）。 */
-    private static final double STAGGERED_GOLDEN_FLOW_W1 = 8118.0;
+    private static final double STAGGERED_GOLDEN_FLOW_W1 = 8068.1;
 
     @Test
     void simultaneousArrivalsShareVmsAndReportPerWorkflowOutcomes() throws Exception {
@@ -73,6 +79,12 @@ class MultiWorkflowArrivalIntegrationTest {
         SimulationReport simultaneous = run(Arrays.asList(0.0, 0.0));
         assertTrue(report.getMakespan() >= simultaneous.getMakespan(),
                 "错峰到达不得早于同时提交完成");
+        // R8 审计回归（P0-1）：早到不得被推迟——双向门控。工作流 0 的最后成功
+        // 完成时刻必须与同时提交下逐位一致（修复前 stage-in 被扣到 50 秒，
+        // 早到工作流被静默推迟，此断言即其回归锁）。
+        assertEquals(simultaneous.getWorkflowOutcomes().get(0).getLastSuccessFinishSecond(),
+                outcomes.get(0).getLastSuccessFinishSecond(), 0.0,
+                "早到工作流不得被晚到工作流的到达时刻推迟");
     }
 
     @Test

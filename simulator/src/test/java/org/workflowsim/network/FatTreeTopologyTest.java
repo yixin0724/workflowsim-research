@@ -46,8 +46,9 @@ public class FatTreeTopologyTest {
         assertEquals(1.0, topology.getOversubscriptionRatio(), 0.0);
         // 接入 2×2 + Pod 内 edge↔agg 2 Pod×1×1×2 + agg↔core 2 Pod×1×2 = 12。
         assertEquals(12, topology.getLinkResourceCount());
-        // 8 Mb/s... 100 MB/s = 100×10⁶/8 字节/秒。
-        assertEquals(100.0 * 1_000_000.0 / 8.0,
+        // 单位契约：声明 100 MB/s = 100×10⁶ 字节/秒（与 VM 端点容量
+        // vm.getBw()×10⁶ 同一惯例，无 ÷8；R8 审计回归测试）。
+        assertEquals(100.0 * 1_000_000.0,
                 topology.getLinkBandwidthBytesPerSecond(), 1.0e-6);
         // 默认轮转放置：host0 → Pod0，host1 → Pod1（各 1 台 edge）。
         Map<Integer, int[]> placements = topology.getHostPlacements();
@@ -132,7 +133,7 @@ public class FatTreeTopologyTest {
                 first.registerCapacities(engine);
                 engine.addTransfer(1L, 1000L, first.route(src, dst), 1.0e12, 0.0);
                 double expected = src == dst ? 1.0e12
-                        : Math.min(1.0e12, 100.0 * 1_000_000.0 / 8.0);
+                        : Math.min(1.0e12, 100.0 * 1_000_000.0);
                 assertEquals(expected, engine.currentRateBytesPerSecond(1L), 1.0e-6,
                         "route " + src + "->" + dst + " 的单流速率应为链路带宽（无共享）");
             }
@@ -267,14 +268,46 @@ public class FatTreeTopologyTest {
         assertTrue(over.getMessage().contains("at most k/2"), over.getMessage());
     }
 
-    /** 引擎级组合：重叠路径公平共享半速，不相交路径零干扰（无阻塞性质）。 */
+    /**
+     * 闭包契约（R8 审计 F8）：任意主机对的路由键必须全部落在已注册容量的
+     * 链路键集合内——防止路由命名与容量注册两侧独立演化后出现"路由经过
+     * 未注册链路 → 引擎视其为无限容量"的静默失真。覆盖基线轮转、超收敛
+     * 与显式同 edge 放置三类配置。
+     */
     @Test
+    public void everyRouteLinkIsARegisteredCapacityKey() {
+        Map<Integer, Integer> pairs = new LinkedHashMap<Integer, Integer>();
+        pairs.put(Integer.valueOf(0), Integer.valueOf(0));
+        pairs.put(Integer.valueOf(1), Integer.valueOf(0));
+        pairs.put(Integer.valueOf(2), Integer.valueOf(2));
+        pairs.put(Integer.valueOf(3), Integer.valueOf(2));
+        FatTreeTopology[] topologies = {
+                FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(9)),
+                FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(8)),
+                FatTreeTopology.fromSpec(
+                        NetworkTopologySpec.fatTree(4, 100.0, null, pairs), hosts(4)),
+        };
+        for (FatTreeTopology topology : topologies) {
+            java.util.Set<String> linkIds = topology.getLinkIds();
+            assertEquals(topology.getLinkResourceCount(), linkIds.size());
+            for (Integer src : topology.getHostPlacements().keySet()) {
+                for (Integer dst : topology.getHostPlacements().keySet()) {
+                    for (String link : topology.route(src.intValue(), dst.intValue())) {
+                        assertTrue(linkIds.contains(link),
+                                "route " + src + "->" + dst + " 使用未注册链路键 " + link);
+                    }
+                }
+            }
+        }
+    }
+
+    /** 引擎级组合：重叠路径公平共享半速，不相交路径零干扰（无阻塞性质）。 */    @Test
     public void sharedAndDisjointRoutesFairSharing() {
         FatTreeTopology topology = FatTreeTopology.fromSpec(
                 NetworkTopologySpec.fatTree(4, 100.0), hosts(8));
         TransferContentionEngine engine = new TransferContentionEngine();
         topology.registerCapacities(engine);
-        double linkBw = 100.0 * 1_000_000.0 / 8.0;
+        double linkBw = 100.0 * 1_000_000.0;
         // 流 1（host0→host2，跨 Pod）与流 2（host5→host7，跨 Pod）路由不相交：
         // 各得全额链路速率。
         engine.addTransfer(1L, 1000L, topology.route(0, 2), 1.0e12, 0.0);

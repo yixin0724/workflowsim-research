@@ -333,6 +333,25 @@ ranking-flip conclusions live in `FATTREE_SCHEDULING_RESULTS.md`; the design
 `FatTreeCampaignDagCompatibilityIntegrationTest`, and the simulator-side
 `FatTreePlannerCompatibilityIntegrationTest`.
 
+**R8 re-record (2026-09-16).** The R8 audit fixed a fat-tree link-capacity
+unit bug (declared MB/s were divided by 8, so links physically ran at 1/8 of
+their declared bandwidth), a contention-payload accounting bug (bytes of
+already-local files were charged to contention transfers), and the paired
+Wilcoxon zero-difference handling. All 360 runs were re-executed and the
+frozen artifacts in `experiments/studies/fattree-scheduling-campaign/` were
+regenerated; the original R7 artifacts remain in git history (PR #12 merge)
+and every R6 figure quoted from them is void. Key re-recorded facts: with the
+declared link bandwidth (1.0 MB/s) equal to the VM endpoint bandwidth, the
+fat-tree layer never binds, R6 is bit-for-bit identical to R2 across all
+10 DAGs × 4 planners, and every sensitivity/structural axis (including the
+A4 link-bandwidth axis) degenerates to identity; the per-DAG winner flips
+(cybershake-n50 HEFT→PSO, cybershake-n100 CPOP→PSO, and newly
+inspiral-n50 HEFT→CPOP) survive but are endpoint-contention (R2) phenomena.
+Model effectiveness under binding links is locked by the simulator slow-link
+probe (0.25 MB/s links → makespan 588.1 > R2's 284.1). See
+`FATTREE_SCHEDULING_RESULTS.md` §0.1/§0.7/§0.8 and
+`docs/advanced/COMPREHENSIVE_AUDIT_R8.md`.
+
 ## Deferred Work
 
 The next network layer should be designed as a separate model family, not

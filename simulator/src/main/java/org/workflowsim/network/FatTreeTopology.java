@@ -131,9 +131,12 @@ public final class FatTreeTopology {
                 }
             }
         }
+        // 单位契约：spec 的链路带宽按 MB/s 解释（×10⁶ = 字节/秒），与 VM 端点
+        // 容量（vm.getBw() × 10⁶）及遗留估算公式（bytes/10⁶/bw）同一惯例。
+        // 同声明值下链路容量与端点容量同量级（R8 审计修复：此前误按 Mb/s ÷8）。
         Map<String, Double> linkCapacities = buildLinkCapacities(k, halfK, coreSwitchCount,
-                hostToPodEdge, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0 / 8.0);
-        return new FatTreeTopology(k, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0 / 8.0,
+                hostToPodEdge, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0);
+        return new FatTreeTopology(k, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0,
                 coreSwitchCount, Collections.unmodifiableMap(hostToPodEdge),
                 Collections.unmodifiableMap(linkCapacities));
     }
@@ -220,6 +223,16 @@ public final class FatTreeTopology {
         for (Map.Entry<String, Double> entry : linkCapacities.entrySet()) {
             engine.setEndpointCapacity(entry.getKey(), entry.getValue().doubleValue());
         }
+    }
+
+    /**
+     * 全部链路资源键的只读视图（R8 审计 F8：供测试锁定"任意路由的每条链路
+     * 都已注册容量"的闭包契约，防止路由命名与容量注册两侧漂移）。
+     *
+     * @return 不可修改的链路资源键集合
+     */
+    public java.util.Set<String> getLinkIds() {
+        return java.util.Collections.unmodifiableSet(linkCapacities.keySet());
     }
 
     private int[] requirePlaced(int hostId) {

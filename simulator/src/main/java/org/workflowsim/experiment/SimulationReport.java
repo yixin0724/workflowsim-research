@@ -548,6 +548,35 @@ public final class SimulationReport {
         public int getFailedJobs() { return failedJobs; }
         public double getTotalCpuTime() { return totalCpuTime; }
         public double getLastFinishTime() { return lastFinishTime; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof VmSummary)) {
+                return false;
+            }
+            VmSummary that = (VmSummary) other;
+            return vmId == that.vmId && jobs == that.jobs
+                    && successfulJobs == that.successfulJobs
+                    && failedJobs == that.failedJobs
+                    && Double.compare(totalCpuTime, that.totalCpuTime) == 0
+                    && Double.compare(lastFinishTime, that.lastFinishTime) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Integer.hashCode(vmId);
+            result = 31 * result + jobs;
+            result = 31 * result + successfulJobs;
+            result = 31 * result + failedJobs;
+            long cpuBits = Double.doubleToLongBits(totalCpuTime);
+            result = 31 * result + (int) (cpuBits ^ (cpuBits >>> 32));
+            long finishBits = Double.doubleToLongBits(lastFinishTime);
+            result = 31 * result + (int) (finishBits ^ (finishBits >>> 32));
+            return result;
+        }
     }
 
     private static final class MutableVmSummary {

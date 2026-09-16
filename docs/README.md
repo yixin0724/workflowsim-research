@@ -24,7 +24,7 @@ docs/
 │   ├── REPRODUCIBILITY.md      # 可复现性契约（随机性/成本/deadline 语义）
 │   ├── CAMPAIGNS.md            # 多场景/多重复实验与数据移动模型协议
 │   ├── FATTREE_SCHEDULING_CAMPAIGN.md  # Fat-tree × 调度联合实验设计（R7）
-│   ├── FATTREE_SCHEDULING_RESULTS.md   # R7 实测结果（排名翻转结论）
+│   ├── FATTREE_SCHEDULING_RESULTS.md   # R7 实测结果（R8 审计重录版：排名翻转结论 + 链路单位修复后的退化事实）
 │   └── reference-baselines/
 │       ├── P7_PROTOCOL.md      # 冻结参考基线 P7 的实验协议
 │       └── P7_RESULTS.md       # P7 已记录结果（历史记录）

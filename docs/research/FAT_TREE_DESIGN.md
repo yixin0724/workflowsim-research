@@ -110,11 +110,11 @@ NetworkTopologySpec.fatTree(k, linkBandwidthMbPerSecond, coreSwitchCount,
 | --- | --- |
 | `FatTreeTopologyTest`（9） | k=2/k=4 结构计数、放置校验（缺失/未知/超容量）、三类路由键序列黄金值、超收敛（m=3/m=2）确定性路由、双构造确定性 + 单流满速、重叠路径半速/不相交零干扰、spec 全量参数校验 |
 | `TransferContentionEngineTest`（+4） | 资源集共享链路半速、端点∩链路取最小、不相交资源集零干扰、空/未注册资源名义速率 + null 校验 |
-| `FatTreeContentionIntegrationTest`（7） | makespan > 190.1 且 ≥ R2 黄金值 284.1（约束超集）；黄金值 **1032.1** 锁定；确定性复跑逐位一致；证据含新 kind 与 fatTreePathLinkCount > 0；健康不变量；配置契约四组拒绝 + LOCAL_HEFT 允许；运行器双向契约两组拒绝 |
+| `FatTreeContentionIntegrationTest`（8） | **R8 审计重录**：对称供给（链路 1.0 MB/s == VM 端点）黄金值 **284.1**，与 R2 端点黄金逐位相等——该等式即链路容量单位契约的端到端锁（F1 ÷8 bug 修复前同场景为 1032.1）；慢链路探针（0.25 MB/s < 端点）黄金值 **588.1** > 284.1，锁定链路束缚时模型正确生效；确定性复跑逐位一致；证据含新 kind 与 fatTreePathLinkCount > 0；健康不变量；配置契约拒绝组 + LOCAL_HEFT 允许；运行器双向契约两组拒绝 |
 
 e2e fixture：heft-paper-example.dax × LOCAL_HEFT × 论文成本矩阵 × 3 主机
 （默认轮转放置到 pod0/edge0、pod0/edge1、pod1/edge0）× k=4 满配 Fat-tree、
-链路带宽 1 MB/s（与 VM 端点同量级）。
+链路带宽 1 MB/s（与 VM 端点带宽相等——R8 审计后该对称供给下链路层不束缚单流，R6 ≡ R2；慢链路探针另行声明 0.25 MB/s 验证模型有效性）。
 
 ## 7. 诚实边界（已写入代码 javadoc 与 README）
 
