@@ -11,7 +11,6 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -125,10 +124,13 @@ class WfCommonsCliSmokeIntegrationTest {
             if (!result.startsWith(root)) {
                 throw new IllegalStateException("Invalid JSON smoke input path: " + result);
             }
-            // wfformat/wfinstances 语料体积较大且未纳入版本库（见 .gitignore）；缺失时跳过，
-            // 保证无大型语料的环境（如 CI 检出）仍可执行完整门禁。
-            Assumptions.assumeTrue(Files.isRegularFile(result),
-                    "Skipping: optional JSON corpus not present at " + result);
+            // R9 常驻语料守门：两个冒烟输入（montage-100-000.json 145 KB、
+            // blast-chameleon-small-001.json 103 KB）已入库（见 .gitignore 反选），
+            // 本测试在标准构建中必须执行，缺失即失败而非跳过。
+            if (!Files.isRegularFile(result)) {
+                throw new IllegalStateException(
+                        "Resident JSON corpus must be present at " + result);
+            }
             return result;
         }
     }

@@ -94,10 +94,14 @@ public class DynamicWorkloadExample1 extends WorkflowSimBasicExample1 {
             }
 
             /**
-             * 历史 HEFT 规划需要静态调度层，避免调度阶段覆盖规划结果。
+             * 本示例的教学点是 {@link CloudletSchedulerDynamicWorkload}（VM 的 MIPS
+             * 随时间动态变化），规划器只是配角。R9 移除了与执行模型不对齐的历史
+             * HEFT 标签后改用无前置约束的 RANDOM 规划：它与本示例的 LOCAL 文件
+             * 系统、动态 MIPS VM 调度器兼容（SHARED_STORAGE_* 系列要求 SHARED
+             * 存储 + SPACE_SHARED VM，与此处装置冲突）。
              */
             Parameters.SchedulingAlgorithm sch_method = Parameters.SchedulingAlgorithm.STATIC;
-            Parameters.PlanningAlgorithm pln_method = Parameters.PlanningAlgorithm.HEFT;
+            Parameters.PlanningAlgorithm pln_method = Parameters.PlanningAlgorithm.RANDOM;
             ReplicaCatalog.FileSystem file_system = ReplicaCatalog.FileSystem.LOCAL;
 
             /**

@@ -67,6 +67,7 @@ docs/
 | Fat-tree 网络拓扑的原理与设计？ | [`research/FAT_TREE_PRINCIPLES.md`](research/FAT_TREE_PRINCIPLES.md)、[`research/FAT_TREE_DESIGN.md`](research/FAT_TREE_DESIGN.md) |
 | 网络争用如何改变调度算法的相对优劣？ | [`experiments/FATTREE_SCHEDULING_CAMPAIGN.md`](experiments/FATTREE_SCHEDULING_CAMPAIGN.md)（设计）、[`experiments/FATTREE_SCHEDULING_RESULTS.md`](experiments/FATTREE_SCHEDULING_RESULTS.md)（实测结论） |
 | R8 全面审计发现了什么、怎么修的？ | [`advanced/COMPREHENSIVE_AUDIT_R8.md`](advanced/COMPREHENSIVE_AUDIT_R8.md) |
+| R9 清理轮删了什么、探测了什么？ | [`advanced/R9_CLEANUP_AND_PROBES.md`](advanced/R9_CLEANUP_AND_PROBES.md) |
 | 工作流调度文献近况（启发式/元启发式/QoS）？ | [`research/文献调研_工作流调度_2021-2025.md`](research/文献调研_工作流调度_2021-2025.md) |
 | ML/DRL 工作流调度研究现状？ | [`drl-workflow-scheduling-survey-2021-2025.md`](drl-workflow-scheduling-survey-2021-2025.md) |
 | 源码注释怎么写？ | [`advanced/CODE_STYLE.md`](advanced/CODE_STYLE.md) |

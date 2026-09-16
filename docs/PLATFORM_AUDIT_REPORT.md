@@ -1,5 +1,12 @@
 # WorkflowSim 平台整体审查报告
 
+> **R9 注记（2026-09-16）**：本报告保留历史审计记录。报告中引用的输出通道
+> `ExperimentConsoleSummary` / `ExperimentCsvWriter` / `ExperimentHtmlReportWriter`
+> 及其唯一使用方模板 `MyConfigurableExperiment` 已在 R9 作为无主流程引用的死代码
+> 移除；证据工件统一由 `ExperimentArtifactWriter`（manifest/metrics/events 三件套）
+> 承担。历史遗留规划算法 `HEFTPlanningAlgorithm` / `DHEFTPlanningAlgorithm` 及其
+> 枚举标签也在同轮移除。下文相关行描述的是审计当时的状态。
+
 **审查日期**：2026-09-04
 **审查方式**：三路并行深度审查（调度层 / 指标体系 / 引擎与事件流）+ 主线交叉验证
 **审查范围**：311 个 Java 源文件，重点覆盖 WorkflowScheduler、19 个调度算法、WorkflowEngine、WorkflowDatacenter、SimulationMetrics、四个输出通道

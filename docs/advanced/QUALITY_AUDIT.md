@@ -1,5 +1,11 @@
 # WorkflowSim 质量审计报告
 
+> **R9 注记（2026-09-16）**：本文保留历史审计记录。当时"忠实保留、不改"的
+> `@Deprecated HEFTPlanningAlgorithm` 已连同 `DHEFTPlanningAlgorithm`、枚举标签
+> 与全部分发分支在 R9 移除（SimulationRunner 早已拒绝该标签，属不可达过渡层）；
+> 文中提到的遗留输出写器 `ExperimentConsoleSummary` / `ExperimentCsvWriter` /
+> `ExperimentHtmlReportWriter` 同轮移除。
+
 日期：2026-09-04
 范围：算法正确性、指标准确性、测试覆盖、配置矩阵可运行性
 方法：4 路并行深度代码审查（对照经典文献定义）+ 配置矩阵实测 + 数据集完整性校验

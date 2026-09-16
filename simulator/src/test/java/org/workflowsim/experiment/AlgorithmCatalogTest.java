@@ -33,19 +33,8 @@ class AlgorithmCatalogTest {
                 contract.get("reproductionStandard"));
     }
 
-    @Test
-    void manifestContractPreservesExistingHeftQualificationBoundary() {
-        SimulationConfig config = SimulationConfig.builder("workflow.dax", 2)
-                .planningAlgorithm(Parameters.PlanningAlgorithm.HEFT)
-                .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
-                .build();
-
-        Map<String, Object> planner = nested(AlgorithmCatalog.forConfiguration(config), "planner");
-
-        assertEquals("LEGACY_COMPATIBILITY_ONLY_NOT_SUPPORTED_BY_SIMULATION_RUNNER",
-                planner.get("verification"));
-        assertTrue(planner.get("limitations").toString().contains("not yet aligned"));
-    }
+    // R9：历史 HEFT/DHEFT 标签与其 provisional 契约条目已一并移除，
+    // 原 manifestContractPreservesExistingHeftQualificationBoundary 不再适用。
 
     @Test
     void sharedStorageHeftDeclaresItsControlledExecutionDomain() {

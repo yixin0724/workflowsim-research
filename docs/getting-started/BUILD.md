@@ -108,22 +108,24 @@ mvn verify
 mvn verify
 ```
 
-**测试统计**（2026-09-16 R8 审计轮 clean 门禁实录）：
-- 核心单元测试：290 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、Fat-tree 拓扑结构/确定性路由/路由-容量闭包契约、故障分布 KS 检验与分布/开销声明边界校验、PSO 适应度手算值与非正 MIPS fail-fast、规划器方向性契约、解析器溢出/重复 id 拒绝、RL 策略契约与动态到达配置契约）
-- 核心集成测试：75 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收、多工作流动态到达验收（修复后黄金 8118.1/8068.1）、Fat-tree 链路争用端到端验收（对称供给 284.1 == R2 单位契约锁 + 慢链路 588.1 模型有效性锁）、Fat-tree × 调度规划器兼容性验收（论文成本矩阵 fixture 下排名翻转黄金值）、规划器方向性验收（HEFT/CPOP ≤ 同种子 RANDOM）与全平台健康矩阵——全部在线调度器/独立规划器/DAG 规划器/传输模型/错峰到达/RL 轨道交叉 + 统一报告不变量校验器）
-- 实验模块测试：81 个（27 单元 + 54 集成，含 Fat-tree × 调度 campaign 执行器纯逻辑单测与 campaign 黄金值/DAG 兼容性验收（R8 重录值锁定，含退化恒等契约））
-- **总计：446 个测试**
+**测试统计**（2026-09-16 R9 清理轮 clean 门禁实录）：
+- 核心单元测试：294 个（Surefire，含千任务级规模回归、配对显著性检验、链路争用流体模型、Fat-tree 拓扑结构/确定性路由/路由-容量闭包契约、故障分布 KS 检验与分布/开销声明边界校验、PSO 适应度手算值与非正 MIPS fail-fast、规划器方向性契约、解析器溢出/重复 id 拒绝、RL 策略契约与动态到达配置契约、开销参数深度采样全分支探测）
+- 核心集成测试：78 个（Failsafe，`*IntegrationTest.java`，含多 seed 显著性验收、RL episode 端到端验收、多工作流动态到达验收（修复后黄金 8118.1/8068.1）、Fat-tree 链路争用端到端验收、Fat-tree × 调度规划器兼容性验收、规划器方向性验收（HEFT/CPOP ≤ 同种子 RANDOM）、全平台健康矩阵，以及 R9 新增的开销 × 故障 × 成本组合探测（后处理延迟黄金 makespan 5.600810343783252））
+- 实验模块测试：80 个（26 单元 + 54 集成，含 Fat-tree × 调度 campaign 执行器纯逻辑单测、campaign 黄金值验收、常驻语料守门后的解析器教程对照 5 个与 P7 pilot 矩阵 1 个——R9 起 0 跳过）
+- **总计：452 个测试，0 跳过**
 
 **覆盖率门禁（R3）**：JaCoCo `check-unit-coverage` 在 verify 阶段对单元测试覆盖率
-（`target/jacoco.exec`）强制 BUNDLE 级下限——simulator instruction ≥ 0.49 /
-branch ≥ 0.44（R8 审计轮随实测上调），experiments ≥ 0.23 / ≥ 0.25（棘轮值，只升不降；
-experiments 不上调因大型语料缺失时相关单测自动跳过；实测 2026-09-16 R8
-审计轮：49.90%/44.78%、32.85%/34.91%）。报告输出在 `target/site/jacoco/`（HTML+XML）与
-`target/site/jacoco-it/`（集成覆盖率）。
+（`target/jacoco.exec`）强制 BUNDLE 级下限——simulator instruction ≥ 0.52 /
+branch ≥ 0.46（R9 随实测上调：删除约 1.1 万指令死代码后分母收窄），experiments
+≥ 0.33 / ≥ 0.35（R9 随实测上调：常驻语料守门后 corpus 测试实跑）；棘轮只升不降。
+实测 2026-09-16 R9 清理轮：simulator 52.38%/46.32%、experiments 33.78%/35.58%；
+`OverheadParameters` 指令覆盖 24.4% → 100%。报告输出在 `target/site/jacoco/`
+（HTML+XML）与 `target/site/jacoco-it/`（集成覆盖率）。
 
 CI：`.github/workflows/ci.yml` 在每次 push/PR 到 `main` 时以 JDK 17 执行完整门禁；
-`wfformat`/`wfinstances` 大型语料未纳入版本库，相关测试在语料缺失时自动跳过（本地
-有语料时完整执行）。
+R9 起 `wfformat`/`wfinstances` 语料中门禁实际引用的 5 个小文件（33–145 KB）已入库
+（.gitignore 逐级反选），相关测试在任何检出中完整执行、不再跳过；其余大型语料
+仍未纳入版本库（仅影响可选的大规模复现实验，不影响门禁）。
 
 **研究结论前的完整本地门禁应使用 `verify`**，不是只用 `test`。任何依赖示例、P7 参考矩阵或教程语料的门禁都必须使用 `mvn verify`。
 
@@ -185,9 +187,9 @@ mvn -pl :workflowsim-experiments -am \
   compile exec:java
 
 
-# 代码配置式实验模板（推荐）
+# SimulationConfig 代码配置式实验（推荐；R9 移除了旧 MyConfigurableExperiment 模板）
 mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.examples.MyConfigurableExperiment \
+  -Dexec.mainClass=org.workflowsim.examples.HeftPaperReproductionExperiment \
   compile exec:java
 
 # WfCommons WfFormat JSON 示例

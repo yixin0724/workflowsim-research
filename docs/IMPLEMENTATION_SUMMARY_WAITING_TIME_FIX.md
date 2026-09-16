@@ -1,5 +1,12 @@
 # 等待时间指标修正实施总结
 
+> **R9 注记（2026-09-16）**：本文保留历史实施记录。文中涉及的
+> `ExperimentConsoleSummary` / `ExperimentCsvWriter` / `ExperimentHtmlReportWriter`
+> 三个输出写器及模板 `MyConfigurableExperiment` 已在 R9 作为死代码移除（无主流程
+> 引用、不在示例目录、唯一引用测试为从不执行的手动门禁）；等待时间等指标口径本身
+> 不受影响，仍由 `SimulationMetrics` / `SimulationReport` 维护并经 metrics.json
+> 工件输出。
+
 ## 📋 背景
 
 **问题发现**：用户运行实验后发现所有作业的 `waitingTime` 恒为 0，怀疑指标设计有误。

@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.Task;
@@ -47,10 +46,10 @@ class ParserCrossValidationTest {
         if (!workflowPath.startsWith(datasetRoot.normalize())) {
             throw new IllegalStateException("Invalid tutorial input path: " + workflowPath);
         }
-        // wfformat 语料体积较大且未纳入版本库（见 .gitignore）；缺失时跳过本教程对照测试，
-        // 保证无大型语料的环境（如 CI 检出）仍可执行完整门禁。
-        Assumptions.assumeTrue(Files.isRegularFile(workflowPath),
-                "Skipping: optional WfCommons corpus not present at " + workflowPath);
+        // R9 常驻语料守门：montage-100-000.json（145 KB）已入库（见 .gitignore 反选），
+        // 本测试在标准构建中必须执行，不再允许跳过。
+        assertTrue(Files.isRegularFile(workflowPath),
+                "Resident WfCommons corpus must be present at " + workflowPath);
     }
 
     @Test

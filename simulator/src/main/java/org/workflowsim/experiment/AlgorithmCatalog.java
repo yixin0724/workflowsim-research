@@ -86,8 +86,6 @@ public final class AlgorithmCatalog {
             case LOCAL_HEFT:
             case LOCAL_CPOP:
                 return true;
-            case HEFT:
-            case DHEFT:
             default:
                 return false;
         }
@@ -225,12 +223,6 @@ public final class AlgorithmCatalog {
                 values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
                 values.put("verification", "DETERMINISTIC_MAPPING_REGRESSION_COVERED");
                 values.put("limitations", limitations("Runtime dependencies remain engine-enforced; this is not an offline timing schedule."));
-                break;
-            case HEFT:
-                provisionalDagPlanner(values, "HEFT upward-rank priority and insertion-based earliest-finish mapping");
-                break;
-            case DHEFT:
-                provisionalDagPlanner(values, "Legacy dynamic-HEFT-style Task-to-VM mapping");
                 break;
             case SHARED_STORAGE_HEFT:
                 values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
@@ -395,18 +387,6 @@ public final class AlgorithmCatalog {
         values.put("verification", "DETERMINISTIC_REGRESSION_COVERED");
         values.put("limitations", limitations("Fails fast when any parent or child dependency exists.",
                 "Produces a VM mapping, not a complete offline execution trace or a communication model."));
-    }
-
-    private static void provisionalDagPlanner(Map<String, Object> values, String rule) {
-        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING");
-        values.put("inputDomain", "VALID_DAG");
-        values.put("decisionRule", rule);
-        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-        values.put("verification", "LEGACY_COMPATIBILITY_ONLY_NOT_SUPPORTED_BY_SIMULATION_RUNNER");
-        values.put("limitations", limitations("The planning-side transfer estimate is not yet aligned with the executed shared-storage stage-in model.",
-                "Do not use for calibrated transfer, data-locality, or real-platform claims.",
-                "Use SHARED_STORAGE_HEFT, SHARED_STORAGE_CPOP, SHARED_STORAGE_DLS, or "
-                        + "SHARED_STORAGE_ETF, or SHARED_STORAGE_PEFT for maintained static DAG planning."));
     }
 
     private static Map<String, Object> base(String id) {

@@ -54,7 +54,7 @@ class SimulationSessionTest {
 
         // 第二段会话改用多输入配置，以验证它不会继承第一段会话的单输入路径。
         SimulationConfig second = SimulationConfig.builder(Arrays.asList("second.dax", "third.json"), 3)
-                .planningAlgorithm(PlanningAlgorithm.HEFT)
+                .planningAlgorithm(PlanningAlgorithm.RANDOM)
                 .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
                 .build();
         try (SimulationSession session = SimulationSession.open(second)) {
@@ -86,7 +86,7 @@ class SimulationSessionTest {
                         .schedulingAlgorithm(SchedulingAlgorithm.INVALID).build());
         assertThrows(IllegalArgumentException.class,
                 () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.HEFT)
+                        .planningAlgorithm(PlanningAlgorithm.RANDOM)
                         .build());
         assertThrows(IllegalArgumentException.class,
                 () -> SimulationConfig.builder("workflow.dax", 1)
