@@ -10,7 +10,6 @@ import org.workflowsim.failure.FailureParameters;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.platform.PlatformProfiles;
 import org.workflowsim.utils.ClusteringParameters;
-import org.workflowsim.utils.Parameters.PlanningAlgorithm;
 import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.SimulationConfig;
 
@@ -33,11 +32,9 @@ class SimulationRunnerAlgorithmContractTest {
         assertLegacySchedulerRejected(SchedulingAlgorithm.ROUNDROBIN);
     }
 
-    @Test
-    void standardRunnerRejectsLegacyDagPlannersWithUnalignedExecutionModels() {
-        assertLegacyPlannerRejected(PlanningAlgorithm.HEFT);
-        assertLegacyPlannerRejected(PlanningAlgorithm.DHEFT);
-    }
+    // R9：历史 HEFT/DHEFT 规划器标签已随其未对齐实现一并移除，
+    // 原 standardRunnerRejectsLegacyDagPlannersWithUnalignedExecutionModels
+    // 的拒绝契约不再适用（枚举中已无遗留 DAG 规划器标签）。
 
     @Test
     void standardRunnerRejectsLegacyFailureReclustering() {
@@ -89,17 +86,6 @@ class SimulationRunnerAlgorithmContractTest {
         SimulationConfigurationException exception = assertThrows(SimulationConfigurationException.class,
                 () -> new SimulationRunner().run(config,
                         PlatformProfiles.homogeneousLocal("legacy-scheduler", 1)));
-        assertTrue(exception.getMessage().contains("not supported by SimulationRunner"));
-    }
-
-    private static void assertLegacyPlannerRejected(PlanningAlgorithm planningAlgorithm) {
-        SimulationConfig config = SimulationConfig.builder("workflow.dax", 1)
-                .planningAlgorithm(planningAlgorithm)
-                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                .build();
-        SimulationConfigurationException exception = assertThrows(SimulationConfigurationException.class,
-                () -> new SimulationRunner().run(config,
-                        PlatformProfiles.homogeneousLocal("legacy-planner", 1)));
         assertTrue(exception.getMessage().contains("not supported by SimulationRunner"));
     }
 }

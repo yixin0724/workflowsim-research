@@ -17,10 +17,11 @@
     <description>WorkflowSim 的教学示例、冻结参考基线和未来研究实验资产。</description>
 
     <properties>
-        <!-- R3 覆盖率门禁棘轮值：略低于实测（2026-09-14 clean verify：
-             instruction 24.03% / branch 26.81%），只升不降。 -->
-        <workflowsim.jacoco.instruction.minimum>0.23</workflowsim.jacoco.instruction.minimum>
-        <workflowsim.jacoco.branch.minimum>0.25</workflowsim.jacoco.branch.minimum>
+        <!-- R3 覆盖率门禁棘轮值：略低于实测（2026-09-16 R9 清理轮 clean verify：
+             instruction 33.78% / branch 35.58%；R9 常驻语料守门后 3 个 corpus
+             测试在标准构建实跑（0 跳过），不再因语料缺失压低覆盖率），只升不降。 -->
+        <workflowsim.jacoco.instruction.minimum>0.33</workflowsim.jacoco.instruction.minimum>
+        <workflowsim.jacoco.branch.minimum>0.35</workflowsim.jacoco.branch.minimum>
     </properties>
 
     <dependencies>

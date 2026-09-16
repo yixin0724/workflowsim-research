@@ -245,15 +245,20 @@ Known reproduction limits (declared in the manifest contract):
   scale regression (`LargeWorkflowScaleRegressionTest` uses the
   collision-free Epigenomics_997 for the LOCAL track).
 
-## Provisional Legacy DAG Planners
+## Legacy DAG Planners (Removed in R9)
 
-`HEFT` and `DHEFT` remain directly selectable legacy code, but their
-planning-side parent/child transfer estimate is not aligned with the current
-shared-storage compute-stage-in execution path. `SimulationRunner` rejects
-both labels, and their manifest contract marks them
-`LEGACY_COMPATIBILITY_ONLY_NOT_SUPPORTED_BY_SIMULATION_RUNNER`. Do not compare
-them with the controlled static DAG algorithms for data locality, bandwidth,
-network, or real-platform claims.
+The deprecated `HEFT` and `DHEFT` labels were removed in R9 (2026-09-16),
+together with their `HEFTPlanningAlgorithm` / `DHEFTPlanningAlgorithm`
+implementations, their `PlanningAlgorithm` enum entries, and their dispatch
+branches in `WorkflowPlanner` and `AlgorithmCatalog`. Before removal they were
+already rejected by `SimulationRunner` and flagged
+`LEGACY_COMPATIBILITY_ONLY_NOT_SUPPORTED_BY_SIMULATION_RUNNER`: their
+planning-side parent/child transfer estimate was never aligned with the current
+shared-storage compute-stage-in execution path. They remain unusable for data
+locality, bandwidth, network, or real-platform claims. Use the maintained static
+DAG planners instead: `SHARED_STORAGE_HEFT`, `SHARED_STORAGE_CPOP`,
+`SHARED_STORAGE_DLS`, `SHARED_STORAGE_ETF`, `SHARED_STORAGE_PEFT`, or the
+communication-aware `LOCAL_HEFT` / `LOCAL_CPOP`.
 
 ## Comparison Rules
 

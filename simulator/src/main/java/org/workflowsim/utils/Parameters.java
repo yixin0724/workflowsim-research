@@ -65,16 +65,6 @@ public class Parameters {
     public enum PlanningAlgorithm{
         INVALID, RANDOM,
         /**
-         * @deprecated 遗留 HEFT 实现：其规划侧父子传输估计与当前共享存储 stage-in 执行
-         * 模型不对齐，SimulationRunner 拒绝该标签。受维护的替代是 {@link #SHARED_STORAGE_HEFT}。
-         */
-        @Deprecated HEFT,
-        /**
-         * @deprecated 遗留分布式 HEFT 实现：同样与当前执行模型不对齐，且未经受控回归验证。
-         * SimulationRunner 拒绝该标签。静态 DAG 规划应使用 SHARED_STORAGE_* 系列算法。
-         */
-        @Deprecated DHEFT,
-        /**
          * 面向独立任务集合的离线基线算法。它们拒绝含依赖边的工作流；DAG 工作流应使用
          * 专用 DAG 规划器。
          */

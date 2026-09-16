@@ -60,8 +60,9 @@ class AlgorithmSupportMatrixTest {
                 PlanningAlgorithm.PSO,
                 PlanningAlgorithm.LOCAL_HEFT,
                 PlanningAlgorithm.LOCAL_CPOP);
-        EnumSet<PlanningAlgorithm> legacy = EnumSet.of(
-                PlanningAlgorithm.HEFT, PlanningAlgorithm.DHEFT);
+        // R9：历史 HEFT/DHEFT 标签已随其未对齐实现一并移除，遗留分区为空集；
+        // 分区断言继续守住"每个枚举标签都被显式分类"的契约。
+        EnumSet<PlanningAlgorithm> legacy = EnumSet.noneOf(PlanningAlgorithm.class);
 
         assertExactPartition(PlanningAlgorithm.class, supported, legacy);
         for (PlanningAlgorithm algorithm : supported) {

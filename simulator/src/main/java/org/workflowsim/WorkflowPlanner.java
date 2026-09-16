@@ -28,8 +28,6 @@ import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.failure.FailureParameters;
 import org.workflowsim.planning.BasePlanningAlgorithm;
-import org.workflowsim.planning.DHEFTPlanningAlgorithm;
-import org.workflowsim.planning.HEFTPlanningAlgorithm;
 import org.workflowsim.planning.LocalCpopPlanningAlgorithm;
 import org.workflowsim.planning.LocalHeftPlanningAlgorithm;
 import org.workflowsim.planning.PSOPlanningAlgorithm;
@@ -309,8 +307,9 @@ public final class WorkflowPlanner extends SimEntity {
      * 根据配置创建规划算法实现。
      *
      * <p>枚举值到实现的映射是实验协议的一部分。共享存储 DAG 规划器会收到显式
-     * {@link PlanningContext}；历史 HEFT/DHEFT 实现仍可调用，但其模型边界由各自类
-     * 文档说明。</p>
+     * {@link PlanningContext}。R9（2026-09-16）已移除与执行模型不对齐的历史
+     * HEFT/DHEFT 分发分支，静态 DAG 规划一律使用受维护的 SHARED_STORAGE_*
+     * 或 LOCAL_* 系列。</p>
      *
      * @param name 规划算法枚举
      * @return 对应规划算法；无效或未知枚举时为 {@code null}
@@ -326,12 +325,6 @@ public final class WorkflowPlanner extends SimEntity {
                 break;
             case RANDOM:
                 planner = new RandomPlanningAlgorithm();
-                break;
-            case HEFT:
-                planner = new HEFTPlanningAlgorithm();
-                break;
-            case DHEFT:
-                planner = new DHEFTPlanningAlgorithm();
                 break;
             case STATIC_OLB:
                 planner = new StaticOlbPlanningAlgorithm();
