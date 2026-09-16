@@ -333,23 +333,44 @@ ranking-flip conclusions live in `FATTREE_SCHEDULING_RESULTS.md`; the design
 `FatTreeCampaignDagCompatibilityIntegrationTest`, and the simulator-side
 `FatTreePlannerCompatibilityIntegrationTest`.
 
-**R8 re-record (2026-09-16).** The R8 audit fixed a fat-tree link-capacity
-unit bug (declared MB/s were divided by 8, so links physically ran at 1/8 of
-their declared bandwidth), a contention-payload accounting bug (bytes of
-already-local files were charged to contention transfers), and the paired
-Wilcoxon zero-difference handling. All 360 runs were re-executed and the
-frozen artifacts in `experiments/studies/fattree-scheduling-campaign/` were
-regenerated; the original R7 artifacts remain in git history (PR #12 merge)
-and every R6 figure quoted from them is void. Key re-recorded facts: with the
-declared link bandwidth (1.0 MB/s) equal to the VM endpoint bandwidth, the
-fat-tree layer never binds, R6 is bit-for-bit identical to R2 across all
-10 DAGs × 4 planners, and every sensitivity/structural axis (including the
-A4 link-bandwidth axis) degenerates to identity; the per-DAG winner flips
-(cybershake-n50 HEFT→PSO, cybershake-n100 CPOP→PSO, and newly
-inspiral-n50 HEFT→CPOP) survive but are endpoint-contention (R2) phenomena.
+**R8 re-record and recalibration (2026-09-16).** The R8 audit fixed a fat-tree
+link-capacity unit bug (declared MB/s were divided by 8, so links physically
+ran at 1/8 of their declared bandwidth), a contention-payload accounting bug
+(bytes of already-local files were charged to contention transfers), and the
+paired Wilcoxon zero-difference handling. The campaign went through two stages:
+
+1. **Audit re-record**: all 360 runs were re-executed at the declared
+   bandwidth. With the declared link bandwidth (1.0 MB/s) equal to the VM
+   endpoint bandwidth, the fat-tree layer never binds: R6 was bit-for-bit
+   identical to R2 across all 10 DAGs × 4 planners and every
+   sensitivity/structural axis (including A4) degenerated to identity. This
+   symmetric-provisioning degeneracy is recorded as boundary physics
+   (`docs/advanced/COMPREHENSIVE_AUDIT_R8.md` §3.3 N-2), not as the campaign
+   apparatus.
+2. **User-approved recalibration re-run (13:42)**: the baseline link bandwidth
+   was recalibrated to 0.125 MB/s (= endpoint/8, an 8:1 access oversubscription
+   that restores the physical regime in which pre-fix declared 1.0 actually ran)
+   and the A4 axis to 1.25 MB/s (a true 10× baseline, above the endpoint, so it
+   converges back to R2 by construction). Discriminative power was restored with
+   a decisive cross-validation: the recalibrated R6 column is bit-for-bit equal
+   to the pre-fix R7 goldens (paper example 5738.1/5854.1/7206.1/7262.1;
+   four-host structural block 5718.1/5574.1/5186.1/5168.1; 5 weak-monotonicity
+   violations, max 7.47×10⁻⁵), proving the recalibration exactly recovers the
+   pre-fix physics and validating the F1 unit-fix semantics. Key recalibrated
+   facts: R6 > R2 holds (paper example HEFT 5195.1 → 5738.1); the A4 bandwidth
+   axis converges exactly to the main-matrix R2 (5195.1/5205.1) and strictly
+   lowers the structural-block makespan on 8/10 DAGs (p=0.0078/0.0156); the
+   structural axes A1/A2/A3/A5 still degenerate on both the 3-host and 4-host
+   blocks (endpoint-sharing physics, not a bandwidth-parameter issue); per-DAG
+   winner flips survive (cybershake-n50 HEFT→PSO, cybershake-n100 CPOP→PSO in
+   R2 and R6) and inspiral-n50 now splits between R2 (CPOP) and R6 (HEFT) at
+   noise level; HEFT vs PSO significance erodes from p=0.0371 (V1) to p=0.0645
+   (R2/R6) while R6 vs R2 becomes significant for HEFT/CPOP/RANDOM
+   (p=0.0059/0.0078/0.0039).
+
 Model effectiveness under binding links is locked by the simulator slow-link
-probe (0.25 MB/s links → makespan 588.1 > R2's 284.1). See
-`FATTREE_SCHEDULING_RESULTS.md` §0.1/§0.7/§0.8 and
+probe (0.25 MB/s links → makespan 588.1 > R2's 284.1) and the unit contract by
+the symmetric probe (284.1 == R2). See `FATTREE_SCHEDULING_RESULTS.md` §0 and
 `docs/advanced/COMPREHENSIVE_AUDIT_R8.md`.
 
 ## Deferred Work

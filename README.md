@@ -31,7 +31,7 @@ mvn verify      # 完整门禁（核心 + 实验，单元 + 集成 + 覆盖率�
 | 可选开销、故障重试、deadline 观察和成本模型 | 分布参数、云价格和失败行为未由现实数据校准时，只能解释为情景假设。 |
 | 兼容数据移动模型、可选执行前传输延迟模型与链路争用流体公平共享模型（R2） | 端点争用模型回答"并发传输减速多少"，不包含网络拓扑、路由、丢包、排队细节。 |
 | Fat-tree 拓扑感知链路争用模型（R6，`fatTreeContentionV1` + `PlatformProfile.networkTopology`） | 流级流体模型：Al-Fares k-Pod 确定性路由 + 链路级公平共享（可超收敛）；不包含丢包、排队细节、ECN、自适应路由与链路故障。 |
-| Fat-tree × 调度联合实验（R7，`FatTreeSchedulingCampaignExecutor`） | 360 次确定性运行实测"网络争用如何改变调度相对优劣"：平均排名不因争用翻转，但逐 DAG 第一名翻转（cybershake × PSO）且 HEFT 对 PSO 的显著优势被争用侵蚀；结论条件于成本结构、3/4 主机平台与 seed 91（`docs/experiments/FATTREE_SCHEDULING_RESULTS.md`）。R8 审计（2026-09-16）修复链路容量 ÷8 单位 bug 后全量重录：声明链路带宽 == 端点带宽时 R6 与 R2 逐位相等、全部拓扑敏感性轴退化恒等，换冠事实保留但根因是 R2 端点争用；旧 R6 数字全部作废（详见结果文档 §0.7 历史警示）。 |
+| Fat-tree × 调度联合实验（R7，`FatTreeSchedulingCampaignExecutor`） | 360 次确定性运行实测"网络争用如何改变调度相对优劣"：平均排名不因争用翻转，但逐 DAG 第一名翻转（cybershake-n50/n100 → PSO；inspiral-n50 出现 R2/R6 第一名分化）且 HEFT 对 PSO 的显著优势被争用侵蚀（p 0.0371→0.0645）；结论条件于成本结构、3/4 主机平台与 seed 91（`docs/experiments/FATTREE_SCHEDULING_RESULTS.md`）。R8 审计（2026-09-16）修复链路容量 ÷8 单位 bug，并经用户授权把 campaign 链路基线带宽再标定为 0.125 MB/s（端点 1/8）：链路束缚恢复（R6 > R2，模型轴对 HEFT/CPOP/RANDOM 显著），R6 列与修复前黄金值逐位相等（交叉验证单位修复语义），A4 带宽轴判别力恢复（精确收敛回 R2）；结构轴恒等为端点共享的平台物理，对称供给（链路 ≥ 端点）下 R6 ≡ R2 的退化保留为边界事实（审计报告 §3.3 N-2）。 |
 | 多工作流并发提交与错峰动态到达（R5，`workflowArrivalSeconds`） | 提交时刻是 t=0 已知配置，不是到达前未知的在线流；无租户级配额/计费/抢占隔离。 |
 | RL 调度轨道（R4，`RlEnvironment` + `RL_POLICY`） | 提供状态/动作/奖励环境契约与确定性闭环，不含学习算法本身；外部训练器需进程外桥接。 |
 

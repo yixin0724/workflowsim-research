@@ -196,8 +196,12 @@ bit-identical to the R2 endpoint golden (> no-contention 190.1); with binding
 links (0.25 MB/s slow-link probe) fat-tree makespan 588.1 > 284.1 proves the
 link-contention model engages when links constrain. (R8 audit 2026-09-16:
 the pre-fix golden 1032.1 was produced by a ÷8 unit bug that ran declared
-links at 1/8 bandwidth.) Honest boundaries: flow-level fluid model
-(no loss/queueing/ECN), deterministic shortest-path routing (no adaptive
+links at 1/8 bandwidth. The scheduling campaign apparatus was recalibrated
+in R8 to binding provisioning — baseline links 0.125 MB/s = endpoint/8, A4
+axis 1.25 MB/s > endpoint — under which fat-tree contention measurably adds
+to R2, e.g. paper example HEFT 5195.1 → 5738.1; the symmetric identity above
+is the simulator fixture's boundary case.) Honest boundaries: flow-level fluid
+model (no loss/queueing/ECN), deterministic shortest-path routing (no adaptive
 routing), uniform link bandwidth, external SOURCE flows bypass the topology.
 See `docs/research/FAT_TREE_PRINCIPLES.md` and `docs/research/FAT_TREE_DESIGN.md`.
 

@@ -116,6 +116,16 @@ e2e fixture：heft-paper-example.dax × LOCAL_HEFT × 论文成本矩阵 × 3 �
 （默认轮转放置到 pod0/edge0、pod0/edge1、pod1/edge0）× k=4 满配 Fat-tree、
 链路带宽 1 MB/s（与 VM 端点带宽相等——R8 审计后该对称供给下链路层不束缚单流，R6 ≡ R2；慢链路探针另行声明 0.25 MB/s 验证模型有效性）。
 
+**campaign 装置分离（R8 再标定，2026-09-16）**：`FatTreeSchedulingCampaignExecutor`
+的联合实验装置与上述 simulator fixture 相互独立——campaign 链路基线带宽经
+用户授权再标定为 **0.125 MB/s**（= VM 端点 1 MB/s 的 1/8，8:1 接入超收敛，
+恰恢复 F1 单位修复前声明 1.0 时的实际物理区间），A4 带宽比轴 **1.25 MB/s**
+（基线真 10×，> 端点 ⇒ 非束缚 ⇒ 精确收敛回 R2）。再标定重跑实测 R6 > R2
+（论文例 HEFT 5195.1 → 5738.1）、R6 列与修复前黄金值逐位相等（交叉验证
+单位修复语义）。装置参数、依据与实测见
+`docs/experiments/FATTREE_SCHEDULING_CAMPAIGN.md` §2.3/§2.4 与
+`FATTREE_SCHEDULING_RESULTS.md`。
+
 ## 7. 诚实边界（已写入代码 javadoc 与 README）
 
 流级流体模型；无丢包/排队细节/ECN；确定性最短路径（无自适应路由、无 ECMP
