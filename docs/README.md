@@ -23,6 +23,8 @@ docs/
 ├── experiments/                # 实验设计与协议
 │   ├── REPRODUCIBILITY.md      # 可复现性契约（随机性/成本/deadline 语义）
 │   ├── CAMPAIGNS.md            # 多场景/多重复实验与数据移动模型协议
+│   ├── FATTREE_SCHEDULING_CAMPAIGN.md  # Fat-tree × 调度联合实验设计（R7）
+│   ├── FATTREE_SCHEDULING_RESULTS.md   # R7 实测结果（排名翻转结论）
 │   └── reference-baselines/
 │       ├── P7_PROTOCOL.md      # 冻结参考基线 P7 的实验协议
 │       └── P7_RESULTS.md       # P7 已记录结果（历史记录）
@@ -34,7 +36,7 @@ docs/
 └── advanced/                   # 专题与维护者文档
     ├── QUALITY_AUDIT.md        # 质量审计报告（算法正确性/指标准确性）
     ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
-    ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R6 轮次规划）
+    ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R7 轮次规划）
     └── CODE_STYLE.md           # 源码注释规范
 ```
 
@@ -59,6 +61,7 @@ docs/
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
 | 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |
 | Fat-tree 网络拓扑的原理与设计？ | [`research/FAT_TREE_PRINCIPLES.md`](research/FAT_TREE_PRINCIPLES.md)、[`research/FAT_TREE_DESIGN.md`](research/FAT_TREE_DESIGN.md) |
+| 网络争用如何改变调度算法的相对优劣？ | [`experiments/FATTREE_SCHEDULING_CAMPAIGN.md`](experiments/FATTREE_SCHEDULING_CAMPAIGN.md)（设计）、[`experiments/FATTREE_SCHEDULING_RESULTS.md`](experiments/FATTREE_SCHEDULING_RESULTS.md)（实测结论） |
 | 源码注释怎么写？ | [`advanced/CODE_STYLE.md`](advanced/CODE_STYLE.md) |
 
 ## 推荐阅读路径

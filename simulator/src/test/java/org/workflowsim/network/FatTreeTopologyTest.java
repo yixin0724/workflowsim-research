@@ -167,6 +167,70 @@ public class FatTreeTopologyTest {
         assertEquals("LINK:EDGE:0:1->AGG:0:0", heavy.route(1, 3).get(1));
     }
 
+    /**
+     * 结构轴契约（campaign 敏感性设计依据）：4 主机下 k/超收敛/放置确实
+     * 改变交叉流（0→2 与 1→3，不共享端点主机）的链路共享格局——基线不共享、
+     * 2× 超收敛共享 2 条 core 链路、k=8 单 Pod 化为 4 链路同 Pod 路径、
+     * 同 edge 主机对使交叉流共享两端 ACC 接入链路之外的全部中间链路。
+     */
+    @Test
+    public void structuralVariantsReshapeCrossFlowSharingOnFourHosts() {
+        // 基线 k=4 满配：轮转放置 (0,0),(0,1),(1,0),(1,1)；交叉流各走各的
+        // aggregate/core，路径完全不相交。
+        FatTreeTopology baseline = FatTreeTopology.fromSpec(
+                NetworkTopologySpec.fatTree(4, 100.0), hosts(4));
+        List<String> cross02 = baseline.route(0, 2);
+        List<String> cross13 = baseline.route(1, 3);
+        assertEquals(6, cross02.size());
+        assertEquals(6, cross13.size());
+        assertTrue(Collections.disjoint(cross02, cross13),
+                "基线下交叉流 0→2 与 1→3 不应共享链路");
+
+        // A1：k=4、m=2（2× 超收敛）→ availA = ceil(2×2/4) = 1，全部流量走
+        // agg0；交叉流在 AGG:0:0↔CORE:1 两条链路上共享。
+        FatTreeTopology oversub = FatTreeTopology.fromSpec(
+                NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(4));
+        List<String> shared = new ArrayList<String>(oversub.route(0, 2));
+        shared.retainAll(oversub.route(1, 3));
+        assertEquals(Arrays.asList(
+                "LINK:AGG:0:0->CORE:1",
+                "LINK:CORE:1->AGG:1:0"), shared);
+
+        // A2：k=8 → 4 台主机轮转索引 0..3 全落 pod0（halfK=4），无跨 Pod
+        // 流量，交叉流变为 4 链路同 Pod 路径且互不共享。
+        FatTreeTopology k8 = FatTreeTopology.fromSpec(
+                NetworkTopologySpec.fatTree(8, 100.0), hosts(4));
+        List<String> k8Cross02 = k8.route(0, 2);
+        assertEquals(Arrays.asList(
+                "LINK:ACC:0->EDGE:0:0",
+                "LINK:EDGE:0:0->AGG:0:0",
+                "LINK:AGG:0:0->EDGE:0:2",
+                "LINK:EDGE:0:2->ACC:2"), k8Cross02);
+        assertTrue(Collections.disjoint(k8Cross02, k8.route(1, 3)),
+                "k=8 单 Pod 下交叉流仍不应共享链路");
+
+        // A5：同 edge 主机对 {0→0,1→0,2→2,3→2}：0→1 缩短为 2 链路同 edge
+        // 路径；交叉流 0→2 与 1→3 除两端 ACC 接入链路外共享中间全部 4 条链路。
+        Map<Integer, Integer> pairs = new LinkedHashMap<Integer, Integer>();
+        pairs.put(Integer.valueOf(0), Integer.valueOf(0));
+        pairs.put(Integer.valueOf(1), Integer.valueOf(0));
+        pairs.put(Integer.valueOf(2), Integer.valueOf(2));
+        pairs.put(Integer.valueOf(3), Integer.valueOf(2));
+        FatTreeTopology clustered = FatTreeTopology.fromSpec(
+                NetworkTopologySpec.fatTree(4, 100.0, null, pairs), hosts(4));
+        assertEquals(Arrays.asList(
+                "LINK:ACC:0->EDGE:0:0",
+                "LINK:EDGE:0:0->ACC:1"), clustered.route(0, 1));
+        List<String> pairShared = new ArrayList<String>(clustered.route(0, 2));
+        pairShared.retainAll(clustered.route(1, 3));
+        assertEquals(Arrays.asList(
+                "LINK:EDGE:0:0->AGG:0:0",
+                "LINK:AGG:0:0->CORE:1",
+                "LINK:CORE:1->AGG:1:0",
+                "LINK:AGG:1:0->EDGE:1:0"), pairShared,
+                "同 edge 主机对下交叉流应共享两端 ACC 之外的全部中间链路");
+    }
+
     /** 显式放置：覆盖、容量与未知主机校验。 */
     @Test
     public void explicitPlacementValidation() {

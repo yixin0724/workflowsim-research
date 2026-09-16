@@ -311,6 +311,28 @@ This is sufficient to establish behavior under declared abstract models. It is
 not sufficient to claim algorithm superiority across all workflows, real
 systems, cloud providers, or network conditions.
 
+## Fat-tree × Scheduling Campaign (R7)
+
+The first joint contention/scheduling campaign answers "how does network
+contention change the relative ranking of scheduling algorithms?" across the
+three preExecution movement models (V1 / R2 / R6 fat-tree) and four static
+planners (LOCAL_HEFT / LOCAL_CPOP / PSO / RANDOM) on 10 Pegasus DAX instances
+(montage/sipht excluded: their raw DAX files contain inconsistent same-name
+file sizes that the LOCAL communication planning family rejects).
+
+It uses a dedicated executor
+(`org.workflowsim.experiments.fattree.FatTreeSchedulingCampaignExecutor`,
+360 runs: 120 main matrix + 120 three-host sensitivity + 120 four-host
+structural sensitivity, fixed seed 91, derived costs without an explicit cost
+matrix) rather than `ExperimentPlan`, because pairing is defined across DAG
+instances rather than over seed-keyed replications. Its measured results and
+ranking-flip conclusions live in `FATTREE_SCHEDULING_RESULTS.md`; the design
+(fixtures, DAG partition, sensitivity axes, acceptance) in
+`FATTREE_SCHEDULING_CAMPAIGN.md`. Contracts are locked by
+`FatTreeCampaignGoldenIntegrationTest`,
+`FatTreeCampaignDagCompatibilityIntegrationTest`, and the simulator-side
+`FatTreePlannerCompatibilityIntegrationTest`.
+
 ## Deferred Work
 
 The next network layer should be designed as a separate model family, not

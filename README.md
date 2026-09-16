@@ -30,6 +30,7 @@ mvn verify      # 核心测试，约 7 秒，应显示 Tests run: 249, Failures:
 | 可选开销、故障重试、deadline 观察和成本模型 | 分布参数、云价格和失败行为未由现实数据校准时，只能解释为情景假设。 |
 | 兼容数据移动模型、可选执行前传输延迟模型与链路争用流体公平共享模型（R2） | 端点争用模型回答"并发传输减速多少"，不包含网络拓扑、路由、丢包、排队细节。 |
 | Fat-tree 拓扑感知链路争用模型（R6，`fatTreeContentionV1` + `PlatformProfile.networkTopology`） | 流级流体模型：Al-Fares k-Pod 确定性路由 + 链路级公平共享（可超收敛）；不包含丢包、排队细节、ECN、自适应路由与链路故障。 |
+| Fat-tree × 调度联合实验（R7，`FatTreeSchedulingCampaignExecutor`） | 360 次确定性运行实测"网络争用如何改变调度相对优劣"：平均排名不因争用翻转，但逐 DAG 第一名翻转（cybershake × PSO）且 HEFT 对 PSO 的显著优势被争用侵蚀；结论条件于成本结构、3/4 主机平台与 seed 91（`docs/experiments/FATTREE_SCHEDULING_RESULTS.md`）。 |
 | 多工作流并发提交与错峰动态到达（R5，`workflowArrivalSeconds`） | 提交时刻是 t=0 已知配置，不是到达前未知的在线流；无租户级配额/计费/抢占隔离。 |
 | RL 调度轨道（R4，`RlEnvironment` + `RL_POLICY`） | 提供状态/动作/奖励环境契约与确定性闭环，不含学习算法本身；外部训练器需进程外桥接。 |
 
@@ -134,6 +135,7 @@ max(100, floor(runtimeInSeconds * runtimeReferenceMips * runtimeScale))
 - `SimulationRunner`：同一 JVM 内串行执行一次解析、规划、调度和 CloudSim 仿真，返回不可变 `SimulationReport`。
 - `RlEnvironment`：RL 调度轨道入口（R4）——注册 `RlPolicy` 策略 → 标准 runner 运行 `RL_POLICY` → 返回 `RlEpisodeResult`（makespan、reward = −makespan、决策轨迹）。
 - `NetworkTopologySpec` / `FatTreeTopology`：Fat-tree 拓扑感知链路争用轨道（R6）——Al-Fares k-Pod 结构声明（可超收敛）、确定性路由与链路容量注册；搭配 `DataMovementModel.fatTreeContentionV1()` 使用，原理与设计见 `docs/research/FAT_TREE_PRINCIPLES.md` 与 `docs/research/FAT_TREE_DESIGN.md`。
+- `FatTreeSchedulingCampaignExecutor`（experiments 模块）：Fat-tree × 调度联合实验执行器（R7）——3 模型 × 4 规划器 × 10 DAG 主矩阵 + 3/4 主机拓扑敏感性 OFAT 扫描 + 跨 DAG 配对 Wilcoxon 汇总；实测结论见 `docs/experiments/FATTREE_SCHEDULING_RESULTS.md`。
 - `ExperimentManifestWriter` / `ExperimentArtifactWriter`：写出可验证的 `manifest.json`、`metrics.json` 与 `events.jsonl` 工件。
 - `ExperimentPlan` / campaign 工具：声明和执行多场景、多重复实验；它们不把相同 root seed 误标记为 event-keyed CRN。仅显式独立重复的 cell 才会给模型运行完成率提供 Wilson 区间，且不自动产生算法差异推断。
 

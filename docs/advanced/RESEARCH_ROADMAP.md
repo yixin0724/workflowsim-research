@@ -1,6 +1,6 @@
 # 科研工作流模拟器演进路线图（Research Roadmap）
 
-> 状态：**R1-R6 全部完成**（R1-R5 于 2026-09-14，R6 Fat-tree 于 2026-09-15）；后续方向见「长期候选项」（本文档随轮次推进持续更新）
+> 状态：**R1-R7 全部完成**（R1-R5 于 2026-09-14，R6 Fat-tree 于 2026-09-15，R7 Fat-tree × 调度联合实验于 2026-09-16）；后续方向见「长期候选项」（本文档随轮次推进持续更新）
 > 创建日期：2026-09-11
 > 维护约定：每完成一个轮次，将对应条目从「计划」移入「已完成」并记录实测结论与证据位置。
 
@@ -205,6 +205,51 @@ R2 端点争用 284.1 → Fat-tree 链路争用 **1032.1**（共享链路进一�
 **诚实边界**：流级流体模型（无丢包/排队细节/ECN）；确定性最短路径（无自适应
 路由/ECMP 哈希）；交换机内部转发不设容量约束；均匀链路带宽；链路延迟不建模；
 外部 SOURCE 流量不经过拓扑；无链路/交换机故障。
+
+### R7：Fat-tree × 调度联合实验 —— 已完成（2026-09-16）
+
+**动机**：R6 交付了链路争用模型，但"网络争用如何改变调度算法的相对优劣"
+还没有系统答案。R7 用 360 次确定性运行（主矩阵 10 DAG × 4 规划器 × 3 模型
+= 120；3 主机敏感性 120；4 主机结构敏感性 120；seed 91、推导成本、静态
+映射轨道）给出首个联合实验结论。设计见
+`docs/experiments/FATTREE_SCHEDULING_CAMPAIGN.md`，实测见
+`docs/experiments/FATTREE_SCHEDULING_RESULTS.md`。
+
+**已交付内容**：
+
+- `FatTreeSchedulingCampaignExecutor`（experiments 模块）：campaign 执行器
+  （schema `workflowsim-fattree-campaign-v1` 工件：逐运行记录 + 弱单调诊断 +
+  排名汇总 + 跨 DAG 配对 Wilcoxon）；
+- DAG 兼容性分区实测锁定：10 通过 / montage+sipht 6 拒绝（原始 DAX 同名
+  文件尺寸不一致，LOCAL 通信规划族拒绝）；
+- 4 主机结构敏感性块 + `FatTreeTopologyTest` 结构轴路由契约测试；
+- 契约测试：`FatTreePlannerCompatibilityIntegrationTest`（simulator，3 IT，
+  论文成本矩阵 fixture：争用把平均第一名 HEFT→CPOP 翻转）；
+  `FatTreeCampaignDagCompatibilityIntegrationTest`（2 IT）；
+  `FatTreeCampaignGoldenIntegrationTest`（6 IT：campaign 配置黄金值、逐 DAG
+  换冠、确定性、敏感性退化与 A4 收敛）；
+  `FatTreeSchedulingCampaignExecutorTest`（10 单测：纯逻辑汇总/工件序列化）。
+
+**验收实测**（全部数字来自 campaign 正式运行）：
+
+- 平均排名三模型下均 HEFT < CPOP < PSO < RANDOM——campaign 配置下平均
+  排名不因争用翻转；但**逐 DAG 第一名翻转**：cybershake-n50 HEFT(V1)→
+  PSO(R2/R6)、cybershake-n100 CPOP(V1)→PSO(R2/R6)（换冠幅度 0.05%–0.07%，
+  方向在 2 DAG × 2 模型上一致）；
+- 配对 Wilcoxon：HEFT vs PSO 的优势被争用侵蚀到不显著（V1 p=0.0371 →
+  R2/R6 p=0.0645）；R6−R2 中位差 HEFT +103.5 s / CPOP +104.5 s /
+  RANDOM +441.8 s / PSO +34.5 s（PSO 不显著 p=0.1309）——链路级争用对
+  PSO 相对温和；
+- 敏感性：结构轴（k/超收敛/放置）在 3 与 4 主机平台上全部恒等（配对差值
+  全为零；路由单测证明参数确实重塑共享格局，恒等是动态层真实现象）；
+  带宽比轴有效——链路 ×10 后 R6 精确收敛回 R2 值；
+- 弱单调性（V1≤R2≤R6）非定理：120 组合中 5 处噪声级交叉（最大相对偏差
+  7.5×10⁻⁵），作为诊断输出而非失败。
+
+**诚实边界**：翻转结论条件于成本结构（论文成本矩阵 fixture 下平均排名
+翻转发生，推导成本 fixture 下不发生）；PSO 换冠的机制解释是假设；
+3/4 主机规模下结构轴无判别力（需更大平台或更高传输占比负载激活）；
+seed 91 固定；montage/sipht 在争用轨道无样本。
 
 ## 三、长期候选项（未排期）
 
