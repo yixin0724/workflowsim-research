@@ -21,8 +21,13 @@ import org.apache.commons.math3.stat.inference.WilcoxonSignedRankTest;
  * <p><b>实现口径</b>：</p>
  * <ul>
  * <li>配对按输入下标对齐（调用方负责按相同种子顺序提供两个等长序列）；</li>
- * <li>差值为零的配对不参与秩统计（Wilcoxon 标准做法），有效样本数相应减少；</li>
- * <li>有效非零差值数 ≤ 25 时用精确分布，否则用正态近似（含连续性校正，commons-math3 默认）；</li>
+ * <li>差值为零的配对不参与秩统计（Wilcoxon 标准做法），有效样本数相应减少
+ *     （R8 审计修复：此前含零差值的全数组被直接传给 commons-math3，与本文档
+ *     口径不符，且完整配对数 &gt; 30 时精确路径会抛 NumberIsTooLargeException）；</li>
+ * <li>有效非零差值数 ≤ 25 时用精确分布（库的精确双侧 p 无上限截断，本包装层
+ *     钳制到 [0,1]），否则用正态近似；注意 commons-math3 3.2 的渐近路径连续性
+ *     校正为 −0.5 方向（偏向显著、反保守）且不做并列方差校正，读渐近 p 值时
+ *     应知悉该偏差；</li>
  * <li>全部差值为零（如确定性配置）时不做检验，返回不可用状态而非伪造 p 值。</li>
  * </ul>
  *
@@ -90,32 +95,45 @@ public final class PairedWilcoxonSignificance {
                     candidate.get(index).doubleValue() - baseline.get(index).doubleValue()));
         }
         double medianDifference = median(differences);
-        List<Double> nonzero = new ArrayList<Double>(pairedCount);
-        for (Double difference : differences) {
-            if (difference.doubleValue() != 0.0) {
-                nonzero.add(difference);
+        List<Integer> nonzeroIndices = new ArrayList<Integer>(pairedCount);
+        for (int index = 0; index < pairedCount; index++) {
+            if (differences.get(index).doubleValue() != 0.0) {
+                nonzeroIndices.add(Integer.valueOf(index));
             }
         }
-        if (nonzero.isEmpty()) {
+        if (nonzeroIndices.isEmpty()) {
             return new PairedWilcoxonSignificance(
                     "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO", null, false,
                     pairedCount, 0, Double.valueOf(medianDifference));
         }
-        if (nonzero.size() == 1) {
+        if (nonzeroIndices.size() == 1) {
             return new PairedWilcoxonSignificance(
                     "UNAVAILABLE_SINGLE_NONZERO_PAIRED_DIFFERENCE", null, false,
                     pairedCount, 1, Double.valueOf(medianDifference));
         }
-        double[] pairedBaseline = toPrimitiveArray(baseline);
-        double[] pairedCandidate = toPrimitiveArray(candidate);
+        // R8 审计修复（P1）：只把非零差值配对传入秩检验——commons-math3 不剔除
+        // 零差值（零差值会占据最低秩并抬高 N），直接传全数组会使 p 值与
+        // effectiveSampleCount 双双失真，且完整配对数 > 30 时精确路径还会抛
+        // NumberIsTooLargeException 击穿 campaign 汇总。剔除零差值后库内 N 与
+        // 门控条件（非零数 ≤ 25 < 30）自然一致。
+        double[] pairedBaseline = new double[nonzeroIndices.size()];
+        double[] pairedCandidate = new double[nonzeroIndices.size()];
+        for (int slot = 0; slot < nonzeroIndices.size(); slot++) {
+            int index = nonzeroIndices.get(slot).intValue();
+            pairedBaseline[slot] = baseline.get(index).doubleValue();
+            pairedCandidate[slot] = candidate.get(index).doubleValue();
+        }
         WilcoxonSignedRankTest test = new WilcoxonSignedRankTest();
-        boolean exact = nonzero.size() <= MAX_EXACT_EFFECTIVE_SAMPLES;
+        boolean exact = nonzeroIndices.size() <= MAX_EXACT_EFFECTIVE_SAMPLES;
         double pValue = test.wilcoxonSignedRankTest(pairedBaseline, pairedCandidate, exact);
+        // commons-math3 精确双侧 p = 2·(秩和≥W 的子集数)/2^N，无上限截断，
+        // 在并列或 W 恰居中时可以略大于 1；按 p 值定义域钳制到 [0,1]。
+        pValue = Math.min(pValue, 1.0);
         return new PairedWilcoxonSignificance(
                 exact ? "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT"
                         : "AVAILABLE_WILCOXON_SIGNED_RANK_NORMAL_APPROXIMATION",
                 Double.valueOf(pValue), pValue < DEFAULT_ALPHA,
-                pairedCount, nonzero.size(), Double.valueOf(medianDifference));
+                pairedCount, nonzeroIndices.size(), Double.valueOf(medianDifference));
     }
 
     private static void validateSamples(List<Double> baseline, List<Double> candidate) {
@@ -139,14 +157,6 @@ public final class PairedWilcoxonSignificance {
                 || Double.isInfinite(value.doubleValue())) {
             throw new IllegalArgumentException("Paired samples must be finite");
         }
-    }
-
-    private static double[] toPrimitiveArray(List<Double> values) {
-        double[] array = new double[values.size()];
-        for (int index = 0; index < array.length; index++) {
-            array[index] = values.get(index).doubleValue();
-        }
-        return array;
     }
 
     private static double median(List<Double> values) {

@@ -109,6 +109,15 @@ public final class SimulationRunner {
         } catch (IllegalStateException e) {
             // IllegalStateException 可能是故障生成器或其他验证逻辑抛出的，应该直接抛出
             throw e;
+        } catch (SimulationConfigurationException e) {
+            // R8 审计修复（P1-2）：配置异常不得降级为执行异常——Javadoc 契约
+            // 声明 @throws SimulationConfigurationException，按类型分流的调用方
+            // 依赖该保证。
+            throw e;
+        } catch (IllegalArgumentException e) {
+            // R8 审计修复（P1-2）：解析/校验类 IAE（含 WorkflowValidationException）
+            // 原样放行，根因消息直达调用方，不再包装成 "Unexpected error"。
+            throw e;
         } catch (Exception e) {
             // 将其他未预期的异常包装为 SimulationExecutionException
             throw new SimulationExecutionException("Unexpected error during simulation execution", e);

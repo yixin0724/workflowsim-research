@@ -98,6 +98,59 @@ class PSOPlanningAlgorithmTest {
         assertTrue(planner.getLastMapping().isEmpty());
     }
 
+    /** R8 审计（算法通道 P2-3）：非正/非有限 MIPS 必须入口 fail-fast，不得 NPE。 */
+    @Test
+    void nonPositiveVmMipsFailsFastAtEntry() {
+        SimulationRandom.reset(5L);
+        PSOPlanningAlgorithm planner = new PSOPlanningAlgorithm();
+        planner.setTaskList(tasks());
+        planner.setVmList(Arrays.asList(vm(0, 1000.0), vm(1, 0.0)));
+        IllegalStateException failure = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class, planner::run);
+        assertTrue(failure.getMessage().contains("finite positive MIPS"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("VM #1"), failure.getMessage());
+    }
+
+    /**
+     * R8 审计（算法通道 P2-1）：方向性契约——在同一固定景观上，PSO 收敛的
+     * 全局最优适应度不得劣于同种子 RANDOM 规划器映射按同一公式评估的适应度。
+     * PSO 以全局最优为下界，RANDOM 是无信息基线：若该断言失败说明 PSO
+     * 实现劣于随机搜索（方向性回归）。
+     */
+    @Test
+    void psoFitnessIsNoWorseThanSameSeedRandomFitness() {
+        List<CondorVM> vms = Arrays.asList(vm(0, 800.0), vm(1, 1200.0), vm(2, 1000.0));
+
+        SimulationRandom.reset(11L);
+        List<Task> psoTasks = tasks();
+        PSOPlanningAlgorithm pso = new PSOPlanningAlgorithm();
+        pso.setTaskList(psoTasks);
+        pso.setVmList(vms);
+        pso.run();
+        double psoFitness = pso.getLastBestFitness();
+
+        SimulationRandom.reset(11L);
+        List<Task> randomTasks = tasks();
+        RandomPlanningAlgorithm randomPlanner = new RandomPlanningAlgorithm();
+        randomPlanner.setTaskList(randomTasks);
+        randomPlanner.setVmList(vms);
+        randomPlanner.run();
+        int[] randomPosition = new int[randomTasks.size()];
+        for (int i = 0; i < randomTasks.size(); i++) {
+            for (int j = 0; j < vms.size(); j++) {
+                if (randomTasks.get(i).getVmId() == vms.get(j).getId()) {
+                    randomPosition[i] = j;
+                    break;
+                }
+            }
+        }
+        double randomFitness = PsoFitnessFunction.evaluate(
+                randomPosition, randomTasks, vms, PSOPlanningAlgorithm.COST_WEIGHT);
+
+        assertTrue(psoFitness <= randomFitness + EPS,
+                "PSO 适应度 " + psoFitness + " 不得劣于同种子 RANDOM 适应度 " + randomFitness);
+    }
+
     private static List<Task> tasks() {
         return Arrays.asList(new Task(1, 1500), new Task(2, 800), new Task(3, 2200),
                 new Task(4, 600), new Task(5, 1800));

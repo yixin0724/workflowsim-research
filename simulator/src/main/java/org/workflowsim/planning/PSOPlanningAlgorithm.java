@@ -96,6 +96,17 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
             }
         });
 
+        // R8 审计修复（算法通道 P2-3）：适应度按 length/mips 计算成本，
+        // mips 非正数会产生 Inf/NaN 适应度并污染整个粒子群，最终以
+        // globalBestPosition 空指针崩溃。入口处 fail-fast。
+        for (Vm vm : vms) {
+            double mips = vm.getMips();
+            if (Double.isNaN(mips) || Double.isInfinite(mips) || mips <= 0.0) {
+                throw new IllegalStateException("PSO requires every VM to have finite positive MIPS; VM #"
+                        + vm.getId() + " has " + mips);
+            }
+        }
+
         int taskCount = tasks.size();
         int vmCount = vms.size();
         Random random = SimulationRandom.newJavaRandom("planning.pso");
@@ -127,6 +138,15 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
                 particle.updatePosition(vmCount);
             }
             lastIterationCount = iter + 1;
+        }
+
+        // R8 审计修复（算法通道 P2-3）：若所有适应度均为 NaN（mips 校验后
+        // 理论不可达，但防御性保留），globalBestPosition 会停在 null，
+        // 原代码在此处以空指针崩溃。显式 fail-fast 指向根因。
+        if (globalBestPosition == null) {
+            throw new IllegalStateException(
+                    "PSO did not converge to any finite-fitness position (all particle "
+                            + "fitnesses were NaN); check task lengths and VM MIPS");
         }
 
         // 收敛后写入全局最优映射。

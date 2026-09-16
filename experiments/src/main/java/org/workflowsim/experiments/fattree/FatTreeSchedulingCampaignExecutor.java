@@ -67,6 +67,25 @@ public final class FatTreeSchedulingCampaignExecutor {
             DataMovementModel.fatTreeContentionV1()));
 
     /**
+     * R8 再标定（2026-09-16，用户授权执行）：campaign 链路带宽基线。
+     *
+     * <p>取 0.125 MB/s = VM 端点带宽（1 MB/s）的 1/8，即 8:1 接入超收敛。
+     * 依据：① F1 8 单位 bug 修复前，声明 1.0 MB/s 的链路实际就运行在
+     * 0.125——再标定恢复 R7 分析所处的真实物理区间（诚实单位下的对账锚点）；
+     * ② 审计实测（COMPREHENSIVE_AUDIT_R8.md §3.3 N-2）：链路 ≥ 端点时链路层
+     * 永不束缚单流，R6 ≡ R2 逐位相等、全部拓扑敏感性轴退化，对称供给下
+     * campaign 的拓扑轴没有判别力；③ simulator 慢链路探针证明链路 &lt; 端点
+     * 时争用模型正确生效。</p>
+     */
+    static final double BASELINE_LINK_BANDWIDTH_MB = 0.125;
+
+    /**
+     * A4 带宽比轴 = 基线 ×10 = 1.25 MB/s &gt; 端点带宽 ⇒ 链路非束缚 ⇒
+     * 预期精确收敛回 R2——恢复该轴"链路远宽于端点时收敛回端点主导"的设计语义。
+     */
+    static final double A4_LINK_BANDWIDTH_MB = BASELINE_LINK_BANDWIDTH_MB * 10.0;
+
+    /**
      * 3 主机敏感性拓扑变体（OFAT）：基线 + 5 个单轴变体，全部 R6 模型。
      *
      * <p>实测边界：3 主机下任意两条并发流必共享一个端点主机，路由变体
@@ -77,13 +96,19 @@ public final class FatTreeSchedulingCampaignExecutor {
      */
     static final List<TopologyVariant> SENSITIVITY_VARIANTS =
             Collections.unmodifiableList(Arrays.asList(
-                    new TopologyVariant("baseline-k4-full", NetworkTopologySpec.fatTree(4, 1.0)),
-                    new TopologyVariant("A1-k4-oversub2x", NetworkTopologySpec.fatTree(4, 1.0, 2)),
-                    new TopologyVariant("A2-k8-full", NetworkTopologySpec.fatTree(8, 1.0)),
-                    new TopologyVariant("A3-k8-oversub2x", NetworkTopologySpec.fatTree(8, 1.0, 8)),
-                    new TopologyVariant("A4-k4-full-link10x", NetworkTopologySpec.fatTree(4, 10.0)),
+                    new TopologyVariant("baseline-k4-full",
+                            NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB)),
+                    new TopologyVariant("A1-k4-oversub2x",
+                            NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, 2)),
+                    new TopologyVariant("A2-k8-full",
+                            NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB)),
+                    new TopologyVariant("A3-k8-oversub2x",
+                            NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB, 8)),
+                    new TopologyVariant("A4-k4-full-link10x",
+                            NetworkTopologySpec.fatTree(4, A4_LINK_BANDWIDTH_MB)),
                     new TopologyVariant("A5-k4-full-same-edge-pair",
-                            NetworkTopologySpec.fatTree(4, 1.0, null, sameEdgePairPlacements()))));
+                            NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, null,
+                                    sameEdgePairPlacements()))));
 
     /**
      * 4 主机结构敏感性变体：与 3 主机轴相同，但 A5 放置覆盖 4 台主机
@@ -97,13 +122,19 @@ public final class FatTreeSchedulingCampaignExecutor {
         pairPlacements.put(Integer.valueOf(2), Integer.valueOf(2));
         pairPlacements.put(Integer.valueOf(3), Integer.valueOf(2));
         return Collections.unmodifiableList(Arrays.asList(
-                new TopologyVariant("baseline-k4-full", NetworkTopologySpec.fatTree(4, 1.0)),
-                new TopologyVariant("A1-k4-oversub2x", NetworkTopologySpec.fatTree(4, 1.0, 2)),
-                new TopologyVariant("A2-k8-full", NetworkTopologySpec.fatTree(8, 1.0)),
-                new TopologyVariant("A3-k8-oversub2x", NetworkTopologySpec.fatTree(8, 1.0, 8)),
-                new TopologyVariant("A4-k4-full-link10x", NetworkTopologySpec.fatTree(4, 10.0)),
+                new TopologyVariant("baseline-k4-full",
+                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB)),
+                new TopologyVariant("A1-k4-oversub2x",
+                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, 2)),
+                new TopologyVariant("A2-k8-full",
+                        NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB)),
+                new TopologyVariant("A3-k8-oversub2x",
+                        NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB, 8)),
+                new TopologyVariant("A4-k4-full-link10x",
+                        NetworkTopologySpec.fatTree(4, A4_LINK_BANDWIDTH_MB)),
                 new TopologyVariant("A5-k4-full-same-edge-pairs",
-                        NetworkTopologySpec.fatTree(4, 1.0, null, pairPlacements))));
+                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, null,
+                                pairPlacements))));
     }
 
     private FatTreeSchedulingCampaignExecutor() {
@@ -226,7 +257,7 @@ public final class FatTreeSchedulingCampaignExecutor {
                     boolean fatTree = model.isFatTreeContentionV1();
                     SimulationConfig config = baseConfig(dag, planner, model, 3);
                     PlatformProfile platform = platform(3, fatTree
-                            ? NetworkTopologySpec.fatTree(4, 1.0) : null);
+                            ? NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB) : null);
                     SimulationReport report = runner.run(config, platform);
                     assertHealthy(report, "main:" + dag.id + ":" + planner + ":" + model.getKind());
                     Map<String, Object> record = new LinkedHashMap<String, Object>();

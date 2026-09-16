@@ -487,6 +487,21 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException("A task cost matrix requires clustering method NONE "
                             + "so every Job maps to exactly one logical Task");
                 }
+                // R8 审计修复（算法通道 P1-1）：SharedStorageDagPlanner 的规划侧
+                // 执行时间只用原始 DAX 长度，不消费成本矩阵投影；运行时派发路径
+                // 却按矩阵折算 MI——两侧语义静默分叉会产生错误的规划顺序而无任何
+                // 报错。在配置层直接拒绝该组合。
+                if (planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_HEFT
+                        || planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_CPOP
+                        || planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_DLS
+                        || planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_ETF
+                        || planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_PEFT) {
+                    throw new IllegalArgumentException("A task cost matrix cannot be combined with "
+                            + planningAlgorithm + ": the shared-storage planning track estimates "
+                            + "execution times from raw task lengths and does not consume the matrix, "
+                            + "while the STATIC dispatch path would fold it in at runtime "
+                            + "(silent planning/runtime divergence)");
+                }
             }
             // LOCAL_HEFT/LOCAL_CPOP 的规划侧 AST（按父任务并行传输、传输与 VM 忙碌期
             // 重叠）逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输延迟模型，

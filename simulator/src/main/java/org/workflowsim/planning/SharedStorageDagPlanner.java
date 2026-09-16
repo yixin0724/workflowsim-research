@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,8 +149,13 @@ final class SharedStorageDagPlanner {
     private void populateExecutionTimes(List<Task> tasks, List<CondorVM> vms) {
         for (Task task : tasks) {
             double transferSeconds = taskTransferSeconds(task);
-            Map<CondorVM, Double> byVm = new HashMap<CondorVM, Double>();
-            Map<CondorVM, Double> stageInByVm = new HashMap<CondorVM, Double>();
+            // R8 审计修复（P2-4）：CondorVM 未覆写 hashCode，普通 HashMap 的
+            // values() 迭代序随 identity hash 变化（跨 JVM 启动随机），
+            // averageExecutionTime 对其求和会因浮点加法顺序不同产生 ulp 级
+            // rank 差异、近平局比较可翻转，破坏跨进程位级复现。
+            // LinkedHashMap 使迭代序 = sortedVms() 插入序，确定。
+            Map<CondorVM, Double> byVm = new LinkedHashMap<CondorVM, Double>();
+            Map<CondorVM, Double> stageInByVm = new LinkedHashMap<CondorVM, Double>();
             for (CondorVM vm : vms) {
                 if (task.getNumberOfPes() > vm.getNumberOfPes()) {
                     byVm.put(vm, Double.POSITIVE_INFINITY);

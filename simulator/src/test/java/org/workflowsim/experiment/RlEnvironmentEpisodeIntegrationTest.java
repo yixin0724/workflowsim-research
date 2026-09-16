@@ -75,9 +75,11 @@ class RlEnvironmentEpisodeIntegrationTest {
     @Test
     void rlPolicyWithoutEnvironmentFailsExplicitly() throws Exception {
         // 绕过 RlEnvironment 直接用 SimulationRunner 运行 RL_POLICY：注册表无策略，
-        // 必须显式失败并指向正确入口。调度器统一把策略异常包为
-        // IllegalStateException（"Scheduling algorithm ... failed"），真实原因在 cause 链。
-        IllegalStateException failure = assertThrows(IllegalStateException.class,
+        // 必须显式失败并指向正确入口。R8 审计修复（P1-7）后配置类异常不再被
+        // 包装成"调度算法失败"的 IllegalStateException，而是以
+        // SimulationConfigurationException 直达调用方。
+        SimulationConfigurationException failure = assertThrows(
+                SimulationConfigurationException.class,
                 () -> new SimulationRunner().run(rlConfig(), paperPlatform()));
         assertTrue(chainMentions(failure, SimulationConfigurationException.class, "RlEnvironment"),
                 "失败链必须指向 RlEnvironment.runEpisode，实际: " + failure);

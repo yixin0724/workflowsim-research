@@ -97,6 +97,78 @@ class PairedWilcoxonSignificanceTest {
         assertEquals("AVAILABLE_WILCOXON_SIGNED_RANK_EXACT", result.getStatus());
         assertFalse(result.isSignificantAtDefaultAlpha());
         assertTrue(result.getPValue().doubleValue() > 0.05);
+        // R8 审计回归（P1）：库的精确双侧 p 无上限截断，包装层必须钳制到 [0,1]。
+        assertTrue(result.getPValue().doubleValue() <= 1.0, "p 值不得超过 1");
+    }
+
+    @Test
+    void zeroDifferencesAreExcludedFromTheRankStatistic() {
+        // 前 6 对为零差值、后 12 对一致快 20 秒：p 值必须与"仅非零子样本"
+        // 直接调库完全一致（R8 审计修复 P1：此前全数组传入使零差值占据最低秩）。
+        List<Double> baseline = new ArrayList<Double>();
+        List<Double> candidate = new ArrayList<Double>();
+        for (int index = 0; index < 6; index++) {
+            baseline.add(Double.valueOf(100.0));
+            candidate.add(Double.valueOf(100.0));
+        }
+        for (int index = 0; index < 12; index++) {
+            baseline.add(Double.valueOf(100.0 + index));
+            candidate.add(Double.valueOf(80.0 + index));
+        }
+        PairedWilcoxonSignificance result = PairedWilcoxonSignificance.evaluate(baseline, candidate);
+
+        assertEquals("AVAILABLE_WILCOXON_SIGNED_RANK_EXACT", result.getStatus());
+        assertEquals(18, result.getPairedSampleCount());
+        assertEquals(12, result.getEffectiveSampleCount());
+        double[] nonzeroX = new double[12];
+        double[] nonzeroY = new double[12];
+        for (int index = 0; index < 12; index++) {
+            nonzeroX[index] = baseline.get(6 + index).doubleValue();
+            nonzeroY[index] = candidate.get(6 + index).doubleValue();
+        }
+        double subset = new WilcoxonSignedRankTest().wilcoxonSignedRankTest(nonzeroX, nonzeroY, true);
+        assertEquals(subset, result.getPValue().doubleValue(), 0.0,
+                "p 值必须等于剔零子样本的直接检验结果");
+    }
+
+    @Test
+    void moreThanThirtyPairsWithZeroDifferencesDoNotCrash() {
+        // R8 审计回归（P1）：31 对、仅 20 个非零差值。修复前库按完整 N>30
+        // 抛 NumberIsTooLargeException 击穿 campaign 汇总；修复后按非零数选
+        // 精确路径（20 ≤ 25 < 30）安全出结果。
+        List<Double> baseline = new ArrayList<Double>();
+        List<Double> candidate = new ArrayList<Double>();
+        for (int index = 0; index < 11; index++) {
+            baseline.add(Double.valueOf(50.0));
+            candidate.add(Double.valueOf(50.0));
+        }
+        for (int index = 0; index < 20; index++) {
+            baseline.add(Double.valueOf(200.0 + index));
+            candidate.add(Double.valueOf(190.0 + index));
+        }
+        PairedWilcoxonSignificance result = PairedWilcoxonSignificance.evaluate(baseline, candidate);
+
+        assertEquals("AVAILABLE_WILCOXON_SIGNED_RANK_EXACT", result.getStatus());
+        assertEquals(31, result.getPairedSampleCount());
+        assertEquals(20, result.getEffectiveSampleCount());
+        assertNotNull(result.getPValue());
+        assertTrue(result.getPValue().doubleValue() < 0.05);
+    }
+
+    @Test
+    void allPositiveExactPValueIsLockedToTwoOverTwoToTheN() {
+        // 20 对差值全为正：W 取满总秩和，秩和≥W 的子集仅全集一个，
+        // 精确 p = 2/2^20。数值锁定防公式回归（R8 审计测试强度补强）。
+        List<Double> baseline = new ArrayList<Double>();
+        List<Double> candidate = new ArrayList<Double>();
+        for (int index = 0; index < 20; index++) {
+            baseline.add(Double.valueOf(100.0 + index));
+            candidate.add(Double.valueOf(110.0 + index));
+        }
+        PairedWilcoxonSignificance result = PairedWilcoxonSignificance.evaluate(baseline, candidate);
+
+        assertEquals("AVAILABLE_WILCOXON_SIGNED_RANK_EXACT", result.getStatus());
+        assertEquals(2.0 / (1L << 20), result.getPValue().doubleValue(), 0.0);
     }
 
     @Test

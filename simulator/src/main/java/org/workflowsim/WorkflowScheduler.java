@@ -28,6 +28,7 @@ import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEvent;
 import org.cloudbus.cloudsim.lists.VmList;
+import org.workflowsim.exception.SimulationConfigurationException;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.scheduling.DataAwareSchedulingAlgorithm;
@@ -308,6 +309,11 @@ public class WorkflowScheduler extends DatacenterBroker {
                         + createdVm.getHost().getId());
             }
         } else {
+            // 创建失败 ACK 是合法流程的一部分：legacy 多集群示例把同一批 VM 提交给
+            // 多个数据中心试放，失败方回 ACK FALSE（WorkflowSimMultipleClusterExample1）。
+            // 标准 SimulationRunner 路径下平台布局已预校验（PLAT-2/PLAT-5），VM 必可
+            // 放置，此处不会触发；若触发则条件计数永不满足，看门狗报停滞（R8 审计
+            // P1-6 评估后保留日志行为，fail-fast 会误伤多集群试放语义）。
             Log.printLine(CloudSim.clock() + ": " + getName() + ": Creation of VM #" + vmId
                     + " failed in Datacenter #" + datacenterId);
         }
@@ -378,6 +384,10 @@ public class WorkflowScheduler extends DatacenterBroker {
         long decisionStart = System.nanoTime();
         try {
             scheduler.run();
+        } catch (SimulationConfigurationException exception) {
+            // R8 审计修复（P1-7）：配置类异常（如 RL_POLICY 未注册策略）不得
+            // 被包装成"调度算法失败"的执行语义。
+            throw exception;
         } catch (Exception exception) {
             throw new IllegalStateException("Scheduling algorithm "
                     + Parameters.getSchedulingAlgorithm() + " failed", exception);

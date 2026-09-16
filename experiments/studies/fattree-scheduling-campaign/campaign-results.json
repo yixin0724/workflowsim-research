@@ -1,6 +1,6 @@
 {
   "schema": "workflowsim-fattree-campaign-v1",
-  "generatedAt": "2026-09-16T09:55:32.651410+08:00",
+  "generatedAt": "2026-09-16T13:42:09.939877+08:00",
   "fixedSeed": 91,
   "vmCount": 3,
   "planners": [
@@ -786,7 +786,7 @@
       "scale": "n30",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 2541516.993501667,
+      "makespanSeconds": 2541451.769398667,
       "totalJobs": 31
     },
     {
@@ -795,7 +795,7 @@
       "scale": "n30",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2541536.986978,
+      "makespanSeconds": 2541471.4093239997,
       "totalJobs": 31
     },
     {
@@ -813,7 +813,7 @@
       "scale": "n30",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 2541517.5615390004,
+      "makespanSeconds": 2541453.2442060006,
       "totalJobs": 31
     },
     {
@@ -822,7 +822,7 @@
       "scale": "n30",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2541540.7768180002,
+      "makespanSeconds": 2541475.850124,
       "totalJobs": 31
     },
     {
@@ -840,7 +840,7 @@
       "scale": "n30",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 3218045.4072620003,
+      "makespanSeconds": 3218030.6671600007,
       "totalJobs": 31
     },
     {
@@ -849,7 +849,7 @@
       "scale": "n30",
       "planner": "RANDOM",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 3218071.281605,
+      "makespanSeconds": 3218056.428301,
       "totalJobs": 31
     },
     {
@@ -867,7 +867,7 @@
       "scale": "n30",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 2618396.9787870003,
+      "makespanSeconds": 2618396.6605310002,
       "totalJobs": 31
     },
     {
@@ -876,7 +876,7 @@
       "scale": "n30",
       "planner": "PSO",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 2618418.7651910004,
+      "makespanSeconds": 2618418.4469350004,
       "totalJobs": 31
     },
     {
@@ -894,7 +894,7 @@
       "scale": "n50",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 3977802.961689667,
+      "makespanSeconds": 3977749.820514667,
       "totalJobs": 51
     },
     {
@@ -903,7 +903,7 @@
       "scale": "n50",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 3977834.7842160002,
+      "makespanSeconds": 3977781.660081,
       "totalJobs": 51
     },
     {
@@ -921,7 +921,7 @@
       "scale": "n50",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 3977803.8359720004,
+      "makespanSeconds": 3977749.7548900004,
       "totalJobs": 51
     },
     {
@@ -930,7 +930,7 @@
       "scale": "n50",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 3977837.679688,
+      "makespanSeconds": 3977782.6562690004,
       "totalJobs": 51
     },
     {
@@ -1002,7 +1002,7 @@
       "scale": "n100",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 7020492.741652666,
+      "makespanSeconds": 7020414.128544999,
       "totalJobs": 101
     },
     {
@@ -1011,7 +1011,7 @@
       "scale": "n100",
       "planner": "LOCAL_HEFT",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7020520.259684111,
+      "makespanSeconds": 7020442.659749111,
       "totalJobs": 101
     },
     {
@@ -1029,7 +1029,7 @@
       "scale": "n100",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
-      "makespanSeconds": 7071063.508330825,
+      "makespanSeconds": 7070971.113255713,
       "totalJobs": 101
     },
     {
@@ -1038,7 +1038,7 @@
       "scale": "n100",
       "planner": "LOCAL_CPOP",
       "movementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
-      "makespanSeconds": 7071072.131727,
+      "makespanSeconds": 7070982.915572111,
       "totalJobs": 101
     },
     {
@@ -1605,217 +1605,217 @@
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541471.4093239997
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541471.4093239997
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541471.4093239997
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541471.4093239997
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 2541516.993501667
+      "makespanSeconds": 2541451.769398667
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 2541536.986978
+      "makespanSeconds": 2541471.4093239997
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541475.850124
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541475.850124
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541475.850124
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541475.850124
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 2541517.5615390004
+      "makespanSeconds": 2541453.2442060006
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 2541540.7768180002
+      "makespanSeconds": 2541475.850124
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977781.660081
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977781.660081
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977781.660081
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977781.660081
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3977802.961689667
+      "makespanSeconds": 3977749.820514667
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 3977834.7842160002
+      "makespanSeconds": 3977781.660081
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977782.6562690004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977782.6562690004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977782.6562690004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977782.6562690004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3977803.8359720004
+      "makespanSeconds": 3977749.7548900004
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 3977837.679688
+      "makespanSeconds": 3977782.6562690004
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020442.659749111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020442.659749111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020442.659749111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020442.659749111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 7020492.741652666
+      "makespanSeconds": 7020414.128544999
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 7020520.259684111
+      "makespanSeconds": 7020442.659749111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070982.915572111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070982.915572111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070982.915572111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070982.915572111
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 7071063.508330825
+      "makespanSeconds": 7070971.113255713
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pair",
-      "makespanSeconds": 7071072.131727
+      "makespanSeconds": 7070982.915572111
     }
   ],
   "structuralSensitivity": [
@@ -2327,217 +2327,217 @@
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834118.3789120002
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834118.3789120002
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834118.3789120002
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834118.3789120002
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 1834159.0220893335
+      "makespanSeconds": 1834093.6775313334
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1834182.910323
+      "makespanSeconds": 1834118.3789120002
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834122.95508
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834122.95508
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834122.95508
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834122.95508
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 1834159.6449243333
+      "makespanSeconds": 1834094.5181993332
     },
     {
       "dax": "inspiral-n30",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 1834187.509217
+      "makespanSeconds": 1834122.95508
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000113.016955
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000113.016955
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000113.016955
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000113.016955
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3000139.8401884763
+      "makespanSeconds": 3000073.4030644763
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 3000178.590466
+      "makespanSeconds": 3000113.016955
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000116.853135
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000116.853135
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000116.853135
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000116.853135
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 3000140.109711381
+      "makespanSeconds": 3000074.4720423813
     },
     {
       "dax": "inspiral-n50",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 3000181.146992
+      "makespanSeconds": 3000116.853135
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264419.190429
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264419.190429
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264419.190429
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264419.190429
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 5264465.043965001
+      "makespanSeconds": 5264412.297625046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_HEFT",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 5264472.610584001
+      "makespanSeconds": 5264419.190429
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "baseline-k4-full",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.053157
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A1-k4-oversub2x",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.053157
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A2-k8-full",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.053157
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A3-k8-oversub2x",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.053157
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A4-k4-full-link10x",
-      "makespanSeconds": 5265033.976783001
+      "makespanSeconds": 5264981.230443046
     },
     {
       "dax": "inspiral-n100",
       "planner": "LOCAL_CPOP",
       "variant": "A5-k4-full-same-edge-pairs",
-      "makespanSeconds": 5265034.473312001
+      "makespanSeconds": 5264981.053157
     }
   ],
   "weakMonotonicityViolations": [
@@ -2624,7 +2624,7 @@
       "cybershake-n50": "PSO",
       "cybershake-n100": "PSO",
       "inspiral-n30": "LOCAL_HEFT",
-      "inspiral-n50": "LOCAL_HEFT",
+      "inspiral-n50": "LOCAL_CPOP",
       "inspiral-n100": "LOCAL_HEFT"
     },
     "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1": {
@@ -2649,7 +2649,7 @@
       "effectiveSampleCount": 7,
       "medianDifferenceSeconds": 1.3372714996803552,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.232421875,
+      "pValue": 0.21875,
       "significantAtAlpha005": false
     },
     {
@@ -2680,9 +2680,9 @@
       "candidate": "LOCAL_CPOP",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 7,
-      "medianDifferenceSeconds": 0.2840186667162925,
+      "medianDifferenceSeconds": 0.0,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.556640625,
+      "pValue": 0.578125,
       "significantAtAlpha005": false
     },
     {
@@ -2691,7 +2691,7 @@
       "candidate": "RANDOM",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 1713018.973010357,
+      "medianDifferenceSeconds": 1713083.5215646904,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2702,7 +2702,7 @@
       "candidate": "PSO",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 70680.59968266665,
+      "medianDifferenceSeconds": 70713.05260616663,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.064453125,
       "significantAtAlpha005": false
@@ -2713,9 +2713,9 @@
       "candidate": "LOCAL_CPOP",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 7,
-      "medianDifferenceSeconds": 1.4477359999436885,
+      "medianDifferenceSeconds": 0.4980940001551062,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.4921875,
+      "pValue": 0.375,
       "significantAtAlpha005": false
     },
     {
@@ -2724,7 +2724,7 @@
       "candidate": "RANDOM",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 1713014.2615114448,
+      "medianDifferenceSeconds": 1713078.4236539449,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2735,7 +2735,7 @@
       "candidate": "PSO",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 72601.0712950002,
+      "medianDifferenceSeconds": 72633.70099400036,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.064453125,
       "significantAtAlpha005": false
@@ -2746,7 +2746,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 221.84354533348233,
+      "medianDifferenceSeconds": 199.3254924993962,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2757,7 +2757,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 103.48506832006387,
+      "medianDifferenceSeconds": 103.49358831997961,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.005859375,
       "significantAtAlpha005": true
@@ -2779,7 +2779,7 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": 220.44234150042757,
+      "medianDifferenceSeconds": 193.00580949988216,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.001953125,
       "significantAtAlpha005": true
@@ -2790,9 +2790,9 @@
       "candidate": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 9,
-      "medianDifferenceSeconds": 104.49566315324046,
+      "medianDifferenceSeconds": 104.02449465333484,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.009765625,
+      "pValue": 0.0078125,
       "significantAtAlpha005": true
     },
     {
@@ -2858,7 +2858,7 @@
       "effectiveSampleCount": 9,
       "medianDifferenceSeconds": 34.54389927862212,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.130859375,
+      "pValue": 0.12890625,
       "significantAtAlpha005": false
     },
     {
@@ -2913,7 +2913,7 @@
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 10,
-      "medianDifferenceSeconds": -103.48506832006387,
+      "medianDifferenceSeconds": -103.49358831997961,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
       "pValue": 0.005859375,
       "significantAtAlpha005": true
@@ -2968,9 +2968,9 @@
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 9,
-      "medianDifferenceSeconds": -104.49566315324046,
+      "medianDifferenceSeconds": -104.02449465333484,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.005859375,
+      "pValue": 0.0078125,
       "significantAtAlpha005": true
     },
     {
@@ -3025,9 +3025,9 @@
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 8,
-      "medianDifferenceSeconds": -285.37513876194134,
+      "medianDifferenceSeconds": -285.8069452617783,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.001953125,
+      "pValue": 0.0078125,
       "significantAtAlpha005": true
     },
     {
@@ -3080,9 +3080,9 @@
       "candidate": "A4-k4-full-link10x",
       "pairedSampleCount": 10,
       "effectiveSampleCount": 8,
-      "medianDifferenceSeconds": -223.5186403093394,
+      "medianDifferenceSeconds": -224.1905463093426,
       "status": "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT",
-      "pValue": 0.001953125,
+      "pValue": 0.015625,
       "significantAtAlpha005": true
     },
     {

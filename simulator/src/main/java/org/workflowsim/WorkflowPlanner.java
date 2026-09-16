@@ -248,6 +248,9 @@ public final class WorkflowPlanner extends SimEntity {
                 sharedStorageDagPlanTrace = ((SharedStoragePeftPlanningAlgorithm) planner)
                         .getLastPlanTrace();
             }
+        } catch (org.workflowsim.exception.SimulationConfigurationException exception) {
+            // R8 审计修复（P1-7）：配置类异常不得被包装成"规划算法失败"的执行语义。
+            throw exception;
         } catch (Exception exception) {
             throw new IllegalStateException("Planning algorithm "
                     + Parameters.getPlanningAlgorithm() + " failed", exception);

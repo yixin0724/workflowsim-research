@@ -252,6 +252,26 @@ public class WorkflowDatacenter extends Datacenter {
     }
 
     /**
+     * 判断一个文件对目标 Job 是否已在本地（与
+     * {@link #estimateTransferSecondsForFiles} 同一局部性口径）。
+     *
+     * <p>LOCAL 文件系统下副本列表包含目标 VM 即本地、传输秒数为零；SHARED 文件系统
+     * 下所有真实输入文件都按共享存储费率计秒，不存在本地命中。R8 审计修复（F2）：
+     * 争用模型据此只对真正传输的字节建流，与秒数保持同口径。</p>
+     *
+     * @param file 待判定的真实输入文件
+     * @param job 目标计算 Job
+     * @return true 表示无需传输（本地命中）
+     */
+    public boolean isFileLocalForJob(FileItem file, Job job) {
+        if (ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.SHARED) {
+            return false;
+        }
+        List siteList = ReplicaCatalog.getStorageList(file.getName());
+        return siteList != null && siteList.contains(Integer.toString(job.getVmId()));
+    }
+
+    /**
      * 在目标 VM 上登记一个计算 Job 全部真实输入文件的副本。
      *
      * <p>执行前传输延迟模型在传输完成时才登记副本，因此传输窗口内的其他 Job 不会把这些

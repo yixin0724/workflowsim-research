@@ -18,10 +18,10 @@
     <description>可复用的 WorkflowSim 模拟器核心及通用研究运行 API。</description>
 
     <properties>
-        <!-- R3 覆盖率门禁棘轮值：略低于实测（2026-09-14 clean verify：
-             instruction 48.49% / branch 43.23%），只升不降。 -->
-        <workflowsim.jacoco.instruction.minimum>0.48</workflowsim.jacoco.instruction.minimum>
-        <workflowsim.jacoco.branch.minimum>0.43</workflowsim.jacoco.branch.minimum>
+        <!-- R3 覆盖率门禁棘轮值：略低于实测（2026-09-16 R8 审计轮 clean verify：
+             instruction 49.90% / branch 44.78%），只升不降。 -->
+        <workflowsim.jacoco.instruction.minimum>0.49</workflowsim.jacoco.instruction.minimum>
+        <workflowsim.jacoco.branch.minimum>0.44</workflowsim.jacoco.branch.minimum>
     </properties>
 
     <dependencies>
