@@ -79,7 +79,7 @@ class SimulationRunnerIntegrationTest {
 
         String contents = new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8);
         assertTrue(Files.isRegularFile(manifest));
-        assertTrue(contents.contains("workflowsim-experiment-manifest-v3"));
+        assertTrue(contents.contains("workflowsim-experiment-manifest-v4"));
         assertTrue(contents.contains("WFCOMMONS_JSON"));
         assertTrue(contents.contains("TASK_RUNTIME_FLOORED_TO_MINIMUM"));
         assertTrue(contents.contains("runtimeReferenceMips"));

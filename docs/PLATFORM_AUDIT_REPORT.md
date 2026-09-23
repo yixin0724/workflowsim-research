@@ -1,5 +1,8 @@
 # WorkflowSim 平台整体审查报告
 
+> **R10 更正**：本页为历史审计。旧 LOCAL_CPOP 的向下秩方向错误，旧关键路径和87.1结果已被修正；当前关键路径为{1,2,9,10}、扣除110.1引导后为86。当前网络采用max-min progressive filling及分段积分，旧网络排名不代表新版本。见 [R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)。
+
+
 > **R9 注记（2026-09-16）**：本报告保留历史审计记录。报告中引用的输出通道
 > `ExperimentConsoleSummary` / `ExperimentCsvWriter` / `ExperimentHtmlReportWriter`
 > 及其唯一使用方模板 `MyConfigurableExperiment` 已在 R9 作为无主流程引用的死代码

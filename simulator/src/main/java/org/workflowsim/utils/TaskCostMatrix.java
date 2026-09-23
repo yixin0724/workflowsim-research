@@ -84,6 +84,38 @@ public final class TaskCostMatrix {
     }
 
     /**
+     * 返回指定任务在全部已登记 VM 上的执行秒数（不可变快照）。
+     *
+     * <p>该接口供证据写出与审计工具使用；调用方不能通过返回值修改矩阵内部状态。</p>
+     *
+     * @param taskId 逻辑任务 ID
+     * @return VM ID 到执行秒数的不可变映射
+     * @throws IllegalArgumentException 当任务没有任何矩阵条目时抛出
+     */
+    public Map<Integer, Double> getCostsForTask(int taskId) {
+        Map<Integer, Double> perVm = costSecondsByTaskAndVm.get(Integer.valueOf(taskId));
+        if (perVm == null) {
+            throw new IllegalArgumentException("Task cost matrix has no entry for task " + taskId);
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<Integer, Double>(perVm));
+    }
+
+    /**
+     * 返回完整任务×VM矩阵的不可变深拷贝。
+     *
+     * @return 任务 ID 到 VM 成本映射的不可变快照
+     */
+    public Map<Integer, Map<Integer, Double>> asMap() {
+        Map<Integer, Map<Integer, Double>> copy =
+                new LinkedHashMap<Integer, Map<Integer, Double>>();
+        for (Map.Entry<Integer, Map<Integer, Double>> entry : costSecondsByTaskAndVm.entrySet()) {
+            copy.put(entry.getKey(), Collections.unmodifiableMap(
+                    new LinkedHashMap<Integer, Double>(entry.getValue())));
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
+    /**
      * 判断某任务×VM 组合是否有登记条目。
      *
      * @param taskId 逻辑任务 ID（cloudlet ID）

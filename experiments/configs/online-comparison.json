@@ -1,0 +1,19 @@
+{
+  "schema": "workflowsim-workbench-v1",
+  "name": "在线调度方案比较",
+  "workflowPaths": ["../../datasets/dax/epigenomics/n100/Epigenomics_100.dax"],
+  "platform": {
+    "vmMips": [500, 1500, 500, 1500],
+    "bandwidthMbPerSecond": 1000
+  },
+  "simulation": {
+    "fileSystem": "SHARED",
+    "dataMovementModel": "LEGACY_WORKFLOWSIM_V1"
+  },
+  "algorithms": [
+    {"id": "fcfs", "scheduler": "FCFS"},
+    {"id": "mct", "scheduler": "READY_BATCH_MCT"},
+    {"id": "minmin", "scheduler": "READY_BATCH_MINMIN"}
+  ],
+  "seeds": [42]
+}

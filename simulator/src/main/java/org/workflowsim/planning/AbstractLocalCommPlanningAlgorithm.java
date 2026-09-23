@@ -82,6 +82,12 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         List<Task> tasks = sortedTasks();
         sortedVms();
         WorkflowDagValidator.validateAndAssignDepths(tasks);
+        // 同一规划器可再次运行；rank、已完成状态及演进后的副本都只属于上一次计划。
+        computeMiByVm.clear();
+        replicas.clear();
+        fileSizes.clear();
+        upwardRanks.clear();
+        finishes.clear();
         populateCosts(tasks);
         populateReplicasAndSizes(tasks);
         for (Task task : tasks) {
@@ -357,7 +363,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                 pairs++;
             }
         }
-        return total / pairs;
+        // 单 VM 时不存在跨处理器通信，避免 0/0 使 rank 变成 NaN。
+        return pairs == 0 ? 0.0 : total / pairs;
     }
 
     /**

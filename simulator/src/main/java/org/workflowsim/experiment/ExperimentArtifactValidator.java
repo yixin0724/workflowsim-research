@@ -27,6 +27,8 @@ public final class ExperimentArtifactValidator {
     public static final String MANIFEST_SCHEMA_V2 = "workflowsim-experiment-manifest-v2";
     /** 当前 evidence manifest schema。 */
     public static final String MANIFEST_SCHEMA_V3 = ExperimentManifestWriter.SCHEMA_V3;
+    /** 完整配置快照的当前 schema。 */
+    public static final String MANIFEST_SCHEMA_V4 = ExperimentManifestWriter.SCHEMA_V4;
 
     private ExperimentArtifactValidator() {
     }
@@ -50,12 +52,16 @@ public final class ExperimentArtifactValidator {
         }
         JsonObject root = object(Files.readAllBytes(manifest), "experiment manifest");
         String schema = requireString(root, "schema", "experiment manifest");
-        if (!MANIFEST_SCHEMA_V2.equals(schema) && !MANIFEST_SCHEMA_V3.equals(schema)) {
+        if (!MANIFEST_SCHEMA_V2.equals(schema) && !MANIFEST_SCHEMA_V3.equals(schema)
+                && !MANIFEST_SCHEMA_V4.equals(schema)) {
             throw new IOException("Unsupported experiment manifest schema: " + schema);
         }
         validateManifestTopLevelShape(root);
-        if (MANIFEST_SCHEMA_V3.equals(schema)) {
+        if (MANIFEST_SCHEMA_V3.equals(schema) || MANIFEST_SCHEMA_V4.equals(schema)) {
             validateV3Provenance(requireObject(root, "provenance", "experiment manifest"));
+        }
+        if (MANIFEST_SCHEMA_V4.equals(schema)) {
+            ManifestV4Validator.validate(root);
         }
         JsonObject eventSummary = requireObject(root, "events", "experiment manifest");
         int expectedEvents = requireInt(eventSummary, "eventCount", "manifest events");

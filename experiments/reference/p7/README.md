@@ -20,18 +20,18 @@ P7 不接受项目根作为数据根。通常应传入 `/absolute/path/to/Workfl
 从项目根目录运行，输出目录必须是绝对且为空的目录：
 
 ```bash
-mvn -Pexperiments -pl :workflowsim-experiments -am \
+mvn -pl :workflowsim-experiments -am \
   -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7BaselineExecutor \
   -Dexec.args="/absolute/path/to/WorkflowSim-1.0/datasets /absolute/empty/p7-output" \
   compile exec:java
 
 # 只读验证已经保留的 P7 完整冻结基线 index。
-mvn -Pexperiments -pl :workflowsim-experiments -am \
+mvn -pl :workflowsim-experiments -am \
   -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7EvidenceIndexValidator \
   -Dexec.args="/absolute/p7-output/p7-baseline-index.json" \
   compile exec:java
 ```
 
-新生成的 P7 工件使用当前 v3 manifest/index 身份契约，区分核心模拟器和 P7/reference 组件，并记录显式数据集根。`P7EvidenceIndexValidator` 继续可读取完整历史 v2 P7 基线，以便审计旧结果；这不表示旧 v2 工件自动获得新的研究身份信息。
+新生成的 P7 工件使用 manifest v4 和 index/provenance v3 身份契约，区分核心模拟器和 P7/reference 组件，并记录显式数据集根。`P7EvidenceIndexValidator` 继续可读取完整历史 v2/v3 P7 工件；这不表示旧工件自动补齐 v4 新增配置。
 
 运行完成后，先验证输出并提取研究协议要求的结果；未明确作为研究交付物保留的输出目录、Maven `target/`、临时 manifest 和事件日志都必须清理。

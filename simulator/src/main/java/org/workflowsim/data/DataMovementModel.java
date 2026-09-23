@@ -16,7 +16,7 @@ public final class DataMovementModel {
         FIXED_ENDPOINT_NO_CONTENTION_V1,
         /**
          * 论文语义的执行前传输延迟模型（Topcuoglu TPDS 2002 类列表调度的
-         * 通信模型）：计算 Job 的输入传输在其数据就绪（全部父任务完成）时开始，
+         * 通信模型）：按各父任务完成时点估算输入到达；外部输入自 Job 就绪时开始，
          * 可与目标 VM 的忙碌期重叠；VM 只被计算 MI 占用，传输不再折算进执行
          * 信封。传输秒数沿用 {@link #LEGACY_WORKFLOWSIM_V1} 的带宽规则
          * （SOURCE→VM 取目标 VM 带宽、VM→VM 取 {@code min(bw)}、副本本地
@@ -24,21 +24,19 @@ public final class DataMovementModel {
          */
         PRE_EXECUTION_TRANSFER_DELAY_V1,
         /**
-         * 链路争用版执行前传输延迟模型：传输窗口语义与
-         * {@link #PRE_EXECUTION_TRANSFER_DELAY_V1} 相同（数据就绪时开始、可与目标
-         * VM 忙碌期重叠），但同一 VM 端点上同时活动的传输公平共享该端点的带宽
-         * 容量（流体公平共享模型），并发传输互相减速。传输组在所属 Job 数据就绪
-         * 时刻统一开始（不追溯父任务更早完成时点的部分传输进度），因此本模型的
-         * 完成时刻不早于无争用模型的对应值。规划器侧 AST 仍按无争用速率估计，
-         * 规划与执行在并发负载下预期出现可解释的偏差。
+         * 链路争用版执行前传输延迟模型：传输可与目标 VM 忙碌期重叠，
+         * 同一 VM 端点上的活动传输采用带名义上限的 max-min progressive filling。
+         * 所有传输组在所属 Job 数据就绪时统一开始，不追溯较早父任务的传输进度。
+         * 该起点规则不同于无争用 V1；规划侧仍按无争用 AST 估计。
+         * 分段积分在内部完成时点重分配容量；整个 DAG 的完成时间不承诺跨模型单调。
          */
         PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1,
         /**
          * Fat-tree 拓扑感知链路争用版执行前传输延迟模型：传输窗口语义与
          * {@link #PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1} 相同，但争用
          * 域从 VM 端点推广为确定性路由路径上的每条共享链路（Al-Fares k-Pod
-         * Fat-tree，流级 max-min 公平共享）；端点与链路容量同时生效、速率取
-         * 全部占用资源份额的最小值。要求平台通过
+         * Fat-tree，流级 max-min progressive filling）；端点与链路容量同时生效，
+         * 通过逐步填充及瓶颈冻结分配速率。要求平台通过
          * {@code PlatformProfile.networkTopology(...)} 声明拓扑（
          * {@code org.workflowsim.network.NetworkTopologySpec}）。外部输入
          * （SOURCE）流量 v1 不经过拓扑，只占用目标 VM 端点。原理与设计见
@@ -95,9 +93,8 @@ public final class DataMovementModel {
     /**
      * 返回链路争用版执行前传输延迟模型。
      *
-     * <p>传输窗口语义与 {@link #preExecutionTransferDelayV1()} 相同；差异在于同一
-     * VM 端点上并发的传输公平共享该端点带宽，互相减速（流体公平共享模型）。
-     * VM 端点容量取各自 {@code vm.getBw()}；SOURCE 端点不设容量上限。</p>
+     * <p>传输可与 VM 忙碌期重叠，但所有父组在 Job 就绪时统一开始，不追溯父任务
+     * 更早完成的进度；VM端点使用max-min progressive filling，SOURCE无容量上限。</p>
      *
      * @return 链路争用模型的共享不可变实例
      */

@@ -18,7 +18,10 @@ import org.workflowsim.utils.SimulationConfig;
 /** 仅在调用方显式指定输出路径时，将报告写为 manifest。 */
 public final class ExperimentManifestWriter {
 
+    /** 上一代证据 manifest schema，供只读校验器兼容历史工件。 */
     static final String SCHEMA_V3 = "workflowsim-experiment-manifest-v3";
+    /** 当前证据 manifest schema，包含完整到达、成本矩阵和拓扑声明。 */
+    static final String SCHEMA_V4 = "workflowsim-experiment-manifest-v4";
 
     private ExperimentManifestWriter() {
     }
@@ -41,7 +44,7 @@ public final class ExperimentManifestWriter {
     /**
      * 将一份报告与可选的 reference/study 身份写为独立 JSON manifest。
      *
-     * <p>未提供 {@code evidenceContext} 时，manifest 仍是 v3 格式，但 provenance 中的
+     * <p>未提供 {@code evidenceContext} 时，manifest 仍是 v4 格式，但 provenance 中的
      * {@code study} 字段为 {@code null}。这适合普通仿真运行，不能将其误认为已声明协议的
      * 正式研究证据。</p>
      *
@@ -81,11 +84,12 @@ public final class ExperimentManifestWriter {
     static Map<String, Object> toManifest(SimulationReport report,
             List<Map<String, Object>> artifacts, ExperimentEvidenceContext evidenceContext) {
         Map<String, Object> manifest = new LinkedHashMap<>();
-        manifest.put("schema", SCHEMA_V3);
+        manifest.put("schema", SCHEMA_V4);
         manifest.put("configuration", configuration(report.getConfig()));
         manifest.put("platform", platform(report.getPlatform()));
         manifest.put("inputs", inputs(report));
         manifest.put("workflowProfile", report.getWorkflowProfile());
+        manifest.put("workflowGraph", report.getWorkflowGraph());
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
         manifest.put("events", eventSummary(report));
@@ -109,6 +113,10 @@ public final class ExperimentManifestWriter {
     private static Map<String, Object> configuration(SimulationConfig config) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("vmCount", config.getVmCount());
+        values.put("workflowPaths", new ArrayList<String>(config.getWorkflowPaths()));
+        values.put("workflowArrivalSeconds", new ArrayList<Double>(config.getWorkflowArrivalSeconds()));
+        values.put("workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
+        values.put("taskCostMatrix", taskCostMatrix(config));
         values.put("schedulingAlgorithm", config.getSchedulingAlgorithm().name());
         values.put("planningAlgorithm", config.getPlanningAlgorithm().name());
         values.put("algorithmContract", AlgorithmCatalog.forConfiguration(config));
@@ -142,9 +150,61 @@ public final class ExperimentManifestWriter {
         values.put("accessLinkLatencySeconds", model.getAccessLinkLatencySeconds());
         values.put("sourceEndpointBandwidthMbPerSecond",
                 model.getSourceEndpointBandwidthMbPerSecond());
-        values.put("contentionSemantics", model.isLegacyWorkflowsimV1()
-                ? "LEGACY_IMPLEMENTATION_DEFINED_NO_EXPLICIT_CONTENTION_MODEL"
-                : "SERIAL_PER_JOB_NO_SHARED_LINK_CONTENTION");
+        values.put("contentionSemantics", contentionSemantics(model));
+        values.put("transferStartSemantics", transferStartSemantics(model));
+        values.put("bandwidthUnit", "DECIMAL_MB_PER_SECOND");
+        return values;
+    }
+
+    static String contentionSemantics(DataMovementModel model) {
+        switch (model.getKind()) {
+            case LEGACY_WORKFLOWSIM_V1:
+                return "LEGACY_IMPLEMENTATION_DEFINED_NO_EXPLICIT_CONTENTION_MODEL";
+            case FIXED_ENDPOINT_NO_CONTENTION_V1:
+                return "SERIAL_PER_JOB_NO_SHARED_LINK_CONTENTION";
+            case PRE_EXECUTION_TRANSFER_DELAY_V1:
+                return "PARALLEL_PARENT_GROUPS_NO_SHARED_LINK_CONTENTION";
+            case PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1:
+                return "FLUID_MAX_MIN_PROGRESSIVE_FILLING_VM_ENDPOINTS_V2";
+            case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1:
+                return "FLUID_MAX_MIN_PROGRESSIVE_FILLING_VM_ENDPOINTS_AND_FAT_TREE_LINKS_V2";
+            default:
+                throw new IllegalArgumentException("Unknown data movement model " + model.getKind());
+        }
+    }
+
+    static String transferStartSemantics(DataMovementModel model) {
+        if (model.isPreExecutionTransferDelayV1()) {
+            return "PARENT_FINISH_BASED_ARRIVAL_ESTIMATE;EXTERNAL_AT_JOB_READY";
+        }
+        if (model.isPreExecutionTransferDelayWithContentionV1() || model.isFatTreeContentionV1()) {
+            return "ALL_GROUPS_START_AT_JOB_READY;NO_RETROACTIVE_PARENT_PROGRESS";
+        }
+        return "STAGE_IN_INCLUDED_IN_JOB_EXECUTION_ENVELOPE";
+    }
+
+    private static Map<String, Object> taskCostMatrix(SimulationConfig config) {
+        if (config.getTaskCostMatrix() == null) {
+            return null;
+        }
+        Map<String, Object> values = new LinkedHashMap<String, Object>();
+        values.put("unit", "EXECUTION_SECONDS");
+        values.put("runtimeConversion", "ROUND_SECONDS_TIMES_VM_MIPS_TO_POSITIVE_INTEGER_MI");
+        List<Map<String, Object>> entries = new ArrayList<Map<String, Object>>();
+        java.util.Map<Integer, java.util.Map<Integer, Double>> sorted =
+                new java.util.TreeMap<Integer, java.util.Map<Integer, Double>>(
+                        config.getTaskCostMatrix().asMap());
+        for (Map.Entry<Integer, java.util.Map<Integer, Double>> task : sorted.entrySet()) {
+            for (Map.Entry<Integer, Double> vm : new java.util.TreeMap<Integer, Double>(
+                    task.getValue()).entrySet()) {
+                Map<String, Object> entry = new LinkedHashMap<String, Object>();
+                entry.put("taskId", task.getKey());
+                entry.put("vmId", vm.getKey());
+                entry.put("executionSeconds", vm.getValue());
+                entries.add(entry);
+            }
+        }
+        values.put("entries", entries);
         return values;
     }
 
@@ -261,6 +321,25 @@ public final class ExperimentManifestWriter {
         storage.put("maxTransferRateMbPerSecond", profile.getStorage().getMaxTransferRateMbPerSecond());
         values.put("storage", storage);
         values.put("costs", costs(profile.getCosts()));
+        values.put("networkTopology", networkTopology(profile.getNetworkTopology()));
+        return values;
+    }
+
+    private static Map<String, Object> networkTopology(org.workflowsim.network.NetworkTopologySpec spec) {
+        if (spec == null) {
+            return null;
+        }
+        Map<String, Object> values = new LinkedHashMap<String, Object>();
+        values.put("kind", spec.getKind().name());
+        values.put("k", spec.getK());
+        values.put("linkBandwidthMbPerSecond", spec.getLinkBandwidthMbPerSecond());
+        values.put("coreSwitchCount", spec.getCoreSwitchCount());
+        values.put("hostEdgePlacements", spec.getHostEdgePlacements() == null ? null
+                : new java.util.TreeMap<Integer, Integer>(spec.getHostEdgePlacements()));
+        values.put("defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES");
+        values.put("routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1");
+        values.put("linkDirectionality", "INDEPENDENT_DIRECTED_LINKS");
+        values.put("externalSourceRouting", "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
         return values;
     }
 
@@ -315,6 +394,7 @@ public final class ExperimentManifestWriter {
         values.put("jobs", report.getJobs());
         values.put("tasks", report.getTasks());
         values.put("actualVmHostAssignments", report.getActualVmHostAssignments());
+        values.put("workflowOutcomes", report.getWorkflowOutcomes());
         values.put("sharedStorageDagPlanTrace", report.getSharedStorageDagPlanTrace());
         return values;
     }

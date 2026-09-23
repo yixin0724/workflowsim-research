@@ -71,7 +71,7 @@ public final class Experiment01 {
     }
 
     public static void main(String[] args) throws Exception {
-        // 1) 组装不可变配置（所有校验在 build() 时 fail-fast）。
+        // 1) 组装不可变配置；build 校验组合，runner 还会校验输入、平台和成本覆盖。
         SimulationConfig.Builder builder = SimulationConfig.builder(WORKFLOW_PATH, VM_COUNT)
                 .schedulingAlgorithm(ALGORITHM)
                 .randomSeed(RANDOM_SEED);
@@ -80,7 +80,7 @@ public final class Experiment01 {
         }
         SimulationConfig config = builder.build();
 
-        // 2) 运行仿真（同质本地平台；run 抛出检查型 SimulationExecutionException）。
+        // 2) 运行同质平台；文件系统由 config 决定（本例默认 SHARED）。
         Log.disable(); // 屏蔽 CloudSim 逐事件日志，需要时删除本行
         SimulationReport report = new SimulationRunner().run(config,
                 PlatformProfiles.homogeneousLocal(EXPERIMENT_NAME, VM_COUNT));
@@ -110,7 +110,9 @@ public final class Experiment01 {
 
 ### 3. 右键运行
 
-在 IDEA 中：
+在 IDEA 中先重新加载默认双模块 Maven 工程，运行配置选择 `workflowsim-experiments`
+classpath，工作目录设为项目根 `$PROJECT_DIR$`；无需额外的 `experiments` profile。
+
 1. 右键 `main` 方法
 2. 点击 **Run 'Experiment01.main()'**
 3. 查看控制台输出与 `output/my-experiments/experiment-01/` 下的证据工件
@@ -136,7 +138,7 @@ public final class Experiment01 {
 |---|---|---|
 | `FCFS` | ✅ | 先到先服务 |
 | `READY_BATCH_MINMIN` | ✅ | 就绪批次 Min-Min（推荐基线） |
-| `READY_BATCH_MAXMIN` | ✅ | 就绪批次 Max-Max |
+| `READY_BATCH_MAXMIN` | ✅ | 就绪批次 Max-Min |
 | `READY_BATCH_MCT` | ✅ | 就绪批次最小完成时间 |
 | `READY_BATCH_ROUNDROBIN` | ✅ | 就绪批次轮转 |
 | `DATA` | ✅ | 数据感知调度（要求 LOCAL 文件系统，DATA+SHARED 组合被校验拒绝） |
@@ -158,7 +160,7 @@ public final class Experiment01 {
 | 独立任务基线 | `STATIC_OLB` / `STATIC_MET` / `STATIC_MCT` / `STATIC_MINMIN` / `STATIC_MAXMIN` / `STATIC_SUFFERAGE` / `STATIC_ROUND_ROBIN` | 拒绝含依赖边的 DAG（仅独立任务集） |
 | 共享存储 DAG | `SHARED_STORAGE_HEFT` / `SHARED_STORAGE_CPOP` / `SHARED_STORAGE_DLS` / `SHARED_STORAGE_ETF` / `SHARED_STORAGE_PEFT` | SHARED 文件系统 + NONE 聚类 + 关闭故障/开销 + SPACE_SHARED VM |
 | 元启发式 | `PSO` | 论文复现（Pandey et al., AINA 2010），顺序负载模型 |
-| 通信感知 DAG | `LOCAL_HEFT` / `LOCAL_CPOP` | LOCAL 文件系统 + NONE 聚类 + 无故障/开销 + `preExecutionTransferDelayV1()` 数据移动模型 |
+| 通信感知 DAG | `LOCAL_HEFT` / `LOCAL_CPOP` | LOCAL 文件系统 + NONE 聚类 + 无故障/开销 + SPACE_SHARED VM + preExecution 家族模型；Fat-tree 变体还需平台拓扑声明 |
 
 各算法的决策语义、验证状态与适用边界见 [`../algorithms/CATALOG.md`](../algorithms/CATALOG.md)。
 
@@ -168,12 +170,14 @@ public final class Experiment01 {
 
 - **DAX**（Pegasus XML）：`datasets/dax/<app>/n<规模>/<App>_<n>.dax`，
   例如 `datasets/dax/epigenomics/n100/Epigenomics_100.dax`
-- **WfCommons WfFormat JSON**：`datasets/wfformat/<app>/n<规模>/<app>-<n>-000.json`，
-  例如 `datasets/wfformat/blast/n100/blast-100-000.json`
+- **WfCommons WfFormat JSON**：标准检出包含的合成输入为
+  `datasets/wfformat/montage/n100/montage-100-000.json`；WfInstances 试点也由同一 JSON 解析器转换。
 
-路径相对于**项目根目录**（IDEA 运行的工作目录）。多工作流输入用
-`SimulationConfig.builder(List<String>, int)`（dax 与 JSON 可混合），到达时刻用
-`workflowArrivalSeconds(List<Double>)` 声明。
+路径相对于**项目根目录**（IDEA 运行的工作目录）。完整语料范围见
+[数据集说明](../../datasets/README.md)。多工作流输入用
+`SimulationConfig.builder(List<String>, int)`（DAX 与 JSON 可混合），到达时刻用
+`workflowArrivalSeconds(List<Double>)` 按输入顺序声明，单位为从仿真零时刻起算的秒。
+工作流与到达表在启动前已知；非零到达要求 NONE 聚类。
 
 ### deadline 设置
 
@@ -187,20 +191,29 @@ manifest 记录 deadline 值供事后判定是否违约（看门狗只校验引�
 
 ### 高级模型开关（Builder 方法速查）
 
-以下方法都在 `SimulationConfig.Builder` 上，默认值即"关闭"：
+以下方法都在 `SimulationConfig.Builder` 上。开销和故障默认关闭，任务成本矩阵默认为 null；
+数据移动默认使用 `legacyWorkflowsimV1()`，成本默认采用 `DATACENTER`，并非所有模型都默认关闭。
 
 | 方法 | 类型所在包 | 用途 |
 |---|---|---|
 | `overheadModel(OverheadModelConfig)` | `org.workflowsim.utils` | 队列/后处理/聚类/引擎延迟（按深度键控的分布采样，`DistributionSpec.of(family, scale, shape)`；深度 0 为默认项） |
 | `failureModel(FailureModelConfig)` | `org.workflowsim.failure` | 故障到达流 + 重试预算（`generatorSpecs` 为按 VM/深度分组的分布矩阵；`maxTotalRetryJobs` 超限 fail-fast） |
 | `costModel(Parameters.CostModel)` | `org.workflowsim.utils` | `DATACENTER`（数据中心级计费）或 `VM`（要求平台为每台 VM 显式定价，否则拒绝） |
-| `dataMovementModel(DataMovementModel)` | `org.workflowsim.data` | `legacyWorkflowsimV1()` / `preExecutionTransferDelayV1()` / `preExecutionTransferDelayWithContentionV1()` |
-| `taskCostMatrix(TaskCostMatrix)` | `org.workflowsim.utils` | 显式 Task×VM 计算成本矩阵（论文复现用） |
-| `runtimeScale(double)` / `runtimeReferenceMips(double)` | — | 真实运行时间标定 |
-| `randomSeed(long)` | — | 全局根种子：开销/故障采样、RANDOM 规划、就绪批次平局全部由此派生 |
+| `dataMovementModel(DataMovementModel)` | `org.workflowsim.data` | `legacyWorkflowsimV1()` / `fixedEndpointNoContention(...)` / `preExecutionTransferDelayV1()` / `preExecutionTransferDelayWithContentionV1()` / `fatTreeContentionV1()` |
+| `taskCostMatrix(TaskCostMatrix)` | `org.workflowsim.utils` | 显式 Task×VM 执行秒数；要求 STATIC、NONE 聚类，且不能与 SHARED_STORAGE_* 规划器组合 |
+| `runtimeScale(double)` / `runtimeReferenceMips(double)` | — | 输入 runtime 秒数到模拟 MI 的换算与缩放，不自动校准真实硬件 |
+| `randomSeed(long)` | — | 开销/故障采样与随机规划器的根种子；按 Task/VM ID 打破的确定性平局不需要随机采样 |
 
-⚠️ `overheadParameters(OverheadParameters)` 是历史可变对象入口，新代码一律用
-不可变的 `overheadModel(...)`（会话按根种子自动生成运行期参数）。
+R2/R6 在运行期采用 **max-min progressive filling**：同时提高尚未受限流的速率，冻结达到
+名义速率或资源瓶颈的流，再把剩余容量分给其他流。R2 约束 VM 端点，R6 还约束确定性路由
+上的有向链路；SOURCE 不设共享容量上限，R6 的外部输入绕过拓扑。时间推进在流完成时分段
+结算并重新分配速率，不能用固定的 `capacity/n` 近似解释多瓶颈情况。
+
+争用模型的各输入组在 Job 就绪时统一开始，不追溯父任务较早完成时的传输进度；LOCAL 规划器
+仍用无争用 AST 估计。模型与求解器语义会写入 manifest，跨版本比较应核对它们。
+
+⚠️ `overheadParameters(OverheadParameters)` 是历史可变对象入口，新代码使用
+不可变的 `overheadModel(...)`（会话按根种子生成运行期参数）。
 
 ---
 
@@ -293,8 +306,8 @@ for (SimulationReport.JobOutcome job : report.getJobs()) {
 
 - **永远显式设置 `randomSeed`**：可复现性声明依赖固定根种子。
 - 多种子实验用连续种子（42/43/44），并在结果中报告种子集合。
-- 同一 config 对象重复 `run` 是**逐位可重放**的（会话按根种子重建全部随机流），
-  可用来做重放断言（平台自身的集成测试正是这样锁定行为的）。
+- 固定代码版本、输入、平台与配置后，重复 `run` 会按根种子重建仿真随机流，
+  可断言调度映射与模拟时序可重现；墙钟耗时等性能观测不要求逐位一致。
 
 ### 3. 输出目录组织
 
@@ -401,7 +414,13 @@ validator 会拒绝 v1 schema 与缺失关键字段的文件。
 ## 📦 证据工件（manifest / metrics / events）
 
 `ExperimentArtifactWriter.write(report, outputDirectory, runId)` 一次写出三件套
-（另有四参重载可附加 `ExperimentEvidenceContext` 研究身份）：
+（另有四参重载可附加 `ExperimentEvidenceContext` 研究身份）。当前 manifest schema 是
+`workflowsim-experiment-manifest-v4`，provenance 仍为 `workflowsim-provenance-v3`。
+校验器兼容历史 manifest v2/v3；这些旧格式缺失的新字段不会被自动推定为完整配置。
+
+v4 显式保存 `workflowArrivalSeconds`、`taskCostMatrix`、`platform.networkTopology`，
+以及 `dataMovementModel.contentionSemantics` 和 `transferStartSemantics`。未配置矩阵或拓扑
+时明确写 null，默认到达表仍按输入顺序写出零值。
 
 | 文件 | 内容 |
 |---|---|
@@ -409,8 +428,18 @@ validator 会拒绝 v1 schema 与缺失关键字段的文件。
 | `<runId>.metrics.json` | `{"schema": "workflowsim-simulation-metrics-v2", "metrics": {...}}`，`metrics` 为 `SimulationMetrics` 的完整 Gson 序列化 |
 | `<runId>.events.jsonl` | 全事件流，每行一个 `SimulationEvent` JSON |
 
-写入语义：先写同目录临时文件，**完整成功后原子替换**同名旧文件；中途失败不会
-留下半成品。metrics 与 events 同时登记进 manifest 的工件清单。
+写入语义：每个文件先写同目录临时文件，成功后替换同名旧文件；文件系统不支持原子移动时
+回退为普通替换。整个三文件证据包不构成跨文件事务，写完后应校验引用与哈希。
+metrics 与 events 都会登记进 manifest 的工件清单：
+
+```java
+org.workflowsim.experiment.ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+        ExperimentArtifactWriter.write(report, Paths.get(OUTPUT_DIR, EXPERIMENT_NAME), EXPERIMENT_NAME);
+org.workflowsim.experiment.ExperimentArtifactValidator.validate(artifacts.getManifest());
+```
+
+仅调用 `ExperimentManifestWriter.writeJson(...)` 会生成独立 manifest，不会生成完整的
+metrics/events sidecar 证据包。
 
 ### events.jsonl 每行结构（`SimulationEvent`）
 

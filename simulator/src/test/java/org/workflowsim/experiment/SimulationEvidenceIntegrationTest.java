@@ -34,6 +34,16 @@ class SimulationEvidenceIntegrationTest {
 
         assertEquals(6, report.getJobs().size());
         assertEquals(5, report.getTasks().size());
+        assertEquals(5, report.getWorkflowGraph().size());
+        int graphEdges = 0;
+        for (SimulationReport.TaskNode node : report.getWorkflowGraph()) {
+            graphEdges += node.getChildIds().size();
+            org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
+                    () -> node.getParentIds().add(999));
+        }
+        assertEquals(report.getWorkflowProfile().getEdgeCount(), graphEdges);
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
+                () -> report.getWorkflowGraph().clear());
         assertFalse(report.getEvents().isEmpty());
         assertEquals(SimulationEventType.WORKFLOW_PARSED, report.getEvents().get(0).getType());
         assertTrue(hasType(report.getEvents(), SimulationEventType.JOBS_CLUSTERED));
@@ -80,7 +90,7 @@ class SimulationEvidenceIntegrationTest {
         String manifest = new String(Files.readAllBytes(artifacts.getManifest()), StandardCharsets.UTF_8);
         String metrics = new String(Files.readAllBytes(artifacts.getMetrics()), StandardCharsets.UTF_8);
         List<String> events = Files.readAllLines(artifacts.getEvents(), StandardCharsets.UTF_8);
-        assertTrue(manifest.contains("workflowsim-experiment-manifest-v3"));
+        assertTrue(manifest.contains("workflowsim-experiment-manifest-v4"));
         assertTrue(manifest.contains("fixture-fcfs.metrics.json"));
         assertTrue(manifest.contains("fixture-fcfs.events.jsonl"));
         assertTrue(manifest.contains("sourceTreeSha256"));

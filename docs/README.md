@@ -1,6 +1,7 @@
 # WorkflowSim 文档中心
 
-按使用路径分层组织。新用户从 `getting-started/` 开始，研究者按需查阅 `algorithms/` 与 `experiments/`。
+按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，本轮交付见[R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)，正式研究见[网络受限研究协议](../experiments/studies/network-limited-r10/PROTOCOL.md)。旧R7/R8结果页保留历史状态，不代表修正后的当前算法。
+
 
 ## 目录结构
 

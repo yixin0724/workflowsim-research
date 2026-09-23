@@ -24,5 +24,6 @@ jobs:
       - name: Run full quality gate (unit + integration, core + experiments)
         run: mvn -B verify
 
-      # wfformat/wfinstances 大型语料未纳入版本库（见 .gitignore），相关测试在
-      # 语料缺失时自动跳过；本地有语料的环境会完整执行这些测试。
+      # 质量门禁引用的 5 个 WfFormat/WfInstances 小型输入已纳入版本库（见 .gitignore 白名单）。
+      # 标准检出会执行相关测试；缺失必需输入会失败，不会自动跳过。
+      # 其余大型语料不随仓库提供，仅用于显式准备语料后的扩展实验。

@@ -12,7 +12,8 @@
 （工厂 `DataMovementModel.fatTreeContentionV1()`），传输窗口语义与既有争用模型
 相同（数据就绪统一开始、可与 VM 忙碌期重叠），争用语义从"VM 端点公平共享"
 推广为"**Fat-tree 路径上每条共享链路 + 端点的 max-min 公平共享**"
-（传输有效速率 = min(名义速率, 全部占用资源份额)）。
+（R10使用 progressive filling：受名义上限和全部资源容量共同约束，
+回收被其他瓶颈限制的流的未使用份额；原 capacity/n 瓶颈近似已替换）。
 
 交付物：
 1. `org.workflowsim.network.NetworkTopologySpec`：平台拓扑不可变声明（v1 仅

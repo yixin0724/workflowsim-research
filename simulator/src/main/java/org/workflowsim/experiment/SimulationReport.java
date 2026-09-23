@@ -42,6 +42,7 @@ public final class SimulationReport {
     private final SimulationMetrics metrics;
     private final SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
     private final List<WorkflowOutcome> workflowOutcomes;
+    private final List<TaskNode> workflowGraph;
 
     private SimulationReport(SimulationConfig config, PlatformProfile platform,
             double makespan, List<InputArtifact> inputs, List<WorkflowInputReport> inputReports,
@@ -64,6 +65,9 @@ public final class SimulationReport {
         this.events = Collections.unmodifiableList(new ArrayList<>(events));
         this.sharedStorageDagPlanTrace = sharedStorageDagPlanTrace;
         this.workflowProfile = WorkflowProfile.fromTasks(sourceTasks);
+        Map<Integer, TaskNode> graph = new TreeMap<Integer, TaskNode>();
+        for (Task task : sourceTasks) { graph.put(task.getCloudletId(), new TaskNode(task)); }
+        this.workflowGraph = Collections.unmodifiableList(new ArrayList<TaskNode>(graph.values()));
         this.metrics = SimulationMetrics.calculate(makespan, this.jobs, this.vmSummaries, this.events,
                 this.tasks, sourceTasks, config, platform);
         this.workflowOutcomes = computeWorkflowOutcomes();
@@ -261,6 +265,33 @@ public final class SimulationReport {
      */
     public SharedStorageDagPlanTrace getSharedStorageDagPlanTrace() {
         return sharedStorageDagPlanTrace;
+    }
+
+    /** @return 按任务ID排序的原始逻辑任务依赖快照，不含stage-in或retry节点 */
+    public List<TaskNode> getWorkflowGraph() { return workflowGraph; }
+
+    /** 供报告和复核使用的原始任务节点。 */
+    public static final class TaskNode {
+        private final int taskId;
+        private final String type;
+        private final int depth;
+        private final List<Integer> parentIds;
+        private final List<Integer> childIds;
+        private TaskNode(Task task) {
+            taskId = task.getCloudletId(); type = task.getType(); depth = task.getDepth();
+            List<Integer> parents = new ArrayList<Integer>();
+            for (Task parent : task.getParentList()) { parents.add(parent.getCloudletId()); }
+            List<Integer> children = new ArrayList<Integer>();
+            for (Task child : task.getChildList()) { children.add(child.getCloudletId()); }
+            Collections.sort(parents); Collections.sort(children);
+            parentIds = Collections.unmodifiableList(parents);
+            childIds = Collections.unmodifiableList(children);
+        }
+        public int getTaskId() { return taskId; }
+        public String getType() { return type; }
+        public int getDepth() { return depth; }
+        public List<Integer> getParentIds() { return parentIds; }
+        public List<Integer> getChildIds() { return childIds; }
     }
 
     /** 已消费工作流文件的不可变内容指纹。 */
