@@ -1,355 +1,215 @@
 # 快速上手指南
 
-5 分钟内运行你的第一个 WorkflowSim 仿真。
-
 ## 环境准备
 
-要求：JDK 17+ 和 Maven 3.6.3+
+要求 **JDK 17+、Maven 3.6.3+**，生成的 Java 产物兼容 Java 8 API。
+从仓库根目录运行：
 
 ```bash
-java -version   # 应显示 17 或更高
-mvn -v          # 应显示 3.6.3 或更高
+java -version
+mvn -v
+mvn verify
 ```
 
-克隆项目后，先验证基础环境：
+默认验证 `simulator/` 与 `experiments/` 两个模块的单元、集成和覆盖率门禁。
+以 `BUILD SUCCESS` 和本次测试报告为准，不依赖固定的历史测试数量。
+只检查核心时使用 `mvn -pl :workflowsim verify`；没有需要启用的 `experiments` profile。
+
+## 先运行仓库中的示例
 
 ```bash
-cd WorkflowSim-1.0
-mvn verify      # 核心测试，约 7 秒
+mvn -pl :workflowsim-experiments -am \
+  -Dexec.mainClass=org.workflowsim.examples.WorkflowSimBasicExample1 \
+  compile exec:java
 ```
 
-看到 `BUILD SUCCESS` 和 `Tests run: 249, Failures: 0` 即通过。
+该入口使用仓库中的经典 DAX 输入。所有示例命令都以项目根为工作目录。
+IDEA 运行时选择 `workflowsim-experiments` 模块 classpath，设置工作目录为 `$PROJECT_DIR$`，
+详见[IDEA 配置](IDEA_SETUP.md)。
 
-## 第一个仿真：单文件示例
+## 创建自己的仿真
 
-创建 `MyFirstSimulation.java`：
+在 `experiments/src/main/java/org/workflowsim/mystudy/` 下新建 `MyFirstSimulation.java`。
+下面是完整源代码；这个类由你创建，不是仓库预置入口。
 
 ```java
-import org.cloudbus.cloudsim.Log;
-import org.workflowsim.experiment.*;
-import org.workflowsim.platform.*;
-import org.workflowsim.utils.Parameters.*;
+package org.workflowsim.mystudy;
 
-public class MyFirstSimulation {
+import java.nio.file.Paths;
+import org.cloudbus.cloudsim.Log;
+import org.workflowsim.experiment.ExperimentArtifactValidator;
+import org.workflowsim.experiment.ExperimentArtifactWriter;
+import org.workflowsim.experiment.SimulationReport;
+import org.workflowsim.experiment.SimulationRunner;
+import org.workflowsim.platform.PlatformProfile;
+import org.workflowsim.platform.PlatformProfiles;
+import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
+import org.workflowsim.utils.ReplicaCatalog;
+import org.workflowsim.utils.SimulationConfig;
+
+public final class MyFirstSimulation {
     public static void main(String[] args) throws Exception {
-        // 1. 禁用 CloudSim 日志（可选，但推荐）
         Log.disable();
-        
-        // 2. 配置仿真：工作流 + 算法 + 随机种子
+
         SimulationConfig config = SimulationConfig.builder(
-                "datasets/dax/Montage_25.dax",  // Pegasus DAX 输入
-                3                                // VM 数量
-            )
-            .schedulingAlgorithm(SchedulingAlgorithm.READY_BATCH_MINMIN)
-            .randomSeed(42L)                     // 保证可复现
-            .build();
-        
-        // 3. 定义平台：3 台同构 VM，每台 1000 MIPS
-        PlatformProfile platform = PlatformProfiles.homogeneousLocal(
-            "my-platform", 
-            3  // 与上面 VM 数量一致
-        );
-        
-        // 4. 运行仿真
-        SimulationRunner runner = new SimulationRunner();
-        SimulationReport report = runner.run(config, platform);
-        
-        // 5. 查看结果
-        System.out.println("仿真完成！");
+                "datasets/dax/montage/n25/Montage_25.dax", 3)
+                .schedulingAlgorithm(SchedulingAlgorithm.READY_BATCH_MINMIN)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .randomSeed(42L)
+                .build();
+        PlatformProfile platform = PlatformProfiles.homogeneousLocal("my-platform", 3);
+        SimulationReport report = new SimulationRunner().run(config, platform);
+
         System.out.println("Makespan: " + report.getMakespan() + " 秒");
         System.out.println("成功 Job 数: " + report.getSuccessfulJobs());
         System.out.println("失败 Job 数: " + report.getFailedJobs());
-        System.out.println("平均 VM 利用率: " + 
-            String.format("%.2f%%", report.getMetrics().getMeanVmModeledIntervalUtilization() * 100));
+        System.out.printf("平均 VM 利用率: %.2f%%%n",
+                report.getMetrics().getMeanVmModeledIntervalUtilization() * 100.0);
+
+        ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, Paths.get("output/my-first"), "run-seed42");
+        ExperimentArtifactValidator.validate(artifacts.getManifest());
+        System.out.println("已验证工件: " + artifacts.getManifest());
     }
 }
 ```
 
-放在 `simulator/src/test/java/` 或 `experiments/src/main/java/` 下，运行：
+运行新建的类：
 
 ```bash
-# 如果放在 experiments/
 mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=MyFirstSimulation compile exec:java
+  -Dexec.mainClass=org.workflowsim.mystudy.MyFirstSimulation \
+  compile exec:java
 ```
 
-预期输出类似：
+输出数值取决于输入、平台、算法和模型。Job 总数包含模拟器生成的 stage-in Job，不能直接
+当成工作流逻辑任务数。
 
-```
-仿真完成！
-Makespan: 65.42 秒
-成功 Job 数: 25
-失败 Job 数: 0
-平均 VM 利用率: 87.34%
-```
+## 五个关键概念
 
-## 理解这 5 行核心代码
+### 工作流输入
 
-### 1. 工作流输入
+`SimulationConfig.builder(workflowPath, vmCount)` 声明输入与 VM 数量。以下输入在标准检出中可用：
 
 ```java
-SimulationConfig.builder("datasets/dax/Montage_25.dax", 3)
+// Pegasus DAX XML
+"datasets/dax/montage/n25/Montage_25.dax"
+"datasets/dax/epigenomics/n24/Epigenomics_24.dax"
+
+// WfGen 合成 WfFormat JSON
+"datasets/wfformat/montage/n100/montage-100-000.json"
+
+// WfInstances 的真实执行派生 JSON
+"datasets/wfinstances/v1.5/makeflow/blast/blast-chameleon-small-001.json"
 ```
 
-支持三种输入格式：
-- **Pegasus DAX XML**：`datasets/dax/*.dax`（经典格式）
-- **WfCommons WfFormat JSON**：`datasets/wfformat/montage/*.json`（合成工作流）
-- **WfInstances JSON**：`datasets/wfinstances/v1.5/pegasus/montage/*.json`（真实执行轨迹抽象）
+输入格式是 DAX XML 或 WfFormat JSON；WfGen 和 WfInstances 是不同来源的 JSON 集合。
+完整语料的获取范围与解释边界见[数据集说明](../../datasets/README.md)。
 
-路径从**项目根目录**开始算。
+### 调度算法
 
-### 2. 调度算法
+六个普通在线调度器通过 `SimulationRunner` 运行：`FCFS`、`READY_BATCH_MINMIN`、
+`READY_BATCH_MAXMIN`、`READY_BATCH_MCT`、`READY_BATCH_ROUNDROBIN`、`DATA`。
+`DATA` 必须配合 `ReplicaCatalog.FileSystem.LOCAL`。
 
-```java
-.schedulingAlgorithm(SchedulingAlgorithm.READY_BATCH_MINMIN)
-```
+`RL_POLICY` 使用单独的 `RlEnvironment.runEpisode(...)` 策略入口；它提供环境与奖励契约，
+不包含训练算法。完整算法选择见[算法导读](ALGORITHMS.md)。
 
-6 种在线调度器（运行时决策）：
-- `FCFS` - 先来先服务
-- `READY_BATCH_MINMIN` - 小任务优先
-- `READY_BATCH_MAXMIN` - 大任务优先
-- `READY_BATCH_MCT` - 最小完成时间
-- `READY_BATCH_ROUNDROBIN` - 轮转
-- `DATA` - 数据就近
+### 随机种子
 
-想用静态规划算法？见下一节。
+显式设置 `.randomSeed(42L)`。在相同代码版本、输入、平台与模型配置下，根种子用于重建
+仿真随机流。墙钟耗时等性能观测不应要求逐位一致。更多约束见
+[可复现性说明](../experiments/REPRODUCIBILITY.md)。
 
-### 3. 随机种子
+### 平台定义
 
-```java
-.randomSeed(42L)
-```
+`PlatformProfiles.homogeneousLocal("my-platform", 3)` 创建三台同构 VM：每台 1000 MIPS、
+1 PE、512 MB、`SPACE_SHARED`，一台 VM 对应一个 Host。这个工厂方法的名称不设置文件系统；
+文件系统由 `SimulationConfig.fileSystem(...)` 决定，默认是 SHARED。
 
-保证同一配置下的可复现。相同种子 → 相同结果（makespan 到小数点后 12 位）。
+### 结果报告
 
-### 4. 平台定义
-
-```java
-PlatformProfiles.homogeneousLocal("my-platform", 3)
-```
-
-同构平台：所有 VM 相同配置（1000 MIPS, 1 核, 512 MB, LOCAL 存储）。
-
-需要异构？见高级用法。
-
-### 5. 结果报告
-
-```java
-SimulationReport report = runner.run(config, platform);
-```
-
-`SimulationReport` 包含 67 个指标：
-
-| 指标方法 | 含义 |
+| 方法 | 含义 |
 | --- | --- |
-| `getMakespan()` | 仿真结束时间（秒） |
-| `getLogicalTaskCompletionSeconds()` | 逻辑任务完成时间（不含引擎尾部） |
+| `getMakespan()` | 仿真结束时刻（秒） |
+| `getLogicalTaskCompletionSeconds()` | 逻辑任务完成时刻 |
 | `getSuccessfulJobs()` / `getFailedJobs()` | 成功/失败 Job 数 |
-| `getMetrics().getMeanVmModeledIntervalUtilization()` | 平均 VM 利用率（0.0 ~ 1.0） |
-| `getMetrics().getComputeJobOutcomeThroughputPerSecond()` | 吞吐率（Job/秒） |
+| `getMetrics().getMeanVmModeledIntervalUtilization()` | 平均 VM 利用率 |
+| `getMetrics().getComputeJobOutcomeThroughputPerSecond()` | 计算 Job 吞吐率 |
 | `getMetrics().getTotalModeledProcessingCost()` | 抽象处理成本 |
 
-完整指标列表见 `SimulationMetrics` 的 Javadoc。
+完整定义见 [SimulationMetrics.java](../../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java)。
 
-## 进阶：静态 DAG 规划
+## 静态 DAG 规划
 
-对比 HEFT、CPOP、PEFT 等经典 DAG 算法：
+以下片段替换前面示例的配置，并增加对应 import：
 
 ```java
+import org.workflowsim.utils.Parameters.PlanningAlgorithm;
+
 SimulationConfig config = SimulationConfig.builder(
-        "datasets/dax/Montage_25.dax", 3
-    )
-    .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)  // 静态规划算法
-    .schedulingAlgorithm(SchedulingAlgorithm.STATIC)           // 必须搭配 STATIC 分派
-    .fileSystem(ReplicaCatalog.FileSystem.SHARED)              // 必须 SHARED 存储
-    .randomSeed(42L)
-    .build();
-```
-
-5 种静态 DAG 规划器：
-- `SHARED_STORAGE_HEFT` - 最经典基线
-- `SHARED_STORAGE_CPOP` - 关键路径优化
-- `SHARED_STORAGE_DLS` - 动态层调度
-- `SHARED_STORAGE_ETF` - 最早开始时间优先
-- `SHARED_STORAGE_PEFT` - 乐观代价表
-
-**注意**：这些算法有严格前提条件（共享存储、无故障、`SPACE_SHARED` VM 等），
-详见算法文档。
-
-## 进阶：保存实验证据
-
-生成可审计的工件（manifest + metrics + events）：
-
-```java
-import org.workflowsim.experiment.artifact.*;
-import java.nio.file.*;
-
-// ... 运行仿真得到 report ...
-
-Path outputDir = Paths.get("output");
-Files.createDirectories(outputDir);
-
-// 写入 manifest.json、metrics.json、events.jsonl
-ExperimentManifestWriter.write(
-    report,
-    outputDir.resolve("manifest.json")
-);
-
-ExperimentArtifactWriter.writeMetrics(
-    report,
-    outputDir.resolve("metrics.json")
-);
-
-ExperimentArtifactWriter.writeEvents(
-    report.getEvents(),
-    outputDir.resolve("events.jsonl")
-);
-
-System.out.println("实验证据已保存到 output/");
-```
-
-工件可用 `ExperimentManifestValidator` 只读验证其完整性。
-
-## 常见任务速查
-
-### 切换工作流
-
-```java
-// DAX
-"datasets/dax/Montage_25.dax"
-"datasets/dax/Epigenomics_24.dax"
-
-// WfFormat
-"datasets/wfformat/montage/montage-2.5Mb-003.json"
-"datasets/wfformat/blast/blast-chameleon-small-003.json"
-
-// WfInstances
-"datasets/wfinstances/v1.5/pegasus/montage/montage-2mass-2mass-***.json"
-```
-
-### 切换算法
-
-```java
-// 在线调度
-.schedulingAlgorithm(SchedulingAlgorithm.READY_BATCH_MAXMIN)
-
-// 静态 DAG
-.planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_CPOP)
-.schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-.fileSystem(ReplicaCatalog.FileSystem.SHARED)
-
-// 静态独立任务
-.planningAlgorithm(PlanningAlgorithm.STATIC_MINMIN)
-.schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-
-// RL 轨道（R4）：外部策略函数 + 环境闭环
-SimulationConfig rlConfig = SimulationConfig.builder("workflow.dax", 3)
-        .schedulingAlgorithm(SchedulingAlgorithm.RL_POLICY)
+        "datasets/dax/montage/n25/Montage_25.dax", 3)
+        .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+        .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+        .randomSeed(42L)
         .build();
-RlEpisodeResult episode = new RlEnvironment().runEpisode(
-        rlConfig, platform, new EarliestFinishGreedyPolicy());
-// episode.getMakespan() / episode.getReward()（= −makespan）/ episode.getDecisions()
+```
 
-// 多工作流错峰到达（R5）：两份输入，第二份在 t=2000 提交
-SimulationConfig arrivalConfig = SimulationConfig.builder(
-                Arrays.asList("workflow-a.dax", "workflow-b.dax"), 3)
+共享存储家族包含 `SHARED_STORAGE_HEFT/CPOP/DLS/ETF/PEFT`，要求无聚类、无故障/开销，
+并使用 `SPACE_SHARED` VM。通信感知的 `LOCAL_HEFT/LOCAL_CPOP` 另要求 LOCAL 文件系统和
+pre-execution 家族数据移动模型，见[算法导读](ALGORITHMS.md)。
+
+## 保存与验证证据
+
+上面的 `ExperimentArtifactWriter.write(...)` 一次写出：
+
+```text
+output/my-first/
+├── run-seed42.manifest.json
+├── run-seed42.metrics.json
+└── run-seed42.events.jsonl
+```
+
+当前 manifest schema 为 **v4**，显式记录工作流到达时刻、成本矩阵、网络拓扑和真实数据移动
+语义；provenance schema 保持 **v3**，metrics 为 v2，事件为 v1。`ExperimentArtifactValidator`
+继续兼容历史 manifest v2/v3，但不会把历史缺失字段补成可信的完整配置。
+
+同一输出目录与 runId 会替换同名工件。要保留不同配置/种子，应使用不同 runId。
+仅调用 `ExperimentManifestWriter.writeJson(...)` 会写独立 manifest，不生成完整可验证证据包。
+
+## 常用配置
+
+```java
+// VM 数量必须与平台 VM 数量一致
+SimulationConfig.builder("datasets/dax/montage/n25/Montage_25.dax", 10);
+PlatformProfiles.homogeneousLocal("platform", 10);
+
+// 截止时间用于事后观测，不改变调度或终止仿真
+// 在配置 builder 上调用 .deadline(100L)
+System.out.println(report.getMetrics().isDeadlineMet());
+System.out.println(report.getMetrics().getDeadlineSlackSeconds());
+```
+
+多工作流到达时刻按输入顺序声明，单位为从仿真零时刻起算的秒：
+
+```java
+import java.util.Arrays;
+
+SimulationConfig arrivalConfig = SimulationConfig.builder(Arrays.asList(
+        "datasets/dax/montage/n25/Montage_25.dax",
+        "datasets/dax/epigenomics/n24/Epigenomics_24.dax"), 3)
         .workflowArrivalSeconds(Arrays.asList(0.0, 2000.0))
+        .randomSeed(42L)
         .build();
-// report.getWorkflowOutcomes() 给出每个工作流的提交时刻与流时（完成 − 提交）
 ```
 
-### 增加 VM 数量
+工作流及其到达时刻在启动前声明，运行期按时刻释放；非零到达要求无聚类。
 
-```java
-SimulationConfig.builder("workflow.dax", 10)  // 10 台 VM
-// ...
-PlatformProfiles.homogeneousLocal("platform", 10)
-```
+## 下一步与排查
 
-### 设置 deadline
-
-```java
-.deadline(100L)  // 100 秒
-```
-
-查看 deadline 观测结果：
-
-```java
-System.out.println("Deadline met: " + report.getMetrics().isDeadlineMet());
-System.out.println("Slack: " + report.getMetrics().getDeadlineSlackSeconds());
-```
-
-### 启用故障模型
-
-```java
-import org.workflowsim.failure.*;
-import org.workflowsim.utils.DistributionGenerator.*;
-import org.workflowsim.utils.DistributionSpec;
-
-FailureModelConfig failure = FailureModelConfig.builder()
-    .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
-    .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
-    .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-    .generatorSpecs(new DistributionSpec[][]{{
-        DistributionSpec.of(DistributionFamily.WEIBULL, 0.1, 1.0)
-    }})
-    .maxTotalRetryJobs(50)
-    .build();
-
-SimulationConfig config = SimulationConfig.builder("workflow.dax", 3)
-    .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
-    .failureModel(failure)
-    .randomSeed(42L)
-    .build();
-```
-
-查看重试统计：
-
-```java
-System.out.println("Retries created: " + report.getMetrics().getRetryJobCreatedCount());
-System.out.println("Failed jobs: " + report.getMetrics().getFailedComputeJobOutcomeCount());
-```
-
-## 下一步
-
-- **理解算法原理**：[`ALGORITHMS.md`](../getting-started/ALGORITHMS.md) - 三类算法的本质区别和每个算法的底层原理
-- **构建命令速查**：[`BUILD.md`](../getting-started/BUILD.md) - 如何运行测试、构建文档、执行 P7 基线
-- **算法决策边界**：[`CATALOG.md`](../algorithms/CATALOG.md) - 每个算法的严格定义和主张范围
-- **可复现性保证**：[`REPRODUCIBILITY.md`](../experiments/REPRODUCIBILITY.md) - 随机性、种子和确定性 tie-breaking
-- **实验设计规范**：[`CAMPAIGNS.md`](../experiments/CAMPAIGNS.md) - 多场景、多重复实验设计
-
-## 故障排查
-
-### `ClassNotFoundException: org.workflowsim.examples.*`
-
-示例代码在 `experiments/` 模块，现已默认构建。
-
-### `Input must have exactly N VMs, but received M`
-
-配置中的 VM 数量必须与平台定义一致：
-
-```java
-// ✅ 正确
-.builder("workflow.dax", 3)
-PlatformProfiles.homogeneousLocal("platform", 3)
-
-// ❌ 错误
-.builder("workflow.dax", 3)
-PlatformProfiles.homogeneousLocal("platform", 5)
-```
-
-### `SHARED_STORAGE_HEFT requires shared storage`
-
-静态 DAG 算法必须配置 `SHARED` 存储：
-
-```java
-.fileSystem(ReplicaCatalog.FileSystem.SHARED)
-```
-
-### Makespan 每次运行都不一样
-
-忘记设置随机种子：
-
-```java
-.randomSeed(42L)  // 任意固定值即可
-```
+- 构建、定向测试与工件校验命令：[构建指南](BUILD.md)。
+- 自定义平台、故障、成本与证据字段：[代码配置指南](CODE_CONFIG_EXPERIMENTS.md)。
+- IDEA 找不到实验类：重新加载根 Maven 工程，确认两个模块均已导入，见[IDEA 配置](IDEA_SETUP.md)。
+- `SHARED_STORAGE_HEFT requires shared storage`：显式选择 SHARED 文件系统。
+- 多场景、多种子比较：[实验设计](../experiments/CAMPAIGNS.md)。

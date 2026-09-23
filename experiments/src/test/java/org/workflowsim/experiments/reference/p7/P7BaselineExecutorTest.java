@@ -55,7 +55,7 @@ class P7BaselineExecutorTest {
         assertTrue(Files.isRegularFile(metrics));
         assertTrue(Files.isRegularFile(events));
         String manifestContents = new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8);
-        assertTrue(manifestContents.contains("workflowsim-experiment-manifest-v3"));
+        assertTrue(manifestContents.contains("workflowsim-experiment-manifest-v4"));
 
         Path selectionIndex = outputDirectory.resolve(P7BaselineExecutor.SELECTION_INDEX_FILE_NAME);
         assertTrue(Files.isRegularFile(selectionIndex));
@@ -144,6 +144,7 @@ class P7BaselineExecutorTest {
             JsonObject manifest = JsonParser.parseString(new String(Files.readAllBytes(manifestPath),
                     StandardCharsets.UTF_8)).getAsJsonObject();
             manifest.addProperty("schema", "workflowsim-experiment-manifest-v2");
+            removeV4Fields(manifest);
             Files.write(manifestPath, JSON.toJson(manifest).getBytes(StandardCharsets.UTF_8));
         }
         JsonObject historicalIndex = JsonParser.parseString(indexContents).getAsJsonObject();
@@ -189,6 +190,8 @@ class P7BaselineExecutorTest {
             Path manifestPath = outputDirectory.resolve(record.getManifest());
             JsonObject manifest = JsonParser.parseString(new String(Files.readAllBytes(manifestPath),
                     StandardCharsets.UTF_8)).getAsJsonObject();
+            manifest.addProperty("schema", "workflowsim-experiment-manifest-v3");
+            removeV4Fields(manifest);
             manifest.getAsJsonObject("provenance").add("study", historicalIdentity.deepCopy());
             Files.write(manifestPath, JSON.toJson(manifest).getBytes(StandardCharsets.UTF_8));
         }
@@ -221,6 +224,15 @@ class P7BaselineExecutorTest {
         assertThrows(IllegalArgumentException.class, () -> P7BaselineExecutor.executeSelection(
                 datasetRoot, Paths.get("p7-output"), Collections.singletonList(scenario),
                 Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS)));
+    }
+
+    private static void removeV4Fields(JsonObject manifest) {
+        for (String field : Arrays.asList("workflowPaths", "workflowArrivalSeconds",
+                "workflowArrivalSemantics", "taskCostMatrix")) {
+            manifest.getAsJsonObject("configuration").remove(field);
+        }
+        manifest.getAsJsonObject("platform").remove("networkTopology");
+        manifest.getAsJsonObject("result").remove("workflowOutcomes");
     }
 
     private static Path datasetRoot() {

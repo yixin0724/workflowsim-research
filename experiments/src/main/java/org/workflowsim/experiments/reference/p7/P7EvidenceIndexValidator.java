@@ -269,6 +269,13 @@ public final class P7EvidenceIndexValidator {
     private static void validateP7Configuration(JsonObject configuration,
             P7BaselineMatrix.Scenario expectedScenario, String algorithm) throws IOException {
         String subject = "P7 manifest configuration";
+        if (configuration.has("workflowArrivalSeconds")) {
+            JsonArray arrivals = requireArray(configuration, "workflowArrivalSeconds", subject);
+            if (arrivals.size() != 1 || arrivals.get(0).getAsDouble() != 0.0) {
+                throw new IOException(subject + " requires one zero arrival time");
+            }
+        }
+        requireNullOrAbsent(configuration, "taskCostMatrix", subject);
         requireExactInt(configuration, "vmCount", expectedScenario.getVmCount(), subject);
         requireExactString(configuration, "schedulingAlgorithm", algorithm, subject);
         requireExactString(configuration, "planningAlgorithm", "INVALID", subject);
@@ -353,6 +360,7 @@ public final class P7EvidenceIndexValidator {
             P7BaselineMatrix.Scenario expectedScenario, String scenario) throws IOException {
         PlatformProfile expected = P7BaselineMatrix.baselinePlatform(expectedScenario);
         String subject = "P7 manifest platform for " + scenario;
+        requireNullOrAbsent(actual, "networkTopology", subject);
         requireExactString(actual, "name", expected.getName(), subject);
         requireExactInt(actual, "hostCount", expected.getHosts().size(), subject);
         requireExactInt(actual, "vmCount", expected.getVms().size(), subject);
@@ -417,9 +425,12 @@ public final class P7EvidenceIndexValidator {
 
     private static void validateManifestStudyIdentity(JsonObject manifest, boolean v3,
             JsonObject referenceIdentity, String scenario) throws IOException {
-        String expectedSchema = v3 ? ExperimentArtifactValidator.MANIFEST_SCHEMA_V3
-                : ExperimentArtifactValidator.MANIFEST_SCHEMA_V2;
-        if (!expectedSchema.equals(requireString(manifest, "schema", "referenced experiment manifest"))) {
+        String schema = requireString(manifest, "schema", "referenced experiment manifest");
+        boolean accepted = v3
+                ? ExperimentArtifactValidator.MANIFEST_SCHEMA_V3.equals(schema)
+                        || ExperimentArtifactValidator.MANIFEST_SCHEMA_V4.equals(schema)
+                : ExperimentArtifactValidator.MANIFEST_SCHEMA_V2.equals(schema);
+        if (!accepted) {
             throw new IOException("P7 index and manifest schemas do not agree for " + scenario);
         }
         if (!v3) {

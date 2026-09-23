@@ -22,8 +22,8 @@ experiments/studies/<study-id>/
 完成研究代码后，至少执行：
 
 ```bash
-mvn -Pexperiments verify
-mvn -Pexperiments clean
+mvn verify
+mvn clean
 ```
 
 构建输出、未决定保留的 manifest、指标 JSON、事件日志与临时图表均不是版本化源码。只有在协议中明确保留理由、来源身份和验证命令后，才应把它们视为研究交付物。

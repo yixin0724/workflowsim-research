@@ -18,18 +18,14 @@ import org.workflowsim.utils.TaskCostMatrix;
  * Wu, IEEE TPDS 2002）在受控 LOCAL 执行模型上的复现回归，与
  * {@link LocalHeftPaperReproductionTest} 使用同一份核实过的论文算例数据。
  *
- * <p><b>受控模型结果（相对引导偏移 110.0）</b></p>
+ * <p><b>按经典 CPOP rank 公式手算的受控模型结果（引导偏移 110.1）</b></p>
  * <ul>
- *   <li>关键路径 = {n1, n3, n7, n10}，与论文一致：优先级 r_u + r_d 下
- *       入口 n1 → 子任务中优先级最大的 n3 → n7 → 出口 n10；</li>
- *   <li>关键路径处理器 p_CP = vm1（关键路径计算总秒数：vm0=53、vm1=51、vm2=55，
- *       论文同为 p2），全部四个关键路径任务与论文同 VM；</li>
- *   <li>VM 映射 8/10 与论文一致：非关键路径任务 n6（论文 p1，受控模型 vm2）与
- *       n8（论文 p2，受控模型 vm0）在执行前传输延迟语义下的 EFT 比较与论文
- *       不同；</li>
- *   <li>受控相对 makespan 87.1（绝对 197.1）vs 论文 86——残余差异 1.1 来自
- *       stage-in 引导偏移 0.1 与非关键路径任务放置的平局/次序差异；调度形状
- *       与论文大致一致（执行前传输与 VM 忙碌期重叠的论文语义）。</li>
+ *   <li>关键路径 = {n1, n2, n9, n10}，平均路径长度为 108；向下 rank 从入口
+ *       沿前驱累加前驱计算成本与入边通信成本，关键路径节点的 r_u + r_d 均为 108；</li>
+ *   <li>关键路径处理器 p_CP = vm1（关键路径计算总秒数：vm0=66、vm1=54、vm2=63），
+ *       全部四个关键路径任务绑定该 VM；</li>
+ *   <li>去除完整引导偏移后的 makespan 为 86（绝对 196.1），与论文 makespan 86
+ *       一致；每任务映射、区间与传输量按该 fixture 的插入式 EFT 规则分别锁定。</li>
  * </ul>
  */
 class LocalCpopPaperReproductionTest {
@@ -40,22 +36,23 @@ class LocalCpopPaperReproductionTest {
     };
     private static final double BOOTSTRAP_OFFSET = 110.1;
 
-    /** 受控模型的每任务 VM 映射（8/10 与论文一致；n6/n8 分歧见类 Javadoc）。 */
-    private static final int[] CONTROLLED_VM_BY_TASK = {-1, 1, 0, 1, 1, 2, 2, 1, 0, 1, 1};
+    /** 经典 CPOP rank、关键路径绑定和插入式 EFT 下独立推导的每任务 VM 映射。 */
+    private static final int[] CONTROLLED_VM_BY_TASK = {-1, 1, 1, 0, 2, 1, 2, 0, 2, 1, 1};
     /** 受控模型的运行时开始时刻（绝对秒），下标 = 任务 ID。 */
     private static final double[] CONTROLLED_STARTS = {
-            0.0, BOOTSTRAP_OFFSET, 144.1, 126.1, 139.1, 137.1, 147.1, 147.1, 174.1, 173.1, 190.1};
+            0.0, BOOTSTRAP_OFFSET, 126.1, 138.1, 135.1, 145.1, 152.1, 149.1, 164.1, 175.1, 189.1};
     /** 受控模型的运行时完成时刻（绝对秒），下标 = 任务 ID。 */
     private static final double[] CONTROLLED_FINISHES = {
-            0.0, 126.1, 157.1, 139.1, 147.1, 147.1, 156.1, 162.1, 179.1, 185.1, 197.1};
+            0.0, 126.1, 145.1, 149.1, 152.1, 158.1, 161.1, 156.1, 178.1, 187.1, 196.1};
     /** 每任务实际建模传输秒数（副本已在目标 VM 上为零；跨 VM = 边权）。 */
     private static final double[] CONTROLLED_TRANSFER_SECONDS = {
-            0.0, 0.0, 18.0, 0.0, 0.0, 11.0, 14.0, 0.0, 42.0, 29.0, 11.0};
+            0.0, 0.0, 0.0, 12.0, 9.0, 0.0, 14.0, 0.0, 19.0, 23.0, 28.0};
 
     @Test
     void cpopPaperExampleReproducesControlledScheduleAndMapping() throws Exception {
         SimulationReport report = runPaperExample();
-        assertEquals(197.1, report.getMakespan(), 1.0e-9);
+        assertEquals(196.1, report.getMakespan(), 1.0e-9);
+        assertEquals(86.0, report.getMakespan() - BOOTSTRAP_OFFSET, 1.0e-9);
         int computeCount = 0;
         for (SimulationReport.JobOutcome job : report.getJobs()) {
             if (job.getClassType() != Parameters.ClassType.COMPUTE.value
@@ -73,7 +70,7 @@ class LocalCpopPaperReproductionTest {
         }
         assertEquals(10, computeCount);
         // 关键路径处理器绑定：全部四个关键路径任务同在 p_CP = vm1。
-        for (int taskId : new int[] {1, 3, 7, 10}) {
+        for (int taskId : new int[] {1, 2, 9, 10}) {
             assertEquals(1, computeJobForTask(report, taskId).getVmId(),
                     "关键路径任务 " + taskId + " 应绑定关键路径处理器 vm1");
         }
@@ -88,7 +85,7 @@ class LocalCpopPaperReproductionTest {
                     ((Number) event.getAttributes().get("modeledTransferSeconds")).doubleValue(),
                     1.0e-9, "task " + taskId + " 的建模传输秒数");
         }
-        assertEquals(125.0, first.getMetrics().getTotalModeledDataTransferSeconds(), 1.0e-9);
+        assertEquals(105.0, first.getMetrics().getTotalModeledDataTransferSeconds(), 1.0e-9);
         assertEquals(10, first.getMetrics().getDataStageInModelObservationCount());
 
         SimulationReport second = runPaperExample();

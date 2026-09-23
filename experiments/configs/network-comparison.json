@@ -1,0 +1,21 @@
+{
+  "schema": "workflowsim-workbench-v1",
+  "name": "Fat-tree 网络下的调度方案比较",
+  "workflowPaths": ["../../datasets/dax/cybershake/n100/CyberShake_100.dax"],
+  "platform": {
+    "vmMips": [1000, 1000, 1000, 1000],
+    "bandwidthMbPerSecond": 1,
+    "networkTopology": {"k": 4, "linkBandwidthMbPerSecond": 0.125}
+  },
+  "simulation": {
+    "fileSystem": "LOCAL",
+    "dataMovementModel": "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1"
+  },
+  "algorithms": [
+    {"id": "heft", "planner": "LOCAL_HEFT"},
+    {"id": "cpop", "planner": "LOCAL_CPOP"},
+    {"id": "random", "planner": "RANDOM"},
+    {"id": "pso", "planner": "PSO"}
+  ],
+  "seeds": [42]
+}

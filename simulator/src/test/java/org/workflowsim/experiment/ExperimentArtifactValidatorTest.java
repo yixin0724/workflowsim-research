@@ -130,7 +130,7 @@ class ExperimentArtifactValidatorTest {
         ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(report,
                 output.resolve("bundle"), "context-run", context);
         String manifestText = new String(Files.readAllBytes(artifacts.getManifest()), StandardCharsets.UTF_8);
-        assertTrue(manifestText.contains("workflowsim-experiment-manifest-v3"));
+        assertTrue(manifestText.contains("workflowsim-experiment-manifest-v4"));
         assertTrue(manifestText.contains("validator-study"));
         assertEquals(report.getEvents().size(), ExperimentArtifactValidator.validate(
                 artifacts.getManifest()).getEventCount());

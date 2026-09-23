@@ -120,21 +120,43 @@ SOURCE→VM 取目标 VM 带宽、VM→VM 取 `min(bw_src, bw_dst)`、副本已�
 计算占用；任务的最早开始时刻 = `max(VM 空闲, 最晚父文件到达)`。这与论文的实际开始
 时间（AST）定义一致，由 `preExecutionTransferDelayV1` 数据移动模型在运行时逐位镜像。
 
-**论文复现结果**（规范算例，3 VM × mips 1.0 × 带宽 1 MB/s）：HEFT 的 rank 表与
-论文逐一相同、VM 映射 10/10 且每任务区间逐位一致（相对 makespan 80.1 ≈ 论文 80）；
-CPOP 复现关键路径与关键路径处理器（相对 makespan 87.1 ≈ 论文 86）。
+CPOP 的向下 rank 从入口向后计算，包含前驱计算成本与入边通信成本：
+
+```text
+r_d(entry) = 0
+r_d(t) = max_parent { r_d(parent) + w̄(parent) + c̄(parent, t) }
+priority(t) = r_u(t) + r_d(t)
+```
+
+关键路径从最大优先级入口出发，后继既要保持 `priority = CP`，连接边也必须满足
+`r_u(current) = w̄(current) + c̄(current, child) + r_u(child)`。多条等长路径按 Task ID
+确定性选择其中一条，避免通过跨分支捷径串起不同关键路径上的节点。
+
+**论文算例回归**（3 VM × mips 1.0 × 带宽 1 MB/s，显式论文成本矩阵）：统一扣除完整
+引导时间 `110.1` 秒，HEFT 的绝对 makespan `190.1` 对应论文 `80`；CPOP 的关键路径为
+`{1,2,9,10}`、平均路径长度 `108`，关键处理器为 VM 1（论文 p2），绝对 makespan `196.1`
+对应论文 `86`。CPOP 的路径计算成本在 VM 0/1/2 上分别为 `66/54/63`，建模传输总秒数为
+`105`。这些数值属于该固定算例；其他平台或不使用成本矩阵的 campaign 有各自的结果。
 
 要求：`STATIC` 分派、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、
 preExecution 家族数据移动模型与 `SPACE_SHARED` VM。边界：受控带宽模型
 （论文复现组合无链路争用/网络拓扑），是抽象模型上的复现而非真实平台校准。
 另可选两个争用变体：
-`preExecutionTransferDelayWithContentionV1()`（R2）：规划侧仍按无争用 AST 估计，
-运行期并发传输公平共享 VM 端点带宽（流体公平共享模型），并发负载下规划/执行出现
-文档声明的可解释偏差——用于数据感知调度的争用权衡研究，不用于论文复现；
-`fatTreeContentionV1()`（R6）：争用域推广到 Al-Fares k-Pod Fat-tree 确定性路由
-路径上的每条共享链路（端点 + 链路取最小），要求平台经
-`PlatformProfile.Builder.networkTopology(NetworkTopologySpec.fatTree(...))`
-声明拓扑（可超收敛）——用于拓扑感知的数据放置/调度研究，同样不用于论文复现。
+
+- `preExecutionTransferDelayWithContentionV1()`（R2）：约束所有活动流占用的 VM 端点容量。
+- `fatTreeContentionV1()`（R6）：增加 Al-Fares k-Pod Fat-tree 确定性路由上的有向链路约束，
+  要求平台通过 `PlatformProfile.Builder.networkTopology(NetworkTopologySpec.fatTree(...))`
+  声明拓扑，可配置超收敛。SOURCE 流量不经过拓扑，只占用目标 VM 端点。
+
+两者共用 **max-min progressive filling**：所有未受限流同步增加速率；达到名义上限或资源
+瓶颈的流冻结，其他流继续使用剩余容量。例如共享容量 100 时，一条流受另一瓶颈限制为 10，
+另一条可取得 90，而非停留在 50。引擎在时间推进经过流完成时点时分段积分、回收容量并重算
+速率。端点与链路容量同时约束分配结果，不能简化为独立 `capacity/n` 后取最小值。
+
+争用组在 Job 数据就绪时统一开始，不追溯较早父任务完成以来的传输进度；规划侧仍按无争用
+AST 估计。因此这些变体用于争用/拓扑研究，不是论文的无争用复现组合。新增约束可能重新
+分配容量，使部分其他流更快，不能把 R6 makespan ≥ R2 当作任意 DAG 的数学保证。
+模型的分配与启动语义随 manifest v4 记录，跨实现版本比较应核对这些字段。
 
 ## 六、如何选择
 

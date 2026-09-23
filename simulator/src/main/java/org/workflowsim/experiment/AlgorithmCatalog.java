@@ -338,9 +338,9 @@ public final class AlgorithmCatalog {
                         + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
                 values.put("limitations", limitations(
                         "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                + "preExecutionTransferDelayV1 data movement model, and SPACE_SHARED VMs.",
-                        "Communication is the controlled bandwidth model without link contention or network "
-                                + "topology; every VM pair uses min(bw) regardless of physical path.",
+                                + "a preExecution-family data movement model, and SPACE_SHARED VMs.",
+                        "Planning estimates use contention-free VM-pair bandwidth. Runtime may use endpoint "
+                                + "or Fat-tree max-min contention; transfers start at Job readiness in those variants.",
                         "The model stage-in Job (110 MI) shifts the whole schedule by a constant bootstrap "
                                 + "offset relative to paper schedules that assume zero-cost workflow entry.",
                         "Tasks shorter than the minimum event interval plus completion safety margin can drift "
@@ -349,23 +349,22 @@ public final class AlgorithmCatalog {
             case LOCAL_CPOP:
                 values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
                 values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
-                values.put("decisionRule", "CPOP priority (upward rank + downward rank) with a ready "
-                        + "queue; critical-path tasks are pinned to the VM minimizing total critical-path "
-                        + "compute seconds, other tasks use insertion-based earliest finish time; the "
-                        + "communication and pre-execution transfer delay model is identical to LOCAL_HEFT");
+                values.put("decisionRule", "CPOP priority ru+rd; rd(t)=max_parent(rd(parent)+meanCompute(parent)+meanCommunication(parent,t)); "
+                        + "critical-path edges satisfy the upward-rank recurrence and constant critical priority; "
+                        + "critical tasks use one minimum-total-compute VM, others use insertion EFT");
+                values.put("implementationRevision", "CPOP_PREDECESSOR_RANK_TIGHT_PATH_V2");
                 values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
                 values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
                 values.put("reproductionScope", "CORE_CPOP_DECISION_SEMANTICS_OF_TOPCUOGLU_TPDS_2002_"
                         + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
                 values.put("limitations", limitations(
                         "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                + "preExecutionTransferDelayV1 data movement model, and SPACE_SHARED VMs.",
-                        "Communication is the controlled bandwidth model without link contention or network "
-                                + "topology; every VM pair uses min(bw) regardless of physical path.",
+                                + "a preExecution-family data movement model, and SPACE_SHARED VMs.",
+                        "Planning estimates use contention-free VM-pair bandwidth. Runtime may use endpoint "
+                                + "or Fat-tree max-min contention; transfers start at Job readiness in those variants.",
                         "The model stage-in Job (110 MI) shifts the whole schedule by a constant bootstrap "
                                 + "offset relative to paper schedules that assume zero-cost workflow entry.",
-                        "The paper overlaps transfers with busy processors; the envelope semantics serialize "
-                                + "them, so individual EFT comparisons can flip relative to the paper schedule."));
+                        "Sub-event-interval transfers and integer-MI conversion can produce small runtime timing differences."));
                 break;
             case INVALID:
             default:

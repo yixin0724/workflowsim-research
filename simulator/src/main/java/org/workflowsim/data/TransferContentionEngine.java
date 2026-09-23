@@ -11,9 +11,10 @@ import java.util.Map;
  * <p>每个传输由占用资源键集合（端点或链路，字符串键）、字节量与无争用名义
  * 速率描述；已注册容量的资源（VM 端点为 {@code vm.getBw()} 折算字节/秒，
  * Fat-tree 链路见 {@code org.workflowsim.network.FatTreeTopology}）在其全部
- * 活动传输之间公平分配容量，未注册容量的资源（如 SOURCE）不设上限。传输有效
- * 速率取 {@code min(名义速率, 各占用资源份额)}，字节余量按当前速率随事件
- * 时间线性积分。</p>
+ * 活动传输之间采用 progressive filling 的最大最小公平分配，受名义速率上限和
+ * 所占全部资源容量共同约束；未注册资源（如 SOURCE）不设上限。某流受其他瓶颈
+ * 限制时，其未使用份额继续分配给其他流。积分会在每个内部完成时点重分配速率，
+ * 即使调用方一次推进跨过多个完成时点，也不会延迟容量回收。</p>
  *
  * <p>双端点重载是资源集重载在 {@code [source, destination]} 上的特例，行为
  * 逐位一致。资源集内重复键按出现次数重复计数（调用方传入的路径键集合应
@@ -39,7 +40,7 @@ public final class TransferContentionEngine {
             this.nextCompletionTime = nextCompletionTime;
         }
 
-        /** 本次推进中完成（字节余量归零）的传输 ID，按插入顺序排列。 */
+        /** 本次推进中完成的传输 ID：按完成时点排列，同刻按插入顺序排列。 */
         public List<Long> getCompletedTransferIds() {
             return completedTransferIds;
         }
@@ -94,6 +95,9 @@ public final class TransferContentionEngine {
         if (!(capacityBytesPerSecond > 0.0) || Double.isInfinite(capacityBytesPerSecond)) {
             throw new IllegalArgumentException("Endpoint capacity must be positive and finite: "
                     + capacityBytesPerSecond);
+        }
+        if (!activeTransfers.isEmpty()) {
+            throw new IllegalStateException("Cannot change capacity while transfers are active");
         }
         endpointCapacitiesBytesPerSecond.put(endpoint, capacityBytesPerSecond);
     }
@@ -166,30 +170,43 @@ public final class TransferContentionEngine {
      * @return 完成的传输 ID 列表与剩余传输的最早预测完成时刻
      */
     public AdvanceResult advance(double now) {
-        if (now < lastAdvanceTime) {
-            throw new IllegalArgumentException("Time moved backwards: " + now
+        if (!Double.isFinite(now) || now < lastAdvanceTime) {
+            throw new IllegalArgumentException("Time must be finite and not move backwards: " + now
                     + " < " + lastAdvanceTime);
         }
-        double elapsed = now - lastAdvanceTime;
-        if (elapsed > 0.0) {
+        List<Long> completed = new ArrayList<Long>();
+        while (!activeTransfers.isEmpty() && lastAdvanceTime < now) {
+            double nextDuration = Double.POSITIVE_INFINITY;
+            Transfer earliest = null;
             for (Transfer transfer : activeTransfers.values()) {
-                transfer.remainingBytes -= transfer.rateBytesPerSecond * elapsed;
-                if (transfer.remainingBytes < 0.0) {
-                    transfer.remainingBytes = 0.0;
+                double duration = transfer.remainingBytes / transfer.rateBytesPerSecond;
+                if (duration < nextDuration) {
+                    nextDuration = duration;
+                    earliest = transfer;
                 }
             }
-            lastAdvanceTime = now;
-        }
-        List<Long> completed = new ArrayList<Long>();
-        for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
-            if (entry.getValue().completed()) {
-                completed.add(entry.getKey());
+            double elapsed = Math.min(now - lastAdvanceTime, nextDuration);
+            for (Transfer transfer : activeTransfers.values()) {
+                transfer.remainingBytes = Math.max(0.0,
+                        transfer.remainingBytes - transfer.rateBytesPerSecond * elapsed);
+            }
+            if (earliest != null && elapsed >= nextDuration) {
+                // Round-off in subtraction must not leave the actual earliest flow alive.
+                earliest.remainingBytes = 0.0;
+            }
+            lastAdvanceTime = Math.min(now, lastAdvanceTime + elapsed);
+            List<Long> settled = new ArrayList<Long>();
+            for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
+                if (entry.getValue().completed()) { settled.add(entry.getKey()); }
+            }
+            for (Long id : settled) { activeTransfers.remove(id); }
+            completed.addAll(settled);
+            if (!settled.isEmpty()) { recomputeRates(); }
+            if (elapsed == 0.0 && settled.isEmpty()) {
+                throw new IllegalStateException("Transfer integration made no progress");
             }
         }
-        for (Long id : completed) {
-            activeTransfers.remove(id);
-        }
-        recomputeRates();
+        lastAdvanceTime = now;
         return new AdvanceResult(completed, earliestCompletion(now));
     }
 
@@ -212,39 +229,69 @@ public final class TransferContentionEngine {
         return transfer.rateBytesPerSecond;
     }
 
-    /** 按当前资源占用重算每个活动传输的有效速率（公平共享，速率 = 各占用资源份额最小值）。 */
+    /** 残余容量和未冻结流占用数；同一资源的重复键按出现次数计费。 */
+    private static final class FillResource {
+        private double remainingCapacity;
+        private long growingOccupancy;
+        private double incrementLimit;
+        private FillResource(double capacity) { remainingCapacity = capacity; }
+    }
+
+    /** Progressive filling：回收已受其他瓶颈限制的流所留下的容量。 */
     private void recomputeRates() {
-        // 每个资源键的活动传输计数（传输对其占用的每个资源各计一份）。
-        Map<String, Integer> endpointLoad = new LinkedHashMap<String, Integer>();
-        for (Transfer transfer : activeTransfers.values()) {
-            for (String resource : transfer.occupiedResources) {
-                countEndpoint(endpointLoad, resource);
+        List<Transfer> growing = new ArrayList<Transfer>(activeTransfers.values());
+        Map<String, FillResource> resources = new LinkedHashMap<String, FillResource>();
+        for (Transfer transfer : growing) {
+            transfer.rateBytesPerSecond = 0.0;
+            for (String key : transfer.occupiedResources) {
+                Double capacity = endpointCapacitiesBytesPerSecond.get(key);
+                if (capacity != null && !resources.containsKey(key)) {
+                    resources.put(key, new FillResource(capacity));
+                }
             }
         }
-        for (Transfer transfer : activeTransfers.values()) {
-            double rate = transfer.nominalRateBytesPerSecond;
-            for (String resource : transfer.occupiedResources) {
-                rate = Math.min(rate, endpointShare(endpointLoad, resource));
+        while (!growing.isEmpty()) {
+            for (FillResource resource : resources.values()) {
+                resource.growingOccupancy = 0L;
             }
-            transfer.rateBytesPerSecond = rate;
+            double delta = Double.POSITIVE_INFINITY;
+            for (Transfer transfer : growing) {
+                delta = Math.min(delta, transfer.nominalRateBytesPerSecond
+                        - transfer.rateBytesPerSecond);
+                for (String key : transfer.occupiedResources) {
+                    FillResource resource = resources.get(key);
+                    if (resource != null) { resource.growingOccupancy++; }
+                }
+            }
+            for (FillResource resource : resources.values()) {
+                resource.incrementLimit = resource.growingOccupancy == 0L
+                        ? Double.POSITIVE_INFINITY
+                        : resource.remainingCapacity / resource.growingOccupancy;
+                delta = Math.min(delta, resource.incrementLimit);
+            }
+            List<Transfer> survivors = new ArrayList<Transfer>();
+            for (Transfer transfer : growing) {
+                boolean frozen = transfer.nominalRateBytesPerSecond
+                        - transfer.rateBytesPerSecond <= delta;
+                for (String key : transfer.occupiedResources) {
+                    FillResource resource = resources.get(key);
+                    if (resource != null && resource.incrementLimit <= delta) {
+                        frozen = true;
+                    }
+                }
+                transfer.rateBytesPerSecond = Math.min(transfer.nominalRateBytesPerSecond,
+                        transfer.rateBytesPerSecond + delta);
+                if (!frozen) { survivors.add(transfer); }
+            }
+            for (FillResource resource : resources.values()) {
+                resource.remainingCapacity = Math.max(0.0, resource.remainingCapacity
+                        - delta * resource.growingOccupancy);
+            }
+            if (survivors.size() == growing.size()) {
+                throw new IllegalStateException("Max-min solver made no progress");
+            }
+            growing = survivors;
         }
-    }
-
-    private void countEndpoint(Map<String, Integer> endpointLoad, String endpoint) {
-        if (!endpointCapacitiesBytesPerSecond.containsKey(endpoint)) {
-            return;
-        }
-        Integer current = endpointLoad.get(endpoint);
-        endpointLoad.put(endpoint, current == null ? 1 : current + 1);
-    }
-
-    private double endpointShare(Map<String, Integer> endpointLoad, String endpoint) {
-        Double capacity = endpointCapacitiesBytesPerSecond.get(endpoint);
-        if (capacity == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-        Integer load = endpointLoad.get(endpoint);
-        return capacity / (double) (load == null ? 1 : load);
     }
 
     /** 剩余活动传输的最早预测完成时刻；无活动传输返回 null。 */

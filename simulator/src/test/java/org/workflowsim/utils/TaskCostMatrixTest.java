@@ -60,6 +60,17 @@ class TaskCostMatrixTest {
     }
 
     @Test
+    void evidenceSnapshotPreservesSparseEntriesAndCannotBeMutated() {
+        TaskCostMatrix matrix = TaskCostMatrix.builder().put(9, 8, 2.25).put(9, 3, 4.5).build();
+        assertEquals(2.25, matrix.asMap().get(9).get(8), 0.0);
+        assertEquals(4.5, matrix.getCostsForTask(9).get(3), 0.0);
+        assertThrows(UnsupportedOperationException.class, () -> matrix.asMap().clear());
+        assertThrows(UnsupportedOperationException.class, () -> matrix.asMap().get(9).put(8, 5.0));
+        assertThrows(UnsupportedOperationException.class, () -> matrix.getCostsForTask(9).clear());
+        assertThrows(IllegalArgumentException.class, () -> matrix.getCostsForTask(10));
+    }
+
+    @Test
     void coversReflectsExactCoverage() {
         TaskCostMatrix matrix = sample();
         assertTrue(matrix.covers(Arrays.asList(1, 2), Arrays.asList(0, 1, 2)));

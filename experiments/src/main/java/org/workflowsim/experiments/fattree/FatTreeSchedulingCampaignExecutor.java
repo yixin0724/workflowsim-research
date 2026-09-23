@@ -701,7 +701,7 @@ public final class FatTreeSchedulingCampaignExecutor {
                 md.append("无违反。\n");
             } else {
                 md.append("存在 ").append(violations.size())
-                        .append(" 处噪声级交叉（并发流格局漂移所致，非模型缺陷）：\n\n");
+                        .append(" 处跨模型次序交叉；以下如实报告幅度，原因需逐场景分析。跨模型单调不是一般定理：\n\n");
                 md.append("| DAG | 规划器 | V1 | R2 | R6 | 最大相对偏差 |\n");
                 md.append("| --- | --- | --- | --- | --- | --- |\n");
                 for (Map<String, Object> record : violations) {

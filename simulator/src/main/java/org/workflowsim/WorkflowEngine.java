@@ -688,6 +688,7 @@ public final class WorkflowEngine extends SimEntity {
         }
         TransferContentionEngine contention = datacenter.getTransferContentionEngine();
         double now = CloudSim.clock();
+        settleContentionTransfers(datacenter, contention.advance(now).getCompletedTransferIds());
         List<FileItem> fileList = job.getFileList();
         Set<Long> pending = new LinkedHashSet<Long>();
         long requiredBytes = 0L;
@@ -743,11 +744,13 @@ public final class WorkflowEngine extends SimEntity {
                     resources.add(sourceEndpoint);
                     resources.add("VM:" + job.getVmId());
                     resources.addAll(pathLinks);
-                    contention.addTransfer(transferId, transferredBytes, resources,
-                            transferredBytes / seconds, now);
+                    settleContentionTransfers(datacenter, contention.addTransfer(
+                            transferId, transferredBytes, resources,
+                            transferredBytes / seconds, now).getCompletedTransferIds());
                 } else {
-                    contention.addTransfer(transferId, transferredBytes, sourceEndpoint,
-                            "VM:" + job.getVmId(), transferredBytes / seconds, now);
+                    settleContentionTransfers(datacenter, contention.addTransfer(
+                            transferId, transferredBytes, sourceEndpoint,
+                            "VM:" + job.getVmId(), transferredBytes / seconds, now).getCompletedTransferIds());
                 }
                 contentionTransferJobs.put(transferId, job);
                 pending.add(transferId);
@@ -771,12 +774,12 @@ public final class WorkflowEngine extends SimEntity {
                     long transferId = nextContentionTransferId++;
                     if (fatTree) {
                         // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
-                        contention.addTransfer(transferId, transferredBytes,
+                        settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes,
                                 java.util.Collections.singletonList("VM:" + job.getVmId()),
-                                transferredBytes / seconds, now);
+                                transferredBytes / seconds, now).getCompletedTransferIds());
                     } else {
-                        contention.addTransfer(transferId, transferredBytes, Parameters.SOURCE,
-                                "VM:" + job.getVmId(), transferredBytes / seconds, now);
+                        settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes, Parameters.SOURCE,
+                                "VM:" + job.getVmId(), transferredBytes / seconds, now).getCompletedTransferIds());
                     }
                     contentionTransferJobs.put(transferId, job);
                     pending.add(transferId);
@@ -848,15 +851,27 @@ public final class WorkflowEngine extends SimEntity {
         TransferContentionEngine contention = datacenter.getTransferContentionEngine();
         double now = CloudSim.clock();
         TransferContentionEngine.AdvanceResult result = contention.advance(now);
+        settleContentionTransfers(datacenter, result.getCompletedTransferIds());
+        Double nextCompletion = result.getNextCompletionTime();
+        if (nextCompletion != null) {
+            schedule(getId(),
+                    Math.max(nextCompletion.doubleValue() - now, CloudSim.getMinTimeBetweenEvents()),
+                    WorkflowSimTags.TRANSFER_CONTENTION_CHECK, null);
+        }
+    }
+
+    /** addTransfer 和定时检查均可能完成旧流，必须统一回收每个 Job 的待传输集合。 */
+    private void settleContentionTransfers(WorkflowDatacenter datacenter, List<Long> completed) {
         List<Job> readyJobs = new ArrayList<Job>();
-        for (Long transferId : result.getCompletedTransferIds()) {
+        for (Long transferId : completed) {
             Job job = contentionTransferJobs.remove(transferId);
             if (job == null) {
                 continue;
             }
             Set<Long> pending = contentionJobPendingTransfers.get(job.getCloudletId());
             if (pending == null) {
-                continue;
+                throw new IllegalStateException("Completed transfer has no pending Job "
+                        + job.getCloudletId());
             }
             pending.remove(transferId);
             if (pending.isEmpty()) {
@@ -866,12 +881,6 @@ public final class WorkflowEngine extends SimEntity {
         }
         for (Job job : readyJobs) {
             dispatchContentionStageInComplete(datacenter, job);
-        }
-        Double nextCompletion = result.getNextCompletionTime();
-        if (nextCompletion != null) {
-            schedule(getId(),
-                    Math.max(nextCompletion.doubleValue() - now, CloudSim.getMinTimeBetweenEvents()),
-                    WorkflowSimTags.TRANSFER_CONTENTION_CHECK, null);
         }
     }
 

@@ -24,9 +24,8 @@ import org.workflowsim.utils.Parameters;
  * <ul>
  * <li>论文例 12 组合（4 规划器 × 3 模型）实测黄金 makespan；</li>
  * <li>逐 DAG 排名翻转事实：cybershake-n50 V1 第一名 LOCAL_HEFT → R2/R6
- * LOCAL_PSO；cybershake-n100 V1 LOCAL_CPOP → R2/R6 PSO；论文例三模型下
- * LOCAL_HEFT 始终第一（campaign 配置下平均排名不翻转，翻转出现在逐 DAG
- * 粒度——这是结果文档的核心结论之一）；</li>
+ * PSO；cybershake-n100 三模型第一名均为PSO；论文例三模型下
+ * LOCAL_HEFT 始终第一（结论只针对本测试的固定配置）；</li>
  * <li>弱单调性诊断：论文例子集严格成立（再标定后 V1 &lt; R2 &lt; R6）；子集内
  * 任何交叉必须为噪声级（相对偏差 ≤ 1e-4）；</li>
  * <li>确定性：同配置双跑主矩阵逐位一致；</li>
@@ -37,7 +36,12 @@ import org.workflowsim.utils.Parameters;
  * 严格降低 makespan——拓扑轴判别力由再标定后的束缚链路提供。</li>
  * </ul></p>
  *
- * <p>黄金值来源：R8 再标定 campaign 正式运行（2026-09-16，链路基线
+ * <p>R10迁移：CPOP前驱秩和max-min/分段积分经独立手算测试修正后，
+ * 保持原矩阵参数重跑360次，再锁定当前回归值。cybershake-n50仍由HEFT转为PSO，
+ * n100在V1也为PSO；四主机论文例CPOP基线/A4为5718.1/5186.1。
+ * 下面的单调和结构恒等断言只针对列出的fixture，不是所有DAG的数学不变量。</p>
+ *
+ * <p>历史参数来源：R8 再标定 campaign（链路基线
  * 0.125 MB/s = VM 端点带宽 1/8，8:1 接入超收敛；A4 = 1.25 MB/s 真 10×）。
  * 再标定恢复了 F1 ÷8 单位 bug 修复前 campaign 所处的真实物理区间：R6 列黄金
  * 与修复前逐位相等（5738.1/5854.1/7206.1/7262.1），该逐位相等同时是 F1 修复
@@ -70,18 +74,16 @@ class FatTreeCampaignGoldenIntegrationTest {
         assertMakespan(results, HEFT_EXAMPLE, HEFT, V1, 5123.1);
         assertMakespan(results, HEFT_EXAMPLE, HEFT, R2, 5195.1);
         assertMakespan(results, HEFT_EXAMPLE, HEFT, R6, 5738.1);
-        assertMakespan(results, HEFT_EXAMPLE, CPOP, V1, 5145.1);
-        assertMakespan(results, HEFT_EXAMPLE, CPOP, R2, 5205.1);
-        assertMakespan(results, HEFT_EXAMPLE, CPOP, R6, 5854.1);
+        assertMakespan(results, HEFT_EXAMPLE, CPOP, V1, 5141.1);
+        assertMakespan(results, HEFT_EXAMPLE, CPOP, R2, 5212.1);
+        assertMakespan(results, HEFT_EXAMPLE, CPOP, R6, 5902.1);
         assertMakespan(results, HEFT_EXAMPLE, RANDOM, V1, 6159.1);
         assertMakespan(results, HEFT_EXAMPLE, RANDOM, R2, 6281.1);
         assertMakespan(results, HEFT_EXAMPLE, RANDOM, R6, 7206.1);
         assertMakespan(results, HEFT_EXAMPLE, PSO, V1, 6132.1);
         assertMakespan(results, HEFT_EXAMPLE, PSO, R2, 6254.1);
         assertMakespan(results, HEFT_EXAMPLE, PSO, R6, 7262.1);
-        // R8 再标定（链路 0.125 MB/s = 端点 1/8，束缚链路恢复判别力）后 R6 列
-        // 与 F1 ÷8 bug 修复前的黄金值逐位相等——该逐位相等同时验证了 F1 修复
-        // 语义（声明 0.125 ≡ 修复前声明 1.0 实际运行的 0.125 物理）。
+        // R10沿用R8的0.125/1.25 MB/s参数；CPOP和争用列按修正后的实际执行锁定。
     }
 
     /** 争用把 cybershake 的逐 DAG 第一名翻转为 PSO；论文例保持 HEFT。 */
@@ -93,7 +95,8 @@ class FatTreeCampaignGoldenIntegrationTest {
         assertEquals(HEFT, winners.get(V1).get(CYBERSHAKE_N50));
         assertEquals(PSO, winners.get(R2).get(CYBERSHAKE_N50));
         assertEquals(PSO, winners.get(R6).get(CYBERSHAKE_N50));
-        assertEquals(CPOP, winners.get(V1).get(CYBERSHAKE_N100));
+        // R10 正确前驱 rank 下，n100 的 V1 最优也为 PSO，旧换冠结论失效。
+        assertEquals(PSO, winners.get(V1).get(CYBERSHAKE_N100));
         assertEquals(PSO, winners.get(R2).get(CYBERSHAKE_N100));
         assertEquals(PSO, winners.get(R6).get(CYBERSHAKE_N100));
         for (String model : new String[] {V1, R2, R6}) {
@@ -104,11 +107,11 @@ class FatTreeCampaignGoldenIntegrationTest {
         // 束缚链路的小幅减速（587921.6099 &lt; R2 587924.0247，噪声级交叉已入
         // 弱单调诊断）；N100 PSO 的 R6 恰与 R2 相等（链路层对该映射无附加约束）。
         assertMakespan(results, CYBERSHAKE_N50, PSO, R2, 587924.0247);
-        assertMakespan(results, CYBERSHAKE_N50, PSO, R6, 587921.6099);
-        assertMakespan(results, CYBERSHAKE_N50, HEFT, R2, 588230.4408);
+        assertMakespan(results, CYBERSHAKE_N50, PSO, R6, 587921.1503);
+        assertMakespan(results, CYBERSHAKE_N50, HEFT, R2, 588230.0083);
         assertMakespan(results, CYBERSHAKE_N100, PSO, R2, 1189487.4983);
         assertMakespan(results, CYBERSHAKE_N100, PSO, R6, 1189487.4983);
-        assertMakespan(results, CYBERSHAKE_N100, CPOP, V1, 1112323.2714);
+        assertMakespan(results, CYBERSHAKE_N100, CPOP, V1, 1155577.5672);
     }
 
     /** 弱单调性：论文例子集严格成立；子集内交叉必须为噪声级。 */
@@ -192,9 +195,9 @@ class FatTreeCampaignGoldenIntegrationTest {
                     planner + ": A4（链路 1.25 MB/s 非束缚）应严格降低 makespan");
         }
         assertEquals(5718.1, results.structuralMakespan(HEFT_EXAMPLE, HEFT, BASELINE), 1.0e-6);
-        assertEquals(5574.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, BASELINE), 1.0e-6);
+        assertEquals(5718.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, BASELINE), 1.0e-6);
         assertEquals(5186.1, results.structuralMakespan(HEFT_EXAMPLE, HEFT, A4), 1.0e-6);
-        assertEquals(5168.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, A4), 1.0e-6);
+        assertEquals(5186.1, results.structuralMakespan(HEFT_EXAMPLE, CPOP, A4), 1.0e-6);
     }
 
     /** 敏感性/结构块仅跑论文例（其余 DAG 由全量 campaign 覆盖），主矩阵跑子集。 */

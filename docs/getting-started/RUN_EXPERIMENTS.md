@@ -6,7 +6,12 @@
 
 ### 1. 创建你的实验类
 
-在 `experiments/src/main/java/` 下创建你自己的实验类（或者在 `simulator/src/test/java/` 创建测试类）：
+在 `experiments/src/main/java/org/workflowsim/mystudy/` 下新建 `MyFirstExperiment.java`，
+再使用下面的完整模板。若编写 JUnit 测试，应放到相应模块的 `src/test/java/` 并用测试入口运行。
+
+模板通过 `ExperimentArtifactWriter.write(...)` 输出完整证据包：manifest v4、metrics v2 与
+事件流 v1，manifest 内 provenance 仍为 v3。校验器继续兼容历史 manifest v2/v3。
+到达时刻、任务成本矩阵、平台拓扑与数据移动语义会写入新 manifest。
 
 ```java
 package org.workflowsim.mystudy;
@@ -15,6 +20,7 @@ import org.cloudbus.cloudsim.Log;
 import org.workflowsim.experiment.*;
 import org.workflowsim.platform.*;
 import org.workflowsim.utils.Parameters.*;
+import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
 import java.nio.file.Path;
@@ -56,7 +62,7 @@ public class MyFirstExperiment {
         
         // 选项 B：异构平台（自定义每台 VM）
         // PlatformProfile platform = PlatformProfile.builder("my-heterogeneous-platform")
-        //     .addHost(new PlatformProfile.HostSpec(0, 4, 4000.0, 4096, 10_000L, 1_000_000L))
+        //     .addHost(new PlatformProfile.HostSpec(0, 8, 4000.0, 4096, 10_000L, 1_000_000L))
         //     .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512, 1000L, 10_000L, "Xen",
         //         PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))    // VM0: 1000 MIPS, 1核, 512MB
         //     .addVm(new PlatformProfile.VmSpec(1, 2000.0, 2, 1024, 1000L, 10_000L, "Xen",
@@ -82,13 +88,10 @@ public class MyFirstExperiment {
         
         // 6. 可选：保存实验证据（manifest + metrics + events）
         Path outputDir = Paths.get("output/my-experiment");
-        outputDir.toFile().mkdirs();
-        
-        ExperimentManifestWriter.writeJson(report, outputDir.resolve("manifest.json"));
-        ExperimentArtifactWriter.writeMetrics(report, outputDir.resolve("metrics.json"));
-        ExperimentArtifactWriter.writeEvents(report.getEvents(), outputDir.resolve("events.jsonl"));
-        
-        System.out.println("\n实验证据已保存到: " + outputDir.toAbsolutePath());
+        ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, outputDir, "run-seed42");
+        ExperimentArtifactValidator.validate(artifacts.getManifest());
+        System.out.println("\n已验证实验证据: " + artifacts.getManifest());
     }
 }
 ```
@@ -108,21 +111,17 @@ public class MyFirstExperiment {
    - **Name**: My First Experiment
    - **Main class**: `org.workflowsim.mystudy.MyFirstExperiment`
    - **Working directory**: `$PROJECT_DIR$`（项目根目录）
-   - **Use classpath of module**: `workflowsim-experiments`（如果放在 experiments 下）或 `workflowsim`（如果放在 simulator/test 下）
+   - **Use classpath of module**: `workflowsim-experiments`（本节 main 类位于实验模块源码目录）
 3. **Apply** → **OK**
 4. 点击绿色运行按钮
 
 #### 常见问题：找不到 experiments 模块
 
-**原因**：experiments 模块默认不激活，需要启用 Maven profile。
+根 Maven 工程默认包含 `simulator/` 与 `experiments/`，当前没有 `experiments` profile。
+确认导入的是[根 POM](../../pom.xml)，取消对实验模块的 Ignored 标记，然后执行
+**Reload All Maven Projects**。Maven importer/runner 使用 JDK 17+。
 
-**解决方案**：
-1. IDEA 右侧打开 **Maven** 工具窗口
-2. 展开 **WorkflowSim Parent** → **Profiles**
-3. **勾选 `experiments`** profile
-4. 点击刷新图标（Reload All Maven Projects）
-
-**详细步骤和截图**：参见 [`IDEA_SETUP.md`](IDEA_SETUP.md) - 完整的 IDEA 配置指南。
+模块、工作目录与运行 classpath 的详细设置见 [IDEA 配置指南](IDEA_SETUP.md)。
 
 ---
 
@@ -193,6 +192,13 @@ PlanningAlgorithm.STATIC_SUFFERAGE              // Sufferage（吃亏值优先�
 PlanningAlgorithm.STATIC_ROUND_ROBIN            // 轮转
 ```
 
+### 数据移动模型与证据
+
+R2/R6 共用 max-min progressive filling，并在流完成时分段积分、重新分配剩余容量。
+R2 的资源为 VM 端点；R6 还包含确定性路由的有向链路，外部 SOURCE 输入绕过拓扑。
+这两个模型在 Job 就绪时启动全部传输组，LOCAL 规划器仍按无争用 AST 估计。
+模型语义保存在 manifest v4 的数据移动声明中，provenance 仍为 v3。
+
 ### 工作流输入选择
 
 ```java
@@ -201,12 +207,11 @@ PlanningAlgorithm.STATIC_ROUND_ROBIN            // 轮转
 "datasets/dax/epigenomics/n100/Epigenomics_100.dax"
 "datasets/dax/sipht/n100/Sipht_100.dax"
 
-// WfCommons WfFormat JSON（合成工作流）
-"datasets/wfformat/montage/montage-2.5Mb-003.json"
-"datasets/wfformat/blast/n100/blast-100-000.json"
+// WfCommons WfFormat JSON（仓库自带的合成输入）
+"datasets/wfformat/montage/n100/montage-100-000.json"
 
-// WfInstances JSON（真实执行轨迹抽象，试点）
-"datasets/wfinstances/v1.5/pegasus/montage/montage-2mass-2mass-001.json"
+// WfInstances JSON（仓库自带的真实执行派生试点）
+"datasets/wfinstances/v1.5/makeflow/blast/blast-chameleon-small-001.json"
 ```
 
 ### 常用配置模式
@@ -232,7 +237,9 @@ SimulationConfig config = SimulationConfig.builder(workflow, vmCount)
     .build();
 ```
 
-#### 模式 3：带 deadline 约束
+#### 模式 3：记录 deadline 观测
+
+截止时间从仿真零时刻起算，只用于结果判定，不改变调度策略或终止仿真。
 
 ```java
 SimulationConfig config = SimulationConfig.builder(workflow, vmCount)
@@ -252,14 +259,21 @@ double slack = report.getMetrics().getDeadlineSlackSeconds();  // 正值=提前�
 import org.workflowsim.failure.*;
 import org.workflowsim.utils.DistributionGenerator.*;
 import org.workflowsim.utils.DistributionSpec;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+// 本节使用同构工厂生成的 VM ID 0..vmCount-1。
+Map<Integer, DistributionSpec[]> failureRows = new LinkedHashMap<Integer, DistributionSpec[]>();
+for (int vmId = 0; vmId < vmCount; vmId++) {
+    failureRows.put(vmId, new DistributionSpec[]{
+        DistributionSpec.of(DistributionFamily.WEIBULL, 0.1, 1.0)
+    });
+}
 FailureModelConfig failure = FailureModelConfig.builder()
     .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
     .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
     .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-    .generatorSpecs(new DistributionSpec[][]{{
-        DistributionSpec.of(DistributionFamily.WEIBULL, 0.1, 1.0)
-    }})
+    .generatorSpecsByVmId(failureRows)
     .maxTotalRetryJobs(50)
     .build();
 

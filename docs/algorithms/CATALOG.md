@@ -172,11 +172,13 @@ evolves in scheduling order — mirroring the runtime LOCAL stage-in rules.
 **Link-contention variant (R2)**: both planners also accept
 `DataMovementModel.preExecutionTransferDelayWithContentionV1()`. Planning still
 uses the contention-free AST estimates above; at runtime, concurrent transfers
-fair-share each VM endpoint's bandwidth (`vm.getBw()` capacity, `capacity/n`
-per active transfer, fluid model in `TransferContentionEngine`). Under
-concurrent load the runtime therefore diverges from the plan in a documented,
-explainable way (contention can only delay transfers). Measured on the HEFT
-paper fixture: contention makespan 284.1 vs no-contention golden 190.1.
+fair-share each VM endpoint using max-min progressive filling with nominal-rate
+caps and residual-capacity redistribution. R10 integrates across intermediate flow
+completions before reallocating bandwidth. Unlike V1's parent-finish arrival estimate,
+contention groups all start when the Job becomes ready. Therefore V1/R2 differences
+mix start-policy and contention effects; the R10 study compares endpoint/Fat-tree
+variants with the same start policy. Planning remains contention-free. On the HEFT
+paper fixture, contention makespan is 284.1 versus the no-contention 190.1.
 
 **Fat-tree contention variant (R6)**: both planners also accept
 `DataMovementModel.fatTreeContentionV1()`. Planning again uses the
@@ -185,9 +187,10 @@ endpoints to every shared link on a deterministic Al-Fares k-Pod fat-tree route
 (`a = srcEdge mod availA` uplink choice; cross-pod core
 `j = (srcEdge + dstEdge + srcPod + dstPod) mod jCount`), declared via
 `PlatformProfile.Builder.networkTopology(NetworkTopologySpec.fatTree(k,
-linkMbPerSecond[, coreSwitchCount][, hostEdgePlacements]))`; transfer rate is
-the minimum over endpoint and link shares (fluid max-min fair sharing in
-`TransferContentionEngine`). The runner enforces a bidirectional contract: the
+linkMbPerSecond[, coreSwitchCount][, hostEdgePlacements]))`; max-min progressive
+filling jointly respects endpoint, link and nominal capacities, redistributing unused
+shares. Additional constraints can accelerate some other flows through redistribution;
+DAG makespan monotonicity across models is not a general theorem. The runner enforces a bidirectional contract: the
 model requires a topology declaration and a declared topology requires the
 model. Measured on the HEFT paper fixture (k=4 fully provisioned, hosts
 round-robin placed): with symmetric provisioning (1 MB/s links == VM endpoint
@@ -208,21 +211,19 @@ See `docs/research/FAT_TREE_PRINCIPLES.md` and `docs/research/FAT_TREE_DESIGN.md
 - `LOCAL_HEFT`: upward rank `r_u = w̄ + max_child(c̄ + r_u(child))` descending
   priority (ties → lower task id), insertion-based earliest-finish-time VM
   choice (ties → lower VM id).
-- `LOCAL_CPOP`: priority `r_u + r_d` (r_d = `max_child(c̄ + r_d(child))`, zero
-  at the exit), ready-queue selection, and critical-path tasks pinned to the
-  VM minimizing total critical-path compute seconds (ties → lower VM id);
-  other tasks use the same insertion-based EFT rule as HEFT.
+- `LOCAL_CPOP`: priority `r_u + r_d`, with entry `r_d=0` and
+  `r_d(t)=max_parent(r_d(parent)+meanCompute(parent)+meanCommunication(parent,t))`.
+  A critical path follows only edges satisfying the upward-rank recurrence and
+  constant critical priority (ties → lower task ID); its tasks are pinned to the
+  VM minimizing total critical-path compute seconds. Other tasks use insertion EFT.
 
-Both were regression-tested end-to-end against the paper's canonical example
-(`datasets/dax/heft/heft-paper-example.dax`, 3 VMs × mips 1.0 × 1 MB/s so
-compute and transfer seconds equal the paper's table values digit-for-digit):
-HEFT ranks reproduce the paper's rank table exactly; HEFT mapping matches
-**10/10** and every task interval equals the paper interval plus the 0.1
-bootstrap margin (relative makespan 80.1 ≈ paper 80); CPOP reproduces the
-paper's critical path {n1, n3, n7, n10} and critical-path processor (vm1),
-CPOP mapping matches 8/10 with relative makespan 87.1 ≈ paper 86; and
-planning-time per-task VM/start/finish values reproduce runtime outcomes
-bit-for-bit.
+Both are regression-tested on the canonical ten-task fixture. HEFT mapping matches
+10/10 and its absolute makespan is 190.1. R10 corrects the former LOCAL_CPOP
+child-directed rank error: the critical path is {n1,n2,n9,n10}, the critical VM is
+vm1, and the absolute makespan is 196.1. Subtracting the common 110.1 bootstrap
+leaves 80 and 86 respectively. Tests independently assert the complete rank table,
+path, mapping, task intervals, multiple critical paths and cross-branch shortcuts.
+Earlier 197.1 / {n1,n3,n7,n10} statements describe the erroneous pre-R10 implementation.
 
 Known reproduction limits (declared in the manifest contract):
 

@@ -1,5 +1,8 @@
 # 实验 Campaign 与数据移动协议
 
+> **R10 current contract:** New manifests use v4 (provenance remains v3; historical v2/v3 remain readable). Contention uses max-min progressive filling with intermediate-completion integration; all contention groups start at Job readiness, unlike V1 parent-finish estimates. The R7/R8 numerical section below is historical after the CPOP correction. The new qualified multi-seed study is specified in [R10 protocol](../../experiments/studies/network-limited-r10/PROTOCOL.md).
+
+
 ## Status and Claim Boundary
 
 P9 adds an executable, immutable experiment-campaign declaration and an

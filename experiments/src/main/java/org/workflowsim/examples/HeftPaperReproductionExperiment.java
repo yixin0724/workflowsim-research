@@ -95,7 +95,7 @@ public class HeftPaperReproductionExperiment {
                 heft.getMetrics().getTotalModeledDataTransferSeconds()));
 
         // 基线对照：RANDOM+STATIC（同平台、同成本矩阵、同 LOCAL 通信模型）
-        // 与同论文第二算法 LOCAL_CPOP（关键路径 {n1,n3,n7,n10}，p_CP=vm1）。
+        // 与同论文第二算法 LOCAL_CPOP（R10正确关键路径 {n1,n2,n9,n10}，p_CP=vm1）。
         System.out.println();
         System.out.println(String.format("%-22s %14s %14s", "配置", "相对Makespan", "传输总秒"));
         System.out.println(String.format("%-22s %14.1f %14.1f", "LOCAL_HEFT",
