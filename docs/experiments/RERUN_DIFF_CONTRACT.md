@@ -1,6 +1,6 @@
 # Rerun 与差异比对契约（D2）
 
-状态：待评审。评审通过后才开始实现；实现偏离本契约时，先改契约再改代码。
+状态：已实现（分支 `feature/r11-rerun-diff`，阶段 1–7）。实现偏离本契约时，先改契约再改代码；实现期固化的补充决策见文末「实现备注」。
 
 ## 目标与非目标
 
@@ -116,7 +116,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 | `RECONSTRUCTION_REJECTED` | 配置重建被当前代码校验拒绝 |
 | `EVIDENCE_INVALID` | 原三件套自身未通过结构校验 |
 
-退出码：`IDENTICAL_CORE` 为 0；`DIVERGED` 为非零；其余失败状态各有独立非零码。这使得 rerun 可以直接作为 CI/门禁步骤使用。
+退出码：`IDENTICAL_CORE` 为 0；`DIVERGED` 为非零；其余失败状态各有独立非零码。这使得 rerun 可以直接作为 CI/门禁步骤使用。实现的具体分配：`IDENTICAL_CORE`=0、`DIVERGED`=1、`INPUT_UNRESOLVED`=2、`INPUT_HASH_MISMATCH`=3、`RECONSTRUCTION_REJECTED`=4、`EVIDENCE_INVALID`=5；命令行用法错误=64、意外异常=70（与 verdict 码不冲突）。
 
 ## 验收标准
 
@@ -137,3 +137,11 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 
 - run 身份键（输入哈希 × 配置哈希 × 算法契约版本）在本任务中**只作为报告字段出现**，不实现缓存语义；后续 D-缓存任务直接消费本报告结构。
 - study 级批量 rerun 复用本单 run 执行器，逐目录调用并汇总 verdict，不重新实现比对逻辑。
+
+## 实现备注（实现期固化的决策）
+
+- 实现代码集中在 `experiments/src/main/java/org/workflowsim/experiments/rerun/`：`RerunEvidenceReader`（读取+结构校验）、`RerunInputResolver`（三级定位）、`ManifestConfigRebuilder`（配置重建）、`RerunExecutor`（复跑流水线）、`EvidenceCoreDiffer`（核心量比对与易变量白名单）、`RerunReport`（双格式报告）、`RerunDiffExecutor`（CLI 入口）。
+- **模拟执行阶段失败也映射 `RECONSTRUCTION_REJECTED`**：重建通过了但 `SimulationRunner` 拒绝执行（如历史故障模型参数在当前语义下必然耗尽重试预算），属于"历史证据与当前代码不兼容"的合法结果，与重建期拒绝同判，失败原因中标注"模拟执行阶段"。
+- **metrics 分歧去重**：manifest 内嵌 `metrics` 与 metrics sidecar 是同一份核心量（工件校验器强制二者逐字相等），比对器对两份文档各记一条完全相同的分歧；实现按（指针, 旧值, 新值）精确去重，报告只出现一条。
+- **一致性篡改的含义**：工件校验器强制 manifest 内嵌 metrics == sidecar metrics，且 sidecar 的 sha256/sizeBytes 记录在 `artifacts[]` 中。因此篡改核心量并期望通过结构校验到达 `DIVERGED`，必须同步改写三处（manifest metrics、sidecar 文件、artifacts 哈希/大小）；只改 manifest 会被 `EVIDENCE_INVALID` 提前拦截——这正是防线应有的行为。
+- 测试分布：verdict/枚举与白名单单元测试、三类 verdict 的篡改-检出配对在 `RerunDiffExecutorTest`（夹具级，8 用例）、真实历史证据端到端在 `RerunDiffExecutorIntegrationTest`（经典 DAX run 走输入定位 tier 2，合成 run 走 tier 1），均纳入 `mvn verify` 门禁。历史证据目录不在 git 中时集成测试按 `assumeTrue` 整类跳过。
