@@ -47,5 +47,7 @@ datasets/wfinstances/.v1.5-git-metadata/
 output/network-study-r10*/
 # S5 PEFT comparison study local evidence; protocol/results docs live in experiments/studies/peft-comparison-r12/.
 output/peft-comparison-r12/
+# R13 sensitivity response surface local evidence; docs live in experiments/studies/sensitivity-r13/.
+output/sensitivity-r13/
 output/workbench*/
 output/*.tar.gz
