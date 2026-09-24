@@ -96,9 +96,24 @@ public final class EvidenceCoreDiffer {
                 false, core, volatileNoted);
         compareEvents(original.getEventsPath(), rerun.getEventsPath(), core, volatileNoted);
 
-        return new DiffResult(core, volatileNoted,
+        // manifest 内嵌 metrics 与 sidecar 是同一份核心量（工件校验器强制相等），
+        // 两处比对会对同一分歧各记一条；按（指针, 旧值, 新值）精确去重。
+        return new DiffResult(deduplicate(core), volatileNoted,
                 sourceTreeSha256(original.getManifest()), sourceTreeSha256(rerun.getManifest()),
                 algorithmContract(original.getManifest()), algorithmContract(rerun.getManifest()));
+    }
+
+    private static List<Divergence> deduplicate(List<Divergence> divergences) {
+        List<Divergence> unique = new ArrayList<Divergence>();
+        Set<String> seen = new LinkedHashSet<String>();
+        for (Divergence divergence : divergences) {
+            String key = divergence.getPointer() + "\u0000" + divergence.getOriginalValue()
+                    + "\u0000" + divergence.getRerunValue();
+            if (seen.add(key)) {
+                unique.add(divergence);
+            }
+        }
+        return unique;
     }
 
     // ---- manifest 与 metrics 的通用递归比对 ----
@@ -221,7 +236,8 @@ public final class EvidenceCoreDiffer {
 
     // ---- 身份信息提取（不参与判定，供报告醒目展示） ----
 
-    private static String sourceTreeSha256(JsonObject manifest) {
+    /** 提取 {@code provenance.core.sourceTreeSha256}（缺失时为 null），供报告展示。 */
+    public static String sourceTreeSha256(JsonObject manifest) {
         JsonElement value = manifest;
         for (String key : Arrays.asList("provenance", "core", "sourceTreeSha256")) {
             if (!(value instanceof JsonObject)
@@ -233,7 +249,8 @@ public final class EvidenceCoreDiffer {
         return value == null || value.isJsonNull() ? null : value.getAsString();
     }
 
-    private static String algorithmContract(JsonObject manifest) {
+    /** 提取 {@code configuration.algorithmContract} 的紧凑序列化文本（缺失时为 null）。 */
+    public static String algorithmContract(JsonObject manifest) {
         JsonObject configuration = manifest.getAsJsonObject("configuration");
         if (configuration == null || !configuration.has("algorithmContract")) {
             return null;
