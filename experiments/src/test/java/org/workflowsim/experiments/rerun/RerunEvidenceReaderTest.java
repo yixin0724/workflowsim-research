@@ -11,18 +11,10 @@ import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.stream.Stream;
-import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.workflowsim.experiment.ExperimentArtifactWriter;
-import org.workflowsim.experiment.SimulationReport;
-import org.workflowsim.experiment.SimulationRunner;
-import org.workflowsim.platform.PlatformProfiles;
-import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
-import org.workflowsim.utils.SimulationConfig;
 
 /**
  * 阶段 1 验收：v4 证据读取成功；v2/v3 schema、缺失 manifest、损坏 sidecar、
@@ -38,17 +30,8 @@ class RerunEvidenceReaderTest {
 
     @BeforeAll
     static void generateFixture() throws Exception {
-        Log.disable();
         fixtureRun = Files.createTempDirectory("rerun-evidence-fixture");
-        String dax = resourcePath("/dax/reproducibility-workflow.dax");
-        SimulationConfig config = SimulationConfig.builder(dax, 3)
-                .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
-                .randomSeed(91L)
-                .build();
-        SimulationReport report = new SimulationRunner().run(config,
-                PlatformProfiles.homogeneousLocal("rerun-fixture", 3));
-        assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully());
-        ExperimentArtifactWriter.write(report, fixtureRun, "result");
+        RerunTestSupport.generateEvidence(fixtureRun);
     }
 
     @Test
@@ -246,9 +229,5 @@ class RerunEvidenceReaderTest {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    private static String resourcePath(String resource) throws Exception {
-        return Paths.get(RerunEvidenceReaderTest.class.getResource(resource).toURI()).toString();
     }
 }
