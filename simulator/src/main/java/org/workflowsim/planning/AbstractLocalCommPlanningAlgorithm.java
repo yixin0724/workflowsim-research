@@ -220,6 +220,31 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
      * @return 计划完成时刻
      */
     final double allocate(Task task, CondorVM pinnedVm, double stageInFinish) {
+        return allocateInternal(task, pinnedVm, stageInFinish, null);
+    }
+
+    /**
+     * 将任务分配到乐观完成时间最小的 VM（插入式 {@code EFT + OCT(t, vm)}），
+     * 并演进副本状态。
+     *
+     * <p>除评分函数外与 {@link #allocate(Task, CondorVM, double)} 完全一致：相同的
+     * 可派发时刻、数据到达时刻、插入式最早开始搜索、预留与副本演进语义；返回的仍是
+     * EFT 完成时刻（不含 OCT 项）。评分平局取较小 VM ID。</p>
+     *
+     * @param octPerVm 任务在全部 VM 上的 OCT 值；缺任一 VM 抛
+     *                 {@link IllegalStateException}
+     * @return 计划完成时刻（EFT，不含 OCT）
+     */
+    final double allocateOptimistic(Task task, Map<CondorVM, Double> octPerVm, double stageInFinish) {
+        if (octPerVm == null) {
+            throw new IllegalArgumentException(label + " requires per-VM OCT values for task "
+                    + task.getCloudletId());
+        }
+        return allocateInternal(task, null, stageInFinish, octPerVm);
+    }
+
+    private double allocateInternal(Task task, CondorVM pinnedVm, double stageInFinish,
+            Map<CondorVM, Double> octPerVm) {
         // 运行时镜像：Job 在全部父任务返回后才被释放，因此可派发时刻为
         // max(全部父完成时刻, 数据到达时刻)。
         double dispatchable = readyTime(task, stageInFinish);
@@ -228,17 +253,28 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         CondorVM selectedVm = null;
         double selectedStart = 0.0;
         double selectedFinish = Double.POSITIVE_INFINITY;
+        double selectedScore = Double.POSITIVE_INFINITY;
         for (CondorVM vm : candidates) {
             double arrival = dataArrivalOn(task, vm, stageInFinish);
             long computeMi = computeMiByVm.get(task).get(vm).longValue();
             double duration = computeMi / vm.getMips();
             double start = earliestStart(reservations.get(vm), Math.max(dispatchable, arrival), duration);
             double finish = start + duration;
-            if (finish < selectedFinish || (Double.compare(finish, selectedFinish) == 0
+            double score = finish;
+            if (octPerVm != null) {
+                Double oct = octPerVm.get(vm);
+                if (oct == null) {
+                    throw new IllegalStateException(label + " is missing OCT for task "
+                            + task.getCloudletId() + " on VM " + vm.getId());
+                }
+                score = finish + oct.doubleValue();
+            }
+            if (score < selectedScore || (Double.compare(score, selectedScore) == 0
                     && selectedVm != null && vm.getId() < selectedVm.getId())) {
                 selectedVm = vm;
                 selectedStart = start;
                 selectedFinish = finish;
+                selectedScore = score;
             }
         }
         if (selectedVm == null) {
@@ -336,18 +372,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
      * {@code bytes / (1e6 × min(bw_i, bw_j))}。均匀带宽下退化为边权本身。</p>
      */
     final double meanCommunicationSeconds(Task parent, Task child) {
-        double bytes = 0.0;
-        LinkedHashSet<String> parentOutputs = new LinkedHashSet<String>();
-        for (FileItem file : parent.getFileList()) {
-            if (file.getType() == FileType.OUTPUT) {
-                parentOutputs.add(file.getName());
-            }
-        }
-        for (FileItem file : child.getFileList()) {
-            if (file.getType() == FileType.INPUT && parentOutputs.contains(file.getName())) {
-                bytes += file.getSize();
-            }
-        }
+        double bytes = communicationBytes(parent, child);
         if (!(bytes > 0.0)) {
             return 0.0;
         }
@@ -365,6 +390,41 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         }
         // 单 VM 时不存在跨处理器通信，避免 0/0 使 rank 变成 NaN。
         return pairs == 0 ? 0.0 : total / pairs;
+    }
+
+    /**
+     * 父任务全部传输文件到子任务在指定 VM 对之间的通信秒数（OCT 递推用）。
+     *
+     * <p>与 {@link #meanCommunicationSeconds} 同约定：跨 VM 传输率取
+     * {@code min(bw_from, bw_to)}，无共享文件或同 VM 为零。与副本状态无关——OCT 是
+     * 调度前静态量，只按任务边上的字节数与端点带宽计算，不做副本局部性减免。</p>
+     */
+    final double communicationSeconds(Task parent, Task child, CondorVM from, CondorVM to) {
+        if (from.getId() == to.getId()) {
+            return 0.0;
+        }
+        double bytes = communicationBytes(parent, child);
+        if (!(bytes > 0.0)) {
+            return 0.0;
+        }
+        return bytes / 1.0e6 / Math.min(from.getBw(), to.getBw());
+    }
+
+    /** 父任务 OUTPUT 中被子任务 INPUT 消费的文件总字节数。 */
+    private double communicationBytes(Task parent, Task child) {
+        double bytes = 0.0;
+        LinkedHashSet<String> parentOutputs = new LinkedHashSet<String>();
+        for (FileItem file : parent.getFileList()) {
+            if (file.getType() == FileType.OUTPUT) {
+                parentOutputs.add(file.getName());
+            }
+        }
+        for (FileItem file : child.getFileList()) {
+            if (file.getType() == FileType.INPUT && parentOutputs.contains(file.getName())) {
+                bytes += file.getSize();
+            }
+        }
+        return bytes;
     }
 
     /**

@@ -99,7 +99,15 @@ public class Parameters {
          * 路径计算总秒数最小的 VM，其余任务取插入式最小 EFT。通信建模、执行语义与
          * 适用前提与 {@link #LOCAL_HEFT} 完全一致。
          */
-        LOCAL_CPOP
+        LOCAL_CPOP,
+        /**
+         * 通信感知 PEFT 静态 DAG 规划器（Arabnejad &amp; Barbosa, IEEE TPDS 2014）：
+         * 优先级 = 乐观成本表 OCT 在全部 VM 上的平均值降序，VM 选择最小化
+         * {@code EFT + OCT(t, vm)}。OCT 递推使用真实的按 VM 对 LOCAL 通信成本
+         * （c &gt; 0，与 SHARED_STORAGE_PEFT 的无链路模型退化形相对）。通信建模、
+         * 执行语义与适用前提与 {@link #LOCAL_HEFT} 完全一致。
+         */
+        LOCAL_PEFT
     }
     
     /** 工作流文件类型。 */

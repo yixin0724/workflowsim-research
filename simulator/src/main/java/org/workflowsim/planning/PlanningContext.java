@@ -57,7 +57,8 @@ public final class PlanningContext {
     /**
      * 验证 LOCAL 文件系统通信感知静态 DAG 规划器实际估计的执行模型子集。
      *
-     * <p>LOCAL_HEFT/LOCAL_CPOP 的规划侧 AST（按父任务并行传输、传输与 VM 忙碌期重叠）
+     * <p>LOCAL_HEFT/LOCAL_CPOP/LOCAL_PEFT 的规划侧 AST（按父任务并行传输、传输与
+     * VM 忙碌期重叠）
      * 逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输延迟模型，因此
      * 要求 LOCAL 文件系统、NONE 聚类、无故障与无建模开销；数据移动模型可为
      * preExecutionTransferDelayV1（规划与执行逐位对齐）、链路争用模型

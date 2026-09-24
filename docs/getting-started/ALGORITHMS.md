@@ -103,16 +103,18 @@ stage-in（输入拉取）时间。
 与前两类不同，这 5 个规划器输出的不仅是"任务 → VM"映射，还包括**每台 VM 上的
 完整执行顺序**，静态分派器会严格照单执行（顺序违规直接断言失败）。
 
-## 五、通信感知 LOCAL 静态 DAG 规划器（2 个，论文复现）
+## 五、通信感知 LOCAL 静态 DAG 规划器（3 个，论文复现）
 
 `LOCAL_HEFT` 和 `LOCAL_CPOP` 复现 Topcuoglu, Hariri &amp; Wu（IEEE TPDS 2002）的
-两个列表调度算法，与第四节的区别是**显式建模任务间点对点通信**：文件走 LOCAL
+两个列表调度算法，`LOCAL_PEFT` 复现 Arabnejad &amp; Barbosa（IEEE TPDS 2014）的
+乐观代价表算法；与第四节的区别是**显式建模任务间点对点通信**：文件走 LOCAL
 文件系统（每 VM 本地存储），跨 VM 传输产生真实代价。
 
 | 算法 | 排优先级 | 选处理器 | 核心思想 |
 | --- | --- | --- | --- |
 | `LOCAL_HEFT` | upward rank（含通信项）降序 | EFT 最小（插入式，含传输延迟） | 经典 HEFT，但通信代价真实影响每一步 VM 选择 |
 | `LOCAL_CPOP` | `r_u + r_d` 降序 + 就绪队列 | 关键路径任务绑定 p_CP；其余按 EFT | 同第四节 CPOP，但关键路径计算包含通信项 |
+| `LOCAL_PEFT` | rank_o（全 VM 平均 OCT）降序 | `EFT + OCT(t,p)` 最小（插入式） | 同第四节 PEFT，但 OCT 含论文完整通信项 `c(t,child,p,p')` |
 
 **通信建模**（论文 AST 语义）：每个输入文件的传输时间 = `字节数 / (1e6 × 传输率)`，
 SOURCE→VM 取目标 VM 带宽、VM→VM 取 `min(bw_src, bw_dst)`、副本已在目标 VM 上则为 0。
@@ -132,11 +134,27 @@ priority(t) = r_u(t) + r_d(t)
 `r_u(current) = w̄(current) + c̄(current, child) + r_u(child)`。多条等长路径按 Task ID
 确定性选择其中一条，避免通过跨分支捷径串起不同关键路径上的节点。
 
+PEFT 的乐观代价表从出口向入口递推，通信项取"子任务放到最优 VM"的乐观下界：
+
+```text
+OCT(t_exit, p) = w̄_exit（出口任务平均计算成本，论文约定，逐 VM 一致）
+OCT(t, p) = w(t, p) + max_child { min_p' [ OCT(child, p') + c(t, child, p, p') ] }
+priority(t) = rank_o(t) = mean_p OCT(t, p)
+```
+
+选择 VM 时最小化 `EFT + OCT(t,p)`：EFT 看当下、OCT 看后续，联合目标使 PEFT 在
+同算例上优于 HEFT（论文算例 76 对 80）。单出口 DAG 上 `OCT(exit)=0` 约定与本约定
+只差一个全局常数，优先级次序与调度完全相同；但论文发表的 OCT/rank_o 表只在
+`w̄_exit` 约定下逐项吻合，回归测试按论文约定断言该表。
+
 **论文算例回归**（3 VM × mips 1.0 × 带宽 1 MB/s，显式论文成本矩阵）：统一扣除完整
 引导时间 `110.1` 秒，HEFT 的绝对 makespan `190.1` 对应论文 `80`；CPOP 的关键路径为
 `{1,2,9,10}`、平均路径长度 `108`，关键处理器为 VM 1（论文 p2），绝对 makespan `196.1`
 对应论文 `86`。CPOP 的路径计算成本在 VM 0/1/2 上分别为 `66/54/63`，建模传输总秒数为
-`105`。这些数值属于该固定算例；其他平台或不使用成本矩阵的 campaign 有各自的结果。
+`105`。PEFT 逐项复现论文 OCT/rank_o 表（rank_o：61、48、44、43、40、37.33、31.33、
+25.67、24.67、14.67）、选择顺序 `{1,2,4,5,3,6,9,7,8,10}` 与 10/10 VM 映射，绝对
+makespan `186.1` 对应论文 `76`（优于 HEFT 的 `80`），建模传输总秒数 `150`。这些数值
+属于该固定算例；其他平台或不使用成本矩阵的 campaign 有各自的结果。
 
 要求：`STATIC` 分派、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、
 preExecution 家族数据移动模型与 `SPACE_SHARED` VM。边界：受控带宽模型
@@ -165,7 +183,7 @@ AST 估计。因此这些变体用于争用/拓扑研究，不是论文的无争
 | 运行时才知道任务就绪情况，比较在线派发策略 | 在线 ready-batch 调度 |
 | 复现 Braun 2001 风格的独立任务映射对比 | 静态独立任务映射 |
 | 比较 DAG 感知的离线规划算法（HEFT 家族，共享存储） | 受控静态 DAG 映射 |
-| 复现 Topcuoglu 2002 风格的通信感知 HEFT/CPOP 对比 | 通信感知 LOCAL 静态 DAG 映射 |
+| 复现 Topcuoglu 2002 / Arabnejad 2014 风格的通信感知 HEFT/CPOP/PEFT 对比 | 通信感知 LOCAL 静态 DAG 映射 |
 | 多个工作流错峰到达、共享 VM 池，比较每工作流流时 | 任意在线调度器 + `workflowArrivalSeconds`（R5） |
 
 支持的完整标签列表以 `AlgorithmCatalog.isSupportedBySimulationRunner()` 为准。

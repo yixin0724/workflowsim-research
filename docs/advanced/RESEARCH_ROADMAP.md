@@ -279,7 +279,6 @@ seed 91 固定；montage/sipht 在争用轨道无样本。
 | 方向 | 说明 |
 | --- | --- |
 | 能耗模型 | 绿色计算方向，当前发文热点 |
-| 通信感知 PEFT | 补齐 Topcuoglu 家族 + PEFT 的完整对比（现在 c=0 下退化） |
 | Deadline 感知调度 | deadline 从"观察不干预"升级为 WED 驱动准入/优先级 |
 | 工作流分区调度 | 子图调度 / DAG 分区映射 |
 | WfInstances 校准报告 | 用真实 makespan 分布对照模拟分布，量化模型偏差界 |

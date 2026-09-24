@@ -82,7 +82,8 @@ public final class DataMovementModel {
      * 返回论文语义的执行前传输延迟模型。
      *
      * <p>计算 Job 的输入传输在数据就绪时开始并可与 VM 忙碌期重叠；VM 仅被计算占用。
-     * 这是 LOCAL_HEFT/LOCAL_CPOP 复现 Topcuoglu TPDS 2002 调度语义所需的通信模型。</p>
+     * 这是 LOCAL_HEFT/LOCAL_CPOP/LOCAL_PEFT 复现 Topcuoglu TPDS 2002 与
+     * Arabnejad &amp; Barbosa TPDS 2014 调度语义所需的通信模型。</p>
      *
      * @return 执行前传输延迟模型的共享不可变实例
      */

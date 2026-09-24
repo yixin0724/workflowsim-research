@@ -85,6 +85,7 @@ public final class AlgorithmCatalog {
             case PSO:
             case LOCAL_HEFT:
             case LOCAL_CPOP:
+            case LOCAL_PEFT:
                 return true;
             default:
                 return false;
@@ -365,6 +366,31 @@ public final class AlgorithmCatalog {
                         "The model stage-in Job (110 MI) shifts the whole schedule by a constant bootstrap "
                                 + "offset relative to paper schedules that assume zero-cost workflow entry.",
                         "Sub-event-interval transfers and integer-MI conversion can produce small runtime timing differences."));
+                break;
+            case LOCAL_PEFT:
+                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+                values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
+                values.put("decisionRule", "PEFT optimistic cost table OCT(t,p)=w(t,p)+max_child(min_p'(OCT(child,p')"
+                        + "+bytes/(1e6 × min(bw_p,bw_p')))) with OCT(t_exit,p)=w̄_exit (the paper's uniform "
+                        + "mean compute cost of the exit task); task priority is the mean OCT over all VMs "
+                        + "(descending); VM selection minimizes EFT + OCT(t,p) via the same insertion-based "
+                        + "search, replica-state evolution, and paper AST semantics as LOCAL_HEFT");
+                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+                values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
+                values.put("reproductionScope", "CORE_PEFT_DECISION_SEMANTICS_OF_ARABNEJAD_BARBOSA_TPDS_2014_"
+                        + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
+                values.put("limitations", limitations(
+                        "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
+                                + "a preExecution-family data movement model, and SPACE_SHARED VMs.",
+                        "OCT is a static pre-scheduling quantity computed with contention-free VM-pair bandwidth "
+                                + "and no replica-locality discount; runtime stage-in transfers may exploit evolved "
+                                + "replicas and endpoint/Fat-tree contention variants change transfer timing.",
+                        "The model stage-in Job (110 MI) shifts the whole schedule by a constant bootstrap "
+                                + "offset relative to paper schedules that assume zero-cost workflow entry.",
+                        "Sub-event-interval transfers and integer-MI conversion can produce small runtime timing differences.",
+                        "Mean-OCT priority order is not provably topological under extreme compute-cost spreads; "
+                                + "a child outranking its parent fails fast with IllegalStateException instead of "
+                                + "producing an inconsistent schedule."));
                 break;
             case INVALID:
             default:
