@@ -18,22 +18,35 @@ import org.workflowsim.utils.Parameters.PlanningAlgorithm;
 /** Predeclared network-limited study: a small CI matrix and an explicit full research matrix. */
 public final class NetworkStudyPlan {
     public static final String PROTOCOL = "network-limited-r10-v2";
+    /** S5 add-on protocol on the frozen r10 matrix: HEFT/CPOP/PEFT list-scheduler comparison. */
+    public static final String PEFT_COMPARISON_PROTOCOL = "peft-comparison-r12-v1";
     public static final List<PlanningAlgorithm> PLANNERS = Collections.unmodifiableList(Arrays.asList(
             PlanningAlgorithm.LOCAL_HEFT, PlanningAlgorithm.LOCAL_CPOP,
             PlanningAlgorithm.RANDOM, PlanningAlgorithm.PSO));
+    public static final List<PlanningAlgorithm> PEFT_COMPARISON_PLANNERS = Collections.unmodifiableList(Arrays.asList(
+            PlanningAlgorithm.LOCAL_HEFT, PlanningAlgorithm.LOCAL_CPOP,
+            PlanningAlgorithm.LOCAL_PEFT));
     public static final List<String> NETWORKS = Collections.unmodifiableList(Arrays.asList(
             "endpoint", "fat-tree-constrained", "fat-tree-wide"));
     private final boolean full;
+    private final boolean peftComparison;
     private final List<WorkflowCase> workflows;
     private final List<Map<String, Object>> excludedInputs;
 
-    private NetworkStudyPlan(boolean full, List<WorkflowCase> workflows, List<Map<String, Object>> excludedInputs) {
+    private NetworkStudyPlan(boolean full, boolean peftComparison, List<WorkflowCase> workflows,
+            List<Map<String, Object>> excludedInputs) {
         this.full = full;
+        this.peftComparison = peftComparison;
         this.workflows = Collections.unmodifiableList(workflows);
         this.excludedInputs = Collections.unmodifiableList(excludedInputs);
     }
 
     public static NetworkStudyPlan create(String mode, Path datasets, Path generatedInputs) throws IOException {
+        return create(mode, false, datasets, generatedInputs);
+    }
+
+    public static NetworkStudyPlan create(String mode, boolean peftComparison, Path datasets, Path generatedInputs)
+            throws IOException {
         if (!"full".equals(mode) && !"smoke".equals(mode)) {
             throw new IllegalArgumentException("Study mode must be smoke or full");
         }
@@ -68,8 +81,14 @@ public final class NetworkStudyPlan {
             }
         }
         if (values.isEmpty()) { throw new IllegalArgumentException("No compatible study inputs"); }
-        return new NetworkStudyPlan(full, values, excluded);
+        return new NetworkStudyPlan(full, peftComparison, values, excluded);
     }
+
+    /** The declared protocol identifier for this study variant. */
+    public String getProtocol() { return peftComparison ? PEFT_COMPARISON_PROTOCOL : PROTOCOL; }
+
+    /** The planner set for this study variant. */
+    public List<PlanningAlgorithm> getPlanners() { return peftComparison ? PEFT_COMPARISON_PLANNERS : PLANNERS; }
 
     /** Qualification is structural only: no algorithm performance is observed or selected. */
     static String qualificationFailure(Path input) {
@@ -107,18 +126,18 @@ public final class NetworkStudyPlan {
     }
     public int getRunCount() {
         int repetitions = 0;
-        for (PlanningAlgorithm planner : PLANNERS) { repetitions += seeds(planner).size(); }
+        for (PlanningAlgorithm planner : getPlanners()) { repetitions += seeds(planner).size(); }
         return workflows.size() * getVmCounts().size() * NETWORKS.size() * repetitions;
     }
 
     public Map<String, Object> asMap() {
         Map<String, Object> result = new LinkedHashMap<String, Object>();
-        result.put("protocol", PROTOCOL);
+        result.put("protocol", getProtocol());
         result.put("mode", full ? "full" : "smoke");
         result.put("vmCounts", getVmCounts());
         result.put("randomSeeds", getRandomSeeds());
         result.put("deterministicSeed", 11L);
-        result.put("planners", PLANNERS);
+        result.put("planners", getPlanners());
         result.put("networks", NETWORKS);
         result.put("runCount", getRunCount());
         List<Map<String, Object>> cases = new ArrayList<Map<String, Object>>();
@@ -134,7 +153,9 @@ public final class NetworkStudyPlan {
         result.put("vmMips", 1000); result.put("endpointMbPerSecond", 1);
         result.put("fatTreeK", 4); result.put("constrainedLinkMbPerSecond", 0.125);
         result.put("wideLinkMbPerSecond", 1.25);
-        result.put("inference", "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_THREE_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS");
+        result.put("inference", peftComparison
+                ? "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_TWO_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS"
+                : "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_THREE_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS");
         result.put("transferStart", "ALL_GROUPS_START_AT_JOB_READY");
         return result;
     }
