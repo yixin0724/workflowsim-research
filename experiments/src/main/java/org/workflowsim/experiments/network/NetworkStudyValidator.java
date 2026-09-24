@@ -34,7 +34,9 @@ public final class NetworkStudyValidator {
             if (!"workflowsim-network-study-v1".equals(index.get("schema").getAsString())) { throw new IOException("Unsupported network study schema"); }
             JsonObject plan = index.getAsJsonObject("plan");
             if (!plan.equals(read(root.resolve("protocol.json")))) { throw new IOException("Study plan differs from retained protocol"); }
-            if (!NetworkStudyPlan.PROTOCOL.equals(plan.get("protocol").getAsString())) { throw new IOException("Unknown protocol"); }
+            String declared = plan.get("protocol").getAsString();
+            if (!NetworkStudyPlan.PROTOCOL.equals(declared)
+                    && !NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL.equals(declared)) { throw new IOException("Unknown protocol"); }
             Set<String> expected = new HashSet<String>();
             for (JsonElement workflow : plan.getAsJsonArray("workflows")) {
                 for (JsonElement count : plan.getAsJsonArray("vmCounts")) {

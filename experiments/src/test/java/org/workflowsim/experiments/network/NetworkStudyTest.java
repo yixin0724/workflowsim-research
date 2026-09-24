@@ -28,6 +28,28 @@ class NetworkStudyTest {
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.movement("unknown"));
     }
 
+    @Test void peftComparisonVariantReusesFrozenMatrixWithThreeDeterministicPlanners(@TempDir Path output) throws Exception {
+        NetworkStudyPlan full = NetworkStudyPlan.create("full", true, datasets(), output.resolve("peft-full"));
+        assertEquals(NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL, full.getProtocol());
+        assertEquals("peft-comparison-r12-v1", full.getProtocol());
+        assertEquals(7, full.getWorkflows().size());
+        assertEquals(Arrays.asList(4, 16), full.getVmCounts());
+        assertEquals(126, full.getRunCount());
+        assertEquals(Arrays.asList(Parameters.PlanningAlgorithm.LOCAL_HEFT, Parameters.PlanningAlgorithm.LOCAL_CPOP,
+                Parameters.PlanningAlgorithm.LOCAL_PEFT), full.getPlanners());
+        assertEquals(1, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).size());
+        assertEquals(11L, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).get(0));
+        Map<String, Object> protocol = full.asMap();
+        assertEquals("peft-comparison-r12-v1", protocol.get("protocol"));
+        assertTrue(protocol.get("inference").toString().contains("HOLM_TWO_PLANNERS"));
+        assertEquals(18, NetworkStudyPlan.create("smoke", true, datasets(), output.resolve("peft-small")).getRunCount());
+        // r10 协议保持冻结：默认变体的常量与运行数不受 S5 影响
+        NetworkStudyPlan r10 = NetworkStudyPlan.create("full", datasets(), output.resolve("r10"));
+        assertEquals(NetworkStudyPlan.PROTOCOL, r10.getProtocol());
+        assertEquals(504, r10.getRunCount());
+        assertTrue(r10.asMap().get("inference").toString().contains("HOLM_THREE_PLANNERS"));
+    }
+
     @Test void exactSignTestAndHolmRespectTiesAndFamilySize() {
         assertEquals(0.03125, NetworkStudySummary.signTest(6, 0), 1e-12);
         assertEquals(1.0, NetworkStudySummary.signTest(3, 3), 1e-12);
@@ -58,6 +80,24 @@ class NetworkStudyTest {
         assertEquals(-100.0, (Double) comparisons.get(1).get("medianImprovementPercent"), 1e-12);
         runs.get(0).put("status", "FAILED");
         assertTrue(((List<?>) NetworkStudySummary.summarize(runs).get("comparisons")).isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test void candidatesAreDerivedFromPresentedPlannersInFirstAppearanceOrder() {
+        List<Map<String, Object>> runs = new ArrayList<Map<String, Object>>();
+        runs.add(row("real", "CLASSIC_DAX", "LOCAL_HEFT", 100));
+        runs.add(row("real", "CLASSIC_DAX", "LOCAL_CPOP", 95));
+        runs.add(row("real", "CLASSIC_DAX", "LOCAL_PEFT", 90));
+        Map<String, Object> result = NetworkStudySummary.summarize(runs);
+        List<Map<String, Object>> comparisons = (List<Map<String, Object>>) result.get("comparisons");
+        assertEquals(2, comparisons.size());
+        assertEquals("LOCAL_CPOP", comparisons.get(0).get("candidate"));
+        assertEquals("LOCAL_PEFT", comparisons.get(1).get("candidate"));
+        assertEquals("LOCAL_HEFT", comparisons.get(1).get("baseline"));
+        assertEquals(10.0, (Double) comparisons.get(1).get("medianImprovementPercent"), 1e-12);
+        // 单 DAG 对比 signTest p=1.0；Holm 族大小随候选数自动为 2
+        assertEquals(1.0, (Double) comparisons.get(1).get("pValue"), 1e-12);
+        assertEquals(1.0, (Double) comparisons.get(1).get("holmAdjustedPValue"), 1e-12);
     }
 
     private static Map<String, Object> row(String dag, String population, String planner, double seconds) {

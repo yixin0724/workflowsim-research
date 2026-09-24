@@ -49,7 +49,12 @@ public final class NetworkStudySummary {
             }
             for (List<Map<String, Object>> stratum : strata.values()) {
                 List<Map<String, Object>> family = new ArrayList<Map<String, Object>>();
-                for (String candidate : new String[] {"LOCAL_CPOP", "RANDOM", "PSO"}) {
+                List<String> candidates = new ArrayList<String>();
+                for (Map<String, Object> aggregate : stratum) {
+                    String planner = aggregate.get("planner").toString();
+                    if (!"LOCAL_HEFT".equals(planner) && !candidates.contains(planner)) { candidates.add(planner); }
+                }
+                for (String candidate : candidates) {
                     List<Double> effects = new ArrayList<Double>();
                     int wins = 0, ties = 0, losses = 0;
                     for (Map<String, Object> baseline : stratum) {

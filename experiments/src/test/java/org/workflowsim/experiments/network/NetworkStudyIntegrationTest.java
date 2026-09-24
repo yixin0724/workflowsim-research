@@ -49,4 +49,21 @@ class NetworkStudyIntegrationTest {
         Files.write(manifest, originalManifest.getBytes(StandardCharsets.UTF_8));
         assertEquals(36, NetworkStudyValidator.validate(index));
     }
+
+    @Test void peftComparisonSmokeStudyRunsOnFrozenR10Matrix(@TempDir Path temp) throws Exception {
+        Path output = temp.resolve("peft-study");
+        Path index = NetworkStudyExecutor.execute("smoke", true, NetworkStudyTest.datasets(), output);
+        assertEquals(18, NetworkStudyValidator.validate(index));
+        String document = new String(Files.readAllBytes(index), StandardCharsets.UTF_8);
+        assertTrue(document.contains("peft-comparison-r12-v1"));
+        assertTrue(document.contains("LOCAL_PEFT"));
+        assertFalse(document.contains("\"RANDOM\""));
+        assertFalse(document.contains("\"PSO\""));
+        String markdown = new String(Files.readAllBytes(output.resolve("results.md")), StandardCharsets.UTF_8);
+        assertTrue(markdown.contains("PEFT 对比研究"));
+        assertTrue(markdown.contains("VM同构"));
+        JsonObject plan = JsonParser.parseString(document).getAsJsonObject().getAsJsonObject("plan");
+        assertEquals(3, plan.getAsJsonArray("planners").size());
+        assertEquals(18, plan.get("runCount").getAsInt());
+    }
 }
