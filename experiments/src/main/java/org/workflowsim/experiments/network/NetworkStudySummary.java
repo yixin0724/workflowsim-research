@@ -12,15 +12,23 @@ public final class NetworkStudySummary {
     private NetworkStudySummary() { }
 
     public static Map<String, Object> summarize(List<Map<String, Object>> runs) {
+        // Heterogeneity enters the stratification only when runs carry it; frozen protocols stay byte-identical.
+        boolean heterogeneityAxis = false;
+        for (Map<String, Object> run : runs) { if (run.get("heterogeneity") != null) { heterogeneityAxis = true; break; } }
         Map<String, List<Map<String, Object>>> groups = new LinkedHashMap<String, List<Map<String, Object>>>();
         int failures = 0;
         for (Map<String, Object> run : runs) {
             if (!"COMPLETED_SUCCESSFULLY".equals(run.get("status"))) { failures++; continue; }
-            String key = run.get("workflowId") + "/" + run.get("vmCount") + "/" + run.get("network") + "/" + run.get("planner");
+            String key = run.get("workflowId") + "/" + run.get("vmCount") + "/" + run.get("network")
+                    + (heterogeneityAxis ? "/" + run.get("heterogeneity") : "") + "/" + run.get("planner");
             if (!groups.containsKey(key)) { groups.put(key, new ArrayList<Map<String, Object>>()); }
             groups.get(key).add(run);
         }
         List<Map<String, Object>> aggregates = new ArrayList<Map<String, Object>>();
+        List<String> aggregateFields = new ArrayList<String>(
+                java.util.Arrays.asList("workflowId", "family", "population", "vmCount", "network"));
+        if (heterogeneityAxis) { aggregateFields.add("heterogeneity"); }
+        aggregateFields.add("planner");
         for (List<Map<String, Object>> group : groups.values()) {
             Map<String, Object> first = group.get(0);
             List<Double> values = new ArrayList<Double>();
@@ -29,7 +37,7 @@ public final class NetworkStudySummary {
             double sum = 0;
             for (double value : values) { sum += value; }
             Map<String, Object> aggregate = new LinkedHashMap<String, Object>();
-            for (String field : new String[] {"workflowId", "family", "population", "vmCount", "network", "planner"}) {
+            for (String field : aggregateFields) {
                 aggregate.put(field, first.get(field));
             }
             aggregate.put("observedRuns", values.size());
@@ -43,7 +51,8 @@ public final class NetworkStudySummary {
         if (failures == 0) {
             Map<String, List<Map<String, Object>>> strata = new LinkedHashMap<String, List<Map<String, Object>>>();
             for (Map<String, Object> aggregate : aggregates) {
-                String key = aggregate.get("population") + "/" + aggregate.get("vmCount") + "/" + aggregate.get("network");
+                String key = aggregate.get("population") + "/" + aggregate.get("vmCount") + "/" + aggregate.get("network")
+                        + (heterogeneityAxis ? "/" + aggregate.get("heterogeneity") : "");
                 if (!strata.containsKey(key)) { strata.put(key, new ArrayList<Map<String, Object>>()); }
                 strata.get(key).add(aggregate);
             }
@@ -73,6 +82,7 @@ public final class NetworkStudySummary {
                     Collections.sort(effects);
                     Map<String, Object> comparison = new LinkedHashMap<String, Object>();
                     for (String field : new String[] {"population", "vmCount", "network"}) { comparison.put(field, stratum.get(0).get(field)); }
+                    if (heterogeneityAxis) { comparison.put("heterogeneity", stratum.get(0).get("heterogeneity")); }
                     comparison.put("baseline", "LOCAL_HEFT"); comparison.put("candidate", candidate);
                     comparison.put("dagPairs", effects.size()); comparison.put("wins", wins);
                     comparison.put("ties", ties); comparison.put("losses", losses);

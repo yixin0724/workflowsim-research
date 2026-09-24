@@ -1,6 +1,6 @@
 # WorkflowSim 文档中心
 
-按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，本轮交付见[R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)，正式研究见[网络受限研究协议](../experiments/studies/network-limited-r10/PROTOCOL.md)与[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)。旧R7/R8结果页保留历史状态，不代表修正后的当前算法。
+按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，本轮交付见[R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)，正式研究见[网络受限研究协议](../experiments/studies/network-limited-r10/PROTOCOL.md)、[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)与[敏感性响应面研究（R13）](../experiments/studies/sensitivity-r13/PROTOCOL.md)。旧R7/R8结果页保留历史状态，不代表修正后的当前算法。
 
 
 ## 目录结构
@@ -68,6 +68,7 @@ docs/
 | 如何设计多场景/多重复实验？ | [`experiments/CAMPAIGNS.md`](experiments/CAMPAIGNS.md) |
 | 如何复跑一份历史 run 并机械验证核心量是否一致？ | [`experiments/RERUN_DIFF_CONTRACT.md`](experiments/RERUN_DIFF_CONTRACT.md)（CLI 用法、verdict 与退出码、报告格式） |
 | P7 冻结基线的矩阵和结果？ | [`experiments/reference-baselines/P7_PROTOCOL.md`](experiments/reference-baselines/P7_PROTOCOL.md)、[`P7_RESULTS.md`](experiments/reference-baselines/P7_RESULTS.md) |
+| 规划器收益如何随 VM 数/带宽/异构度变化（R13）？ | [`../experiments/studies/sensitivity-r13/PROTOCOL.md`](../experiments/studies/sensitivity-r13/PROTOCOL.md)、[`RESULTS.md`](../experiments/studies/sensitivity-r13/RESULTS.md) |
 | 代码质量是否可信？ | [`advanced/QUALITY_AUDIT.md`](advanced/QUALITY_AUDIT.md) |
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
 | 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |

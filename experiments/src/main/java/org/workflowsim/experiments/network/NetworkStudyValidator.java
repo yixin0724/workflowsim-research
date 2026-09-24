@@ -36,24 +36,22 @@ public final class NetworkStudyValidator {
             if (!plan.equals(read(root.resolve("protocol.json")))) { throw new IOException("Study plan differs from retained protocol"); }
             String declared = plan.get("protocol").getAsString();
             if (!NetworkStudyPlan.PROTOCOL.equals(declared)
-                    && !NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL.equals(declared)) { throw new IOException("Unknown protocol"); }
+                    && !NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL.equals(declared)
+                    && !NetworkStudyPlan.SENSITIVITY_PROTOCOL.equals(declared)) { throw new IOException("Unknown protocol"); }
             Set<String> expected = new HashSet<String>();
             for (JsonElement workflow : plan.getAsJsonArray("workflows")) {
-                for (JsonElement count : plan.getAsJsonArray("vmCounts")) {
-                    for (JsonElement network : plan.getAsJsonArray("networks")) {
-                        for (JsonElement planner : plan.getAsJsonArray("planners")) {
-                            String algorithm = planner.getAsString();
-                            if ("RANDOM".equals(algorithm) || "PSO".equals(algorithm)) {
-                                for (JsonElement seed : plan.getAsJsonArray("randomSeeds")) {
-                                    if (!expected.add(key(workflow.getAsJsonObject().get("id").getAsString(), count.getAsInt(), network.getAsString(), algorithm, seed.getAsLong()))) {
-                                        throw new IOException("Duplicate planned study cell");
-                                    }
-                                }
-                            } else {
-                                if (!expected.add(key(workflow.getAsJsonObject().get("id").getAsString(), count.getAsInt(), network.getAsString(), algorithm, plan.get("deterministicSeed").getAsLong()))) {
-                                    throw new IOException("Duplicate planned study cell");
-                                }
-                            }
+                if (plan.has("conditions")) {
+                    for (JsonElement condition : plan.getAsJsonArray("conditions")) {
+                        JsonObject declaredCondition = condition.getAsJsonObject();
+                        addCells(expected, workflow, declaredCondition.get("vmCount").getAsInt(),
+                                declaredCondition.get("network").getAsString(),
+                                declaredCondition.get("heterogeneity").getAsString(), plan);
+                    }
+                } else {
+                    for (JsonElement count : plan.getAsJsonArray("vmCounts")) {
+                        for (JsonElement network : plan.getAsJsonArray("networks")) {
+                            addCells(expected, workflow, count.getAsInt(), network.getAsString(),
+                                    NetworkStudyPlan.HOMOGENEOUS, plan);
                         }
                     }
                 }
@@ -61,8 +59,11 @@ public final class NetworkStudyValidator {
             if (expected.size() != plan.get("runCount").getAsInt()) { throw new IOException("Plan run count mismatch"); }
             for (JsonElement element : index.getAsJsonArray("runs")) {
                 JsonObject run = element.getAsJsonObject();
+                String heterogeneity = run.has("heterogeneity")
+                        ? run.get("heterogeneity").getAsString() : NetworkStudyPlan.HOMOGENEOUS;
                 String cell = key(run.get("workflowId").getAsString(), run.get("vmCount").getAsInt(),
-                        run.get("network").getAsString(), run.get("planner").getAsString(), run.get("seed").getAsLong());
+                        run.get("network").getAsString(), heterogeneity,
+                        run.get("planner").getAsString(), run.get("seed").getAsLong());
                 if (!expected.remove(cell)) { throw new IOException("Duplicate or undeclared study cell: " + cell); }
                 JsonObject declaredWorkflow = null;
                 for (JsonElement candidateWorkflow : plan.getAsJsonArray("workflows")) {
@@ -103,7 +104,9 @@ public final class NetworkStudyValidator {
                 }
                 for (JsonElement vmElement : platform.getAsJsonArray("vms")) {
                     JsonObject vm = vmElement.getAsJsonObject();
-                    if (vm.get("mips").getAsDouble() != 1000.0 || vm.get("bandwidth").getAsLong() != 1
+                    if (vm.get("mips").getAsDouble()
+                            != NetworkStudyPlan.vmMips(Integer.parseInt(vm.get("id").getAsString()), heterogeneity)
+                            || vm.get("bandwidth").getAsLong() != 1
                             || vm.get("pes").getAsInt() != 1
                             || !vm.get("id").equals(vm.get("pinnedHostId"))
                             || !"SPACE_SHARED".equals(vm.get("schedulerMode").getAsString())) {
@@ -113,8 +116,8 @@ public final class NetworkStudyValidator {
                 if (!"endpoint".equals(network)) {
                     JsonObject topology = platform.getAsJsonObject("networkTopology");
                     double link = topology.get("linkBandwidthMbPerSecond").getAsDouble();
-                    if (Double.compare(link, "fat-tree-constrained".equals(network) ? 0.125 : 1.25) != 0
-                            || topology.get("k").getAsInt() != 4
+                    if (Double.compare(link, NetworkStudyPlan.fatTreeLinkMbPerSecond(network)) != 0
+                            || topology.get("k").getAsInt() != NetworkStudyPlan.fatTreeK(run.get("vmCount").getAsInt())
                             || !topology.get("coreSwitchCount").isJsonNull()
                             || !topology.get("hostEdgePlacements").isJsonNull()) { throw new IOException("Network bandwidth/topology mismatch"); }
                 }
@@ -146,8 +149,28 @@ public final class NetworkStudyValidator {
     private static void match(JsonObject a, String ak, JsonObject b, String bk) throws IOException {
         if (Double.compare(a.get(ak).getAsDouble(), b.get(bk).getAsDouble()) != 0) { throw new IOException("Study metric mismatch: " + ak); }
     }
-    private static String key(String workflow, int count, String network, String planner, long seed) {
-        return workflow + "/" + count + "/" + network + "/" + planner + "/" + seed;
+    /** Adds the planner×seed cells of one workflow/condition combination to the expected-cell set. */
+    private static void addCells(Set<String> expected, JsonElement workflow, int vmCount, String network,
+            String heterogeneity, JsonObject plan) throws IOException {
+        for (JsonElement planner : plan.getAsJsonArray("planners")) {
+            String algorithm = planner.getAsString();
+            if ("RANDOM".equals(algorithm) || "PSO".equals(algorithm)) {
+                for (JsonElement seed : plan.getAsJsonArray("randomSeeds")) {
+                    if (!expected.add(key(workflow.getAsJsonObject().get("id").getAsString(), vmCount, network,
+                            heterogeneity, algorithm, seed.getAsLong()))) {
+                        throw new IOException("Duplicate planned study cell");
+                    }
+                }
+            } else {
+                if (!expected.add(key(workflow.getAsJsonObject().get("id").getAsString(), vmCount, network,
+                        heterogeneity, algorithm, plan.get("deterministicSeed").getAsLong()))) {
+                    throw new IOException("Duplicate planned study cell");
+                }
+            }
+        }
+    }
+    private static String key(String workflow, int count, String network, String heterogeneity, String planner, long seed) {
+        return workflow + "/" + count + "/" + network + "/" + heterogeneity + "/" + planner + "/" + seed;
     }
     private static JsonObject read(Path path) throws IOException {
         return JsonParser.parseString(new String(Files.readAllBytes(path), StandardCharsets.UTF_8)).getAsJsonObject();

@@ -50,6 +50,114 @@ class NetworkStudyTest {
         assertTrue(r10.asMap().get("inference").toString().contains("HOLM_THREE_PLANNERS"));
     }
 
+    @Test void sensitivityVariantDeclaresResponseSurfaceMatrix(@TempDir Path output) throws Exception {
+        NetworkStudyPlan full = NetworkStudyPlan.create("full", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13,
+                datasets(), output.resolve("r13-full"));
+        assertEquals("sensitivity-response-r13-v1", full.getProtocol());
+        assertEquals(NetworkStudyPlan.SENSITIVITY_PROTOCOL, full.getProtocol());
+        assertEquals(7, full.getWorkflows().size());
+        assertEquals(Arrays.asList(4, 8, 16, 32), full.getVmCounts());
+        assertEquals(5, full.getNetworks().size());
+        // 主块 4 VM数 × 5 网络 + 异构块 2 VM数 × 3 异构等级 = 26 条件
+        assertEquals(26, full.getConditions().size());
+        assertEquals(546, full.getRunCount());
+        assertEquals(3, full.getPlanners().size());
+        assertEquals(11L, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).get(0));
+        Map<String, Object> protocol = full.asMap();
+        assertTrue(protocol.get("inference").toString().contains("HOLM_TWO_PLANNERS"));
+        assertTrue(protocol.containsKey("conditions"));
+        assertTrue(protocol.containsKey("heterogeneityMipsPatterns"));
+        assertEquals(0.5, ((Number) protocol.get("midLinkMbPerSecond")).doubleValue(), 1e-12);
+        assertEquals(5.0, ((Number) protocol.get("fastLinkMbPerSecond")).doubleValue(), 1e-12);
+        assertEquals(26, ((List<?>) protocol.get("conditions")).size());
+        NetworkStudyPlan smoke = NetworkStudyPlan.create("smoke", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13,
+                datasets(), output.resolve("r13-smoke"));
+        assertEquals(5, smoke.getConditions().size());
+        assertEquals(30, smoke.getRunCount());
+        assertTrue(smoke.asMap().containsKey("conditions"));
+        // R13 不影响冻结的 r10/S5 矩阵
+        assertEquals(504, NetworkStudyPlan.create("full", datasets(), output.resolve("r10")).getRunCount());
+        assertEquals(126, NetworkStudyPlan.create("full", true, datasets(), output.resolve("s5")).getRunCount());
+        assertFalse(NetworkStudyPlan.create("full", datasets(), output.resolve("r10b")).asMap().containsKey("conditions"));
+        assertFalse(NetworkStudyPlan.create("full", true, datasets(), output.resolve("s5b")).asMap().containsKey("conditions"));
+        assertEquals(NetworkStudyPlan.StudyVariant.R10, NetworkStudyPlan.variantArgument(null));
+        assertEquals(NetworkStudyPlan.StudyVariant.PEFT_COMPARISON, NetworkStudyPlan.variantArgument("peft-comparison"));
+        assertEquals(NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, NetworkStudyPlan.variantArgument("sensitivity-r13"));
+        assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.variantArgument("unknown"));
+    }
+
+    @Test void heterogeneousPlatformsUseDeclaredDeterministicMipsPatterns() {
+        assertEquals(1000.0, NetworkStudyPlan.vmMips(3, NetworkStudyPlan.HOMOGENEOUS), 1e-12);
+        assertEquals(1000.0, NetworkStudyPlan.vmMips(0, NetworkStudyPlan.HET_MILD), 1e-12);
+        assertEquals(500.0, NetworkStudyPlan.vmMips(1, NetworkStudyPlan.HET_MILD), 1e-12);
+        assertEquals(2000.0, NetworkStudyPlan.vmMips(0, NetworkStudyPlan.HET_STRONG), 1e-12);
+        assertEquals(1000.0, NetworkStudyPlan.vmMips(1, NetworkStudyPlan.HET_STRONG), 1e-12);
+        assertEquals(500.0, NetworkStudyPlan.vmMips(2, NetworkStudyPlan.HET_STRONG), 1e-12);
+        assertEquals(2000.0, NetworkStudyPlan.vmMips(3, NetworkStudyPlan.HET_STRONG), 1e-12);
+        assertEquals(500.0, NetworkStudyPlan.vmMips(1, NetworkStudyPlan.HET_EXTREME), 1e-12);
+        assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.vmMips(0, "unknown"));
+
+        org.workflowsim.platform.PlatformProfile strong = NetworkStudyPlan.platform(4, "fat-tree-constrained",
+                NetworkStudyPlan.HET_STRONG);
+        assertEquals("network-study-4-fat-tree-constrained-HET_STRONG", strong.getName());
+        assertEquals(4, strong.getVms().size());
+        assertEquals(2000.0, strong.getVms().get(0).getMips(), 1e-12);
+        assertEquals(1000.0, strong.getVms().get(1).getMips(), 1e-12);
+        assertEquals(500.0, strong.getVms().get(2).getMips(), 1e-12);
+        assertEquals(2000.0, strong.getVms().get(3).getMips(), 1e-12);
+        assertEquals(4, strong.getNetworkTopology().getK());
+        assertEquals(0.125, strong.getNetworkTopology().getLinkBandwidthMbPerSecond(), 1e-12);
+        assertEquals(org.workflowsim.platform.PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                strong.getVms().get(2).getSchedulerMode());
+
+        org.workflowsim.platform.PlatformProfile large = NetworkStudyPlan.platform(32, "fat-tree-fast",
+                NetworkStudyPlan.HOMOGENEOUS);
+        assertEquals("network-study-32-fat-tree-fast", large.getName());
+        assertEquals(32, large.getVms().size());
+        assertEquals(8, large.getNetworkTopology().getK());
+        assertEquals(5.0, large.getNetworkTopology().getLinkBandwidthMbPerSecond(), 1e-12);
+        assertNull(NetworkStudyPlan.platform(8, "endpoint", NetworkStudyPlan.HET_MILD).getNetworkTopology());
+
+        assertEquals(0.5, NetworkStudyPlan.fatTreeLinkMbPerSecond("fat-tree-mid"), 1e-12);
+        assertEquals(5.0, NetworkStudyPlan.fatTreeLinkMbPerSecond("fat-tree-fast"), 1e-12);
+        assertEquals(0.125, NetworkStudyPlan.fatTreeLinkMbPerSecond("fat-tree-constrained"), 1e-12);
+        assertEquals(1.25, NetworkStudyPlan.fatTreeLinkMbPerSecond("fat-tree-wide"), 1e-12);
+        assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.fatTreeLinkMbPerSecond("endpoint"));
+        assertNotNull(NetworkStudyPlan.movement("fat-tree-mid"));
+        assertNotNull(NetworkStudyPlan.movement("fat-tree-fast"));
+        assertEquals(4, NetworkStudyPlan.fatTreeK(16));
+        assertEquals(8, NetworkStudyPlan.fatTreeK(32));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test void heterogeneityStratifiesComparisonsOnlyWhenRunsCarryIt() {
+        List<Map<String, Object>> runs = new ArrayList<Map<String, Object>>();
+        runs.add(hetRow("real", "CLASSIC_DAX", NetworkStudyPlan.HOMOGENEOUS, "LOCAL_HEFT", 100));
+        runs.add(hetRow("real", "CLASSIC_DAX", NetworkStudyPlan.HOMOGENEOUS, "LOCAL_PEFT", 95));
+        runs.add(hetRow("real", "CLASSIC_DAX", NetworkStudyPlan.HET_STRONG, "LOCAL_HEFT", 100));
+        runs.add(hetRow("real", "CLASSIC_DAX", NetworkStudyPlan.HET_STRONG, "LOCAL_PEFT", 80));
+        Map<String, Object> result = NetworkStudySummary.summarize(runs);
+        List<Map<String, Object>> comparisons = (List<Map<String, Object>>) result.get("comparisons");
+        assertEquals(2, comparisons.size());
+        assertEquals(NetworkStudyPlan.HOMOGENEOUS, comparisons.get(0).get("heterogeneity"));
+        assertEquals(5.0, (Double) comparisons.get(0).get("medianImprovementPercent"), 1e-12);
+        assertEquals(NetworkStudyPlan.HET_STRONG, comparisons.get(1).get("heterogeneity"));
+        assertEquals(20.0, (Double) comparisons.get(1).get("medianImprovementPercent"), 1e-12);
+        // 无异构字段的记录不能引入该键：冻结协议的汇总保持逐字节一致
+        Map<String, Object> plain = NetworkStudySummary.summarize(Arrays.asList(
+                row("real", "CLASSIC_DAX", "LOCAL_HEFT", 100), row("real", "CLASSIC_DAX", "LOCAL_PEFT", 90)));
+        List<Map<String, Object>> plainComparisons = (List<Map<String, Object>>) plain.get("comparisons");
+        assertFalse(plainComparisons.get(0).containsKey("heterogeneity"));
+        assertFalse(((List<Map<String, Object>>) plain.get("aggregates")).get(0).containsKey("heterogeneity"));
+    }
+
+    private static Map<String, Object> hetRow(String dag, String population, String heterogeneity,
+            String planner, double seconds) {
+        Map<String, Object> r = row(dag, population, planner, seconds);
+        r.put("heterogeneity", heterogeneity);
+        return r;
+    }
+
     @Test void exactSignTestAndHolmRespectTiesAndFamilySize() {
         assertEquals(0.03125, NetworkStudySummary.signTest(6, 0), 1e-12);
         assertEquals(1.0, NetworkStudySummary.signTest(3, 3), 1e-12);

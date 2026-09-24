@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;
 
@@ -39,10 +41,11 @@ import org.workflowsim.Task;
  * <p><b>边界声明</b>：OCT 是调度前静态量——按 VM 对无争用带宽计算，不做副本局部性
  * 减免（运行期 stage-in 可利用已演进的副本，实际传输可能快于 OCT 估计）；不建模
  * 链路争用、网络拓扑或多工作流并发传输（同 LOCAL_HEFT 边界）；运行时最小事件间隔
- * 钳制与完成事件规则带来的微小漂移同样适用。rank_o 降序在极端异构成本下理论上
- * 不保证拓扑序（子任务 OCT 跨 VM 落差可超过父任务平均计算成本）；此时基类
- * {@code readyTime} 以明确的 {@link IllegalStateException} 快速失败，而不是产出
- * 前驱未定的不一致调度。它是抽象模型上的 PEFT，不是真实平台校准。</p>
+ * 钳制与完成事件规则带来的微小漂移同样适用。rank_o 降序在异构成本下理论上不保证
+ * 拓扑序（子任务 OCT 跨 VM 落差可超过父任务平均计算成本），因此分配采用 HEFT 系
+ * 标准就绪表纪律：每轮在前驱均已分配的任务中取 rank_o 最高者（平局取较小任务 ID）。
+ * 当 rank_o 序本身拓扑合法时（全部同构平台与论文算例，由既有单测逐位守护），就绪表
+ * 选择与字面 rank_o 序逐项一致，调度不变。它是抽象模型上的 PEFT，不是真实平台校准。</p>
  */
 public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 
@@ -71,8 +74,28 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
             }
         });
         double stageInFinish = stageInFinishTime();
-        for (Task task : priority) {
-            allocateOptimistic(task, octByTaskVm.get(task), stageInFinish);
+        // 就绪表纪律：每轮在“前驱均已分配”的任务中取 rank_o 最高者。rank_o 降序
+        // 在异构成本下不保证拓扑序（见类边界声明），字面顺序直接分配会让基类
+        // readyTime 快速失败；当 rank_o 序本身拓扑合法（全部同构平台与论文算例）
+        // 时，就绪表选择与字面 rank_o 序逐项一致，调度逐位不变。
+        List<Task> remaining = new ArrayList<Task>(priority);
+        Set<Task> allocated = new HashSet<Task>();
+        while (!remaining.isEmpty()) {
+            Task next = null;
+            for (Task candidate : remaining) {
+                if (allocated.containsAll(candidate.getParentList())) {
+                    next = candidate;
+                    break;
+                }
+            }
+            if (next == null) {
+                // prepare() 的深度校验已保证无环；此分支仅防御性兜底。
+                throw new IllegalStateException(label() + " ready list exhausted with "
+                        + remaining.size() + " unallocated tasks");
+            }
+            remaining.remove(next);
+            allocated.add(next);
+            allocateOptimistic(next, octByTaskVm.get(next), stageInFinish);
         }
     }
 
