@@ -30,6 +30,7 @@ import org.workflowsim.failure.FailureParameters;
 import org.workflowsim.planning.BasePlanningAlgorithm;
 import org.workflowsim.planning.LocalCpopPlanningAlgorithm;
 import org.workflowsim.planning.LocalHeftPlanningAlgorithm;
+import org.workflowsim.planning.LocalPeftPlanningAlgorithm;
 import org.workflowsim.planning.PSOPlanningAlgorithm;
 import org.workflowsim.planning.PlanningContext;
 import org.workflowsim.planning.RandomPlanningAlgorithm;
@@ -370,6 +371,9 @@ public final class WorkflowPlanner extends SimEntity {
                 break;
             case LOCAL_CPOP:
                 planner = new LocalCpopPlanningAlgorithm(planningContext);
+                break;
+            case LOCAL_PEFT:
+                planner = new LocalPeftPlanningAlgorithm(planningContext);
                 break;
             default:
                 planner = null;

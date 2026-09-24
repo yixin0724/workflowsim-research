@@ -59,7 +59,8 @@ class AlgorithmSupportMatrixTest {
                 PlanningAlgorithm.SHARED_STORAGE_PEFT,
                 PlanningAlgorithm.PSO,
                 PlanningAlgorithm.LOCAL_HEFT,
-                PlanningAlgorithm.LOCAL_CPOP);
+                PlanningAlgorithm.LOCAL_CPOP,
+                PlanningAlgorithm.LOCAL_PEFT);
         // R9：历史 HEFT/DHEFT 标签已随其未对齐实现一并移除，遗留分区为空集；
         // 分区断言继续守住"每个枚举标签都被显式分类"的契约。
         EnumSet<PlanningAlgorithm> legacy = EnumSet.noneOf(PlanningAlgorithm.class);
@@ -122,13 +123,14 @@ class AlgorithmSupportMatrixTest {
             return SimulationConfig.builder("workflow.dax", 1).build();
         }
         boolean localComm = algorithm == PlanningAlgorithm.LOCAL_HEFT
-                || algorithm == PlanningAlgorithm.LOCAL_CPOP;
+                || algorithm == PlanningAlgorithm.LOCAL_CPOP
+                || algorithm == PlanningAlgorithm.LOCAL_PEFT;
         SimulationConfig.Builder builder = SimulationConfig.builder("workflow.dax", 1)
                 .planningAlgorithm(algorithm)
                 .schedulingAlgorithm(SchedulingAlgorithm.STATIC);
         if (localComm) {
-            // LOCAL_HEFT/LOCAL_CPOP 的通信建模要求 LOCAL 文件系统模式与执行前
-            // 传输延迟数据移动模型（配置层校验）。
+            // LOCAL_HEFT/LOCAL_CPOP/LOCAL_PEFT 的通信建模要求 LOCAL 文件系统模式与
+            // 执行前传输延迟数据移动模型（配置层校验）。
             builder.fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                     .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1());
         } else {

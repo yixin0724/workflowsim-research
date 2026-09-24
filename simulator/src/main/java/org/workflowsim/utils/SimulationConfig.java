@@ -503,13 +503,14 @@ public final class SimulationConfig {
                             + "(silent planning/runtime divergence)");
                 }
             }
-            // LOCAL_HEFT/LOCAL_CPOP 的规划侧 AST（按父任务并行传输、传输与 VM 忙碌期
-            // 重叠）逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输延迟模型，
-            // 模型前提在配置层提前强制（规划器运行时还会再次校验）。链路争用模型
-            // （R2）同样可用于本轨道：规划侧仍按无争用 AST 估计，运行期并发传输公平
-            // 共享 VM 端点带宽，两者在并发负载下的可解释偏差由文档声明。
+            // LOCAL_HEFT/LOCAL_CPOP/LOCAL_PEFT 的规划侧 AST（按父任务并行传输、传输与
+            // VM 忙碌期重叠）逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输
+            // 延迟模型，模型前提在配置层提前强制（规划器运行时还会再次校验）。链路
+            // 争用模型（R2）同样可用于本轨道：规划侧仍按无争用 AST 估计，运行期并发
+            // 传输公平共享 VM 端点带宽，两者在并发负载下的可解释偏差由文档声明。
             if (planningAlgorithm == PlanningAlgorithm.LOCAL_HEFT
-                    || planningAlgorithm == PlanningAlgorithm.LOCAL_CPOP) {
+                    || planningAlgorithm == PlanningAlgorithm.LOCAL_CPOP
+                    || planningAlgorithm == PlanningAlgorithm.LOCAL_PEFT) {
                 String label = planningAlgorithm.name();
                 if (fileSystem != ReplicaCatalog.FileSystem.LOCAL) {
                     throw new IllegalArgumentException(label + " requires ReplicaCatalog.FileSystem.LOCAL; "
@@ -545,8 +546,8 @@ public final class SimulationConfig {
                     && planningAlgorithm == PlanningAlgorithm.INVALID) {
                 throw new IllegalArgumentException(dataMovementModel.getKind() + " requires a "
                         + "planning algorithm that assigns static VM mappings (e.g. LOCAL_HEFT, "
-                        + "LOCAL_CPOP, RANDOM); the INVALID planning layer leaves the destination "
-                        + "VM unknown at release time");
+                        + "LOCAL_CPOP, LOCAL_PEFT, RANDOM); the INVALID planning layer leaves the "
+                        + "destination VM unknown at release time");
             }
             // Fat-tree 链路争用模型：VM→VM 传输沿确定性路由占用共享链路，前提是
             // LOCAL 文件系统（VM→VM 通信被建模）、静态映射（路径就绪期可知）、
