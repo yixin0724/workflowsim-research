@@ -1,6 +1,6 @@
 # WorkflowSim 文档中心
 
-按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，本轮交付见[R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)，正式研究见[网络受限研究协议](../experiments/studies/network-limited-r10/PROTOCOL.md)。旧R7/R8结果页保留历史状态，不代表修正后的当前算法。
+按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，本轮交付见[R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)，正式研究见[网络受限研究协议](../experiments/studies/network-limited-r10/PROTOCOL.md)与[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)。旧R7/R8结果页保留历史状态，不代表修正后的当前算法。
 
 
 ## 目录结构
