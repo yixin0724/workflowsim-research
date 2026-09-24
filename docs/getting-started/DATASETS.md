@@ -1,7 +1,7 @@
 # 数据集选择快速指南
 
 > 本指南帮助研究者在 `datasets/` 的三个集合中快速选出适合自己实验的输入。
-> 各集合的来源、目录布局和完整字段契约见 [`datasets/README.md`](../datasets/README.md)。
+> 各集合的来源、目录布局和完整字段契约见 [`datasets/README.md`](../../datasets/README.md)。
 
 ---
 
@@ -156,7 +156,7 @@ mvn -pl :workflowsim-experiments -am -DskipTests \
 
 ## 6. 相关文档
 
-- [`datasets/README.md`](../datasets/README.md) — 数据集完整说明（来源、目录、字段契约、已知瑕疵）
+- [`datasets/README.md`](../../datasets/README.md) — 数据集完整说明（来源、目录、字段契约、已知瑕疵）
 - [`WFINSTANCES_PILOT.md`](../advanced/WFINSTANCES_PILOT.md) — WfInstances 四个试点的认证与不可主张范围
 - [`P7_RESULTS.md`](../experiments/reference-baselines/P7_RESULTS.md) — P7 冻结参考基线结果
 - [`BUILD.md`](BUILD.md) — 构建命令速查表

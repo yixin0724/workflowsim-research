@@ -11,6 +11,11 @@
 > 前置能力：R1 配对显著性框架、R2 端点争用模型、R6 Fat-tree 拓扑感知链路争用模型
 > （`docs/research/FAT_TREE_PRINCIPLES.md` / `FAT_TREE_DESIGN.md`）。
 
+> **R10 注记：本页是旧实现下的历史 campaign 协议（360 次），独立保留、不代表当前版本。**
+> R10 修正了 LOCAL_CPOP 前驱秩/关键路径与 max-min 带宽回收语义；当前正式研究见
+> [network-limited-r10 协议](../../experiments/studies/network-limited-r10/PROTOCOL.md)
+> 与 [R10 验收记录](../advanced/PLATFORM_UPGRADE_R10.md)。
+
 ## 1. 研究问题
 
 **网络争用是否改变调度算法的相对优劣？** 平台此前只有无争用的抽象带宽模型，

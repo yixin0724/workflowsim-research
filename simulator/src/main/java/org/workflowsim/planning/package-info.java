@@ -6,7 +6,7 @@
  * 无故障、无开销和 {@code SPACE_SHARED} VM 的受控模型下，计算带保留区插入的静态 DAG
  * 计划，并提供可审计的决策轨迹。</p>
  *
- * <p>历史 {@code HEFT} 与 {@code DHEFT} 保留用于兼容性探索，不属于标准
- * {@code SimulationRunner} 的研究证据入口。</p>
+ * <p>历史 {@code HEFT} 与 {@code DHEFT} 规划枚举已在 R9 清理轮移除；依赖感知 DAG
+ * 规划请使用 {@code SHARED_STORAGE_*} 系列，独立任务映射请使用 {@code STATIC_*} 系列。</p>
  */
 package org.workflowsim.planning;
