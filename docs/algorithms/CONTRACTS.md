@@ -71,7 +71,15 @@ Heterogeneous Systems by an Optimistic Cost Table*, IEEE TPDS 25(3), 2014, DOI
 includes interprocessor communication costs. This contract retains the OCT
 successor look-ahead, average-OCT priority, and `EFT + OCT` selection core, but
 sets the communication term to zero because the controlled model does not
-represent topology, routing, or link contention.
+represent topology, routing, or link contention. The communication-aware PEFT
+variant lives on the LOCAL track as `LOCAL_PEFT` (contract and reproduction
+evidence in `docs/algorithms/CATALOG.md`, section *Communication-Aware Static
+DAG Planners*), where the OCT communication term `c(t,child,p,p')` is the
+pairwise-VM transfer estimate `bytes / (1e6 × min(bw_p, bw_p'))` and the exit
+condition is the paper's `OCT(t_exit,p) = w̄_exit`. A communication-aware variant
+with the full paper OCT communication term exists in the LOCAL track as
+`LOCAL_PEFT`（契约与复现证据见 `docs/algorithms/CATALOG.md` 的
+Communication-Aware Static DAG Planners 一节与算法 manifest）。
 
 ## Independent-Task Static Track
 

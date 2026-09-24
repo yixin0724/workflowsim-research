@@ -16,7 +16,8 @@ import org.workflowsim.Task;
  * <p><b>算法</b>（Arabnejad &amp; Barbosa, IEEE TPDS 2014, Predict Earliest Finish
  * Time）：对每个任务与 VM 计算乐观成本表
  * {@code OCT(t, p) = w(t,p) + max_{child}( min_{p'}( OCT(child, p') + c̄(t, child, p, p') ))}，
- * 出口任务 {@code OCT ≡ 0}；任务优先级为 OCT 在全部 VM 上的平均值（论文 rank_o）
+ * 出口任务 {@code OCT(t_exit, p) = w̄_exit}（出口任务在全部 VM 上的平均计算秒数，
+ * 论文原文约定，对所有 VM 一致）；任务优先级为 OCT 在全部 VM 上的平均值（论文 rank_o）
  * 降序，平局取较小任务 ID；VM 选择最小化乐观目标 {@code EFT(t,p) + OCT(t,p)}，
  * 平局取较小 VM ID。与 HEFT 的纯贪心 EFT 选择不同，OCT 项把任务以下子 DAG 的
  * 乐观后续成本纳入当前 VM 决策，且选择过程只做一次前向扫描（无回溯）。</p>
@@ -38,8 +39,10 @@ import org.workflowsim.Task;
  * <p><b>边界声明</b>：OCT 是调度前静态量——按 VM 对无争用带宽计算，不做副本局部性
  * 减免（运行期 stage-in 可利用已演进的副本，实际传输可能快于 OCT 估计）；不建模
  * 链路争用、网络拓扑或多工作流并发传输（同 LOCAL_HEFT 边界）；运行时最小事件间隔
- * 钳制与完成事件规则带来的微小漂移同样适用。它是抽象模型上的 PEFT，不是真实平台
- * 校准。</p>
+ * 钳制与完成事件规则带来的微小漂移同样适用。rank_o 降序在极端异构成本下理论上
+ * 不保证拓扑序（子任务 OCT 跨 VM 落差可超过父任务平均计算成本）；此时基类
+ * {@code readyTime} 以明确的 {@link IllegalStateException} 快速失败，而不是产出
+ * 前驱未定的不一致调度。它是抽象模型上的 PEFT，不是真实平台校准。</p>
  */
 public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 
@@ -86,8 +89,8 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
         for (CondorVM vm : vms()) {
             double oct;
             if (task.getChildList().isEmpty()) {
-                // 论文出口条件：OCT(t_exit, p) = 0。
-                oct = 0.0;
+                // 论文出口条件：OCT(t_exit, p) = w̄_exit（平均计算成本，逐 VM 一致）。
+                oct = meanComputeSeconds(task);
             } else {
                 double worstChild = 0.0;
                 for (Task child : task.getChildList()) {

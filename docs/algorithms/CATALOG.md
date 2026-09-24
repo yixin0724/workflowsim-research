@@ -117,7 +117,8 @@ OCT formulation includes processor-to-processor communication costs.
 `SHARED_STORAGE_PEFT` retains optimistic successor look-ahead, average OCT
 priority, and `EFT + OCT` processor choice, but sets that communication term to
 zero because the controlled shared-storage model has no topology, route, or
-shared-link model. It must not be presented as a network-aware PEFT result.
+shared-link model. It must not be presented as a network-aware PEFT result; the
+communication-aware variant is `LOCAL_PEFT` in the LOCAL track (below).
 
 ## Metaheuristic Static DAG Mapping (Paper Reproduction)
 
@@ -150,8 +151,12 @@ Known reproduction limits (declared in the manifest contract):
 
 `LOCAL_HEFT` and `LOCAL_CPOP` reproduce the two list-scheduling algorithms of
 Topcuoglu, Hariri, and Wu, *Performance-Effective and Low-Complexity Task
-Scheduling for Heterogeneous Computing*, IEEE TPDS 13(4), 2002, adapted to the
-controlled LOCAL-file-system execution model. They require `STATIC` dispatch,
+Scheduling for Heterogeneous Computing*, IEEE TPDS 13(4), 2002, and
+`LOCAL_PEFT` reproduces the optimistic-cost-table list scheduler of Arabnejad
+and Barbosa, *List Scheduling Algorithm for Heterogeneous Systems by an
+Optimistic Cost Table*, IEEE TPDS 25(3), 2014,
+[DOI 10.1109/TPDS.2013.57](https://doi.org/10.1109/TPDS.2013.57), all adapted
+to the controlled LOCAL-file-system execution model. They require `STATIC` dispatch,
 the LOCAL file system, NONE clustering, disabled overhead/failure models,
 a preExecution-family data movement model (`preExecutionTransferDelayV1()`,
 `preExecutionTransferDelayWithContentionV1()`, or `fatTreeContentionV1()`),
@@ -216,12 +221,29 @@ See `docs/research/FAT_TREE_PRINCIPLES.md` and `docs/research/FAT_TREE_DESIGN.md
   A critical path follows only edges satisfying the upward-rank recurrence and
   constant critical priority (ties → lower task ID); its tasks are pinned to the
   VM minimizing total critical-path compute seconds. Other tasks use insertion EFT.
+- `LOCAL_PEFT`: optimistic cost table
+  `OCT(t,p) = w(t,p) + max_child[ min_p'( OCT(child,p') + c(t,child,p,p') ) ]`
+  with the paper's exit condition `OCT(t_exit,p) = w̄_exit` (the exit task's mean
+  compute cost, uniform over VMs); priority is the mean OCT over all VMs
+  (descending, ties → lower task id); VM choice minimizes `EFT + OCT(t,p)`
+  (ties → lower VM id) via the same insertion-based search as LOCAL_HEFT.
+  Because the OCT exit value shifts every entry of a single-exit DAG by the same
+  constant `w̄_exit`, the alternative `OCT(exit,p)=0` convention yields identical
+  priorities and schedules; only the published OCT/rank_o table distinguishes
+  them, and the tests assert that table under the paper convention. Mean-OCT
+  priority is not provably topological under extreme compute-cost spreads; a
+  child outranking its parent fails fast with `IllegalStateException` (base
+  `readyTime` guard) rather than producing an inconsistent schedule.
 
-Both are regression-tested on the canonical ten-task fixture. HEFT mapping matches
+All three are regression-tested on the canonical ten-task fixture. HEFT mapping matches
 10/10 and its absolute makespan is 190.1. R10 corrects the former LOCAL_CPOP
 child-directed rank error: the critical path is {n1,n2,n9,n10}, the critical VM is
-vm1, and the absolute makespan is 196.1. Subtracting the common 110.1 bootstrap
-leaves 80 and 86 respectively. Tests independently assert the complete rank table,
+vm1, and the absolute makespan is 196.1. PEFT reproduces the paper's published
+OCT and rank_o tables exactly (rank_o 61, 48, 44, 43, 40, 37.33, 31.33, 25.67,
+24.67, 14.67), its selection order {n1,n2,n4,n5,n3,n6,n9,n7,n8,n10}, its mapping
+10/10, and its absolute makespan 186.1 — 76 after the bootstrap, below HEFT's 80
+as the paper reports. Subtracting the common 110.1 bootstrap
+leaves 80, 86 and 76 respectively. Tests independently assert the complete rank/OCT tables,
 path, mapping, task intervals, multiple critical paths and cross-branch shortcuts.
 Earlier 197.1 / {n1,n3,n7,n10} statements describe the erroneous pre-R10 implementation.
 
@@ -259,7 +281,7 @@ shared-storage compute-stage-in execution path. They remain unusable for data
 locality, bandwidth, network, or real-platform claims. Use the maintained static
 DAG planners instead: `SHARED_STORAGE_HEFT`, `SHARED_STORAGE_CPOP`,
 `SHARED_STORAGE_DLS`, `SHARED_STORAGE_ETF`, `SHARED_STORAGE_PEFT`, or the
-communication-aware `LOCAL_HEFT` / `LOCAL_CPOP`.
+communication-aware `LOCAL_HEFT` / `LOCAL_CPOP` / `LOCAL_PEFT`.
 
 ## Comparison Rules
 
