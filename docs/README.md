@@ -43,6 +43,7 @@ docs/
 │   ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
 │   ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R7 轮次规划）
 │   ├── R9_CLEANUP_AND_PROBES.md  # R9 死代码清理与运行时探测记录
+│   ├── R11_LEGACY_AUDIT_AND_CLEANUP.md  # R11 全仓遗留审计与清理验收记录
 │   ├── PLATFORM_UPGRADE_R10.md # R10 平台升级验收记录（本轮交付）
 │   └── CODE_STYLE.md           # 源码注释规范
 │
@@ -74,6 +75,7 @@ docs/
 | 网络争用如何改变调度算法的相对优劣？ | [`experiments/FATTREE_SCHEDULING_CAMPAIGN.md`](experiments/FATTREE_SCHEDULING_CAMPAIGN.md)（设计）、[`experiments/FATTREE_SCHEDULING_RESULTS.md`](experiments/FATTREE_SCHEDULING_RESULTS.md)（实测结论） |
 | R8 全面审计发现了什么、怎么修的？ | [`advanced/COMPREHENSIVE_AUDIT_R8.md`](advanced/COMPREHENSIVE_AUDIT_R8.md) |
 | R9 清理轮删了什么、探测了什么？ | [`advanced/R9_CLEANUP_AND_PROBES.md`](advanced/R9_CLEANUP_AND_PROBES.md) |
+| R11 审计删了哪些遗留产物与 vendored 死代码？为什么保留某些文件？ | [`advanced/R11_LEGACY_AUDIT_AND_CLEANUP.md`](advanced/R11_LEGACY_AUDIT_AND_CLEANUP.md) |
 | 工作流调度文献近况（启发式/元启发式/QoS）？ | [`research/文献调研_工作流调度_2021-2025.md`](research/文献调研_工作流调度_2021-2025.md) |
 | ML/DRL 工作流调度研究现状？ | [`drl-workflow-scheduling-survey-2021-2025.md`](drl-workflow-scheduling-survey-2021-2025.md) |
 | 源码注释怎么写？ | [`advanced/CODE_STYLE.md`](advanced/CODE_STYLE.md) |
