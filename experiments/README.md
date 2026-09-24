@@ -17,7 +17,9 @@ mvn verify
 | 历史示例 | `src/main/java/org/workflowsim/examples/**` | 保留原始示例 FQCN，便于教学和兼容性探索。它们可能使用历史 API/相对路径，不能自动作为已认证研究入口。 |
 | 教程与交叉校验 | `src/main/java/org/workflowsim/examples/**`、`src/test/java/org/workflowsim/experiments/tutorials/**` | 展示 DAX/WfCommons 输入、解析器交叉校验和端到端冒烟路径。教程结果不是冻结基线。 |
 | 参考实验 | `src/main/java/org/workflowsim/experiments/reference/**` | 已冻结配置、输入哈希、算法集合和证据规则的可复核参考实现。P7 位于其 `p7` 子包。 |
-| 研究实验 | `src/main/java/org/workflowsim/experiments/fattree/` 与 `studies/fattree-scheduling-campaign/` | 现有 Fat-tree × 调度研究驱动及其协议/矩阵/结果保留说明；每项研究有独立身份与工件边界。 |
+| 研究实验 | `src/main/java/org/workflowsim/experiments/fattree/`、`src/main/java/org/workflowsim/experiments/network/` 与 `studies/{fattree-scheduling-campaign,network-limited-r10}/` | Fat-tree × 调度 campaign（R7/R8，历史协议）与当前 network-limited-r10 研究驱动；每项研究有独立身份与工件边界。 |
+| Workbench 统一入口 | `src/main/java/org/workflowsim/experiments/workbench/` | R10 统一运行与报告入口（Workbench），从经过校验的 v4 证据生成报告。 |
+| rerun 差异比对 | `src/main/java/org/workflowsim/experiments/rerun/` | D2 历史证据复跑与核心量机械比对（`RerunDiffExecutor`，见 `docs/experiments/RERUN_DIFF_CONTRACT.md`）。 |
 
 `reference/` 和 `studies/` 根目录下的 Markdown 是面向研究者的协议材料；相应 Java 源码仍必须放进 Maven 标准 `src/main/java/` 或 `src/test/java/`。不要把可编译 Java 文件直接放入 `experiments/studies/` 文档目录。
 

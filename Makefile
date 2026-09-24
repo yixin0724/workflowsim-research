@@ -19,7 +19,7 @@ test:
 # 运行完整测试（核心 + 实验，~2分钟）
 verify:
 	@echo "运行完整测试（包括实验模块）..."
-	mvn -Pexperiments verify
+	mvn verify
 
 # 清理构建产物
 clean:
@@ -29,7 +29,7 @@ clean:
 # 生成测试覆盖率报告
 coverage:
 	@echo "生成测试覆盖率报告..."
-	mvn -Pexperiments verify jacoco:report
+	mvn verify jacoco:report
 	@echo ""
 	@echo "覆盖率报告已生成："
 	@echo "  核心模块: simulator/target/site/jacoco/index.html"
@@ -38,12 +38,12 @@ coverage:
 # 安装到本地 Maven 仓库
 install:
 	@echo "安装到本地 Maven 仓库..."
-	mvn -Pexperiments install
+	mvn install
 
 # 打包但跳过测试
 package:
 	@echo "打包（跳过测试）..."
-	mvn -Pexperiments package -DskipTests
+	mvn package -DskipTests
 	@echo ""
 	@echo "产物位置："
 	@echo "  simulator/target/workflowsim-1.0.jar"
@@ -66,4 +66,4 @@ help:
 	@echo "  make rebuild  - 清理并重新构建"
 	@echo "  make help     - 显示此帮助信息"
 	@echo ""
-	@echo "详细文档请参考: docs/BUILD_COMMANDS.md"
+	@echo "详细文档请参考: docs/getting-started/BUILD.md"

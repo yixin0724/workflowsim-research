@@ -6,6 +6,11 @@ WorkflowSim 1.0 包含一些历史遗留算法实现，它们的行为与学术�
 
 本文档说明哪些算法已被弃用、为什么被弃用，以及如何迁移到受维护的替代方案。
 
+> **R9 注记（2026-09）**：§2 的遗留规划枚举 `PlanningAlgorithm.HEFT` / `PlanningAlgorithm.DHEFT`
+> 已在 R9 清理轮从代码中移除——引用它们的旧代码在当前平台不再编译，迁移目标仍是
+> `SHARED_STORAGE_*` 系列。§1 的遗留在线调度器标签（`MINMIN`/`MAXMIN`/`MCT`/`ROUNDROBIN`）
+> 仍保留在枚举中且继续被 `SimulationRunner` 标准入口拒绝，迁移指引依旧有效。
+
 ---
 
 ## 1. 遗留在线调度器（Online Schedulers）
@@ -111,6 +116,9 @@ SimulationConfig config = SimulationConfig.builder()
 ---
 
 ## 2. 遗留离线规划器（Offline Planners）
+
+> **R9 注记**：本节的 `HEFT` / `DHEFT` 枚举值已在 R9 移除，下列"旧代码"示例仅用于
+> 识别历史实验脚本，在当前平台无法编译；迁移目标不变。
 
 ### 2.1 `HEFT` → `SHARED_STORAGE_HEFT`
 
@@ -245,6 +253,9 @@ void configurationRejectsLegacyMinMinSchedulerInsteadOfMapping() {
 2. **清晰的错误提示** - 运行时抛出明确的迁移指引，而不是神秘的枚举解析失败
 3. **渐进式迁移** - 给用户时间更新实验脚本
 
+> **R9 注记**：以上理由仅适用于在线调度器标签。规划侧 `HEFT`/`DHEFT` 枚举已在 R9
+> 移除——`SHARED_STORAGE_*` 完全取代后已无任何仓内引用，保留价值消失。
+
 ### Q2: 旧的静态 API 还能用吗？
 
 **A:** 可以，但不推荐。旧 API（如 `Parameters.setSchedulingAlgorithm()`）仍接受遗留标签，但：
@@ -275,6 +286,7 @@ void configurationRejectsLegacyMinMinSchedulerInsteadOfMapping() {
 - **2024-01**: 为 `MINMIN`/`MAXMIN`/`MCT`/`ROUNDROBIN` 添加 `@Deprecated` 注解
 - **2024-01**: 为 `HEFT`/`DHEFT` 添加 `@Deprecated` 注解
 - **2024-01**: SimulationRunner 添加算法验证逻辑
+- **2026-09（R9）**: 移除 `HEFT`/`DHEFT` 规划枚举；本文 §2 与 §5 Q1 加注记
 
 ---
 

@@ -14,7 +14,8 @@ docs/
 │   ├── IDEA_SETUP.md           # IDEA 配置指南（解决 experiments 模块显示问题）🔧
 │   ├── ALGORITHMS.md           # 三类算法的本质区别与底层原理 ⭐
 │   ├── DATASETS.md             # 如何选择工作流输入数据集
-│   └── BUILD.md                # Maven 构建、测试、示例与验证器命令
+│   ├── BUILD.md                # Maven 构建、测试、示例与验证器命令
+│   └── WORKBENCH.md            # 统一入口与新报告体系（R10）⭐
 │
 ├── algorithms/                 # 算法参考（研究前必读）
 │   ├── CATALOG.md              # 算法目录、决策层与主张边界
@@ -41,6 +42,8 @@ docs/
 │   ├── COMPREHENSIVE_AUDIT_R8.md  # R8 全面审计报告（算法×论文/指标/拓扑/架构四通道）
 │   ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
 │   ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R7 轮次规划）
+│   ├── R9_CLEANUP_AND_PROBES.md  # R9 死代码清理与运行时探测记录
+│   ├── PLATFORM_UPGRADE_R10.md # R10 平台升级验收记录（本轮交付）
 │   └── CODE_STYLE.md           # 源码注释规范
 │
 └── drl-workflow-scheduling-survey-2021-2025.md  # ML/DRL 工作流调度研究现状调研（2021–2025）
