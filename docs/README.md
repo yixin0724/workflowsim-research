@@ -26,6 +26,7 @@ docs/
 │   ├── CAMPAIGNS.md            # 多场景/多重复实验与数据移动模型协议
 │   ├── FATTREE_SCHEDULING_CAMPAIGN.md  # Fat-tree × 调度联合实验设计（R7，R8 再标定：链路 0.125/A4 1.25 MB/s）
 │   ├── FATTREE_SCHEDULING_RESULTS.md   # R7 实测结果（R8 再标定版：链路束缚恢复 + 逐位交叉验证 + 排名翻转结论）
+│   ├── RERUN_DIFF_CONTRACT.md  # D2 rerun 与差异比对契约（已实现：历史证据复跑 + 核心量精确比对）
 │   └── reference-baselines/
 │       ├── P7_PROTOCOL.md      # 冻结参考基线 P7 的实验协议
 │       └── P7_RESULTS.md       # P7 已记录结果（历史记录）
@@ -61,6 +62,7 @@ docs/
 | 旧算法标签为什么被拒绝？如何迁移？ | [`algorithms/LEGACY_MIGRATION.md`](algorithms/LEGACY_MIGRATION.md) |
 | 随机性、成本和 deadline 的含义？ | [`experiments/REPRODUCIBILITY.md`](experiments/REPRODUCIBILITY.md) |
 | 如何设计多场景/多重复实验？ | [`experiments/CAMPAIGNS.md`](experiments/CAMPAIGNS.md) |
+| 如何复跑一份历史 run 并机械验证核心量是否一致？ | [`experiments/RERUN_DIFF_CONTRACT.md`](experiments/RERUN_DIFF_CONTRACT.md)（CLI 用法、verdict 与退出码、报告格式） |
 | P7 冻结基线的矩阵和结果？ | [`experiments/reference-baselines/P7_PROTOCOL.md`](experiments/reference-baselines/P7_PROTOCOL.md)、[`P7_RESULTS.md`](experiments/reference-baselines/P7_RESULTS.md) |
 | 代码质量是否可信？ | [`advanced/QUALITY_AUDIT.md`](advanced/QUALITY_AUDIT.md) |
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
