@@ -7,6 +7,7 @@ import org.cloudbus.cloudsim.Log;
 import org.workflowsim.experiment.ExperimentArtifactWriter;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
+import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.platform.PlatformProfiles;
 import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.SimulationConfig;
@@ -24,14 +25,20 @@ final class RerunTestSupport {
 
     /** 在 {@code directory} 中生成一套完整的 v4 证据（runId 为 result）。 */
     static Path generateEvidence(Path directory) throws Exception {
-        Log.disable();
         String dax = resourcePath("/dax/reproducibility-workflow.dax");
         SimulationConfig config = SimulationConfig.builder(dax, 3)
                 .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
                 .randomSeed(91L)
                 .build();
-        SimulationReport report = new SimulationRunner().run(config,
+        return generateEvidence(directory, config,
                 PlatformProfiles.homogeneousLocal("rerun-fixture", 3));
+    }
+
+    /** 用指定配置与平台跑一次真实仿真，写出完整 v4 证据（runId 为 result）。 */
+    static Path generateEvidence(Path directory, SimulationConfig config,
+            PlatformProfile platform) throws Exception {
+        Log.disable();
+        SimulationReport report = new SimulationRunner().run(config, platform);
         if (!report.getMetrics().isAllLogicalTasksCompletedSuccessfully()) {
             throw new IllegalStateException("Fixture simulation did not complete all tasks");
         }
