@@ -259,6 +259,42 @@ class LocalPeftPlanningAlgorithmTest {
         assertEquals(stageIn + 4.0, planner.plannedFinishOf(t2), EPSILON);
     }
 
+    /**
+     * 异构 MIPS 下 rank_o 拓扑反转（R13 异构轴的边界）：t2 的 rank_o（34.5）超过其
+     * 父任务 t1（31.0），字面降序会在 t1 之前分配 t2；就绪表纪律保证先分配 t1，
+     * 调度拓扑合法，OCT/rank_o 数值不受影响。
+     */
+    @Test
+    void heterogeneousRankOInversionSchedulesByReadyListDiscipline() {
+        Task t1 = new Task(1, 2);
+        Task t2 = new Task(2, 40);
+        Task t3 = new Task(3, 6);
+        connect(t1, t2, 10.0);
+        connect(t2, t3, 0.0);
+        CondorVM fast = vm(3, 1L, 2.0);
+        CondorVM slow = vm(8, 1L, 1.0);
+        LocalPeftPlanningAlgorithm planner = planner(Arrays.asList(t1, t2, t3), fast, slow);
+        planner.run();
+        double stageIn = planner.stageInFinishTime();
+
+        // 反转真实存在：rank_o(t2) > rank_o(t1)。
+        assertEquals(31.0, planner.priorityOf(t1), EPSILON);
+        assertEquals(34.5, planner.priorityOf(t2), EPSILON);
+        assertEquals(4.5, planner.priorityOf(t3), EPSILON);
+        // 就绪表纪律：父先于子分配；OCT(t1,fast)=25.5、OCT(t1,slow)=36.5。
+        assertEquals(25.5, planner.optimisticCostOf(t1, fast), EPSILON);
+        assertEquals(36.5, planner.optimisticCostOf(t1, slow), EPSILON);
+        assertEquals(3, t1.getVmId(), "EFT+OCT 双项均偏好快速 VM");
+        assertEquals(stageIn, t1.getStaticScheduleStartTime(), EPSILON);
+        assertEquals(stageIn + 1.0, planner.plannedFinishOf(t1), EPSILON);
+        assertEquals(3, t2.getVmId(), "本地零传输 + 20 秒计算仍优于慢 VM");
+        assertEquals(stageIn + 1.0, t2.getStaticScheduleStartTime(), EPSILON);
+        assertEquals(stageIn + 21.0, planner.plannedFinishOf(t2), EPSILON);
+        assertEquals(3, t3.getVmId());
+        assertEquals(stageIn + 21.0, t3.getStaticScheduleStartTime(), EPSILON);
+        assertEquals(stageIn + 24.0, planner.plannedFinishOf(t3), EPSILON);
+    }
+
     private static void connect(Task parent, Task child, double communicationSeconds) {
         parent.addChild(child);
         child.addParent(parent);
