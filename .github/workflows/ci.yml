@@ -25,6 +25,14 @@ jobs:
       - name: Run full quality gate (unit + integration + Javadoc)
         run: mvn -B -Pjavadoc verify
 
+      - name: Set up Python for independent checker self-tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify independent evidence and statistics checkers
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
+
       - name: Set up Node for offline report checks
         uses: actions/setup-node@v4
         with:
@@ -45,7 +53,9 @@ jobs:
           -Dexec.args="\"$PWD\" \"$PWD/output/workbench-ci\""
 
       - name: Verify offline reports in Chromium
-        run: node scripts/verify-report.cjs output/workbench-ci/browser-fixtures.json output/workbench-ci/screenshots
+        run: |
+          node scripts/verify-report.cjs output/workbench-ci/browser-fixtures.json output/workbench-ci/screenshots
+          node scripts/test-report-checker.cjs output/workbench-ci/browser-fixtures.json
 
       - name: Preserve quality-gate evidence
         if: always()

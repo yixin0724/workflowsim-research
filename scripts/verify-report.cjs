@@ -84,9 +84,11 @@ async function checkReport(browser, specification, screenshot) {
       await page.screenshot({ path: screenshot, fullPage: true });
     }
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.equal(await page.locator('#run-select').isVisible(), true);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true);
     assert.deepEqual(errors, []);
+    assert.deepEqual(requests, [], 'Offline reports must remain offline through the final viewport change');
     return { name: specification.name || path.basename(specification.path), runCount, successful,
       allRows, vmRows, externalRequests: requests.length, browserErrors: errors.length };
   } finally {

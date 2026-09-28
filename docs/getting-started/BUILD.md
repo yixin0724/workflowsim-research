@@ -94,6 +94,7 @@ mvn -pl :workflowsim-experiments -am test-compile exec:java \
   -Dexec.classpathScope=test \
   '-Dexec.args="/absolute/checkout" "/absolute/new-browser-output"'
 node scripts/verify-report.cjs /absolute/new-browser-output/browser-fixtures.json
+node scripts/test-report-checker.cjs /absolute/new-browser-output/browser-fixtures.json
 ```
 
 输出目录必须尚不存在。矩阵包含在线/网络、多种子、单报告再生、全失败、成功失败混合与
