@@ -4,16 +4,18 @@
 
 本契约把一次可解释的仿真运行定义为：工作流输入、显式资源平台、不可变运行参数和根随机种子的组合。报告结果时必须记录这四类信息。可复现的运行记录不等于现实平台校准、WfInstances trace replay 或算法优越性证据。
 
-核心模拟器位于 `simulator/`；示例、P7/reference 和特定研究驱动位于显式启用的 `experiments/`。模块边界不会改变模拟结果的科学解释，但决定了什么会进入默认质量门禁和什么组件身份会写入实验工件。
+核心模拟器位于 `simulator/`；示例、P7/reference 和特定研究驱动位于 `experiments/`。根 Reactor 默认构建并验证两个模块，不存在额外的 `experiments` profile。模块边界决定可复用 API 与研究驱动的组件身份，不能被解释为真实平台校准。
 
 ## 确定性与模型默认值
 
 - `SimulationConfig` 拥有根随机种子，默认值为 `0`。研究代码应把每次运行输入放入此不可变配置并经 `SimulationRunner` 执行；`SimulationSession` 会在每次串行运行前后重置遗留静态门面。
 - `SimulationRandom` 为规划、聚类、runtime 分布和故障分布派生独立且确定的流，不共享一个可变全局随机流。
 - 失败分布由不可变 `FailureModelConfig` 声明，并在会话安装种子后实例化。VM/depth 矩阵不完整会 fail fast；标准 `SimulationRunner` 仅接纳经验证的 `FTCLUSTERING_NOOP` 重试路径。未校准的 `NORMAL` 故障/开销分布会被拒绝，而不是静默解释。
-- 排队、工作流引擎、后处理与聚类开销同样由不可变 `OverheadModelConfig` 声明；每个 depth 特定延迟拥有独立命名随机流。
+- 排队、工作流引擎、后处理与聚类开销由不可变 `OverheadModelConfig` 声明；每个 depth 特定延迟拥有独立命名随机流。WED interval=0 表示整批不拆分，正值为子批次最大作业数；每个非空释放批次按首个 Job 深度抽样一次，再累计应用到所有子批次（包括不足一批的尾部）。空批次不抽样，零数据传输不会单独改变此规则；不同实际数据到达仍可能形成不同批次，不能把同根种子误作 event-keyed CRN。
 - WfCommons runtime 以秒输入，按 `runtimeReferenceMips * runtimeScale` 转为 MI。默认值是 `1000 MIPS` 与 `1.0`，属于必须记录的平台模型假设。
-- `cloudSimMinEventIntervalSeconds` 是正的 CloudSim 内核 cadence 参数，默认 `0.1` 模拟秒。它影响事件释放与任务开始时间，必须写入工件；它不是网络时延校准。
+- `cloudSimMinEventIntervalSeconds` 是正的 CloudSim 内核 cadence 参数，默认 `0.1` 模拟秒。它影响事件释放与任务开始时间，必须写入工件；它不是网络时延校准。新任务加入前必须结清旧执行集合，cadence 不能让任务获得到达前的 CPU 工作。
+- 计算量由 `TaskExecutionModel` 统一换算。显式矩阵使用 `round(seconds × vmMips)`；`TaskOutcome.lengthMi` 保留输入声明，`effectiveExecutionLengthMi` 记录当前尝试的实际计算 MI（不含 stage-in），Task 窗口和故障判定使用后者。`MI × PE × 1_000_000` 必须处于 signed long 可表示范围，非正舍入和溢出会明确失败。
+- DAX 不允许 DOCTYPE/外部实体；未纳入输入哈希的 DTD 不能影响任务长度或访问外部资源。
 - `SimulationConfig.deadline` 只是从模拟时间零点开始、以 `simulationEndSeconds`（历史 `makespan`）为观察基准的 SLA 阈值。`0` 表示未请求 deadline；正值记录 `MET`、`MISSED_LATE` 或 `MISSED_INCOMPLETE_WORKFLOW` 和相应 slack/tardiness，但不改变调度、准入、重试或故障行为。它不是最后一个逻辑 Task 成功完成时刻的隐式 deadline。
 - 标准 `SimulationRunner` 仅接受 `ClusteringMethod.NONE` 与 `SPACE_SHARED` VM。其他聚类和 `TIME_SHARED` 仍可由历史低层 API 使用，但它们与 ready-Job 调度、Task outcome 和指标的端到端契约尚未认证。
 - `PlatformProfile` 会预检确定的、容量可行的 VM-to-Host 映射。显式 pin 的 VM 固定到声明 Host；未 pin VM 使用兼容历史的最大剩余 PE 选择与声明 Host 顺序 tie-break。CloudSim 创建 VM 后，调度器冻结实际映射并与预检比较。这是放置可复现性证据，不是 Host CPU 争用模型。
@@ -25,14 +27,14 @@
 ## 构建与测试门禁
 
 ```bash
-# 仅核心模拟器：默认质量门禁。
+# 仅核心模拟器。
+mvn -pl :workflowsim verify
+
+# 核心 + 实验模块：默认单元、语义、集成和覆盖率门禁。
 mvn verify
 
-# 核心 + 历史示例、教程、P7/reference：完整工程门禁。
-mvn verify
-
-# 维护核心 Java API 的 Javadoc 门禁。
-mvn -Pjavadoc verify
+# 清理后联合验收，额外检查核心 Java API 文档。
+mvn -Pjavadoc clean verify
 ```
 
 `mvn test` 仅运行快速单元/语义测试；`mvn verify` 还通过 Maven Failsafe 运行所有 `*IntegrationTest`。默认 `mvn verify` 覆盖所有模块。核心 `SimulationRunnerIntegrationTest` 仍随默认核心门禁运行。
@@ -43,11 +45,11 @@ mvn -Pjavadoc verify
 
 一个完整 evidence bundle 包括 `manifest.json`、`metrics.json` 和 `events.jsonl`。`ExperimentArtifactValidator` 验证必需的 manifest 顶层结构、相对路径约束、sidecar 哈希/大小、manifest 与 metrics sidecar 的结构一致性、事件序列与计数，以及 v3 provenance 的显式可空字段。
 
-新写入的 v3 manifest 不再通过当前工作目录猜测项目根。它会记录核心模拟器组件身份；由 P7/reference 等实验驱动写入时，还会记录研究/参考组件身份、协议逻辑标识及其可用哈希、以及显式传入的数据集根。源代码内容 hash 是本地组件身份的一部分，不是 Git 提交、发布归档或不可变发行签名。
+当前写入 manifest v4、metrics v2 和 events v1，provenance 保持 v3。v4 完整记录输入顺序、到达时刻、任务成本矩阵和拓扑声明；修正后的运行还记录 `configuration.executionSemantics=WORK_CONSERVING_TASK_EXECUTION_V2`。核心组件和可选研究组件、协议逻辑标识/哈希、显式数据集根均被记录，不通过当前工作目录猜测项目根。源代码内容 hash 是本地组件身份的一部分，不是 Git 提交或发行签名。
 
-核心验证器仍可读取历史 v2 工件，以便保留已生成证据的审计能力。v2 可读不代表它补齐了 v3 的核心/研究组件区分，也不应把旧的本地源树 fingerprint 解释为发行身份。
+验证器继续读取历史 manifest v2/v3/v4，但不补造旧版缺失的字段，也不把没有执行修订声明的旧记录冒认为新模型。历史证据完整性通过不意味着当前代码逐位复跑相同；研究协议的修订与认证范围见[协议修订说明](NETWORK_STUDY_PROTOCOL_REVISIONS.md)。
 
-以下命令只读取工件，不生成或改写文件：
+以下验证器只读目标工件；命令中的 Maven `compile` 仍会生成构建输出：
 
 ```bash
 # 验证单个 evidence bundle。
@@ -94,7 +96,7 @@ mvn -pl :workflowsim-experiments -am \
 Maven `target/`、JaCoCo 报告、临时 manifest、指标 JSON、事件日志、scratch 输出和未决定保留的结果图都不是源码。完成验证后：
 
 ```bash
-# 若执行过 experiments profile，清理两个模块。
+# 默认清理核心与实验两个模块的构建输出；不会删除自定义研究目录。
 mvn clean
 ```
 

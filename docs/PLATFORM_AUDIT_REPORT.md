@@ -1,5 +1,7 @@
 # WorkflowSim 平台整体审查报告
 
+> **后续修订**：本文为历史记录，不是当前平台的无缺陷证明。新的独立反例和 PEFT 一级来源核对已推翻部分旧结论；请以[正确性整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)中的实际验证范围为准，不改写下面的历史过程。
+
 > **R10 更正**：本页为历史审计。旧 LOCAL_CPOP 的向下秩方向错误，旧关键路径和87.1结果已被修正；当前关键路径为{1,2,9,10}、扣除110.1引导后为86。当前网络采用max-min progressive filling及分段积分，旧网络排名不代表新版本。见 [R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)。
 
 

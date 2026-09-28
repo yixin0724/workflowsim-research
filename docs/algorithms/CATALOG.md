@@ -396,3 +396,12 @@ artifacts remain historical rather than being silently relabeled. The P7
 primary online-dispatch matrix remains its own
 track. Static independent-task and controlled static-DAG tracks require
 separate matrices and separate result statements.
+
+Within the static-DAG workbench track, mapping-only RANDOM/PSO and LOCAL list
+planners still have different dispatch disciplines. LOCAL plans enforce a per-VM
+order; mapping-only plans let STATIC dispatch eligible ready Jobs opportunistically.
+R10 therefore compares complete strategy pipelines, not isolated VM-mapping rules.
+Contention can turn an enforced order into head-of-line waiting even while a VM is
+idle. R12/R13 compare three LOCAL list planners with the same order-enforcing
+execution discipline. Report this distinction rather than interpreting every
+ranking difference as mapping quality or changing the executor to preserve a winner.

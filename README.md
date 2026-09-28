@@ -4,6 +4,8 @@ WorkflowSim 是科学工作流调度研究的离散事件模拟器。它把任�
 
 模型结果用于同条件研究比较，不能直接声称重放真实工作流执行、预测生产网络或估算云服务商账单。Java 侧负责仿真环境、策略适配与证据，不建设深度学习训练器或模型训练流程。
 
+**正确性修订**：当前执行语义标识为 `WORK_CONSERVING_TASK_EXECUTION_V2`，修正了 CPU 工作量结算、成本矩阵、重试及 LOCAL 数据可达时间等问题。旧研究工件保持不变，其完整性验证不等于在新模型下得到相同结果；整改与本轮验证范围见[正确性整改记录](docs/advanced/SIMULATION_CORRECTNESS_REPAIR.md)。
+
 ## 统一实验入口
 
 需要 JDK 17+、Maven 3.6.3+，从项目根目录执行：
@@ -19,8 +21,8 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 
-# 完整质量门禁：两个模块、单元/语义/集成/覆盖率
-mvn clean verify
+# 联合质量门禁：两个模块、单元/语义/集成/覆盖率与核心 API 文档
+mvn -Pjavadoc clean verify
 ```
 
 打开输出根目录的 `index.html` 查看实验历史；进入每次实验的 `report.html` 查看方案比较、任务时间线、等待和 VM 利用率。每次运行创建独立目录，失败记录会保留。网络示例配置为 `experiments/configs/network-comparison.json`。
@@ -55,17 +57,19 @@ CloudSim 事件循环 → SimulationReport → v4证据 → 校验/报告
 | 在线调度 | FCFS、READY_BATCH_ROUNDROBIN/MCT/MINMIN/MAXMIN、DATA；处理依赖已满足的Job。DATA要求LOCAL，只考虑非本地字节 |
 | 独立任务规划 | STATIC_OLB/MET/MCT/MINMIN/MAXMIN/SUFFERAGE/ROUND_ROBIN；拒绝含父子边的输入 |
 | 共享存储DAG规划 | SHARED_STORAGE_HEFT/CPOP/DLS/ETF/PEFT；受控SHARED、无聚类/故障/开销、legacy传输模型 |
-| LOCAL通信规划 | LOCAL_HEFT/CPOP；STATIC派发，LOCAL存储，preExecution家族模型，无故障/开销；规划仍用无争用估计 |
-| 随机与搜索基线 | RANDOM、PSO。PSO沿参考实现的顺序负载目标，不含DAG/网络优化；其简化成本项不随映射改变 |
+| LOCAL通信规划 | LOCAL_HEFT/CPOP/PEFT；STATIC派发，LOCAL存储，preExecution家族模型，无故障/开销；带副本可用时刻的无争用规划估计，不是完整事件重放 |
+| 随机与搜索基线 | RANDOM、PSO。PSO采用顺序负载目标，不含DAG/网络优化；无矩阵的raw MI模型下其简化成本项与映射无关，显式矩阵下按有效执行秒数计价 |
 | 网络 | legacy、固定端点、执行前无争用、端点争用、Fat-tree争用五类。R10争用采用max-min progressive filling和分段积分；流级模型不含包/丢包/ECN/自适应路由 |
 | 多工作流/异常 | 可预先声明错峰到达；支持受控开销、失败尝试和重试预算；deadline仅事后观察，功能不能任意交叉组合 |
 | RL策略适配 | RlEnvironment + RlPolicy状态/动作/终局奖励契约，外部策略接入；没有训练器、神经网络或模型权重 |
 
-所有preExecution/争用模型要求静态映射。因此当前在线调度/RL_POLICY不能直接与Fat-tree争用组合。不同决策层不能混入同一排行榜；统一入口会拒绝这类混比。
+所有preExecution/争用模型要求静态映射，因此当前在线调度/RL_POLICY不能直接与Fat-tree争用组合。统一入口拒绝在线、独立任务和DAG轨道混排。DAG轨道内部还需区分执行纪律：LOCAL规划器给出每VM顺序，RANDOM/PSO仅给映射、由运行时选择已就绪作业；R10是完整策略流水线比较，不能把差异仅归因于映射优化，也不能忽略固定顺序带来的队头等待。
 
 算法细节：[算法目录](docs/algorithms/CATALOG.md)、[测试契约](docs/algorithms/CONTRACTS.md)。历史HEFT/DHEFT枚举及实现已经删除；旧MINMIN/MAXMIN/MCT/ROUNDROBIN兼容标签仍被标准运行器拒绝。
 
-R10纠正了LOCAL_CPOP向下秩方向和关键路径选择。十任务参考算例关键路径为{1,2,9,10}；HEFT/CPOP绝对结束时间190.1/196.1，扣除110.1引导后为80/86。测试包含完整rank、逐任务区间及多个独立反例，不能仅以自有黄金值代替算法语义验证。
+R10纠正了LOCAL_CPOP向下秩方向和关键路径选择。HEFT来源的十任务算例关键路径为{1,2,9,10}；HEFT/CPOP绝对结束时间190.1/196.1，扣除110.1引导后为80/86。
+
+本轮依据作者公开收录原文修正 LOCAL_PEFT：OCT使用**后继计算成本**，出口为零。真正PEFT论文算例的PEFT/HEFT为122/133（含引导232.1/243.1），完整OCT、选择顺序、映射和Task/Job区间均有独立来源回归，见[原文与夹具说明](simulator/src/test/resources/dax/peft-paper-example.SOURCE.md)。旧76/80不是该论文算例；旧R12/R13使用的非标准实现已标为历史，不能据其评价标准PEFT。测试通过仍不能代替模型边界说明或真实平台校准。
 
 ## 实验证据与指标
 
@@ -77,7 +81,9 @@ R10纠正了LOCAL_CPOP向下秩方向和关键路径选择。十任务参考算�
 
 ## 网络受限研究
 
-新入口 `org.workflowsim.experiments.network.NetworkStudyExecutor` 提供 `smoke` 与 `full` 模式。CI运行36次小矩阵，正式研究显式执行；其参数、资格排除、种子、统计口径和逐运行v4工件一起保留。
+`org.workflowsim.experiments.network.NetworkStudyExecutor` 提供 `smoke` 与 `full` 模式，以及默认网络矩阵、`peft-comparison`、`sensitivity-r13` 三个变体。网络集成测试分别覆盖36/18/30次小矩阵；正式研究显式执行，保留参数、资格排除、种子、统计口径和逐运行v4工件。
+
+修正后的新执行身份分别为 `network-limited-r10-v3`、`peft-comparison-r12-v2`、`sensitivity-response-r13-v2`。旧身份只做历史协议完整性检查，不能用新模型结果替换旧证据；详见[研究协议修订](docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。
 
 ```bash
 mvn -pl :workflowsim-experiments -am compile exec:java \
@@ -89,9 +95,11 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
   -Dexec.args="/absolute/new-study-directory/network-study.json"
 ```
 
-正式协议包含三个经典家族、约百/千任务规模、4/16台资源和通信密集合成负载；千任务Inspiral因同名文件尺寸冲突被一致排除，共7个合格输入、504次运行。HEFT/CPOP每条件一次，RANDOM/PSO各5个种子；先按DAG汇总种子，再分来源、资源和网络条件比较，不制造伪独立样本。精确符号检验配合Holm调整，报告效果幅度和胜平负。
+默认网络矩阵包含三个经典家族、约百/千任务规模、4/16台资源和通信密集合成负载；千任务Inspiral因同名文件尺寸冲突一致排除，共7个合格输入、504次运行。HEFT/CPOP每条件一次，RANDOM/PSO各5个种子。PEFT比较矩阵为126次，敏感性矩阵扩展VM/带宽/异构条件为546次。
 
-旧360次Fat-tree研究保留为历史。R10按原参数复跑后其3/10换冠结论变为1/10，部分旧结论已失效；请勿把[R8历史结果](docs/experiments/FATTREE_SCHEDULING_RESULTS.md)当作当前研究证据。实施与验收见[R10记录](docs/advanced/PLATFORM_UPGRADE_R10.md)。
+统计先按DAG汇总种子，再分来源、资源和网络条件比较；精确符号检验配合Holm调整，报告效果幅度和胜平负。经典组至多5个DAG时，双侧符号检验原始p值最低0.0625，不能达到0.05门槛；不显著不能推出等价，跨条件的总MIPS/拓扑变化也不能被解释成单因素因果效果。
+
+旧360次Fat-tree研究保留为历史。R10当时按原参数复跑，将R8的3/10换冠结论改为1/10；这仍是本次执行语义修订前的历史记录。请勿把[R8历史结果](docs/experiments/FATTREE_SCHEDULING_RESULTS.md)或[R10验收记录](docs/advanced/PLATFORM_UPGRADE_R10.md)当作当前代码的数值认证，新的排名须按新模型重新评估。
 
 ## 其他入口
 
@@ -100,4 +108,4 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 - [通用campaign与统计](docs/experiments/CAMPAIGNS.md)
 - [P7冻结参考说明](experiments/reference/p7/README.md)
 
-未决定保留的临时输出应清理；正式研究和交付报告按各自保留说明保存。开发门禁 `mvn test` 仅单元/语义，`mvn verify` 还包括集成；最终验收使用 `mvn clean verify`，不降低覆盖率阈值。
+未决定保留的临时输出应清理；正式研究和交付报告按各自保留说明保存。开发门禁 `mvn test` 仅单元/语义，`mvn verify` 还包括集成；最终联合验收使用 `mvn -Pjavadoc clean verify`，并执行[离线报告浏览器检查](docs/getting-started/BUILD.md#离线报告浏览器验收)，不降低覆盖率阈值。

@@ -321,9 +321,7 @@ output/my-experiments/
     └── ...
 ```
 
-`output/` 默认不入库；需要长期归档的证据工件复制到
-`experiments/studies/<study>/` 并配 RETENTION.md（参考
-`experiments/studies/fattree-scheduling-campaign/`）。
+`output/` **不是整体忽略目录**，实际规则见[忽略配置](../../.gitignore)。新实验使用独立、未存在的输出目录，并在研究保留说明中决定是否归档；不要假设任意新目录都会自动排除在 Git 外。协议和结果概要放在 `experiments/studies/<study>/`，大型逐运行证据按明确的保留目录或压缩包策略管理，不自动把全部生成物复制入库。
 
 ### 4. 代码注释
 

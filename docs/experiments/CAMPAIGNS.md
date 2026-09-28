@@ -221,24 +221,30 @@ The model has no topology, route selection, TCP behavior, data striping,
 concurrent read/write contention, cache-eviction policy, or measured service
 trace. Its fields are therefore abstract parameters, not hardware calibration.
 
-The preExecution family (used by the LOCAL static-DAG tracks such as
-`LOCAL_HEFT`/`LOCAL_CPOP`) models input transfers as pre-execution network
-delays instead of extending the VM execution envelope: each real input file
-transfers at `bytes / (1e6 × rate)` starting when its producer finishes
-(SOURCE inputs start at dispatch), may overlap destination-VM busy time, and
-VMs are occupied by compute only. Two contention variants share the same
-window semantics while adding fluid max-min fair sharing over a wider resource
-domain: `PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1` (R2) fair-shares
-each VM endpoint's bandwidth; `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1`
-(R6) additionally fair-shares every shared link on a deterministic Al-Fares
-k-Pod fat-tree route declared through `PlatformProfile.networkTopology`
-(rate = minimum over endpoint and path-link shares). Under concurrent load the
-runtime diverges from the contention-free plan in a documented, explainable
-way (contention can only delay transfers). These models require static VM
-mapping; the fat-tree model additionally requires the LOCAL file system, NONE
-clustering, and disabled failure/overhead models, and the runner enforces a
-bidirectional contract between the model and the topology declaration
-(`SimulationConfig`/`SimulationRunner` reject other combinations).
+The preExecution family (used by `LOCAL_HEFT`/`LOCAL_CPOP`/`LOCAL_PEFT`) places
+input preparation before the compute envelope, so transfers may overlap a busy
+destination VM and only compute work occupies the VM. Its variants do **not**
+share the same transfer-start rule:
+
+- `PRE_EXECUTION_TRANSFER_DELAY_V1` estimates each parent-group arrival as the
+  parent's completion plus serial file-transfer durations (`bytes / (1e6 × rate)`).
+  Parent groups overlap; external SOURCE inputs start at Job dependency-readiness,
+  not VM dispatch. This is a no-contention arrival estimate, not a packet trace.
+- `PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1` starts all groups at Job
+  readiness, with no retroactive progress from an earlier parent finish. The
+  fluid solver uses max-min progressive filling jointly constrained by nominal
+  rates and VM endpoints, reclaiming unused capacity at internal completion times.
+- `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1` adds directed links
+  on deterministic Al-Fares fat-tree routes to those constraints. External SOURCE
+  traffic bypasses the topology and consumes the destination endpoint only.
+
+The static LOCAL planners use time-stamped replica availability and a no-contention
+estimate; they are not complete runtime event replays. Additional constraints can
+redistribute capacity between flows, and neither individual-flow nor whole-DAG
+monotonicity across the models is a universal theorem. These models require static
+VM mappings. Fat-tree additionally requires LOCAL storage, NONE clustering and
+disabled failure/overhead models, with a bidirectional model/topology declaration
+check in `SimulationConfig`/`SimulationRunner`.
 
 The model decides a compute-attempt outcome at its Job-envelope completion
 boundary. A declared output is committed to the replica catalog only for a
@@ -378,13 +384,11 @@ the symmetric probe (284.1 == R2). See `FATTREE_SCHEDULING_RESULTS.md` §0 and
 
 ## Deferred Work
 
-The next network layer should be designed as a separate model family, not
-bolted onto this endpoint fallback. It needs explicit topology/link objects,
-transfer requests, concurrent link/storage arbitration, deterministic event
-ordering, queueing semantics, trace/calibration provenance, and a compatible
-candidate-VM communication-cost interface for static DAG planners. Only after
-that contract exists should predictive static algorithms be extended to their
-original candidate-VM-dependent communication-cost semantics. The maintained
-`SHARED_STORAGE_PEFT` is instead an explicit controlled-model adaptation whose
-communication term is zero; it must not be relabelled as a topology-aware PEFT
-implementation.
+Flow-level endpoint and Fat-tree contention, deterministic routes, and LOCAL
+candidate-VM communication estimates already exist. Remaining work includes
+packet/queue/latency/loss behavior, adaptive routing, calibrated storage/network
+traces, and a data-preparation interface that supports online destination choice.
+Those capabilities require explicit contracts and independent validation, not
+merely enabling another enum combination. The maintained `SHARED_STORAGE_PEFT`
+is still a controlled shared-storage adaptation with zero edge communication;
+it must not be relabelled as topology-aware PEFT.

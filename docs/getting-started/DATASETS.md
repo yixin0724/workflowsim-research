@@ -2,6 +2,7 @@
 
 > 本指南帮助研究者在 `datasets/` 的三个集合中快速选出适合自己实验的输入。
 > 各集合的来源、目录布局和完整字段契约见 [`datasets/README.md`](../../datasets/README.md)。
+> **标准检出与历史完整语料不同**：仓库提供经典 DAX、一个 WfFormat 和四个 WfInstances 小型门禁输入；42/180 是完整本地语料的历史规模，不代表每次克隆都自带，也不是本轮全量仿真认证。
 
 ---
 
@@ -12,7 +13,7 @@ flowchart TD
     A[开始选择数据集] --> B{需要与经典 WorkflowSim /<br>Pegasus 研究对比?}
     B -- 是 --> C[dax/ 经典 Pegasus DAX XML<br>20 个输入, 5 个 family]
     B -- 否 --> D{需要可控规模的<br>合成工作流?}
-    D -- 是 --> E[wfformat/ WfGen 合成 JSON<br>42 个输入, 附随机种子 manifest]
+    D -- 是 --> E[wfformat/ WfGen 合成 JSON<br>历史完整集合42, 标准检出1个]
     D -- 否 --> F{需要真实执行<br>派生的工作流结构?}
     F -- 是 --> G{结果需要标准管线<br>端到端证据?}
     G -- 是 --> H[wfinstances/v1.5/ 中<br>4 个 SHA-256 固定试点输入]
@@ -36,9 +37,9 @@ flowchart TD
 
 | 集合 | 格式 | 数量 | 来源性质 | 验证等级 | 典型用途 |
 |------|------|-----:|----------|----------|----------|
-| `dax/` | Pegasus DAX 2.1 XML | 20 | Bharathi et al. 2008 经典表征 | 全部端到端可用（P7 基线覆盖） | 与既有 WorkflowSim / 调度文献做受控比较 |
-| `wfformat/` | WfGen WfFormat JSON | 42 | 合成 profile（分布学习生成） | 全部解析验证 + 独立交叉对账 | 可控规模扫描（100/400/1000）、消融实验 |
-| `wfinstances/v1.5/` | WfFormat JSON | 180 | 真实执行派生（上游语料快照） | 仅解析/DAG 结构验证；**只有 4 个试点完成端到端认证** | 真实结构多样性研究（需自行声明证据边界） |
+| `dax/` | Pegasus DAX XML | 20 个经典输入 | Bharathi et al. 2008 经典表征 | 随仓库提供；适用算法仍受依赖图、同名文件尺寸与模型组合约束 | 与既有 WorkflowSim / 调度文献做受控比较 |
+| `wfformat/` | WfGen WfFormat JSON | 历史完整集合 42；标准检出 1 | 合成 profile（分布学习生成） | 历史解析/交叉对账记录；扩展前核对本地语料与哈希 | 可控规模扫描（100/400/1000）、消融实验 |
+| `wfinstances/v1.5/` | WfFormat JSON | 历史完整快照 180；标准检出 4 | 真实执行派生（上游语料快照） | 4 个固定小输入有端到端门禁，其余不能由解析通过推为仿真已认证 | 真实结构多样性研究（需自行声明证据边界） |
 
 **重要：** 三个集合来源不同，实验报告**不得**将它们混为一个 workload population。
 
