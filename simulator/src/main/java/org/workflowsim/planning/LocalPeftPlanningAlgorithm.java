@@ -50,7 +50,7 @@ import org.workflowsim.Task;
  */
 public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 
-    /** 任务 → (VM → OCT)；每次 {@link #run()} 清空重建。 */
+    /** 任务 → (VM → OCT)；每次 {@link #prepare()} 清空，首次查询时重建。 */
     private final Map<Task, Map<CondorVM, Double>> octByTaskVm =
             new HashMap<Task, Map<CondorVM, Double>>();
 
@@ -59,9 +59,13 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
     }
 
     @Override
+    void resetPreparedCaches() {
+        octByTaskVm.clear();
+    }
+
+    @Override
     public void run() {
         List<Task> tasks = prepare();
-        octByTaskVm.clear();
         for (Task task : tasks) {
             octPerVm(task);
         }
@@ -101,14 +105,26 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
     }
 
     /**
-     * 任务在全部 VM 上的 OCT（记忆化后向递推；DAG 无环由 {@link #prepare()} 的
-     * 深度校验保证）。
+     * 任务在全部 VM 上的 OCT。首次查询按逆拓扑序填表，深 DAG 不使用 Java 调用栈；
+     * {@link #prepare()} 后直接查询 rank_o 也不依赖 run() 按特定任务顺序预热。
      */
     private Map<CondorVM, Double> octPerVm(Task task) {
         Map<CondorVM, Double> cached = octByTaskVm.get(task);
         if (cached != null) {
             return cached;
         }
+        List<Task> order = tasksInTopologicalOrder();
+        for (int index = order.size() - 1; index >= 0; index--) {
+            Task current = order.get(index);
+            if (!octByTaskVm.containsKey(current)) {
+                computeOctPerVm(current);
+            }
+        }
+        return octByTaskVm.get(task);
+    }
+
+    /** 后继表项均已计算；保留原 VM/child 遍历、算术顺序及 PE 兼容域。 */
+    private Map<CondorVM, Double> computeOctPerVm(Task task) {
         Map<CondorVM, Double> perVm = new LinkedHashMap<CondorVM, Double>();
         for (CondorVM vm : vms()) {
             if (!isCompatible(task, vm)) {
@@ -122,7 +138,7 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
             } else {
                 double worstChild = 0.0;
                 for (Task child : task.getChildList()) {
-                    Map<CondorVM, Double> childOct = octPerVm(child);
+                    Map<CondorVM, Double> childOct = octByTaskVm.get(child);
                     double bestPlacement = Double.POSITIVE_INFINITY;
                     for (CondorVM childVm : vms()) {
                         if (!isCompatible(child, childVm)) {

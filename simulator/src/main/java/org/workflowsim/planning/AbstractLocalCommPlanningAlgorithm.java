@@ -54,6 +54,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             new LinkedHashMap<String, Map<String, Double>>();
     /** 文件名 → 大小（字节）。 */
     private final Map<String, Double> fileSizes = new LinkedHashMap<String, Double>();
+    /** 经 DAG 校验的正向拓扑序，仅供 rank/OCT 动态规划，不改变调度的 ID 顺序。 */
+    private List<Task> topologicalTasks = Collections.emptyList();
     /** 任务 → 向上 rank。 */
     private final Map<Task, Double> upwardRanks = new HashMap<Task, Double>();
     /** VM → 已预留区间。 */
@@ -85,6 +87,18 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         List<Task> tasks = sortedTasks();
         sortedVms();
         WorkflowDagValidator.validateAndAssignDepths(tasks);
+        // 验证后的每条边都严格增加 depth。只对副本排序，保留 Task/VM 的调度平局规则。
+        List<Task> byDepth = new ArrayList<Task>(tasks);
+        Collections.sort(byDepth, new Comparator<Task>() {
+            @Override
+            public int compare(Task first, Task second) {
+                int byDepth = Integer.compare(first.getDepth(), second.getDepth());
+                return byDepth != 0 ? byDepth
+                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+            }
+        });
+        topologicalTasks = Collections.unmodifiableList(byDepth);
+        resetPreparedCaches();
         // 同一规划器可再次运行；rank、已完成状态及演进后的副本都只属于上一次计划。
         computeSecondsByVm.clear();
         replicas.clear();
@@ -93,10 +107,19 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         finishes.clear();
         populateCosts(tasks);
         populateReplicasAndSizes(tasks);
-        for (Task task : tasks) {
-            upwardRank(task);
+        for (int index = topologicalTasks.size() - 1; index >= 0; index--) {
+            upwardRank(topologicalTasks.get(index));
         }
         return tasks;
+    }
+
+    /** 子类的准备期派生缓存失效钩子；不替代基类校验与成本装配。 */
+    void resetPreparedCaches() {
+    }
+
+    /** 验证后的只读正向拓扑序；每个父任务都先于子任务，供子类计算静态 rank/OCT。 */
+    final List<Task> tasksInTopologicalOrder() {
+        return topologicalTasks;
     }
 
     /** 按 VM ID 升序的 VM 列表（{@link #prepare()} 之后可用）。 */
@@ -348,7 +371,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         if (!task.getChildList().isEmpty()) {
             double bestChild = 0.0;
             for (Task child : task.getChildList()) {
-                double via = meanCommunicationSeconds(task, child) + upwardRank(child);
+                double via = meanCommunicationSeconds(task, child)
+                        + upwardRanks.get(child).doubleValue();
                 if (via > bestChild) {
                     bestChild = via;
                 }

@@ -51,7 +51,7 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
         criticalPathTaskIds = Collections.emptyList();
         criticalProcessorVmId = null;
         List<Task> tasks = prepare();
-        for (Task task : tasks) {
+        for (Task task : tasksInTopologicalOrder()) {
             downwardRank(task);
         }
 
@@ -131,7 +131,7 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
         }
         double rank = 0.0;
         for (Task parent : task.getParentList()) {
-            double via = downwardRank(parent) + meanComputeSeconds(parent)
+            double via = downwardRanks.get(parent).doubleValue() + meanComputeSeconds(parent)
                     + meanCommunicationSeconds(parent, task);
             if (via > rank) {
                 rank = via;

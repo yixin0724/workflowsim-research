@@ -40,6 +40,8 @@ final class SharedStorageDagPlanner {
     private final Strategy strategy;
     private final List<Task> sourceTasks;
     private final List rawVms;
+    /** 经验证的正向拓扑序，仅改变静态 rank/OCT 求值顺序，不改变调度候选顺序。 */
+    private List<Task> topologicalTasks = Collections.emptyList();
     private final Map<Task, Map<CondorVM, Double>> executionTimes =
             new HashMap<Task, Map<CondorVM, Double>>();
     private final Map<Task, Map<CondorVM, Double>> effectiveStageInTimes =
@@ -81,12 +83,23 @@ final class SharedStorageDagPlanner {
         List<Task> tasks = sortedTasks();
         List<CondorVM> vms = sortedVms();
         WorkflowDagValidator.validateAndAssignDepths(tasks);
+        // 每条合法边都严格增加 depth；rank 求值用独立副本，不重排 tasks 或邻接表。
+        List<Task> byDepth = new ArrayList<Task>(tasks);
+        Collections.sort(byDepth, new Comparator<Task>() {
+            @Override
+            public int compare(Task first, Task second) {
+                int byDepth = Integer.compare(first.getDepth(), second.getDepth());
+                return byDepth != 0 ? byDepth
+                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+            }
+        });
+        topologicalTasks = Collections.unmodifiableList(byDepth);
         populateExecutionTimes(tasks, vms);
         for (CondorVM vm : vms) {
             reservations.put(vm, new ArrayList<Reservation>());
         }
-        for (Task task : tasks) {
-            upwardRank(task);
+        for (int index = topologicalTasks.size() - 1; index >= 0; index--) {
+            upwardRank(topologicalTasks.get(index));
         }
 
         // stage-in Job 从零时刻开始，完成时刻遵循 WorkflowDatacenter 相同的最小事件和
@@ -201,7 +214,7 @@ final class SharedStorageDagPlanner {
 
     private CpopSelection scheduleCpop(List<Task> tasks, List<CondorVM> vms,
             double stageInFinish) {
-        for (Task task : tasks) {
+        for (Task task : topologicalTasks) {
             downwardRank(task);
         }
         List<Task> criticalPath = identifyCriticalPath(tasks);
@@ -314,6 +327,15 @@ final class SharedStorageDagPlanner {
      * 模型，因此原始算法的通信项为零。</p>
      */
     private void schedulePeft(List<Task> tasks, List<CondorVM> vms, double stageInFinish) {
+        // 后继 OCT 先于当前任务求值；保留每个兼容 VM 的独立表项与原平均求和次序。
+        for (int index = topologicalTasks.size() - 1; index >= 0; index--) {
+            Task task = topologicalTasks.get(index);
+            for (CondorVM vm : vms) {
+                if (!Double.isInfinite(executionTimes.get(task).get(vm).doubleValue())) {
+                    optimisticCost(task, vm, vms);
+                }
+            }
+        }
         Set<Task> scheduled = new HashSet<Task>();
         while (scheduled.size() < tasks.size()) {
             Task selected = nextPeftReadyTask(tasks, vms, scheduled);
@@ -396,7 +418,7 @@ final class SharedStorageDagPlanner {
                     continue;
                 }
                 childMinimum = Math.min(childMinimum,
-                        duration + optimisticCost(child, childVm, vms));
+                        duration + peftOptimisticCosts.get(child).get(childVm).doubleValue());
             }
             if (Double.isInfinite(childMinimum)) {
                 throw new IllegalArgumentException("PEFT cannot map successor task "
@@ -437,7 +459,7 @@ final class SharedStorageDagPlanner {
         }
         double childMaximum = 0.0;
         for (Task child : task.getChildList()) {
-            childMaximum = Math.max(childMaximum, upwardRank(child));
+            childMaximum = Math.max(childMaximum, upwardRanks.get(child).doubleValue());
         }
         double result = averageExecutionTime(task) + childMaximum;
         upwardRanks.put(task, result);
@@ -452,7 +474,7 @@ final class SharedStorageDagPlanner {
         double parentMaximum = 0.0;
         for (Task parent : task.getParentList()) {
             parentMaximum = Math.max(parentMaximum,
-                    downwardRank(parent) + averageExecutionTime(parent));
+                    downwardRanks.get(parent).doubleValue() + averageExecutionTime(parent));
         }
         downwardRanks.put(task, parentMaximum);
         return parentMaximum;
