@@ -16,7 +16,7 @@
 - `cloudSimMinEventIntervalSeconds` 是正的 CloudSim 内核 cadence 参数，默认 `0.1` 模拟秒。它影响事件释放与任务开始时间，必须写入工件；它不是网络时延校准。新任务加入前必须结清旧执行集合，cadence 不能让任务获得到达前的 CPU 工作。
 - 计算量由 `TaskExecutionModel` 统一换算。显式矩阵使用 `round(seconds × vmMips)`；`TaskOutcome.lengthMi` 保留输入声明，`effectiveExecutionLengthMi` 记录当前尝试的实际计算 MI（不含 stage-in），Task 窗口和故障判定使用后者。`MI × PE × 1_000_000` 必须处于 signed long 可表示范围，非正舍入和溢出会明确失败。
 - DAX 不允许 DOCTYPE/外部实体；未纳入输入哈希的 DTD 不能影响任务长度或访问外部资源。
-- `SimulationConfig.deadline` 只是从模拟时间零点开始、以 `simulationEndSeconds`（历史 `makespan`）为观察基准的 SLA 阈值。`0` 表示未请求 deadline；正值记录 `MET`、`MISSED_LATE` 或 `MISSED_INCOMPLETE_WORKFLOW` 和相应 slack/tardiness，但不改变调度、准入、重试或故障行为。它不是最后一个逻辑 Task 成功完成时刻的隐式 deadline。
+- `SimulationConfig.deadline` 只是从模拟时间零点开始、以 `simulationEndSeconds`（历史 `makespan`）为观察基准的 SLA 阈值。`0` 表示未请求 deadline；正值记录 `MET`、`MISSED_LATE` 或 `MISSED_INCOMPLETE_WORKFLOW` 和相应 slack/tardiness，但不改变调度、准入、重试或故障行为。它不是最后一个逻辑 Task 成功完成时刻的隐式 deadline。阈值保留signed-long精度，与结束时刻的精确二进制double值比较后才把差值转回double，不使用epsilon；例如`T=2^63,D=Long.MAX_VALUE`必须晚1秒。
 - 标准 `SimulationRunner` 仅接受 `ClusteringMethod.NONE` 与 `SPACE_SHARED` VM。其他聚类和 `TIME_SHARED` 仍可由历史低层 API 使用，但它们与 ready-Job 调度、Task outcome 和指标的端到端契约尚未认证。
 - `PlatformProfile` 会预检确定的、容量可行的 VM-to-Host 映射。显式 pin 的 VM 固定到声明 Host；未 pin VM 使用兼容历史的最大剩余 PE 选择与声明 Host 顺序 tie-break。CloudSim 创建 VM 后，调度器冻结实际映射并与预检比较。这是放置可复现性证据，不是 Host CPU 争用模型。
 - `JobOutcome` 是 CloudSim Job envelope，包含有效 stage-in 长度；`TaskOutcome` 是该延迟之后的逻辑 Task 计算窗口，仅当一 Task 窗口与 Job envelope 相同才标记为精确。重试会作为新的 Job attempt 保存，已失败 attempt 的状态与时间不会被改写。所有逻辑 Task 成功时，`logicalTaskCompletionSeconds` 是这些 Task 首次成功 Job-envelope 完成时间的最大值；否则该值不可用。`simulationEndSeconds` 与历史 `makespan` 相同，二者的差为可用时的 `terminalLifecycleTailSeconds`。

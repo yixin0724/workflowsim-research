@@ -1,5 +1,6 @@
 package org.workflowsim.experiment;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -484,12 +485,17 @@ public final class SimulationMetrics {
                 ? makespan / criticalPathReference.getCriticalPathLowerBoundSeconds() : 0.0;
         boolean workflowCompleted = "COMPLETED_SUCCESSFULLY".equals(logicalTaskCompletionStatus);
         boolean deadlineEnabled = config.getDeadline() > 0L;
-        String deadlineOutcome = deadlineOutcome(deadlineEnabled, workflowCompleted, makespan,
-                config.getDeadline());
+        // Preserve the exact long threshold and the exact binary64 clock before subtracting.
+        // BigDecimal.valueOf(makespan) would instead use a rounded shortest decimal string:
+        // at 2^63 that would turn the true one-second miss of Long.MAX_VALUE into 193 seconds.
+        BigDecimal exactDeadlineSlack = deadlineEnabled
+                ? BigDecimal.valueOf(config.getDeadline()).subtract(new BigDecimal(makespan))
+                : BigDecimal.ZERO;
+        String deadlineOutcome = deadlineOutcome(deadlineEnabled, workflowCompleted,
+                exactDeadlineSlack.signum());
         boolean deadlineMet = "MET".equals(deadlineOutcome);
-        double deadlineSlack = deadlineEnabled ? config.getDeadline() - makespan : 0.0;
-        double deadlineTardiness = deadlineEnabled
-                ? Math.max(0.0, makespan - config.getDeadline()) : 0.0;
+        double deadlineSlack = exactDeadlineSlack.doubleValue();
+        double deadlineTardiness = Math.max(0.0, -deadlineSlack);
         int exactTaskTimingCount = 0;
         for (SimulationReport.TaskOutcome outcome : taskOutcomes) {
             if (outcome.hasExactJobTiming()) {
@@ -992,6 +998,10 @@ public final class SimulationMetrics {
     /**
      * 返回受控共享存储关键路径参考是否适用于本次运行的模型范围。
      *
+     * <p>要求 NONE 聚类、无故障、无开销及 SPACE_SHARED VM。数据移动仅接受历史串行
+     * 输入模型或固定端点无争用模型；后者使用去掉额外接入时延和带宽上限后的乐观参考。
+     * 执行前传输模型可重叠父输入，故本参考不可用，但不禁止这些模型本身的合法运行。</p>
+     *
      * @return 关键路径下界参考是否可用
      */
     public boolean isControlledSharedStorageCriticalPathReferenceAvailable() {
@@ -1049,11 +1059,17 @@ public final class SimulationMetrics {
     /**
      * 已启用时为 {@code deadline - makespan}，未请求 deadline 时为零。
      *
+     * <p>先用精确 long 阈值与仿真时钟 double 的精确二进制值相减，只将最终差值舍入为
+     * double 指标。不会先将大整数阈值转换成 double，也不会以时钟的最短十进制字符串
+     * 代替其精确值；截止结果按未舍入差值的符号判断。</p>
+     *
      * @return 以模拟秒表示的 deadline 余量
      */
     public double getDeadlineSlackSeconds() { return deadlineSlackSeconds; }
     /**
      * 已启用时为 {@code max(0, makespan - deadline)}，未请求时为零。
+     *
+     * <p>与 {@link #getDeadlineSlackSeconds()} 使用同一精确阈值差，不丢弃 long 的低位。</p>
      *
      * @return 以模拟秒表示的 deadline 迟延
      */
@@ -1461,14 +1477,14 @@ public final class SimulationMetrics {
     }
 
     private static String deadlineOutcome(boolean enabled, boolean workflowCompleted,
-            double makespan, long deadline) {
+            int exactSlackSign) {
         if (!enabled) {
             return "NOT_REQUESTED";
         }
         if (!workflowCompleted) {
             return "MISSED_INCOMPLETE_WORKFLOW";
         }
-        return makespan <= deadline ? "MET" : "MISSED_LATE";
+        return exactSlackSign >= 0 ? "MET" : "MISSED_LATE";
     }
 
     private static double nonNegative(double value) {

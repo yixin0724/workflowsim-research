@@ -13,18 +13,31 @@ import java.util.Set;
 import org.cloudbus.cloudsim.Consts;
 import org.workflowsim.FileItem;
 import org.workflowsim.Task;
+import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.ClusteringParameters.ClusteringMethod;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 import org.workflowsim.utils.SimulationTiming;
+import org.workflowsim.utils.TaskExecutionModel;
 
 /**
  * 为当前共享存储执行模型计算一个刻意限定范围的关键路径参考值。
  *
- * <p>该参考值是乐观下界，而不是最优调度。它消除 VM 容量争用，让每个任务使用
- * 最快的兼容 VM，并计入模型生成的 stage-in Job 以及
- * {@code WorkflowDatacenter} 使用的逐任务共享存储输入时延。</p>
+ * <p>该参考值是乐观下界，而不是最优调度。它消除 VM 容量争用及非零工作流到达约束，
+ * 让每个任务使用有效执行时长最短的兼容 VM；有任务×VM 成本矩阵时，计算工作量采用与运行时
+ * 相同的整数 MI 投影，而不是原始输入长度。参考计入模型生成的 stage-in Job，以及历史共享
+ * 存储规则下逐任务串行输入的整数 MI 时延。</p>
+ *
+ * <p>可用于 LEGACY_WORKFLOWSIM_V1 和 FIXED_ENDPOINT_NO_CONTENTION_V1：后者的
+ * 非负接入时延和额外带宽上限被乐观地去掉，所以保留的历史存储时延不会高估其输入时延。
+ * 执行前传输模型可让不同父任务的输入重叠，不能复用此串行输入下界；这些合法运行仅将本参考
+ * 标记为不可用。参考不是每工作流流时，也不作跨数据移动模型的 makespan 单调性承诺。</p>
+ *
+ * <p>这是可选观测：任一 PE 兼容候选的计算工作量、输入信封或时长无法表示时，整个参考报告
+ * {@code UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST}，不回退原始成本，也不跳过坏候选后
+ * 冒称已有完整参考。这不新增全矩阵预检，不改变规划器或实际所选坐标的执行校验；不能使一个
+ * 已完成有效执行的运行仅因未选候选的参考计算而失败。</p>
  */
 final class WorkflowModelReference {
 
@@ -32,6 +45,8 @@ final class WorkflowModelReference {
             "SHARED_STORAGE_NO_CLUSTERING_NO_FAILURE_NO_OVERHEAD_SPACE_SHARED";
     static final String UNAVAILABLE_SCOPE =
             "UNAVAILABLE_OUTSIDE_CONTROLLED_SHARED_STORAGE_SCOPE";
+    private static final String UNREPRESENTABLE_EXECUTION_COST_SCOPE =
+            "UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST";
     private static final long STAGE_IN_JOB_LENGTH_MI = 110L;
 
     private WorkflowModelReference() {
@@ -109,12 +124,23 @@ final class WorkflowModelReference {
             for (Task parent : task.getParentList()) {
                 readyTime = Math.max(readyTime, finishTimes.get(parent).doubleValue());
             }
-            double duration = fastestCompatibleDuration(task, vms,
-                    platform.getStorage().getMaxTransferRateMbPerSecond());
+            double duration;
+            try {
+                duration = fastestCompatibleDuration(task, vms,
+                        platform.getStorage().getMaxTransferRateMbPerSecond());
+            } catch (IllegalArgumentException | ArithmeticException unrepresentableCost) {
+                // This catches only the optional per-task candidate-cost calculation, never
+                // actual dispatch/execution or planner validation. A bad alternative invalidates
+                // the whole reference; ignoring it could advertise an unjustified bound.
+                return Reference.unavailable(UNREPRESENTABLE_EXECUTION_COST_SCOPE);
+            }
             if (Double.isInfinite(duration)) {
                 return Reference.unavailable("UNAVAILABLE_NO_COMPATIBLE_VM");
             }
             double finish = readyTime + duration;
+            if (!Double.isFinite(finish) || finish < 0.0) {
+                return Reference.unavailable(UNREPRESENTABLE_EXECUTION_COST_SCOPE);
+            }
             finishTimes.put(task, finish);
             lowerBound = Math.max(lowerBound, finish);
             processed++;
@@ -143,14 +169,30 @@ final class WorkflowModelReference {
     private static double fastestCompatibleDuration(Task task, List<PlatformProfile.VmSpec> vms,
             int transferRateMbPerSecond) {
         double best = Double.POSITIVE_INFINITY;
+        // Shared-storage input demand is independent of the candidate VM; scan the files once.
+        double transferSeconds = transferSeconds(task, transferRateMbPerSecond);
+        if (!Double.isFinite(transferSeconds) || transferSeconds < 0.0) {
+            throw new IllegalArgumentException("Reference transfer seconds must be finite and non-negative");
+        }
         for (PlatformProfile.VmSpec vm : vms) {
             if (task.getNumberOfPes() > vm.getPes()) {
                 continue;
             }
-            double transferSeconds = transferSeconds(task, transferRateMbPerSecond);
-            long transferMi = (long) (vm.getMips() * transferSeconds);
-            // CloudSim 多 PE 任务并行执行，使用单 PE 长度与运行时一致
-            best = Math.min(best, (task.getCloudletLength() + transferMi) / vm.getMips());
+            long computeMi = TaskExecutionModel.executionLengthMi(task, vm.getId(), vm.getMips());
+            double transferWorkMi = vm.getMips() * transferSeconds;
+            // 2^63 is the first positive double outside long's range; casting it would saturate.
+            if (!Double.isFinite(transferWorkMi) || transferWorkMi < 0.0 || transferWorkMi >= 0x1.0p63) {
+                throw new IllegalArgumentException("Reference transfer MI cannot be represented as a non-negative long");
+            }
+            long transferMi = (long) transferWorkMi;
+            long envelopeMi = Math.addExact(computeMi, transferMi);
+            TaskExecutionModel.requireRepresentableLength(envelopeMi, task.getNumberOfPes());
+            // CloudSim 多 PE 任务并行执行，使用单 PE 长度与运行时一致。
+            double candidateSeconds = envelopeMi / vm.getMips();
+            if (!Double.isFinite(candidateSeconds) || candidateSeconds <= 0.0) {
+                throw new IllegalArgumentException("Reference execution seconds must be finite and positive");
+            }
+            best = Math.min(best, candidateSeconds);
         }
         return best;
     }
@@ -172,6 +214,12 @@ final class WorkflowModelReference {
                 || config.getFailureModel().isEnabled()
                 || !isNoOverhead(config)
                 || platform.getStorage().getMaxTransferRateMbPerSecond() <= 0) {
+            return false;
+        }
+        DataMovementModel.Kind movement = config.getDataMovementModel().getKind();
+        if (movement != DataMovementModel.Kind.LEGACY_WORKFLOWSIM_V1
+                && movement != DataMovementModel.Kind.FIXED_ENDPOINT_NO_CONTENTION_V1) {
+            // Pre-execution parent inputs may overlap: their serial sum is not a lower bound.
             return false;
         }
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
