@@ -26,10 +26,11 @@ import org.workflowsim.Task;
  *       最小插入式 EFT（平局取较小 VM ID）。</li>
  * </ol>
  *
- * <p><b>通信建模与执行语义</b>与 {@link LocalHeftPlanningAlgorithm} 完全一致（共享
- * {@link AbstractLocalCommPlanningAlgorithm}）：LOCAL stage-in 传输逐位镜像、传输为
- * 执行前网络延迟（可与 VM 忙碌期重叠，VM 只被计算占用，论文 AST 语义）、副本状态按
- * 调度顺序演进。适用前提与边界声明亦同。</p>
+ * <p><b>通信建模与执行语义</b>与 {@link LocalHeftPlanningAlgorithm} 共用
+ * {@link AbstractLocalCommPlanningAlgorithm}：传输是可与 VM 忙碌期重叠的执行前
+ * 延迟；副本按输入 hold 完成与输出计算完成时刻登记，并在依赖就绪时过滤可见性。
+ * 关键处理器必须兼容整条路径，其他分配只考虑各任务的兼容 VM。
+ * 该估计不重放完整运行期事件；适用前提与边界声明同 LOCAL_HEFT。</p>
  */
 public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 
@@ -201,6 +202,10 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
         for (CondorVM vm : vms()) {
             double total = 0.0;
             for (Task task : criticalPath) {
+                if (!isCompatible(task, vm)) {
+                    total = Double.POSITIVE_INFINITY;
+                    break;
+                }
                 total += computeSecondsOn(task, vm);
             }
             if (total < bestTotal) {
@@ -209,7 +214,8 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
             }
         }
         if (best == null) {
-            throw new IllegalStateException("LOCAL_CPOP cannot select a critical-path VM");
+            throw new IllegalArgumentException("LOCAL_CPOP cannot select one compatible VM "
+                    + "for every task on its critical path");
         }
         return best;
     }

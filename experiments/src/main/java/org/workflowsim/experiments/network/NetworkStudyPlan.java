@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -13,15 +14,22 @@ import java.util.Map;
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.network.NetworkTopologySpec;
 import org.workflowsim.platform.PlatformProfile;
+import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.PlanningAlgorithm;
+import org.workflowsim.utils.ReplicaCatalog;
+import org.workflowsim.utils.SimulationConfig;
+import org.workflowsim.utils.TaskExecutionModel;
 
 /** Predeclared network-limited study: a small CI matrix and an explicit full research matrix. */
 public final class NetworkStudyPlan {
-    public static final String PROTOCOL = "network-limited-r10-v2";
-    /** S5 add-on protocol on the frozen r10 matrix: HEFT/CPOP/PEFT list-scheduler comparison. */
-    public static final String PEFT_COMPARISON_PROTOCOL = "peft-comparison-r12-v1";
-    /** R13 sensitivity response surface: VM count, link bandwidth, and VM heterogeneity axes. */
-    public static final String SENSITIVITY_PROTOCOL = "sensitivity-response-r13-v1";
+    /** New executions retain the parameter matrix, not the historical execution model identity. */
+    public static final String PROTOCOL = "network-limited-r10-v3";
+    public static final String PEFT_COMPARISON_PROTOCOL = "peft-comparison-r12-v2";
+    public static final String SENSITIVITY_PROTOCOL = "sensitivity-response-r13-v2";
+    /** Historical protocol identities are accepted only by read-only integrity validation. */
+    public static final String HISTORICAL_PROTOCOL = "network-limited-r10-v2";
+    public static final String HISTORICAL_PEFT_COMPARISON_PROTOCOL = "peft-comparison-r12-v1";
+    public static final String HISTORICAL_SENSITIVITY_PROTOCOL = "sensitivity-response-r13-v1";
     public static final List<PlanningAlgorithm> PLANNERS = Collections.unmodifiableList(Arrays.asList(
             PlanningAlgorithm.LOCAL_HEFT, PlanningAlgorithm.LOCAL_CPOP,
             PlanningAlgorithm.RANDOM, PlanningAlgorithm.PSO));
@@ -43,13 +51,20 @@ public final class NetworkStudyPlan {
 
     private final boolean full;
     private final StudyVariant variant;
+    private final String protocol;
     private final List<WorkflowCase> workflows;
     private final List<Map<String, Object>> excludedInputs;
 
     private NetworkStudyPlan(boolean full, StudyVariant variant, List<WorkflowCase> workflows,
             List<Map<String, Object>> excludedInputs) {
+        this(full, variant, workflows, excludedInputs, currentProtocol(variant));
+    }
+
+    private NetworkStudyPlan(boolean full, StudyVariant variant, List<WorkflowCase> workflows,
+            List<Map<String, Object>> excludedInputs, String protocol) {
         this.full = full;
         this.variant = variant;
+        this.protocol = protocol;
         this.workflows = Collections.unmodifiableList(workflows);
         this.excludedInputs = Collections.unmodifiableList(excludedInputs);
     }
@@ -108,15 +123,111 @@ public final class NetworkStudyPlan {
             }
         }
         if (values.isEmpty()) { throw new IllegalArgumentException("No compatible study inputs"); }
-        return new NetworkStudyPlan(full, variant, values, excluded);
+        NetworkStudyPlan result = new NetworkStudyPlan(full, variant, values, excluded);
+        NetworkStudyPlan registered = canonical(mode, result.getProtocol());
+        if (values.size() != registered.workflows.size() || excluded.size() != registered.excludedInputs.size()) {
+            throw new IllegalArgumentException("Qualified inputs differ from the registered study protocol");
+        }
+        for (int i = 0; i < values.size(); i++) {
+            WorkflowCase actual = values.get(i), expected = registered.workflows.get(i);
+            if (!actual.id.equals(expected.id) || !actual.sha256.equals(expected.sha256)) {
+                throw new IllegalArgumentException("Input differs from registered protocol: " + actual.id);
+            }
+        }
+        for (int i = 0; i < excluded.size(); i++) {
+            for (String key : Arrays.asList("id", "reason", "scope")) {
+                if (!registered.excludedInputs.get(i).get(key).equals(excluded.get(i).get(key))) {
+                    throw new IllegalArgumentException("Input qualification differs from registered protocol: " + key);
+                }
+            }
+        }
+        return result;
     }
 
-    /** The declared protocol identifier for this study variant. */
-    public String getProtocol() {
+    /** The declared protocol revision; new executions never use a historical revision. */
+    public String getProtocol() { return protocol; }
+
+    StudyVariant getVariant() { return variant; }
+
+    /** Whether the declaration certifies the retained historical model rather than new execution. */
+    public boolean isHistoricalProtocol() {
+        return HISTORICAL_PROTOCOL.equals(protocol) || HISTORICAL_PEFT_COMPARISON_PROTOCOL.equals(protocol)
+                || HISTORICAL_SENSITIVITY_PROTOCOL.equals(protocol);
+    }
+
+    private static String currentProtocol(StudyVariant variant) {
+        if (variant == null) { throw new IllegalArgumentException("Study variant is required"); }
         switch (variant) {
             case PEFT_COMPARISON: return PEFT_COMPARISON_PROTOCOL;
             case SENSITIVITY_R13: return SENSITIVITY_PROTOCOL;
             default: return PROTOCOL;
+        }
+    }
+
+    /**
+     * Build the registered matrix without reading files, parsing workflows, or generating inputs.
+     * Paths here are logical placeholders; validators separately bind retained absolute paths.
+     * The workload fingerprints and the frozen layered generator are part of the protocol,
+     * not declarations supplied by the evidence being checked.
+     */
+    static NetworkStudyPlan canonical(String mode, String protocol) {
+        if (!"full".equals(mode) && !"smoke".equals(mode)) {
+            throw new IllegalArgumentException("Study mode must be smoke or full");
+        }
+        StudyVariant variant;
+        if (PROTOCOL.equals(protocol) || HISTORICAL_PROTOCOL.equals(protocol)) { variant = StudyVariant.R10; }
+        else if (PEFT_COMPARISON_PROTOCOL.equals(protocol) || HISTORICAL_PEFT_COMPARISON_PROTOCOL.equals(protocol)) {
+            variant = StudyVariant.PEFT_COMPARISON;
+        } else if (SENSITIVITY_PROTOCOL.equals(protocol) || HISTORICAL_SENSITIVITY_PROTOCOL.equals(protocol)) {
+            variant = StudyVariant.SENSITIVITY_R13;
+        } else { throw new IllegalArgumentException("Unknown protocol: " + protocol); }
+        boolean full = "full".equals(mode);
+        List<WorkflowCase> values = new ArrayList<WorkflowCase>();
+        if (full) {
+            registered(values, "epigenomics-100", "epigenomics", "dax/epigenomics/n100/Epigenomics_100.dax",
+                    "374521746417b18133682de21b654b84c32acde6332462c0ce916c4ba12c7f36");
+            registered(values, "epigenomics-997", "epigenomics", "dax/epigenomics/n997/Epigenomics_997.dax",
+                    "2ed853db24126750a1bf427b5731d5fb18b6d31baf3d2088c14b310478bed628");
+            registered(values, "cybershake-100", "cybershake", "dax/cybershake/n100/CyberShake_100.dax",
+                    "183ac79c4ee80a6293adff71d8386e7538d31a9bd1b609b176d94b131b9fdb52");
+            registered(values, "cybershake-1000", "cybershake", "dax/cybershake/n1000/CyberShake_1000.dax",
+                    "4314ae0e6bb43c3f74818306b600151c0614b62184295438350837217f1df95b");
+            registered(values, "inspiral-100", "inspiral", "dax/inspiral/n100/Inspiral_100.dax",
+                    "64e2bc60893d65f8347c436986841741d7ced1bd05435f67081707d4346decfa");
+        } else {
+            registered(values, "paper-10", "paper-fixture", "dax/heft/heft-paper-example.dax",
+                    "5e64adc375e0249dafed5cfaba75f63332d3793fe017e57ea6c8da68e9d86fbd");
+        }
+        for (int width : full ? new int[] {8, 32} : new int[] {4}) {
+            String id = "layered-" + (width * 4);
+            values.add(new WorkflowCase(id, "layered", "SYNTHETIC", Paths.get("inputs", id + ".dax"),
+                    generatedSha256(width)));
+        }
+        List<Map<String, Object>> excluded = new ArrayList<Map<String, Object>>();
+        if (full) {
+            Map<String, Object> rejection = new LinkedHashMap<String, Object>();
+            rejection.put("id", "inspiral-1000");
+            rejection.put("path", "dax/inspiral/n1000/Inspiral_1000.dax");
+            rejection.put("reason", "CONFLICTING_FILE_SIZE: H1-THINCA-782406919-2048.xml (39368.0 vs 46451.0)");
+            rejection.put("scope", "EXCLUDED_FROM_ALL_PLANNERS_BEFORE_COMPARISON");
+            excluded.add(rejection);
+        }
+        return new NetworkStudyPlan(full, variant, values, excluded, protocol);
+    }
+
+    private static void registered(List<WorkflowCase> values, String id, String family, String path, String sha256) {
+        values.add(new WorkflowCase(id, family, "CLASSIC_DAX", Paths.get(path), sha256));
+    }
+
+    private static String generatedSha256(int width) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(layeredWorkflow(width).getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte value : digest) { hex.append(String.format(java.util.Locale.ROOT, "%02x", value & 255)); }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is required", impossible);
         }
     }
 
@@ -256,6 +367,7 @@ public final class NetworkStudyPlan {
                 ? "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_THREE_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS"
                 : "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_TWO_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS");
         result.put("transferStart", "ALL_GROUPS_START_AT_JOB_READY");
+        if (!isHistoricalProtocol()) { result.put("executionSemantics", TaskExecutionModel.EXECUTION_SEMANTICS); }
         return result;
     }
 
@@ -286,6 +398,16 @@ public final class NetworkStudyPlan {
         throw new IllegalArgumentException("Unknown heterogeneity level: " + heterogeneity);
     }
 
+    /** Shared fixed simulation declaration for execution and read-only protocol validation. */
+    static SimulationConfig configuration(String input, int count, String network, PlanningAlgorithm planner, long seed) {
+        return SimulationConfig.builder(input, count)
+                .planningAlgorithm(planner).schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.LOCAL).randomSeed(seed)
+                .dataMovementModel(movement(network)).runtimeScale(1.0).runtimeReferenceMips(1000.0)
+                .cloudSimMinEventIntervalSeconds(0.1).deadline(0).costModel(Parameters.CostModel.DATACENTER)
+                .build();
+    }
+
     public static PlatformProfile platform(int count, String network) {
         return platform(count, network, HOMOGENEOUS);
     }
@@ -294,7 +416,9 @@ public final class NetworkStudyPlan {
         movement(network);
         String name = "network-study-" + count + "-" + network
                 + (HOMOGENEOUS.equals(heterogeneity) ? "" : "-" + heterogeneity);
-        PlatformProfile.Builder builder = PlatformProfile.builder(name);
+        PlatformProfile.Builder builder = PlatformProfile.builder(name)
+                .storage(new PlatformProfile.StorageSpec(1000000000000L, 15))
+                .costs(new PlatformProfile.CostSpec(3.0, 0.05, 0.1, 0.1));
         for (int id = 0; id < count; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000, 2048, 10000, 1000000));
             builder.addVm(new PlatformProfile.VmSpec(id, vmMips(id, heterogeneity), 1, 512, 1, 10000, "Xen",
@@ -346,6 +470,13 @@ public final class NetworkStudyPlan {
         public final String population;
         public final Path path;
         public final String sha256;
+
+        /** Metadata-only constructor for the registered, filesystem-independent declaration. */
+        private WorkflowCase(String id, String family, String population, Path path, String sha256) {
+            this.id = id; this.family = family; this.population = population;
+            this.path = path; this.sha256 = sha256;
+        }
+
         WorkflowCase(String id, String family, String population, Path path) {
             this.id = id; this.family = family; this.population = population;
             this.path = path.toAbsolutePath().normalize();

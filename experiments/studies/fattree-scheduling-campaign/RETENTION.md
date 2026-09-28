@@ -1,5 +1,7 @@
 # RETENTION — Fat-tree × 调度联合实验（R7，R8 再标定重录）
 
+> **历史保留说明**：本目录保留的是当时模型的记录，不是当前执行语义的认证数据。后续 CPOP、网络、CPU 工作量及 LOCAL 数据可达时间修正已改变部分结果；当前状态见[正确性整改记录](../../../docs/advanced/SIMULATION_CORRECTNESS_REPAIR.md)。不得为维持逐位一致而覆盖本目录历史工件或调整新模型。
+
 - **研究问题 / 矩阵 / 指标与统计方法**（PROTOCOL/MATRIX/METRICS 等价物）：
   `docs/experiments/FATTREE_SCHEDULING_CAMPAIGN.md`（设计与验收）与
   `docs/experiments/FATTREE_SCHEDULING_RESULTS.md`（实测结论）。
@@ -22,18 +24,17 @@
      （0.125 = 恰为修复前实际物理），链路束缚恢复、R6 &gt; R2 与 A4 带宽轴
      判别力恢复。交叉验证：heft 论文例 R6 列与修复前 R7 黄金值逐位相等
      （5738.1/5854.1/7206.1/7262.1）——同时验证 F1 修复语义与再标定等价性。
-- **保留理由**：结果文档只嵌入汇总表格；逐运行原始记录是排名翻转、
-  配对 Wilcoxon 与敏感性结论的审计依据，且黄金值 IT
-  （`FatTreeCampaignGoldenIntegrationTest`）锁定的数值可与本工件逐位对照。
-- **验证命令**（复现比对；`generatedAt` 字段除外应逐位一致）：
+- **保留理由**：逐运行原始记录是当时排名、统计和敏感性结论的审计依据。
+  当前黄金值 IT 锁定修正后的模型，不能再要求与这份历史工件整体逐位相同。
+- **差异分析命令**（按历史参数在当前代码下重新运行；输出必须使用新目录）：
 
   ```bash
   mvn -o -pl :workflowsim-experiments -am \
     -Dexec.mainClass=org.workflowsim.experiments.fattree.FatTreeSchedulingCampaignExecutor \
     -Dexec.args="$PWD/datasets /tmp/fattree-verify" \
     -Dworkflowsim.experiments.exec.skip=false compile exec:java
-  # 然后 diff /tmp/fattree-verify/campaign-results.json 与本目录工件
-  #（除 generatedAt 外应无差异；makespan 全部逐位一致）。
+  # 对比新输出与本目录历史工件并记录差异。
+  # 数值变化需解释模型原因，不要求逐位相同，也不要覆盖历史结果。
   ```
 
 - **清理范围**：临时输出目录（如 `/tmp/fattree-campaign-run*`、

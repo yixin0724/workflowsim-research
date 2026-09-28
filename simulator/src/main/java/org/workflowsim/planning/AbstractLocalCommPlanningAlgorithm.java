@@ -16,19 +16,20 @@ import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.FileType;
 import org.workflowsim.utils.SimulationConstants;
 import org.workflowsim.utils.SimulationTiming;
+import org.workflowsim.utils.TaskExecutionModel;
 
 /**
  * LOCAL 文件系统通信感知静态 DAG 规划器（Topcuoglu 族列表调度）的共享机制基类。
  *
- * <p>承载 {@link LocalHeftPlanningAlgorithm} 与 {@link LocalCpopPlanningAlgorithm}
- * 共用的执行模型镜像：任务×VM 计算 MI 折算（成本矩阵秒数 {@code Math.round} 或
- * 解析期 MI）、副本状态装配与按调度顺序演进、向上 rank
- * {@code r_u(t) = w̄_t + max_child(c̄ + r_u(child))}、运行时 LOCAL stage-in 传输
- * 逐位镜像估算、执行前传输延迟的 AST 公式
- * {@code AST(t, vm) = max(avail[vm], max_pred(finish(pred) + c_pred(vm)))}（传输
- * 与 VM 忙碌期重叠，VM 预留区间只覆盖计算）、插入式最早开始搜索与 VM 预留管理、
- * 根任务的模型 stage-in Job 引导时刻。语义与边界的完整叙述见
- * {@link LocalHeftPlanningAlgorithm} 类文档。</p>
+ * <p>承载 LOCAL_HEFT、LOCAL_CPOP 与 LOCAL_PEFT 的共用无争用估计：任务×兼容 VM
+ * 的整数 MI 成本折算、向上 rank、带可用时刻的副本目录、按父分组的执行前传输与
+ * 插入式计算预留。输入传输与 VM 忙碌期可重叠；外部输入从依赖就绪时点传输；输入
+ * 副本在整个 hold 完成时可用，输出副本在计算完成时可用。候选只读取其依赖就绪
+ * 时点已经可用的已规划副本，不把分配顺序误当作时间顺序。</p>
+ *
+ * <p>这是基于当前部分计划的估计，不完整重放运行期事件。同刻事件次序、后规划任务
+ * 更早产生副本、短计算完成钳制以及争用模型仍可能使计划与运行时不同；详细边界见
+ * {@link LocalHeftPlanningAlgorithm}。</p>
  *
  * <p><b>适用前提</b>（由 {@link PlanningContext#validateLocalStaticDag()} 强制）：
  * LOCAL 文件系统、NONE 聚类、无故障、无建模开销、{@code preExecutionTransferDelayV1}
@@ -45,10 +46,12 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
     private final Map<Integer, CondorVM> vmById = new LinkedHashMap<Integer, CondorVM>();
     /** 按 VM ID 升序的 VM 列表（{@link #prepare()} 后可用）。 */
     private final List<CondorVM> vms = new ArrayList<CondorVM>();
-    /** 任务 → (VM → 计算 MI)。 */
-    private final Map<Task, Map<CondorVM, Long>> computeMiByVm = new HashMap<Task, Map<CondorVM, Long>>();
-    /** 文件名 → 副本站点集合（"source" 或 VM ID 字符串）。 */
-    private final Map<String, LinkedHashSet<String>> replicas = new LinkedHashMap<String, LinkedHashSet<String>>();
+    /** 任务 → (兼容 VM → 整数 MI 对应的有效计算秒数)。 */
+    private final Map<Task, Map<CondorVM, Double>> computeSecondsByVm =
+            new HashMap<Task, Map<CondorVM, Double>>();
+    /** 文件名 → (站点 → 副本最早可用时刻)，站点为 SOURCE 或 VM ID 字符串。 */
+    private final Map<String, Map<String, Double>> replicas =
+            new LinkedHashMap<String, Map<String, Double>>();
     /** 文件名 → 大小（字节）。 */
     private final Map<String, Double> fileSizes = new LinkedHashMap<String, Double>();
     /** 任务 → 向上 rank。 */
@@ -83,7 +86,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         sortedVms();
         WorkflowDagValidator.validateAndAssignDepths(tasks);
         // 同一规划器可再次运行；rank、已完成状态及演进后的副本都只属于上一次计划。
-        computeMiByVm.clear();
+        computeSecondsByVm.clear();
         replicas.clear();
         fileSizes.clear();
         upwardRanks.clear();
@@ -111,9 +114,14 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         return finishes.get(task);
     }
 
-    /** 任务在指定 VM 上的计算秒数（矩阵/解析期 MI 折算后）。 */
+    /** 任务在指定 VM 上的有效计算秒数；PE 不兼容时返回正无穷。 */
     final double computeSecondsOn(Task task, CondorVM vm) {
-        return computeMiByVm.get(task).get(vm).longValue() / vm.getMips();
+        Double seconds = computeSecondsByVm.get(task).get(vm);
+        return seconds == null ? Double.POSITIVE_INFINITY : seconds.doubleValue();
+    }
+
+    final boolean isCompatible(Task task, CondorVM vm) {
+        return task.getNumberOfPes() <= vm.getNumberOfPes();
     }
 
     /**
@@ -145,25 +153,20 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
     }
 
     /**
-     * 任务在某 VM 上的数据到达时刻（论文 AST 的数据就绪分量）。
+     * 以依赖就绪时点的可见副本估算整个输入 hold 的完成时刻。
      *
-     * <p>每个父任务的文件在其计划完成时刻开始传输；同一父任务的多个文件串行累加，
-     * 不同父任务并行传输，到达相互独立。数据到达时刻为最晚的
-     * {@code finish(pred) + Σ c_file(pred, vm)}。未由任何父任务产生的外部输入
-     * （SOURCE 副本）自始可用，其到达候选为传输秒数本身。根任务无输入时到达时刻
-     * 即 stage-in 完成时刻。</p>
+     * <p>保留无争用运行模型的按父分组语义：同父文件串行累加，不同父任务并行，
+     * 候选到达时刻为 {@code finish(pred) + Σ c_file(pred, vm)}。外部输入从本任务
+     * 依赖就绪时刻开始传输；stage-in 的平台级登记不表示根任务目标 VM 已有文件。
+     * 正 hold 按同一最小事件间隔钳制，输入副本到整个 hold 完成后才对后续估计可见。</p>
      *
      * @param task 待分配任务
      * @param vm 目标 VM
-     * @param stageInFinish 根任务就绪时刻
-     * @return 全部输入文件到达目标 VM 的最晚时刻
+     * @param dependencyReady 全部父任务已完成的时刻；根任务为 bootstrap 时刻
+     * @return 全部输入 hold 完成、计算可派发的时刻，不含 VM 排队
      */
-    private double dataArrivalOn(Task task, CondorVM vm, double stageInFinish) {
-        if (task.getParentList().isEmpty()) {
-            // 根任务：模型 stage-in Job 已把外部输入搬到平台；计算 Job 自身无输入传输。
-            return stageInFinish;
-        }
-        double arrival = 0.0;
+    private double dataArrivalOn(Task task, CondorVM vm, double dependencyReady) {
+        double arrival = dependencyReady;
         LinkedHashSet<String> attributedNames = new LinkedHashSet<String>();
         for (Task parent : task.getParentList()) {
             LinkedHashSet<String> parentOutputs = new LinkedHashSet<String>();
@@ -179,7 +182,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                         && parentOutputs.contains(file.getName())) {
                     hasFilesFromParent = true;
                     attributedNames.add(file.getName());
-                    secondsFromParent += fileStageInSeconds(file, vm);
+                    secondsFromParent += fileStageInSeconds(file, vm, dependencyReady);
                 }
             }
             if (!hasFilesFromParent) {
@@ -192,20 +195,18 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             }
             arrival = Math.max(arrival, parentFinish.doubleValue() + secondsFromParent);
         }
-        // 未由任何父任务产生的外部输入（SOURCE 副本）自始可用。
         double externalSeconds = 0.0;
-        boolean hasExternal = false;
         for (FileItem file : task.getFileList()) {
             if (file.getType() == FileType.INPUT && file.isRealInputFile(task.getFileList())
                     && !attributedNames.contains(file.getName())) {
-                hasExternal = true;
-                externalSeconds += fileStageInSeconds(file, vm);
+                externalSeconds += fileStageInSeconds(file, vm, dependencyReady);
             }
         }
-        if (hasExternal) {
-            arrival = Math.max(arrival, externalSeconds);
-        }
-        return Math.max(arrival, stageInFinish);
+        arrival = Math.max(arrival, dependencyReady + externalSeconds);
+        double hold = arrival - dependencyReady;
+        return hold > 0.0
+                ? dependencyReady + Math.max(hold, context.getCloudSimMinEventIntervalSeconds())
+                : dependencyReady;
     }
 
     /**
@@ -252,13 +253,16 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                 ? Collections.singletonList(pinnedVm) : vms;
         CondorVM selectedVm = null;
         double selectedStart = 0.0;
+        double selectedInputReady = 0.0;
         double selectedFinish = Double.POSITIVE_INFINITY;
         double selectedScore = Double.POSITIVE_INFINITY;
         for (CondorVM vm : candidates) {
-            double arrival = dataArrivalOn(task, vm, stageInFinish);
-            long computeMi = computeMiByVm.get(task).get(vm).longValue();
-            double duration = computeMi / vm.getMips();
-            double start = earliestStart(reservations.get(vm), Math.max(dispatchable, arrival), duration);
+            if (!isCompatible(task, vm)) {
+                continue;
+            }
+            double arrival = dataArrivalOn(task, vm, dispatchable);
+            double duration = computeSecondsOn(task, vm);
+            double start = earliestStart(reservations.get(vm), arrival, duration);
             double finish = start + duration;
             double score = finish;
             if (octPerVm != null) {
@@ -273,6 +277,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                     && selectedVm != null && vm.getId() < selectedVm.getId())) {
                 selectedVm = vm;
                 selectedStart = start;
+                selectedInputReady = arrival;
                 selectedFinish = finish;
                 selectedScore = score;
             }
@@ -281,26 +286,24 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             throw new IllegalStateException(label + " cannot map task " + task.getCloudletId()
                     + "; no candidate VM");
         }
-        reserve(task, selectedVm, selectedStart, selectedFinish);
+        reserve(task, selectedVm, selectedStart, selectedFinish, selectedInputReady);
         return selectedFinish;
     }
 
     private void populateCosts(List<Task> tasks) {
         for (Task task : tasks) {
-            Map<CondorVM, Long> perVm = new LinkedHashMap<CondorVM, Long>();
+            Map<CondorVM, Double> perVm = new LinkedHashMap<CondorVM, Double>();
             for (CondorVM vm : vms) {
-                Double costSeconds = task.getVmExecutionCostSeconds(vm.getId());
-                long mi = costSeconds != null
-                        ? Math.round(costSeconds.doubleValue() * vm.getMips())
-                        : task.getCloudletLength();
-                if (mi <= 0L) {
-                    throw new IllegalStateException(label + " cannot plan task "
-                            + task.getCloudletId() + " on VM " + vm.getId()
-                            + ": converted compute MI must be positive");
+                if (isCompatible(task, vm)) {
+                    perVm.put(vm, Double.valueOf(TaskExecutionModel.executionSeconds(
+                            task, vm.getId(), vm.getMips())));
                 }
-                perVm.put(vm, Long.valueOf(mi));
             }
-            computeMiByVm.put(task, perVm);
+            if (perVm.isEmpty()) {
+                throw new IllegalArgumentException(label + " cannot plan task " + task.getCloudletId()
+                        + "; no compatible VM has sufficient processing elements");
+            }
+            computeSecondsByVm.put(task, perVm);
         }
     }
 
@@ -323,12 +326,14 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         }
         for (Task task : tasks) {
             for (FileItem file : task.getFileList()) {
+                Map<String, Double> sites = replicas.get(file.getName());
+                if (sites == null) {
+                    sites = new LinkedHashMap<String, Double>();
+                    replicas.put(file.getName(), sites);
+                }
                 if (file.getType() == FileType.INPUT && !outputNames.contains(file.getName())) {
-                    // 真实外部输入：解析期注册到 SOURCE 站点。
-                    replicas.put(file.getName(), new LinkedHashSet<String>(
-                            Collections.singletonList(Parameters.SOURCE)));
-                } else if (!replicas.containsKey(file.getName())) {
-                    replicas.put(file.getName(), new LinkedHashSet<String>());
+                    // SOURCE 自始可用；到目标 VM 的传输仍须等消费 Job 依赖就绪后开始。
+                    sites.put(Parameters.SOURCE, Double.valueOf(0.0));
                 }
             }
         }
@@ -354,18 +359,18 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         return rank;
     }
 
-    /** 任务在全部 VM 上计算秒数的平均值（w̄）。 */
+    /** 任务在全部兼容 VM 上有效计算秒数的平均值（w̄），不把不可行候选的无穷值纳入 rank。 */
     final double meanComputeSeconds(Task task) {
         double total = 0.0;
-        Map<CondorVM, Long> perVm = computeMiByVm.get(task);
-        for (Map.Entry<CondorVM, Long> entry : perVm.entrySet()) {
-            total += entry.getValue().longValue() / entry.getKey().getMips();
+        Map<CondorVM, Double> perVm = computeSecondsByVm.get(task);
+        for (Double seconds : perVm.values()) {
+            total += seconds.doubleValue();
         }
         return total / perVm.size();
     }
 
     /**
-     * 返回父子任务之间全部传输文件在全部有序跨 VM 对上的平均通信秒数。
+     * 返回父子任务之间全部传输文件在 PE 兼容的有序跨 VM 对上的平均通信秒数。
      *
      * <p>平均仅覆盖不同 VM 的有序对（同 VM 传输为零，由运行时副本局部性处理，
      * 与 HEFT 论文的 c̄_ij 约定一致）；跨 VM 对按
@@ -380,7 +385,9 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         int pairs = 0;
         for (Map.Entry<Integer, CondorVM> first : vmById.entrySet()) {
             for (Map.Entry<Integer, CondorVM> second : vmById.entrySet()) {
-                if (first.getKey().equals(second.getKey())) {
+                if (first.getKey().equals(second.getKey())
+                        || !isCompatible(parent, first.getValue())
+                        || !isCompatible(child, second.getValue())) {
                     continue;
                 }
                 double minBw = Math.min(first.getValue().getBw(), second.getValue().getBw());
@@ -428,24 +435,24 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
     }
 
     /**
-     * 镜像运行时 LOCAL stage-in 规则估算单个文件到目标 VM 的传输秒数。
-     *
-     * <p>取全部副本站点中的最快传输率；文件已在目标 VM 上则零传输。副本状态在此
-     * 只读，提交后由 {@link #reserve} 演进。</p>
+     * 在任务依赖就绪时可见的副本中选最快来源；尚未到达的目标副本不能按本地零成本计。
+     * 已规划任务的可用时刻只读，不因候选试算提前登记副本。
      */
-    private double fileStageInSeconds(FileItem file, CondorVM vm) {
-        LinkedHashSet<String> sites = replicas.get(file.getName());
+    private double fileStageInSeconds(FileItem file, CondorVM vm, double dependencyReady) {
+        Map<String, Double> sites = replicas.get(file.getName());
         if (sites == null || sites.isEmpty()) {
             throw new IllegalStateException("Required input file '" + file.getName()
-                    + "' of task " + file.getName() + " has no registered replica");
+                    + "' has no registered replica");
         }
         String vmSite = Integer.toString(vm.getId());
-        boolean requiredFileStagein = true;
         double maxBwth = 0.0;
-        for (String site : sites) {
+        for (Map.Entry<String, Double> replica : sites.entrySet()) {
+            if (replica.getValue().doubleValue() > dependencyReady) {
+                continue;
+            }
+            String site = replica.getKey();
             if (site.equals(vmSite)) {
-                requiredFileStagein = false;
-                break;
+                return 0.0;
             }
             double bwth;
             if (site.equals(Parameters.SOURCE)) {
@@ -469,13 +476,14 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                 maxBwth = bwth;
             }
         }
-        if (requiredFileStagein && maxBwth > 0.0) {
-            return file.getSize() / 1.0e6 / maxBwth;
+        if (!(maxBwth > 0.0)) {
+            throw new IllegalStateException("Required input file '" + file.getName()
+                    + "' has no usable replica at dependency-ready time " + dependencyReady);
         }
-        return 0.0;
+        return file.getSize() / 1.0e6 / maxBwth;
     }
 
-    private void reserve(Task task, CondorVM vm, double start, double finish) {
+    private void reserve(Task task, CondorVM vm, double start, double finish, double inputReady) {
         reservations.get(vm).add(new Reservation(start, finish));
         Collections.sort(reservations.get(vm), new Comparator<Reservation>() {
             @Override
@@ -487,15 +495,23 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         finishes.put(task, Double.valueOf(finish));
         task.setVmId(vm.getId());
         task.setStaticScheduleStartTime(start);
-        // 副本演进：镜像运行时——任务完成后 OUTPUT 注册到本 VM（LOCAL），
-        // stage-in 消费过的 INPUT 增加本 VM 副本。
+        // 输入在整个 hold 完成时登记，可能早于计算开始；输出仅在计算完成后可用。
+        // 分配顺序与实际时间顺序不同，必须保留时间戳而非把集合插入视为即时可读。
         String vmSite = Integer.toString(vm.getId());
         for (FileItem file : task.getFileList()) {
             if (file.getType() == FileType.INPUT && file.isRealInputFile(task.getFileList())) {
-                replicas.get(file.getName()).add(vmSite);
+                registerReplica(file.getName(), vmSite, inputReady);
             } else if (file.getType() == FileType.OUTPUT) {
-                replicas.get(file.getName()).add(vmSite);
+                registerReplica(file.getName(), vmSite, finish);
             }
+        }
+    }
+
+    private void registerReplica(String fileName, String site, double availableAt) {
+        Map<String, Double> sites = replicas.get(fileName);
+        Double previous = sites.get(site);
+        if (previous == null || availableAt < previous.doubleValue()) {
+            sites.put(site, Double.valueOf(availableAt));
         }
     }
 

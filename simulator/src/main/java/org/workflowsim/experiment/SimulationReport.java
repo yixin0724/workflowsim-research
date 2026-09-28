@@ -453,6 +453,7 @@ public final class SimulationReport {
         private final int taskStatus;
         private final int depth;
         private final long lengthMi;
+        private final long effectiveExecutionLengthMi;
         private final double startTime;
         private final double finishTime;
         private final boolean exactJobTiming;
@@ -466,6 +467,13 @@ public final class SimulationReport {
         TaskOutcome(int taskId, int jobId, int vmId, int jobStatus, int taskStatus,
                 int depth, long lengthMi, double startTime, double finishTime,
                 boolean exactJobTiming) {
+            this(taskId, jobId, vmId, jobStatus, taskStatus, depth, lengthMi, lengthMi,
+                    startTime, finishTime, exactJobTiming);
+        }
+
+        TaskOutcome(int taskId, int jobId, int vmId, int jobStatus, int taskStatus,
+                int depth, long lengthMi, long effectiveExecutionLengthMi,
+                double startTime, double finishTime, boolean exactJobTiming) {
             this.taskId = taskId;
             this.jobId = jobId;
             this.vmId = vmId;
@@ -473,6 +481,7 @@ public final class SimulationReport {
             this.taskStatus = taskStatus;
             this.depth = depth;
             this.lengthMi = lengthMi;
+            this.effectiveExecutionLengthMi = effectiveExecutionLengthMi;
             this.startTime = startTime;
             this.finishTime = finishTime;
             this.exactJobTiming = exactJobTiming;
@@ -487,8 +496,8 @@ public final class SimulationReport {
                 results.add(new TaskOutcome(task.getCloudletId(), job.getCloudletId(),
                         job.getVmId(), job.getCloudletStatus(), job.getCloudletStatus()
                                 == Cloudlet.SUCCESS ? Cloudlet.SUCCESS : task.getCloudletStatus(),
-                        task.getDepth(), task.getCloudletLength(), task.getExecStartTime(),
-                        task.getTaskFinishTime(), exactJobTiming));
+                        task.getDepth(), task.getCloudletLength(), task.getEffectiveExecutionLengthMi(),
+                        task.getExecStartTime(), task.getTaskFinishTime(), exactJobTiming));
             }
             return results;
         }
@@ -499,7 +508,10 @@ public final class SimulationReport {
         public int getJobStatus() { return jobStatus; }
         public int getTaskStatus() { return taskStatus; }
         public int getDepth() { return depth; }
+        /** @return original declared per-PE work in MI */
         public long getLengthMi() { return lengthMi; }
+        /** @return current attempt's effective per-PE compute MI, excluding stage-in */
+        public long getEffectiveExecutionLengthMi() { return effectiveExecutionLengthMi; }
         public double getStartTime() { return startTime; }
         public double getFinishTime() { return finishTime; }
         /**

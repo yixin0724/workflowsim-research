@@ -1,5 +1,9 @@
 # PEFT 对比研究（S5）：协议与保留说明
 
+> **历史协议与 PEFT 公式纠错**：本页保留 `peft-comparison-r12-v1`，其中旧 `LOCAL_PEFT` 是**非标准实现**：OCT 递推错误计入当前任务自身的 `w(t,p)`，出口取平均计算成本。旧数值不能用于评价标准 PEFT 的优劣或解释其 OCT 机制；下文“论文复现保证”等叙述只作为历史记录保留，不再构成标准 PEFT 的证据。后续 R13 的 ready-list 修复也没有纠正该递推。
+>
+> 标准定义见作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)及[博士论文全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章，**印刷 p.71 的 Eq.7 / 出口条件与 p.73 的 Algorithm 1**。新 `peft-comparison-r12-v2` 研究将采用后继任务的 `w(child,p')`、出口 `OCT=0`，并结合修正后的执行模型；须用新研究重新评估，不改写旧协议或数值表，也不表示新结果已生成。见[协议修订与认证范围](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+
 协议ID：`peft-comparison-r12-v1`。Java驱动复用 `org.workflowsim.experiments.network`（NetworkStudyPlan/Executor/Validator 的 peft-comparison 变体）；这是 R12 方法贡献（LOCAL_PEFT）落地后的第一次正式对比。
 
 ## 与 R10 的关系

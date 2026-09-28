@@ -99,6 +99,29 @@ public final class ExperimentManifestWriter {
         return manifest;
     }
 
+    /**
+     * Produce a fresh wire-format configuration snapshot without I/O or simulation.
+     * The returned transport map may be edited; the immutable input configuration is not modified.
+     *
+     * @param config explicit simulation configuration
+     * @return the same configuration representation used in new manifests
+     */
+    public static Map<String, Object> configurationSnapshot(SimulationConfig config) {
+        if (config == null) { throw new IllegalArgumentException("Configuration is required"); }
+        return configuration(config);
+    }
+
+    /**
+     * Produce a fresh wire-format platform snapshot without creating CloudSim entities.
+     *
+     * @param profile validated platform description
+     * @return the same platform representation used in new manifests
+     */
+    public static Map<String, Object> platformSnapshot(PlatformProfile profile) {
+        if (profile == null) { throw new IllegalArgumentException("Platform is required"); }
+        return platform(profile);
+    }
+
     private static Map<String, Object> runtime() {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("javaVersion", System.getProperty("java.version"));
@@ -113,6 +136,7 @@ public final class ExperimentManifestWriter {
     private static Map<String, Object> configuration(SimulationConfig config) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("vmCount", config.getVmCount());
+        values.put("executionSemantics", org.workflowsim.utils.TaskExecutionModel.EXECUTION_SEMANTICS);
         values.put("workflowPaths", new ArrayList<String>(config.getWorkflowPaths()));
         values.put("workflowArrivalSeconds", new ArrayList<Double>(config.getWorkflowArrivalSeconds()));
         values.put("workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");

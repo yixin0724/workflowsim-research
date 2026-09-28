@@ -1,6 +1,7 @@
 # Build artifacts
 target/
 *.class
+node_modules/
 
 # IDE
 .idea/

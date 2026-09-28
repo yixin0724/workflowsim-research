@@ -42,8 +42,13 @@ import org.workflowsim.utils.SimulationConfig;
  */
 final class LargeWorkflowScaleRegressionTest {
 
-    /** 黄金值：LOCAL_HEFT + LOCAL 文件系统 + preExecutionTransferDelayV1，16 VM，seed 42。 */
-    private static final double LOCAL_HEFT_GOLDEN_MAKESPAN = 253528.02533242913;
+    /**
+     * Work-conserving execution + time-stamped LOCAL replicas, 16 VMs, seed 42.
+     * The pre-repair 253528.02533242913 had five CPU-work lower-bound violations.
+     * Independent old/new binary controls found zero after repair; the invariant below
+     * guards this value rather than merely accepting a newly observed golden.
+     */
+    private static final double LOCAL_HEFT_GOLDEN_MAKESPAN = 253528.51872582204;
     /** 黄金值：READY_BATCH_MINMIN + SHARED 文件系统，16 VM，seed 42。 */
     private static final double READY_BATCH_MINMIN_GOLDEN_MAKESPAN = 1223.7949999999978;
     /** 黄金值：FCFS + SHARED 文件系统，16 VM，seed 42。 */
@@ -101,6 +106,7 @@ final class LargeWorkflowScaleRegressionTest {
 
         // 逻辑任务 997 个；作业数 = 997 + 1 个历史 stage-in 引导作业（COMM-2 已知边界）。
         assertCompleteWorkflow(report, EPIGENOMICS_997_TASK_COUNT);
+        assertLocalComputeConservation(report);
         assertEquals(LOCAL_HEFT_GOLDEN_MAKESPAN, report.getMakespan(),
                 "LOCAL_HEFT Epigenomics_997 makespan 黄金值漂移");
         assertVmMappingsInPlatformRange(report);
@@ -157,6 +163,28 @@ final class LargeWorkflowScaleRegressionTest {
         for (int i = 0; i < first.getJobs().size(); i++) {
             assertEquals(first.getJobs().get(i).getVmId(), second.getJobs().get(i).getVmId(),
                     "Job " + i + " 的 VM 映射在重跑间漂移");
+        }
+    }
+
+    private static void assertLocalComputeConservation(SimulationReport report) {
+        java.util.Map<Integer, Double> mips = new java.util.HashMap<>();
+        for (PlatformProfile.VmSpec vm : report.getPlatform().getVms()) {
+            mips.put(vm.getId(), vm.getMips());
+        }
+        java.util.Map<Integer, SimulationReport.JobOutcome> jobs = new java.util.HashMap<>();
+        for (SimulationReport.JobOutcome job : report.getJobs()) { jobs.put(job.getJobId(), job); }
+        for (SimulationReport.TaskOutcome task : report.getTasks()) {
+            SimulationReport.JobOutcome job = jobs.get(task.getJobId());
+            double speed = mips.get(job.getVmId());
+            // This fixture has no matrix, no failure and no in-envelope stage-in.
+            // Derive the bound from declared MI and capacity, not a production metric helper.
+            double required = task.getLengthMi() / speed;
+            double quantum = 1.0 / speed + 1e-8;
+            double observed = job.getFinishTime() - job.getStartTime();
+            assertTrue(observed + quantum >= required,
+                    "Task " + task.getTaskId() + " used " + observed + "s but needs " + required + "s");
+            assertTrue(task.getFinishTime() <= job.getFinishTime() + quantum,
+                    "Modeled compute must fit inside its observed Job, apart from one MI rounding");
         }
     }
 

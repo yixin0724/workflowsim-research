@@ -233,11 +233,19 @@ public final class WorkflowParser {
     private void parseXmlFile(String path, String fileNamespace) {
         try {
             SAXBuilder builder = new SAXBuilder();
+            // Inputs are self-contained evidence. External DTD/entity contents are neither
+            // part of the input fingerprint nor allowed to access local/network resources.
+            builder.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            builder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            builder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            builder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            builder.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            builder.setExpandEntities(false);
             File source = new File(path);
             if (!source.isFile()) {
                 throw new WorkflowValidationException("DAX input does not exist: " + source.getAbsolutePath());
             }
-            Document dom = new SAXBuilder().build(source);
+            Document dom = builder.build(source);
             Element root = dom.getRootElement();
             List<Element> list = root.getChildren();
 

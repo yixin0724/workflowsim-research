@@ -182,6 +182,149 @@ class EvidenceCoreDifferTest {
         assertEquals("array length " + size, length.getRerunValue());
     }
 
+    @Test
+    void relocatedWorkflowPathsAreVolatileButInputFingerprintsRemainCore() throws Exception {
+        RerunEvidence original = RerunEvidenceReader.read(fixtureRun);
+        JsonObject moved = readManifest(fixtureRun);
+        String relocated = tempDir.resolve("relocated/fixture.dax").toString();
+        moved.getAsJsonObject("configuration").getAsJsonArray("workflowPaths")
+                .set(0, new com.google.gson.JsonPrimitive(relocated));
+        moved.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", relocated);
+        moved.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
+                .get(0).getAsJsonObject().addProperty("path", relocated);
+
+        DiffResult unchanged = EvidenceCoreDiffer.compare(original, inMemoryManifest(fixtureRun, moved));
+        assertTrue(unchanged.isIdenticalCore(), unchanged.getCoreDivergences().toString());
+        assertTrue(pointersOf(unchanged.getVolatileNoted()).contains("/configuration/workflowPaths/0"));
+
+        moved.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("sha256",
+                "0000000000000000000000000000000000000000000000000000000000000000");
+        DiffResult differentInput = EvidenceCoreDiffer.compare(original, inMemoryManifest(fixtureRun, moved));
+        assertFalse(differentInput.isIdenticalCore());
+        assertTrue(pointersOf(differentInput.getCoreDivergences()).contains("/inputs/0/sha256"));
+
+        JsonObject additionalPath = readManifest(fixtureRun);
+        additionalPath.getAsJsonObject("configuration").getAsJsonArray("workflowPaths").add(relocated);
+        DiffResult differentCount = EvidenceCoreDiffer.compare(original,
+                inMemoryManifest(fixtureRun, additionalPath));
+        assertTrue(pointersOf(differentCount.getCoreDivergences()).contains("/configuration/workflowPaths"));
+    }
+
+    @Test
+    void adjacentLargeIntegerSeedsRemainDistinctAfterJsonParsing() throws Exception {
+        long[][] pairs = {
+                {9007199254740992L, 9007199254740993L},
+                {Long.MAX_VALUE - 1, Long.MAX_VALUE},
+                {Long.MIN_VALUE, Long.MIN_VALUE + 1}
+        };
+        for (long[] pair : pairs) {
+            JsonObject first = readManifest(fixtureRun);
+            JsonObject second = readManifest(fixtureRun);
+            first.getAsJsonObject("configuration").addProperty("rootSeed", pair[0]);
+            second.getAsJsonObject("configuration").addProperty("rootSeed", pair[1]);
+            // Reparse both sides, as the public evidence reader does. Comparing two in-memory
+            // Long primitives alone would miss Gson's parsed-number double coercion.
+            first = JsonParser.parseString(first.toString()).getAsJsonObject();
+            second = JsonParser.parseString(second.toString()).getAsJsonObject();
+
+            DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                    inMemoryManifest(fixtureRun, second));
+
+            assertFalse(result.isIdenticalCore(), pair[0] + " must differ from " + pair[1]);
+            assertEquals(1, result.getCoreDivergences().size());
+            Divergence seed = find(result.getCoreDivergences(), "/configuration/rootSeed");
+            assertEquals(Long.toString(pair[0]), seed.getOriginalValue());
+            assertEquals(Long.toString(pair[1]), seed.getRerunValue());
+        }
+    }
+
+    @Test
+    void numericEqualityHasNoFloatingToleranceButIgnoresEquivalentDecimalNotation() throws Exception {
+        JsonObject first = readManifest(fixtureRun);
+        JsonObject second = readManifest(fixtureRun);
+        first.getAsJsonObject("metrics").add("makespanSeconds", JsonParser.parseString("1000.0"));
+        second.getAsJsonObject("metrics").add("makespanSeconds", JsonParser.parseString("1e3"));
+        assertTrue(EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                inMemoryManifest(fixtureRun, second)).isIdenticalCore());
+
+        second.getAsJsonObject("metrics").addProperty("makespanSeconds", Math.nextUp(1000.0));
+        DiffResult changed = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                inMemoryManifest(fixtureRun, second));
+        assertFalse(changed.isIdenticalCore());
+        assertTrue(pointersOf(changed.getCoreDivergences()).contains("/metrics/makespanSeconds"));
+    }
+
+    @Test
+    void slashContainingRootKeysCannotImpersonateVolatilePaths() throws Exception {
+        JsonObject first = readManifest(fixtureRun);
+        JsonObject second = readManifest(fixtureRun);
+        String[] keys = {"configuration/algorithmContract", "provenance/extra", "configuration/workflowPaths/0"};
+        for (String key : keys) {
+            first.addProperty(key, "before");
+            second.addProperty(key, "after");
+        }
+
+        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                inMemoryManifest(fixtureRun, second));
+
+        assertFalse(result.isIdenticalCore(), "literal root member names must not become nested whitelist paths");
+        assertEquals(keys.length, result.getCoreDivergences().size());
+        List<String> pointers = pointersOf(result.getCoreDivergences());
+        assertTrue(pointers.contains("/configuration~1algorithmContract"), pointers.toString());
+        assertTrue(pointers.contains("/provenance~1extra"), pointers.toString());
+        assertTrue(pointers.contains("/configuration~1workflowPaths~10"), pointers.toString());
+        assertTrue(result.getVolatileNoted().isEmpty(), result.getVolatileNoted().toString());
+    }
+
+    @Test
+    void coreMemberPointersEscapeTildeBeforeSlash() throws Exception {
+        JsonObject first = readManifest(fixtureRun);
+        JsonObject second = readManifest(fixtureRun);
+        first.addProperty("evidence~1/tag~", 1);
+        second.addProperty("evidence~1/tag~", 2);
+
+        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                inMemoryManifest(fixtureRun, second));
+
+        assertFalse(result.isIdenticalCore());
+        assertEquals(1, result.getCoreDivergences().size());
+        assertEquals("/evidence~01~1tag~0", result.getCoreDivergences().get(0).getPointer());
+        assertTrue(result.getVolatileNoted().isEmpty());
+    }
+
+    @Test
+    void volatileSubtreeNotesAlsoUseEscapedMemberPointers() throws Exception {
+        JsonObject first = readManifest(fixtureRun);
+        JsonObject second = readManifest(fixtureRun);
+        first.getAsJsonObject("provenance").addProperty("extra~/trace", "before");
+        second.getAsJsonObject("provenance").addProperty("extra~/trace", "after");
+
+        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                inMemoryManifest(fixtureRun, second));
+
+        assertTrue(result.isIdenticalCore());
+        assertEquals(1, result.getVolatileNoted().size());
+        assertEquals("/provenance/extra~0~1trace", result.getVolatileNoted().get(0).getPointer());
+    }
+
+    @Test
+    void actualNestedAlgorithmContractRemainsAnExplicitVolatileIdentity() throws Exception {
+        JsonObject first = readManifest(fixtureRun);
+        JsonObject second = readManifest(fixtureRun);
+        first.getAsJsonObject("configuration").getAsJsonObject("algorithmContract")
+                .addProperty("auditLabel", "before");
+        second.getAsJsonObject("configuration").getAsJsonObject("algorithmContract")
+                .addProperty("auditLabel", "after");
+
+        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
+                inMemoryManifest(fixtureRun, second));
+
+        assertTrue(result.isIdenticalCore(), result.getCoreDivergences().toString());
+        assertEquals(1, result.getVolatileNoted().size());
+        assertEquals("/configuration/algorithmContract", result.getVolatileNoted().get(0).getPointer());
+        assertFalse(result.getOriginalAlgorithmContract().equals(result.getRerunAlgorithmContract()));
+    }
+
     // ---- helpers ----
 
     private static JsonObject readManifest(Path run) throws Exception {

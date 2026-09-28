@@ -12,6 +12,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,20 @@ public final class HtmlReports {
 
     public static void experiment(String name, List<Map<String, Object>> runs, Path target) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
-        payload.put("name", name); payload.put("runs", runs);
+        List<Map<String, Object>> displayRuns = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> run : runs) {
+            Map<String, Object> display = new LinkedHashMap<String, Object>(run);
+            // JSON.parse uses binary64 numbers. Only the display row is adapted; the retained
+            // experiment index and the validated manifest keep their exact original long values.
+            try {
+                long seed = new java.math.BigDecimal(String.valueOf(run.get("seed"))).longValueExact();
+                display.put("seed", Long.toString(seed));
+            } catch (ArithmeticException | NumberFormatException invalidSeed) {
+                throw new IllegalArgumentException("Report seed must be an exact signed 64-bit integer", invalidSeed);
+            }
+            displayRuns.add(display);
+        }
+        payload.put("name", name); payload.put("runs", displayRuns);
         String template;
         try (InputStream input = HtmlReports.class.getResourceAsStream("/workbench/report.html")) {
             if (input == null) { throw new IOException("Missing workbench report template"); }

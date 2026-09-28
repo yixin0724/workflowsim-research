@@ -118,6 +118,29 @@ class RerunDiffExecutorTest {
     }
 
     @Test
+    void relocatedStudyInputReproducesIdenticalCoreAndRecordsPathChange() throws Exception {
+        Path study = tempDir.resolve("relocated-study");
+        Path run = Files.createDirectories(study.resolve("runs/fixture"));
+        RerunTestSupport.copyEvidenceFiles(fixtureRun, run);
+        Path recordedInput = Paths.get(readManifest(run).getAsJsonArray("inputs")
+                .get(0).getAsJsonObject().get("path").getAsString());
+        Path relocatedInput = study.resolve("inputs").resolve(recordedInput.getFileName());
+        Files.createDirectories(relocatedInput.getParent());
+        Files.copy(recordedInput, relocatedInput);
+
+        RerunReport report = RerunDiffExecutor.execute(run, tempDir.resolve("relocated-out"));
+
+        assertEquals(RerunVerdict.IDENTICAL_CORE, report.getVerdict(), report.toJson());
+        assertEquals(0, report.getExitCode());
+        assertEquals(1, report.getInputResolution().size());
+        assertEquals(1, report.getInputResolution().get(0).getTier());
+        assertEquals(relocatedInput.toString(), report.getInputResolution().get(0).getResolvedPath());
+        assertTrue(report.getInputResolution().get(0).isVerified());
+        assertTrue(report.getVolatileFieldsNoted().stream()
+                .anyMatch(change -> "/configuration/workflowPaths/0".equals(change.getPointer())));
+    }
+
+    @Test
     void tamperedManifestMakespanReportsDivergedWithExactPointer() throws Exception {
         Path run = copyFixtureTo("tampered");
         double original = readManifest(run).getAsJsonObject("metrics")

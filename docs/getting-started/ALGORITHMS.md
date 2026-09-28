@@ -1,190 +1,229 @@
 # 算法原理导读
 
-本文用直观语言解释 WorkflowSim 三类算法轨道的本质区别和每个算法的底层原理，
-面向初次使用者。严格的决策语义、主张边界与文献引用见
-[`CATALOG.md`](../algorithms/CATALOG.md)。
+本文面向初次使用者，解释算法决定什么、使用哪些信息，以及结果能说明什么。
+严格边界见[算法目录](<../algorithms/CATALOG.md>)与[语义契约](<../algorithms/CONTRACTS.md>)。
 
-## 一、三类算法轨道的本质区别
+## 一、先区分决策范围
 
-三类算法回答的是**同一个问题的三种不同版本**："把哪个任务放到哪台 VM 上执行？"
-区别在于**决策时机**和**决策时能看到的信息**：
+当前支持7种在线策略、17种非空规划器；`STATIC` 是执行规划结果的分派器，不是另一个
+优化算法。它们回答的不是完全相同的问题，不能把不同决策层、文件系统和成本模型的结果
+无说明地混为同一基线。
 
-| | 在线 ready-batch 调度 | 静态独立任务映射 | 受控静态 DAG 映射 |
+| 决策范围 | 何时决定 | 可用信息 | 输出 |
 | --- | --- | --- | --- |
-| **决策时机** | 仿真运行中，任务依赖满足后被释放时 | 仿真开始前，一次性决定 | 仿真开始前，一次性决定 |
-| **能看到什么** | 只有"当前就绪的 Job"和"当前空闲的 VM" | 全部任务（但任务之间没有依赖） | 完整 DAG（任务 + 依赖边 + 文件） |
-| **决定什么** | 当前批次每个 Job 去哪台 VM | 每个任务去哪台 VM | 每个任务去哪台 VM **加上** 每台 VM 上的执行顺序 |
-| **输入限制** | 任意合法 DAG | 只接受无父子边的任务集 | 任意合法 DAG，但要求共享存储等受控条件 |
-| **配置方式** | `schedulingAlgorithm(...)` | `planningAlgorithm(STATIC_*)` + `schedulingAlgorithm(STATIC)` | `planningAlgorithm(SHARED_STORAGE_*)` + `schedulingAlgorithm(STATIC)` |
+| 在线 ready-batch | 运行中、Job 依赖满足后 | 当前 ready Job、VM 状态；DATA 另读副本位置 | 本次分派 |
+| 静态独立任务映射 | 执行前 | 无依赖任务集合、兼容 VM、计算成本 | Task→VM，无完整执行顺序 |
+| DAG 仅映射 | 执行前 | 全部 Task、VM；PSO 的目标仍忽略 DAG 边 | Task→VM，无完整执行顺序 |
+| 受控静态 DAG 规划 | 执行前 | DAG、文件、兼容 VM、声明的成本模型 | Task→VM＋每 VM 的 Job 顺序 |
 
-一个类比：
-- **在线调度**像医院急诊分诊台——病人（就绪 Job）陆续到达，分诊台只根据当下情况把病人分给空闲的医生（VM），不知道后面还会来谁。
-- **静态独立任务映射**像考场排座位——考生（任务）名单事先全部已知、彼此无关，开考前一次性安排好所有座位。
-- **静态 DAG 映射**像工厂排生产计划——工序（任务）之间有先后依赖，排产系统在开工前根据完整工艺图算出每台机器（VM）的加工顺序表，开工后严格照表执行。静态 DAG 映射又分两个子轨道：共享存储（任务间无通信代价）与通信感知 LOCAL（跨 VM 传输有真实代价，见第五节）。
+**共同限制**：标准 `SimulationRunner` 对所有算法均要求 `NONE` 聚类、`SPACE_SHARED`
+VM。任何非空规划器都必须搭配 `STATIC`；`STATIC` 也必须有规划器。任务需要的 PE 数
+不能超过所选 VM 的 PE 数。调度层仍然每台 VM 同时最多派一个 Job，不因 VM 多 PE 就并发
+派多个 Job。
 
-三类算法**不能混在同一个基线比较里**：它们可用的信息量不同，比较结果没有意义。
+**成本口径**：独立任务的时间感知策略、PSO 和 LOCAL 规划器通过 `TaskExecutionModel`
+与运行时共用计算转换：
 
-## 二、在线 ready-batch 调度器（7 个）
+```text
+无矩阵：effectiveSeconds(t,p) = rawPerPeLengthMi(t) / mips(p)
+有矩阵：effectiveSeconds(t,p) = round(matrixSeconds(t,p) * mips(p)) / mips(p)
+```
 
-引擎在仿真运行中把依赖已满足的 Job 释放为"就绪批次"，调度器对当前批次决策。
-所有算法只考虑**当前空闲**的兼容 VM，本轮排不下的 Job 留到下一轮。
+矩阵存在时不能缺坐标后偷偷回退到原始长度。非正舍入结果、非有限数值及无法用 signed-long
+指令计数表示的工作量会显式失败。原始 Task 长度不被改写；有效执行 MI 是另一个概念。
+这些公式描述计算工作，不包含整个 Job 的排队、输入传输或完成事件尾部。
 
-| 算法 | 一句话原理 | 决策依据 |
-| --- | --- | --- |
-| `FCFS` | 先来先服务：按到达顺序，把队首 Job 给编号最小的空闲 VM | 到达顺序 |
-| `READY_BATCH_ROUNDROBIN` | 轮流分配：维护一个跨批次持久的 VM 游标，依次轮转 | 上次分到哪台 |
-| `READY_BATCH_MCT` | 最小完成时间：逐个 Job 选"执行时间 = 长度/MIPS 最小"的空闲 VM | 单个 Job 的完成时间 |
-| `READY_BATCH_MINMIN` | 小任务优先：每轮先算出每个 Job 的最小完成时间，**先调度其中最小的那个** | 全批次完成时间矩阵 |
-| `READY_BATCH_MAXMIN` | 大任务优先：同 MinMin，但**先调度最小完成时间中最大的那个**（先安置大任务，小任务后续见缝插针） | 全批次完成时间矩阵 |
-| `DATA` | 数据就近：选"非本地输入字节数最少"的空闲 VM，减少数据搬运 | 输入文件的副本位置 |
-| `RL_POLICY` | RL 轨道（R4）：每次调度更新向注册策略询问"每个就绪 Job 去哪台 VM"，由 `RlEnvironment` 驱动 episode（奖励 = −makespan）；基线 `EarliestFinishGreedyPolicy` 选最早完成时间的空闲 VM | 外部策略（状态 = 就绪队列 + VM 负载） |
+## 二、在线 ready-batch 调度器（7种）
 
-MinMin 与 MaxMin 的哲学差异：MinMin 让小任务尽快清空、平均等待短，但大任务可能被
-拖到最后拉长总时间；MaxMin 先安置大任务（它们最可能决定总完成时间），小任务再填空隙。
+引擎先满足依赖，再交给调度器 ready Job。每轮每台空闲兼容 VM 最多接一个 Job，
+分配后置忙；排不下的 Job 等后续事件。在线策略不能搭配要求预先知道目标 VM 的
+preExecution 数据移动模型，也不接受离线任务成本矩阵。
 
-**边界说明**：这里的批式 MinMin/MaxMin 每轮每台 VM 至多接收一个 Job（用"分配后置忙"
-实现迭代重算），与 Braun et al. 2001 维护未来可用时间的经典批式定义不同，属在线
-生命周期下的刻意适配，已在类注释声明。`RL_POLICY` 只提供环境契约与确定性闭环，
-不含学习算法——接入外部训练器需进程外桥接；episode 外直接运行会显式失败。
+| 算法 | 决策 |
+| --- | --- |
+| `FCFS` | 按 ready 到达序，给第一个空闲兼容 VM（VM ID升序） |
+| `READY_BATCH_ROUNDROBIN` | 保留跨批次 VM 游标，跳过忙或不兼容 VM，成功分配后推进 |
+| `READY_BATCH_MCT` | 按 ready 到达序，逐个选择 `length/MIPS` 最小的空闲兼容 VM |
+| `READY_BATCH_MINMIN` | 每轮求各未分配 Job 的最小 ECT，再选全局最小者；分配后重算 |
+| `READY_BATCH_MAXMIN` | 每轮求各未分配 Job 的最小 ECT，再选其中最大者；分配后重算 |
+| `DATA` | 仅用于 LOCAL：选择非本地真实输入字节数最少的空闲兼容 VM |
+| `RL_POLICY` | 在同一 ready 域调用注册策略，由 `RlEnvironment` 驱动 episode |
 
-## 三、静态独立任务映射器（7 个）
+这里 ECT 的比较量是 `length/MIPS`，不预订未来机器可用时间，也不包含传输时长。
+固定正 length、相同候选集合下，最小 ECT 与最大 MIPS 等价，即使 VM 异构也是如此。
+Min/Max-Min 在共同兼容域、可分离成本下也可能与短/长任务优先重合；不能用标签差异
+代替行为证据。不同 PE 需求、平局和批次变化应单独检查。
 
-对应 Braun et al. 2001 对独立任务映射启发式的经典对比研究。任务彼此无依赖，
-映射器在执行前基于"执行时间矩阵"（任务 × VM → 秒）一次性决定所有映射。
-核心概念是 **availability（可用时间）**：每台 VM 已被分配任务的累计完成时刻。
+P7冻结主矩阵只包含前五种；DATA、RL不是那个矩阵中的额外单元。DATA比较的是**字节**，
+不是端点带宽、延迟或争用时间。旧 `MINMIN/MAXMIN/MCT/ROUNDROBIN` 标签只用于兼容，
+标准入口拒绝它们；迁移不意味着每份输入的映射必然改变。
 
-| 算法 | 一句话原理 | 看执行时间? | 看机器负载? |
-| --- | --- | --- | --- |
-| `STATIC_OLB` | 机会主义负载均衡：任务按序分给**最早空闲**的 VM，不管它执行得快不快 | ❌ | ✅ |
-| `STATIC_MET` | 最小执行时间：每个任务分给**执行它最快**的 VM，不管那台 VM 有多忙（可能全部堆到最快机器上） | ✅ | ❌ |
-| `STATIC_MCT` | 最小完成时间：综合两者——选 `availability + 执行时间` 最小的 VM | ✅ | ✅ |
-| `STATIC_MINMIN` | 迭代版 MCT：每轮从**所有未映射任务**里挑"最小完成时间全局最小"的先安置，安置后更新负载再重算 | ✅ | ✅ |
-| `STATIC_MAXMIN` | 与 MinMin 对称：每轮挑"最小完成时间全局**最大**"的先安置（大任务优先） | ✅ | ✅ |
-| `STATIC_SUFFERAGE` | 吃亏值优先：算每个任务"次优 VM 完成时间 − 最优 VM 完成时间"（错过最优会多吃多少亏），**吃亏最大的任务先挑机器** | ✅ | ✅ |
-| `STATIC_ROUND_ROBIN` | 轮转：按任务顺序循环分配到各 VM，完全不看时间和负载 | ❌ | ❌ |
+RL动作按 ready到达序对应每个Job，取值是按VM ID排序后的**列表下标**，不是VM ID。
+`-1`表示本轮跳过；null、数组长度错误或越界值中止；忙、不兼容或本轮已占用VM的动作被
+跳过而不自动重选。轨迹只记录成功分派，奖励是 `−makespan`。环境不含学习器，持续不分配
+会被停滞检查拦截；外部训练器需要桥接。
 
-OLB/MET 是两个极端（只看负载 vs 只看速度），MCT 是两者的折中，MinMin/MaxMin/Sufferage
-在 MCT 基础上增加"任务安置顺序"的智能。Sufferage 的洞察是：如果一个任务在最优
-机器和次优机器上差别巨大，就应该优先满足它，否则它被抢走最优机器后损失最大。
+## 三、静态独立任务映射器（7种）
 
-所有实现的平局裁决完全确定（Task ID / VM ID 升序），保证可复现。
+任意父边或子边都会被拒绝。任务按ID排序；等价候选按Task/VM ID确定性破平局。
+`availability` 是规划时暂定的累计计算负载，不是运行期队列回放。
 
-## 四、受控 shared-storage 静态 DAG 规划器（5 个）
+| 算法 | 选择规则 |
+| --- | --- |
+| `STATIC_OLB` | 选availability最小的兼容VM，再用该任务的有效计算时长更新availability |
+| `STATIC_MET` | 选有效计算时长最小的兼容VM，忽略availability |
+| `STATIC_MCT` | 选 `availability + effectiveSeconds` 最小的兼容VM |
+| `STATIC_MINMIN` | 逐轮选各任务最小暂定完成时间中的最小者 |
+| `STATIC_MAXMIN` | 逐轮选各任务最小暂定完成时间中的最大者 |
+| `STATIC_SUFFERAGE` | 选“次优完成时间−最优完成时间”损失最大的任务；仅一个兼容VM时损失为0 |
+| `STATIC_ROUND_ROBIN` | 按Task ID轮转选择兼容VM，故意不看成本与负载 |
 
-面向完整 DAG 的列表调度（list scheduling）算法。它们要求受控模型：`STATIC` 分派、
-共享存储、无聚类、无开销、禁用故障、`SPACE_SHARED` VM。因为所有文件走共享存储，
-任务间没有点对点通信代价（c = 0），经典公式中的通信项折入每个任务的
-stage-in（输入拉取）时间。
+时间感知策略真正消费矩阵。OLB虽不比较当前任务在不同VM上的执行快慢，也必须用有效
+时长更新负载。矩阵下“MET选择最快机器”指**执行这个任务最快**，不等于选择MIPS最大者。
+这些算法只给映射，不给网络计划或完整每VM执行顺序。
 
-这类算法的共同框架分两步：**排优先级**（决定任务考虑顺序）+ **选处理器**（决定放哪台 VM）。
-关键概念：
+## 四、受控共享存储 DAG 规划器（5种）
 
-- **upward rank（向上秩）** `r_u(t) = w(t) + max(r_u(child))`：从任务 t 到 DAG 出口的
-  最长剩余路径长度。rank 越大说明它"后面拖着的活越多"，越应该先安排。
-- **downward rank（向下秩）** `r_d(t)`：从 DAG 入口到 t 的最长路径长度。
-- **EFT（最早完成时间）**：在某台 VM 上综合父任务完成时刻、VM 已有保留区、
-  空隙插入（insertion）后能得到的最早完成时刻。
+要求 `STATIC`、`SHARED`、NONE聚类、无开销/故障、SPACE_SHARED，且必须使用
+`legacyWorkflowsimV1()`。这一轨道**拒绝成本矩阵**，不能把别的规划器支持矩阵推广到它。
 
-| 算法 | 排优先级 | 选处理器 | 核心思想 |
-| --- | --- | --- | --- |
-| `SHARED_STORAGE_HEFT` | upward rank 降序 | EFT 最小（支持保留区空隙插入） | 最经典的基线：先处理"剩余路径最长"的任务，贪心选最早完成的机器 |
-| `SHARED_STORAGE_CPOP` | `r_u + r_d` 降序 | **关键路径任务**强制绑定到"执行整条关键路径总时间最小"的那台 VM；其余任务按 EFT | 关键路径决定 makespan 下限，把它锁定在一台最合适的机器上避免来回切换 |
-| `SHARED_STORAGE_DLS` | 每步对所有"依赖就绪的 (任务, VM) 对"算动态层 `DL = 静态 b-level − 最早开始时间`，选最大 | 与优先级同时决定 | 不预先排全序，每一步动态权衡"任务紧迫度"与"机器可用性" |
-| `SHARED_STORAGE_ETF` | 每步选"最早开始时间最小"的 (任务, VM) 对，平局用 b-level | 与优先级同时决定 | 让能最早开工的任务先开工，尽量不留机器空转 |
-| `SHARED_STORAGE_PEFT` | OCT（乐观代价表）平均值降序 | `EFT + OCT` 最小 | 比 HEFT 多一步"向后看"：不仅看当前完成时间，还预估后继任务的乐观剩余代价 |
+计算用原始单PE长度；先把全部真实输入的 `bytes/1e6/storageRate` 相加，再把总秒数折算
+为整数MI。候选模型时长为 `(rawPerPeLengthMi + floor(mips * transferSeconds)) / mips`。
+不是逐文件floor，也不是把Task长度乘PE数当墙钟时长。这里没有点对点通信项，但共享存储
+输入延迟并非免费。
 
-`OCT(t) = max over children ( min over VMs ( w(child, vm) + OCT(child) ) )`，
-即"从 t 的后继开始，每一步都做最优选择时的剩余代价"。
+| 算法 | 优先级与分配 |
+| --- | --- |
+| `SHARED_STORAGE_HEFT` | 兼容VM平均时长构成upward rank，降序选择后做EFT空档插入 |
+| `SHARED_STORAGE_CPOP` | ready任务中选最大 `r_u+r_d`；一条确定关键路径固定在全路径兼容且总时长最小的VM |
+| `SHARED_STORAGE_DLS` | 每步选依赖就绪Task-VM对中 `b-level − 最早插入开始时间` 最大者 |
+| `SHARED_STORAGE_ETF` | 每步选依赖就绪Task-VM对中最早插入开始时间最小者；同开始先比较b-level |
+| `SHARED_STORAGE_PEFT` | ready任务中选最大平均OCT，再选 `EFT+OCT` 最小的兼容VM |
 
-**重要提示**：在本模拟器的 c = 0 共享存储模型下，OCT 与候选 VM 无关，因此 PEFT 的
-处理器选择退化为与 HEFT 相同的纯 EFT，两者的差异只剩任务排序（rank_oct vs rank_u）。
-对比实验解读时必须注意这一点。
+这一轨道的OCT是**后继成本**：
 
-与前两类不同，这 5 个规划器输出的不仅是"任务 → VM"映射，还包括**每台 VM 上的
-完整执行顺序**，静态分派器会严格照单执行（顺序违规直接断言失败）。
+```text
+OCT(exit,p) = 0
+OCT(t,p) = max_child min_compatible_p' { duration(child,p') + OCT(child,p') }
+```
 
-## 五、通信感知 LOCAL 静态 DAG 规划器（3 个，论文复现）
+由于通信项为0，OCT与当前候选VM无关，处理器选择退化为纯EFT；与HEFT的差异仍可能来自
+任务优先级。不能把这称为网络感知PEFT。
 
-`LOCAL_HEFT` 和 `LOCAL_CPOP` 复现 Topcuoglu, Hariri &amp; Wu（IEEE TPDS 2002）的
-两个列表调度算法，`LOCAL_PEFT` 复现 Arabnejad &amp; Barbosa（IEEE TPDS 2014）的
-乐观代价表算法；与第四节的区别是**显式建模任务间点对点通信**：文件走 LOCAL
-文件系统（每 VM 本地存储），跨 VM 传输产生真实代价。
+完整静态计划强制的是**每VM顺序**，不是绝对计划时间。模型生成的110MI stage-in Job先在
+最低ID VM运行，根Job随后经历内核释放间隔。事件定序、短任务完成规则仍可能引起预测差异。
 
-| 算法 | 排优先级 | 选处理器 | 核心思想 |
-| --- | --- | --- | --- |
-| `LOCAL_HEFT` | upward rank（含通信项）降序 | EFT 最小（插入式，含传输延迟） | 经典 HEFT，但通信代价真实影响每一步 VM 选择 |
-| `LOCAL_CPOP` | `r_u + r_d` 降序 + 就绪队列 | 关键路径任务绑定 p_CP；其余按 EFT | 同第四节 CPOP，但关键路径计算包含通信项 |
-| `LOCAL_PEFT` | rank_o（全 VM 平均 OCT）降序 | `EFT + OCT(t,p)` 最小（插入式） | 同第四节 PEFT，但 OCT 含论文完整通信项 `c(t,child,p,p')` |
+## 五、通信感知 LOCAL DAG 规划器（3种）
 
-**通信建模**（论文 AST 语义）：每个输入文件的传输时间 = `字节数 / (1e6 × 传输率)`，
-SOURCE→VM 取目标 VM 带宽、VM→VM 取 `min(bw_src, bw_dst)`、副本已在目标 VM 上则为 0。
-传输是**执行前网络延迟**：父任务完成即开始传输、可与目标 VM 忙碌期重叠，VM 只被
-计算占用；任务的最早开始时刻 = `max(VM 空闲, 最晚父文件到达)`。这与论文的实际开始
-时间（AST）定义一致，由 `preExecutionTransferDelayV1` 数据移动模型在运行时逐位镜像。
+LOCAL_HEFT/CPOP/PEFT与共享存储轨道使用不同输入传输模型。它们要求STATIC、LOCAL、
+NONE聚类、无开销/故障、SPACE_SHARED，以及preExecution家族数据模型。计算支持成本矩阵；
+候选必须PE兼容，rank均值也仅覆盖兼容候选。
 
-CPOP 的向下 rank 从入口向后计算，包含前驱计算成本与入边通信成本：
+| 算法 | 优先级与分配 |
+| --- | --- |
+| `LOCAL_HEFT` | 含平均通信成本的upward rank降序；兼容VM中最小插入EFT |
+| `LOCAL_CPOP` | ready列表内最大 `r_u+r_d`；关键路径放到全路径兼容且总计算成本最小的VM |
+| `LOCAL_PEFT` | ready列表内最大兼容VM平均OCT；兼容VM中最小 `EFT+OCT` |
+
+CPOP采用前驱方向的向下rank：
 
 ```text
 r_d(entry) = 0
-r_d(t) = max_parent { r_d(parent) + w̄(parent) + c̄(parent, t) }
+r_d(t) = max_parent { r_d(parent) + meanCompute(parent) + meanCommunication(parent,t) }
 priority(t) = r_u(t) + r_d(t)
 ```
 
-关键路径从最大优先级入口出发，后继既要保持 `priority = CP`，连接边也必须满足
-`r_u(current) = w̄(current) + c̄(current, child) + r_u(child)`。多条等长路径按 Task ID
-确定性选择其中一条，避免通过跨分支捷径串起不同关键路径上的节点。
+关键路径沿既保持关键优先级、又满足upward-rank递推的实际边前进。多条等长路径按ID
+选一条，不把跨分支捷径或所有同优先级节点都当成该路径。
 
-PEFT 的乐观代价表从出口向入口递推，通信项取"子任务放到最优 VM"的乐观下界：
+### 数据何时可用
+
+无争用估计逐文件使用 `bytes/(1e6*rate)`：SOURCE→VM受目标带宽限制，VM→VM取两端
+较小带宽。在任务依赖就绪时，只使用当前部分计划中已经可用的副本；目标VM有可见副本
+才免传输。
+
+- 同父文件延迟相加，从该父的计划完成时刻估计；不同父组可并行。
+- **外部输入从消费Job依赖就绪时开始，包括根任务**。stage-in登记到平台不等于文件已在
+  目标VM本地，不能免掉根的外部输入传输。
+- 输入就绪候选取依赖就绪、各父到达、`dependencyReady + externalTransferSeconds`的最大值。
+  正hold按最小事件间隔钳制。
+- 副本带availableAt：全部INPUT在**整个hold结束**时可见，OUTPUT在计算完成时可见。
+  输入可早于消费任务的计算开始到达；反过来，先被规划的任务不能把未来副本提前暴露给
+  后选择、却插入更早空隙的任务。
+- VM只预留计算，传输可以与VM忙碌期重叠；可行的早期空档仍能被利用。
+
+这是**部分计划估计，不是完整事件重放**。同刻事件次序、后规划任务更早产生的副本、
+短计算完成以及并发争用仍可能造成计划与运行差异。固定论文夹具对齐不等于任意DAG都对齐。
+
+### PEFT已由一级来源核定的递推
 
 ```text
-OCT(t_exit, p) = w̄_exit（出口任务平均计算成本，论文约定，逐 VM 一致）
-OCT(t, p) = w(t, p) + max_child { min_p' [ OCT(child, p') + c(t, child, p, p') ] }
-priority(t) = rank_o(t) = mean_p OCT(t, p)
+OCT(exit,p) = 0
+OCT(t,p) = max_child min_compatible_p' { OCT(child,p') + w(child,p') + c(t,child,p,p') }
+rank_o(t) = mean_compatible_p OCT(t,p)
 ```
 
-选择 VM 时最小化 `EFT + OCT(t,p)`：EFT 看当下、OCT 看后续，联合目标使 PEFT 在
-同算例上优于 HEFT（论文算例 76 对 80）。单出口 DAG 上 `OCT(exit)=0` 约定与本约定
-只差一个全局常数，优先级次序与调度完全相同；但论文发表的 OCT/rank_o 表只在
-`w̄_exit` 约定下逐项吻合，回归测试按论文约定断言该表。
+同VM的c为0；OCT从**后继任务**开始计成本，不含当前任务自身计算量。每步只在**父任务均已
+分配**的任务中选最大rank_o，再选插入EFT+OCT最小的VM。原文Algorithm1就使用ready-list，
+子任务rank高于父任务仍必须等父先分配。
 
-**论文算例回归**（3 VM × mips 1.0 × 带宽 1 MB/s，显式论文成本矩阵）：统一扣除完整
-引导时间 `110.1` 秒，HEFT 的绝对 makespan `190.1` 对应论文 `80`；CPOP 的关键路径为
-`{1,2,9,10}`、平均路径长度 `108`，关键处理器为 VM 1（论文 p2），绝对 makespan `196.1`
-对应论文 `86`。CPOP 的路径计算成本在 VM 0/1/2 上分别为 `66/54/63`，建模传输总秒数为
-`105`。PEFT 逐项复现论文 OCT/rank_o 表（rank_o：61、48、44、43、40、37.33、31.33、
-25.67、24.67、14.67）、选择顺序 `{1,2,4,5,3,6,9,7,8,10}` 与 10/10 VM 映射，绝对
-makespan `186.1` 对应论文 `76`（优于 HEFT 的 `80`），建模传输总秒数 `150`。这些数值
-属于该固定算例；其他平台或不使用成本矩阵的 campaign 有各自的结果。
+已取得作者[公开博士论文](https://repositorio-aberto.up.pt/handle/10216/92290)第3章收录的原文章：
+印刷p71 Eq(7)明确后继计算成本与exit0，p73 Eq(9)/Algorithm1给出OEFT及ready-list，
+图1与表5/6完整数据也已独立交叉核算。来源、作者版页码和转录说明见
+[真实论文夹具说明](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>)。
+原文使用平均链路成本；当前LOCAL的异构端点min(bw)和副本仍是需要声明的模型适配。
 
-要求：`STATIC` 分派、LOCAL 文件系统、NONE 聚类、无开销、禁用故障、
-preExecution 家族数据移动模型与 `SPACE_SHARED` VM。边界：受控带宽模型
-（论文复现组合无链路争用/网络拓扑），是抽象模型上的复现而非真实平台校准。
-另可选两个争用变体：
+旧LOCAL_PEFT把自身w计入OCT并将出口设成均值，这**不是原PEFT**。只在同一递推下改变
+单出口统一常数才会整体平移；这不能为“把后继w换成自身w”辩护。当前LOCAL和SHARED均
+使用后继成本/出口0，但共享存储时长、通信和运行模型依然不同。新契约版本为
+`PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2`；历史R12/R13旧变体结果不能仅以一般模型版本差异
+解释，更不能改名充当原PEFT复现。
 
-- `preExecutionTransferDelayWithContentionV1()`（R2）：约束所有活动流占用的 VM 端点容量。
-- `fatTreeContentionV1()`（R6）：增加 Al-Fares k-Pod Fat-tree 确定性路由上的有向链路约束，
-  要求平台通过 `PlatformProfile.Builder.networkTopology(NetworkTopologySpec.fatTree(...))`
-  声明拓扑，可配置超收敛。SOURCE 流量不经过拓扑，只占用目标 VM 端点。
+现在明确区分两份10任务、3VM夹具：
 
-两者共用 **max-min progressive filling**：所有未受限流同步增加速率；达到名义上限或资源
-瓶颈的流冻结，其他流继续使用剩余容量。例如共享容量 100 时，一条流受另一瓶颈限制为 10，
-另一条可取得 90，而非停留在 50。引擎在时间推进经过流完成时点时分段积分、回收容量并重算
-速率。端点与链路容量同时约束分配结果，不能简化为独立 `capacity/n` 后取最小值。
+- **真正PEFT文章图1**的计算矩阵首行为22/21/36，Table5首行OCT为64/68/86、出口全0；
+  Table6选择顺序为`1,4,6,2,3,5,8,7,9,10`，PEFT纯makespan122，HEFT控制为133。
+  在声明的110.1 bootstrap下，端到端回归预期为232.1/243.1，并核对TaskOutcome有效MI及
+  计算窗口和Job一致。
+- **保留HEFT-origin夹具**首行为14/16/9，不是PEFT文章图1。其HEFT/CPOP参考值仍为
+  80/86（绝对190.1/196.1）；CPOP路径`{1,2,9,10}`在VM1。正确Eq7对这份旧输入的独立
+  结果是PEFT85（绝对195.1），由单独HEFT-origin regression维护。旧76/186.1来自错误
+  递推，不应称为论文PEFT结果。
 
-争用组在 Job 数据就绪时统一开始，不追溯较早父任务完成以来的传输进度；规划侧仍按无争用
-AST 估计。因此这些变体用于争用/拓扑研究，不是论文的无争用复现组合。新增约束可能重新
-分配容量，使部分其他流更快，不能把 R6 makespan ≥ R2 当作任意 DAG 的数学保证。
-模型的分配与启动语义随 manifest v4 记录，跨实现版本比较应核对这些字段。
+固定夹具可分别验证行为，不能证明任一算法在所有输入上更优。
 
-## 六、如何选择
+### 争用变体
 
-| 你的研究问题 | 用哪一类 |
-| --- | --- |
-| 运行时才知道任务就绪情况，比较在线派发策略 | 在线 ready-batch 调度 |
-| 复现 Braun 2001 风格的独立任务映射对比 | 静态独立任务映射 |
-| 比较 DAG 感知的离线规划算法（HEFT 家族，共享存储） | 受控静态 DAG 映射 |
-| 复现 Topcuoglu 2002 / Arabnejad 2014 风格的通信感知 HEFT/CPOP/PEFT 对比 | 通信感知 LOCAL 静态 DAG 映射 |
-| 多个工作流错峰到达、共享 VM 池，比较每工作流流时 | 任意在线调度器 + `workflowArrivalSeconds`（R5） |
+LOCAL三个规划器还接受端点争用 `preExecutionTransferDelayWithContentionV1()` 与
+`fatTreeContentionV1()`；后者要求平台声明Fat-tree拓扑，且声明拓扑时必须选择该模型。
+规划仍无争用，运行期争用组在Job就绪时开始，不追溯早先父任务完成以来的传输。
+端点/Fat-tree模型使用max-min progressive filling，按流完成时点分段积分并重分配带宽。
+SOURCE流绕过Fat-tree链路，但仍受目标端点约束。不能把“增加链路约束后任意DAG的makespan
+必然变大”当作数学不变量。
 
-支持的完整标签列表以 `AlgorithmCatalog.isSupportedBySimulationRunner()` 为准。
-跨类比较无效——请为每一类建立独立的实验矩阵。
+## 六、DAG仅映射基线（2种）
+
+`RANDOM`在每个Task的兼容VM中按命名种子抽样；VM按ID排序，但Task抽样顺序沿输入列表。
+它不优化矩阵、也不生成执行顺序；矩阵仍可决定映射后的运行时计算时长。
+
+`PSO`使用30粒子、100轮、惯性0.7、c1=c2=1.5，目标为
+`0.8 * cost + 0.2 * 最大VM顺序计算负载`，单价`MIPS/1000`。它消费有效矩阵计算时间，
+但fitness仍忽略DAG依赖和网络。粒子不兼容位置投影到最近合法VM下标，等距取较小ID，
+不增加随机抽样；全兼容平台保留原坐标和随机流。
+
+**成本是否变化取决于模型**：无矩阵时，`(rawLength/MIPS)*(MIPS/1000)`约掉MIPS，成本项
+数学上与映射无关；仅改变MIPS异构度不能改变这一点。有矩阵时，
+`cost = sum(effectiveSeconds(task,assignedVm)*assignedVmMips/1000)`可以依映射改变。
+两种情况都不是真实云价格校准，也不保证PSO在所有输入上优于随机。
+
+## 七、如何选择和比较
+
+- 在线派发问题：使用online轨道，明确是否包含DATA/RL，勿把它们加入冻结P7矩阵冒充原单元。
+- 无依赖计算映射：使用STATIC独立任务轨道，声明raw-MI还是矩阵模型。
+- DAG输入但只需映射基线：RANDOM/PSO＋STATIC；不要解读为完整离线排程。
+- DAG完整规划：在SHARED与LOCAL中选一个固定模型，分别建立实验矩阵。
+- 多工作流到达：在线轨道有相应arrival接口；静态计划的零时刻假设不能未经验证推广到错峰到达。
+
+比较时固定输入、VM/Host、文件系统、数据移动、矩阵、开销/故障和指标范围，并记录执行语义
+版本。新证据中的`executionSemantics`用于区分修复前后的运行口径；不要只改golden或覆写
+冻结结果来掩盖模型变化。完整可用标签以`AlgorithmCatalog.isSupportedBySimulationRunner()`为准。

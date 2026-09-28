@@ -10,6 +10,7 @@ jobs:
   full-quality-gate:
     name: Full quality gate (JDK 17)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,8 +22,53 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Run full quality gate (unit + integration, core + experiments)
-        run: mvn -B verify
+      - name: Run full quality gate (unit + integration + Javadoc)
+        run: mvn -B -Pjavadoc verify
+
+      - name: Set up Python for independent checker self-tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify independent evidence and statistics checkers
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
+
+      - name: Set up Node for offline report checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install pinned report checker and Chromium
+        run: |
+          npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+          scripts/node_modules/.bin/playwright-core install --with-deps chromium
+
+      - name: Generate real Workbench browser fixtures
+        run: >-
+          mvn -B -pl :workflowsim-experiments -am test-compile exec:java
+          -Dexec.mainClass=org.workflowsim.experiments.workbench.WorkbenchBrowserFixtures
+          -Dexec.classpathScope=test
+          -Dexec.args="\"$PWD\" \"$PWD/output/workbench-ci\""
+
+      - name: Verify offline reports in Chromium
+        run: |
+          node scripts/verify-report.cjs output/workbench-ci/browser-fixtures.json output/workbench-ci/screenshots
+          node scripts/test-report-checker.cjs output/workbench-ci/browser-fixtures.json
+
+      - name: Preserve quality-gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-gate-evidence
+          retention-days: 7
+          path: |
+            simulator/target/surefire-reports/
+            simulator/target/failsafe-reports/
+            experiments/target/surefire-reports/
+            experiments/target/failsafe-reports/
+            output/workbench-ci/
 
       # 质量门禁引用的 5 个 WfFormat/WfInstances 小型输入已纳入版本库（见 .gitignore 白名单）。
       # 标准检出会执行相关测试；缺失必需输入会失败，不会自动跳过。

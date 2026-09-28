@@ -1,5 +1,7 @@
 # WorkflowSim 质量审计报告
 
+> **后续正确性修订提示**：这是 2026-09-04 的历史审计，下面“全部正确/无数字错误”的结论不能作为当前认证。后续独立反例发现了 CPU 进度、矩阵、重试、LOCAL 数据可达和 PEFT 论文归属等缺口；本轮事实与验证范围见[正确性整改记录](SIMULATION_CORRECTNESS_REPAIR.md)。
+
 > **R9 注记（2026-09-16）**：本文保留历史审计记录。当时"忠实保留、不改"的
 > `@Deprecated HEFTPlanningAlgorithm` 已连同 `DHEFTPlanningAlgorithm`、枚举标签
 > 与全部分发分支在 R9 移除（SimulationRunner 早已拒绝该标签，属不可达过渡层）；

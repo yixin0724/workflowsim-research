@@ -1,5 +1,7 @@
 # R10 网络受限调度：结果解读
 
+> **历史结果**：以下504次记录来自旧执行模型，不是当前修正模型的验证或黄金值。当前执行使用 `network-limited-r10-v3`；旧证据通过完整性校验也不代表科学量在新代码下保持不变。见[协议修订说明](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+
 正式协议 `network-limited-r10-v2` 共504次运行，全部成功并通过逐运行证据、完整矩阵与统计重算校验。完整自动结果见 [结果表](../../../output/network-study-r10-final/results.md)，条件与资格排除见 [协议](PROTOCOL.md)。
 
 ## 可以支持的结论

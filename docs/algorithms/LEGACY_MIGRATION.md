@@ -26,20 +26,22 @@ WorkflowSim 1.0 包含一些历史遗留算法实现，它们的行为与学术�
 **迁移方案：**
 ```java
 // 旧代码
-SimulationConfig config = SimulationConfig.builder()
+SimulationConfig config = SimulationConfig.builder("workflow.dax", 4)
     .schedulingAlgorithm(Parameters.SchedulingAlgorithm.MINMIN)
     // ...
     .build();
 
 // 新代码
-SimulationConfig config = SimulationConfig.builder()
+SimulationConfig config = SimulationConfig.builder("workflow.dax", 4)
     .schedulingAlgorithm(Parameters.SchedulingAlgorithm.READY_BATCH_MINMIN)
     // ...
     .build();
 ```
 
 **语义说明：**
-- `READY_BATCH_MINMIN` 明确说明是"就绪批次内的 SPT + 最快空闲"变体
+- `READY_BATCH_MINMIN` 对每个 ready Job 求当前空闲兼容 VM 上的最小 `length/MIPS`，再选全局最小者；每次分配后将 VM 置忙并重算。
+- 每轮每台 VM 最多接一个 Job，不维护离线规划器的未来可用时间。
+- 在全部任务拥有同一兼容候选集合时，这个可分离成本模型可能与短任务优先给出相同结果；不能仅凭新旧标签断言输出必然不同。
 - 适用于在线调度场景（任务动态到达）
 - 如需经典 Min-Min 行为，应使用静态独立任务规划器：
   ```java
@@ -76,9 +78,9 @@ SimulationConfig config = SimulationConfig.builder()
 
 **问题：**
 - 原实现是**贪心最快 VM**（Greedy-Fastest-VM）
-- 与经典 MCT（Minimum Completion Time）定义不符：
-  - 经典 MCT：为每个任务选择使其完成时间最小的机器
-  - 本实现：总是选最快 MIPS 的 VM，不考虑负载均衡
+- 它不是维护未来 VM 可用时间的离线 MCT：历史实现偏向最快空闲 VM。
+- `READY_BATCH_MCT` 按 ready 到达序，选空闲兼容 VM 中 `length/MIPS` 最小者；本轮选中后置忙，不建立未来排队时间。
+- 对固定正任务长度、相同空闲兼容候选集合，最小 `length/MIPS` 与最大 MIPS 数学上等价，即使 MIPS 异构也如此。迁移的价值是明确决策层和维护契约，不是保证该输入上的映射改变。
 
 **迁移方案：**
 ```java
@@ -143,7 +145,7 @@ SimulationConfig config = SimulationConfig.builder()
   - 无聚类（ClusteringMethod.NONE）
   - 共享存储（不建模点对点传输）
   - SPACE_SHARED VM（无任务并发）
-- 规划侧与执行侧语义一致，makespan 预测准确
+- 输出VM映射及每VM顺序，不重放绝对计划时间；事件间隔、量化和运行定序仍可能造成预测偏差，不应无条件声称makespan精确。
 
 ---
 
@@ -176,26 +178,28 @@ SimulationConfig config = SimulationConfig.builder()
 | 算法 | 说明 | 适用场景 |
 |------|------|----------|
 | `FCFS` | First-Come-First-Served | 基准对比 |
-| `READY_BATCH_MINMIN` | SPT + 最快空闲 VM | 就绪批次短任务优先 |
-| `READY_BATCH_MAXMIN` | LJF + 最快空闲 VM | 就绪批次长任务优先 |
-| `READY_BATCH_MCT` | 贪心最快 VM | 简单负载分配 |
-| `READY_BATCH_ROUNDROBIN` | First-Fit-Idle | 轮流分配 VM |
-| `DATA` | 数据感知调度 | 输入文件亲和性优化 |
+| `READY_BATCH_MINMIN` | 逐轮选择最小的Job最小ECT | ready批内重算空闲兼容候选 |
+| `READY_BATCH_MAXMIN` | 逐轮选择最大的Job最小ECT | ready批内重算空闲兼容候选 |
+| `READY_BATCH_MCT` | 按到达序最小化length/MIPS | 不维护未来availability |
+| `READY_BATCH_ROUNDROBIN` | 跨批次持久VM游标 | 真正轮转，跳过忙/不兼容VM |
+| `DATA` | 最少非本地真实输入字节 | 仅LOCAL；不是传输时间优化 |
+| `RL_POLICY` | ready Job→VM列表下标动作 | RlEnvironment episode，无内建学习器 |
 
 ### 3.2 静态独立任务规划器（Static Independent-Task Planners）
 
 | 算法 | 说明 | 适用场景 |
 |------|------|----------|
 | `STATIC_OLB` | Opportunistic Load Balancing | 负载均衡基准 |
-| `STATIC_MET` | Minimum Execution Time | 最快机器优先 |
-| `STATIC_MCT` | Minimum Completion Time | 最早完成时间 |
-| `STATIC_MINMIN` | 经典 Min-Min | 短任务优先全局优化 |
-| `STATIC_MAXMIN` | 经典 Max-Min | 长任务优先全局优化 |
-| `STATIC_SUFFERAGE` | Sufferage | 考虑备选机器代价 |
+| `STATIC_MET` | Minimum Execution Time | 有效计算时间最小，不一定是最高MIPS |
+| `STATIC_MCT` | Minimum Completion Time | availability＋有效计算时间最小 |
+| `STATIC_MINMIN` | Min-Min | 全局选择最小的任务最小完成估计 |
+| `STATIC_MAXMIN` | Max-Min | 全局选择最大的任务最小完成估计 |
+| `STATIC_SUFFERAGE` | Sufferage | 最大次优损失；仅一台兼容VM时损失为0 |
+| `STATIC_ROUND_ROBIN` | Deterministic Round Robin | 按Task/VM ID轮转兼容映射，不看成本 |
 
 **注意：** 这些算法**拒绝包含依赖边的 DAG 工作流**，仅适用于独立任务集合。
 
-### 3.3 静态 DAG 规划器（Static DAG Planners）
+### 3.3 共享存储静态 DAG 规划器
 
 | 算法 | 说明 | 适用场景 |
 |------|------|----------|
@@ -205,14 +209,46 @@ SimulationConfig config = SimulationConfig.builder()
 | `SHARED_STORAGE_ETF` | Earliest Time First | 最早开始时间 |
 | `SHARED_STORAGE_PEFT` | PEFT（乐观成本表） | 后继路径优化 |
 
-**注意：** 这些算法要求配合以下约束：
+**注意：** 上表SHARED系列还要求SHARED文件系统、无开销/故障、legacy数据模型，
+并拒绝任务成本矩阵；不是任意STATIC配置都受支持。配置片段：
 ```java
 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
-.clusteringMethod(ClusteringMethod.NONE)  // 禁用任务聚类
-// 平台 VM 必须配置为 SPACE_SHARED 模式
+.fileSystem(ReplicaCatalog.FileSystem.SHARED)
+.clusteringParameters(new ClusteringParameters(0, 0, ClusteringMethod.NONE, null))
+.dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+// 使用无开销/故障配置；平台VM必须为SPACE_SHARED
 ```
 
 ---
+
+### 3.4 LOCAL静态DAG规划与仅映射基线
+
+**LOCAL_PEFT公式修订**：一级来源已核定原算法为
+`OCT(t,p)=max_child min_p'[OCT(child,p')+w(child,p')+c]`、`OCT(exit,p)=0`。
+旧“自身w＋后继OCT、出口均值”不是原PEFT，新契约标识为
+`PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2`。历史R12/R13旧变体结果应明确标为非标准算法，
+不能只用“一般模型版本差异”淡化或重新贴成原文复现；冻结数值不在此处覆写。
+真正论文图1对应PEFT122/HEFT133，旧HEFT-origin的76/80并非该论文结果。
+参见[一级来源与新夹具](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>)。
+
+- `LOCAL_HEFT`、`LOCAL_CPOP`、`LOCAL_PEFT`：STATIC＋LOCAL＋NONE聚类＋无开销/故障＋
+  SPACE_SHARED，数据模型选preExecution家族。规划仍是无争用估计；Fat-tree运行模型
+  另须匹配拓扑声明。候选按PE兼容过滤，CPOP关键处理器要支持整条路径，PEFT使用
+  dependency-ready列表处理父子rank反转。
+- LOCAL副本带可用时刻：输入在完整传输hold结束可用，输出在计算完成可用。根与非根
+  外部输入均从消费Job依赖就绪时开始，不能把统一stage-in当成目标VM已缓存。
+  这不是完整事件重放，不能把固定论文夹具的时序推广到任意共享输入DAG。
+- `RANDOM`、`PSO`：只产生Task→VM映射，不产生完整每VM顺序。RANDOM不优化计算成本；
+  PSO消费有效成本但fitness忽略DAG边和网络，且粒子位置受PE兼容域约束。
+
+独立任务的时间感知策略、PSO和LOCAL规划统一使用
+`TaskExecutionModel`：有矩阵时为 `round(matrixSeconds*MIPS)/MIPS`，无矩阵时为
+原始单PE长度/MIPS。缺矩阵坐标与不可表示的工作量显式失败。PSO的MIPS/1000单价使成本
+**仅在无矩阵raw-MI模型下**与映射无关；矩阵下成本可随映射变化，但仍非真实云定价。
+STATIC_ROUND_ROBIN和RANDOM保持成本无关的选择规则。
+
+所有标准Runner运行统一NONE聚类、SPACE_SHARED；非空规划器只能配STATIC。
+更多决策层和模型限制见[算法目录](<CATALOG.md>)与[契约](<CONTRACTS.md>)。
 
 ## 4. 如何检测遗留算法使用
 
@@ -258,10 +294,10 @@ void configurationRejectsLegacyMinMinSchedulerInsteadOfMapping() {
 
 ### Q2: 旧的静态 API 还能用吗？
 
-**A:** 可以，但不推荐。旧 API（如 `Parameters.setSchedulingAlgorithm()`）仍接受遗留标签，但：
+**A:** 可以，但不推荐。旧静态API（如 `Parameters.init(...)`）仍可接入遗留标签，但：
 - 无法生成标准 SimulationRunner 证据（manifest.json + metrics.json）
 - 状态泄漏风险高（单 JVM 多次运行）
-- 不受回归测试保护
+- 即使有兼容性单测，也不代表满足标准Runner的研究证据与模型组合契约
 
 ### Q3: 我的论文引用了 MINMIN，现在怎么办？
 
@@ -287,6 +323,7 @@ void configurationRejectsLegacyMinMinSchedulerInsteadOfMapping() {
 - **2024-01**: 为 `HEFT`/`DHEFT` 添加 `@Deprecated` 注解
 - **2024-01**: SimulationRunner 添加算法验证逻辑
 - **2026-09（R9）**: 移除 `HEFT`/`DHEFT` 规划枚举；本文 §2 与 §5 Q1 加注记
+- **正确性修复同步**: 更新ready-batch实际语义、矩阵成本、PE可行域、LOCAL时间戳副本与PEFT ready-list边界；历史标签与冻结证据不重写
 
 ---
 

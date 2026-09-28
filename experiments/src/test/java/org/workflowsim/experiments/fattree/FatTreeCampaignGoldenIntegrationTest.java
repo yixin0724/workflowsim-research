@@ -24,7 +24,7 @@ import org.workflowsim.utils.Parameters;
  * <ul>
  * <li>论文例 12 组合（4 规划器 × 3 模型）实测黄金 makespan；</li>
  * <li>逐 DAG 排名翻转事实：cybershake-n50 V1 第一名 LOCAL_HEFT → R2/R6
- * PSO；cybershake-n100 三模型第一名均为PSO；论文例三模型下
+ * PSO；当前修正模型的 cybershake-n100 也由 V1 的 HEFT 转为争用下 PSO；论文例三模型下
  * LOCAL_HEFT 始终第一（结论只针对本测试的固定配置）；</li>
  * <li>弱单调性诊断：论文例子集严格成立（再标定后 V1 &lt; R2 &lt; R6）；子集内
  * 任何交叉必须为噪声级（相对偏差 ≤ 1e-4）；</li>
@@ -40,6 +40,11 @@ import org.workflowsim.utils.Parameters;
  * 保持原矩阵参数重跑360次，再锁定当前回归值。cybershake-n50仍由HEFT转为PSO，
  * n100在V1也为PSO；四主机论文例CPOP基线/A4为5718.1/5186.1。
  * 下面的单调和结构恒等断言只针对列出的fixture，不是所有DAG的数学不变量。</p>
+ *
+ * <p>执行语义 V2 修订：同参数的旧核心、新核心、旧 Datacenter 加新规划器三组
+ * 36 次受控运行确认，n100 在 V1 下的当前第一名为 HEFT；n50 HEFT 的 R2 时间
+ * 也发生变化。新数值由数据可达时间/工作量回归共同守护，原 R10/R8 工件不改写。
+ * 该子集不能用来推断完整 360 次历史研究的新换冠比例。</p>
  *
  * <p>历史参数来源：R8 再标定 campaign（链路基线
  * 0.125 MB/s = VM 端点带宽 1/8，8:1 接入超收敛；A4 = 1.25 MB/s 真 10×）。
@@ -95,8 +100,14 @@ class FatTreeCampaignGoldenIntegrationTest {
         assertEquals(HEFT, winners.get(V1).get(CYBERSHAKE_N50));
         assertEquals(PSO, winners.get(R2).get(CYBERSHAKE_N50));
         assertEquals(PSO, winners.get(R6).get(CYBERSHAKE_N50));
-        // R10 正确前驱 rank 下，n100 的 V1 最优也为 PSO，旧换冠结论失效。
-        assertEquals(PSO, winners.get(V1).get(CYBERSHAKE_N100));
+        // The R10-era core chose PSO here. Isolated old/new core controls show that
+        // time-aware LOCAL data planning changes HEFT's mapping/schedule and restores
+        // a V1-to-contention change of winner. Do not preserve a bug-dependent ranking.
+        assertEquals(HEFT, winners.get(V1).get(CYBERSHAKE_N100));
+        assertMakespan(results, CYBERSHAKE_N100, HEFT, V1, 1111837.479876);
+        assertMakespan(results, CYBERSHAKE_N100, PSO, V1, 1112378.121047);
+        assertTrue(results.makespan(CYBERSHAKE_N100, HEFT, V1)
+                < results.makespan(CYBERSHAKE_N100, PSO, V1));
         assertEquals(PSO, winners.get(R2).get(CYBERSHAKE_N100));
         assertEquals(PSO, winners.get(R6).get(CYBERSHAKE_N100));
         for (String model : new String[] {V1, R2, R6}) {
@@ -108,7 +119,7 @@ class FatTreeCampaignGoldenIntegrationTest {
         // 弱单调诊断）；N100 PSO 的 R6 恰与 R2 相等（链路层对该映射无附加约束）。
         assertMakespan(results, CYBERSHAKE_N50, PSO, R2, 587924.0247);
         assertMakespan(results, CYBERSHAKE_N50, PSO, R6, 587921.1503);
-        assertMakespan(results, CYBERSHAKE_N50, HEFT, R2, 588230.0083);
+        assertMakespan(results, CYBERSHAKE_N50, HEFT, R2, 588010.008326);
         assertMakespan(results, CYBERSHAKE_N100, PSO, R2, 1189487.4983);
         assertMakespan(results, CYBERSHAKE_N100, PSO, R6, 1189487.4983);
         assertMakespan(results, CYBERSHAKE_N100, CPOP, V1, 1155577.5672);

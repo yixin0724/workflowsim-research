@@ -194,6 +194,7 @@ public class ResCloudlet {
 	 * @post $none
 	 */
 	private void init() {
+		long totalInstructions = totalInstructions();
 		// get number of PEs required to run this Cloudlet
 		pesNumber = cloudlet.getNumberOfPes();
 
@@ -216,7 +217,9 @@ public class ResCloudlet {
 
 		// In case a Cloudlet has been executed partially by some other grid
 		// hostList.
-		cloudletFinishedSoFar = cloudlet.getCloudletFinishedSoFar() * Consts.MILLION;
+		long completedMi = Math.min(Math.max(0L, cloudlet.getCloudletFinishedSoFar()),
+				totalInstructions / Consts.MILLION);
+		cloudletFinishedSoFar = completedMi * Consts.MILLION;
 	}
 
 	/**
@@ -430,14 +433,22 @@ public class ResCloudlet {
 	 * @post $result >= 0
 	 */
 	public long getRemainingCloudletLength() {
-		long length = cloudlet.getCloudletTotalLength() * Consts.MILLION - cloudletFinishedSoFar;
+		long length = Math.max(0L, totalInstructions() - cloudletFinishedSoFar);
+		return length / Consts.MILLION;
+	}
 
-		// Remaining Cloudlet length can't be negative number.
-		if (length < 0) {
-			return 0;
+	/** Recheck after legal stage-in growth; never cache the pre-stage-in envelope. */
+	private long totalInstructions() {
+		if (cloudlet == null || cloudlet.getCloudletLength() <= 0L || cloudlet.getNumberOfPes() <= 0) {
+			throw new IllegalArgumentException("Cloudlet work and processing elements must be positive");
 		}
-
-		return (long) Math.floor(length / Consts.MILLION);
+		try {
+			long totalMi = Math.multiplyExact(cloudlet.getCloudletLength(), (long) cloudlet.getNumberOfPes());
+			return Math.multiplyExact(totalMi, (long) Consts.MILLION);
+		} catch (ArithmeticException overflow) {
+			throw new IllegalArgumentException("Cloudlet " + cloudlet.getCloudletId()
+					+ " work cannot be represented as signed-long instructions", overflow);
+		}
 	}
 
 	/**
@@ -477,7 +488,13 @@ public class ResCloudlet {
 	 * @post $none
 	 */
 	public void updateCloudletFinishedSoFar(long miLength) {
-		cloudletFinishedSoFar += miLength;
+		if (miLength < 0L) {
+			throw new IllegalArgumentException("Cloudlet progress cannot be negative");
+		}
+		long remaining = Math.max(0L, totalInstructions() - cloudletFinishedSoFar);
+		// A long update interval may overshoot completion. Saturate at required work so
+		// repeated updates cannot overflow the counter and resurrect a finished cloudlet.
+		cloudletFinishedSoFar += Math.min(miLength, remaining);
 	}
 
 	/**

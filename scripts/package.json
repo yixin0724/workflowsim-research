@@ -1,0 +1,12 @@
+{
+  "name": "workflowsim-report-checks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser checks for generated offline WorkflowSim reports",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright-core": "1.55.1"
+  }
+}

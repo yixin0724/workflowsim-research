@@ -1,6 +1,8 @@
 # WorkflowSim 文档中心
 
-按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，本轮交付见[R10验收记录](advanced/PLATFORM_UPGRADE_R10.md)，正式研究见[网络受限研究协议](../experiments/studies/network-limited-r10/PROTOCOL.md)、[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)与[敏感性响应面研究（R13）](../experiments/studies/sensitivity-r13/PROTOCOL.md)。旧R7/R8结果页保留历史状态，不代表修正后的当前算法。
+按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，当前正确性检查、修复与验证范围见[整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)，新旧研究身份见[协议修订说明](experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。
+
+[网络受限研究](../experiments/studies/network-limited-r10/PROTOCOL.md)、[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)与[敏感性研究（R13）](../experiments/studies/sensitivity-r13/PROTOCOL.md)保留历史协议及结果，不自动代表当前模型。尤其旧 R12/R13 的 LOCAL_PEFT 递推不符合已核对的原论文，不能用旧数字评价标准 PEFT。
 
 
 ## 目录结构
@@ -12,7 +14,7 @@ docs/
 │   ├── CODE_CONFIG_EXPERIMENTS.md  # 代码配置式实验指南（推荐）⭐⭐⭐
 │   ├── RUN_EXPERIMENTS.md      # 实验运行完整指南（参数/算法/IDEA 配置）⭐
 │   ├── IDEA_SETUP.md           # IDEA 配置指南（解决 experiments 模块显示问题）🔧
-│   ├── ALGORITHMS.md           # 三类算法的本质区别与底层原理 ⭐
+│   ├── ALGORITHMS.md           # 算法决策层的本质区别与底层原理 ⭐
 │   ├── DATASETS.md             # 如何选择工作流输入数据集
 │   ├── BUILD.md                # Maven 构建、测试、示例与验证器命令
 │   └── WORKBENCH.md            # 统一入口与新报告体系（R10）⭐
@@ -27,7 +29,8 @@ docs/
 │   ├── CAMPAIGNS.md            # 多场景/多重复实验与数据移动模型协议
 │   ├── FATTREE_SCHEDULING_CAMPAIGN.md  # Fat-tree × 调度联合实验设计（R7，R8 再标定：链路 0.125/A4 1.25 MB/s）
 │   ├── FATTREE_SCHEDULING_RESULTS.md   # R7 实测结果（R8 再标定版：链路束缚恢复 + 逐位交叉验证 + 排名翻转结论）
-│   ├── RERUN_DIFF_CONTRACT.md  # D2 rerun 与差异比对契约（已实现：历史证据复跑 + 核心量精确比对）
+│   ├── RERUN_DIFF_CONTRACT.md  # 复跑、迁址、精确数值与 JSON Pointer 契约
+│   ├── NETWORK_STUDY_PROTOCOL_REVISIONS.md # 修正模型与历史研究协议身份
 │   └── reference-baselines/
 │       ├── P7_PROTOCOL.md      # 冻结参考基线 P7 的实验协议
 │       └── P7_RESULTS.md       # P7 已记录结果（历史记录）
@@ -38,13 +41,14 @@ docs/
 │   └── 文献调研_工作流调度_2021-2025.md  # 启发式/元启发式/QoS 工作流调度 2021–2025 文献调研
 │
 ├── advanced/                   # 专题与维护者文档
-│   ├── QUALITY_AUDIT.md        # 质量审计报告（算法正确性/指标准确性）
+│   ├── SIMULATION_CORRECTNESS_REPAIR.md # 当前正确性整改、独立证据与验证范围
+│   ├── QUALITY_AUDIT.md        # 历史质量审计，不代替当前认证
 │   ├── COMPREHENSIVE_AUDIT_R8.md  # R8 全面审计报告（算法×论文/指标/拓扑/架构四通道）
 │   ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
 │   ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R7 轮次规划）
 │   ├── R9_CLEANUP_AND_PROBES.md  # R9 死代码清理与运行时探测记录
 │   ├── R11_LEGACY_AUDIT_AND_CLEANUP.md  # R11 全仓遗留审计与清理验收记录
-│   ├── PLATFORM_UPGRADE_R10.md # R10 平台升级验收记录（本轮交付）
+│   ├── PLATFORM_UPGRADE_R10.md # R10 平台升级历史验收记录
 │   └── CODE_STYLE.md           # 源码注释规范
 │
 └── drl-workflow-scheduling-survey-2021-2025.md  # ML/DRL 工作流调度研究现状调研（2021–2025）
@@ -58,7 +62,7 @@ docs/
 | 如何在代码中配置参数并直接运行实验？ | [`getting-started/CODE_CONFIG_EXPERIMENTS.md`](getting-started/CODE_CONFIG_EXPERIMENTS.md) ⭐⭐⭐ |
 | 如何配置参数、选择算法、在 IDEA 中运行实验？ | [`getting-started/RUN_EXPERIMENTS.md`](getting-started/RUN_EXPERIMENTS.md) ⭐ |
 | experiments 模块在 IDEA 中显示橙色咖啡杯？ | [`getting-started/IDEA_SETUP.md`](getting-started/IDEA_SETUP.md) 🔧 |
-| 三类算法的区别和原理？ | [`getting-started/ALGORITHMS.md`](getting-started/ALGORITHMS.md) |
+| 算法决策层的区别和原理？ | [`getting-started/ALGORITHMS.md`](getting-started/ALGORITHMS.md) |
 | 如何选数据集？ | [`getting-started/DATASETS.md`](getting-started/DATASETS.md) |
 | 如何构建、运行示例、执行 P7？ | [`getting-started/BUILD.md`](getting-started/BUILD.md) |
 | 算法的决策层和可比较范围？ | [`algorithms/CATALOG.md`](algorithms/CATALOG.md) |
@@ -69,7 +73,7 @@ docs/
 | 如何复跑一份历史 run 并机械验证核心量是否一致？ | [`experiments/RERUN_DIFF_CONTRACT.md`](experiments/RERUN_DIFF_CONTRACT.md)（CLI 用法、verdict 与退出码、报告格式） |
 | P7 冻结基线的矩阵和结果？ | [`experiments/reference-baselines/P7_PROTOCOL.md`](experiments/reference-baselines/P7_PROTOCOL.md)、[`P7_RESULTS.md`](experiments/reference-baselines/P7_RESULTS.md) |
 | 规划器收益如何随 VM 数/带宽/异构度变化（R13）？ | [`../experiments/studies/sensitivity-r13/PROTOCOL.md`](../experiments/studies/sensitivity-r13/PROTOCOL.md)、[`RESULTS.md`](../experiments/studies/sensitivity-r13/RESULTS.md) |
-| 代码质量是否可信？ | [`advanced/QUALITY_AUDIT.md`](advanced/QUALITY_AUDIT.md) |
+| 当前修复与验证覆盖到哪里？ | [正确性整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)；[旧质量审计](advanced/QUALITY_AUDIT.md)仅作历史参考 |
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
 | 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |
 | Fat-tree 网络拓扑的原理与设计？ | [`research/FAT_TREE_PRINCIPLES.md`](research/FAT_TREE_PRINCIPLES.md)、[`research/FAT_TREE_DESIGN.md`](research/FAT_TREE_DESIGN.md) |

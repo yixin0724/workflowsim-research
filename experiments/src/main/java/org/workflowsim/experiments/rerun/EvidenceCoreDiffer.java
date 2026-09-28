@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.workflowsim.experiments.common.ExactJsonValues;
 
 /**
  * D2 阶段 5：核心量逐位差异比对器。
@@ -59,6 +60,8 @@ public final class EvidenceCoreDiffer {
             Arrays.asList(
                     // 身份声明：随代码演化合法变化，不参与核心量判定，单独提取报告。
                     Pattern.compile("/configuration/algorithmContract"),
+                    // Only path leaves are volatile: input identity/order and array length remain core.
+                    Pattern.compile("/configuration/workflowPaths/\\d+"),
                     Pattern.compile("/inputs/\\d+/path"),
                     Pattern.compile("/result/workflowOutcomes/\\d+/path"),
                     Pattern.compile("/artifacts/\\d+/(sha256|sizeBytes)"),
@@ -130,7 +133,7 @@ public final class EvidenceCoreDiffer {
                 keys.addAll(a.keySet());
                 keys.addAll(b.keySet());
                 for (String key : keys) {
-                    compareJson(pointer + "/" + key, a.get(key), b.get(key),
+                    compareJson(pointer + "/" + escapePointerToken(key), a.get(key), b.get(key),
                             true, core, volatileNoted);
                 }
                 return;
@@ -173,7 +176,7 @@ public final class EvidenceCoreDiffer {
             keys.addAll(a.keySet());
             keys.addAll(b.keySet());
             for (String key : keys) {
-                compareJson(pointer + "/" + key, a.get(key), b.get(key),
+                compareJson(pointer + "/" + escapePointerToken(key), a.get(key), b.get(key),
                         false, core, volatileNoted);
             }
             return;
@@ -210,6 +213,11 @@ public final class EvidenceCoreDiffer {
             JsonElement b = JsonParser.parseString(rerunLines.get(i));
             compareJson("/events/" + i, a, b, false, core, volatileNoted);
         }
+    }
+
+    /** Encode a member token before path classification; literal separators are not structure. */
+    private static String escapePointerToken(String token) {
+        return token.replace("~", "~0").replace("/", "~1");
     }
 
     // ---- 豁免白名单判定（契约 §易变量，显式枚举） ----
@@ -267,13 +275,7 @@ public final class EvidenceCoreDiffer {
     }
 
     private static boolean nullSafeEquals(JsonElement a, JsonElement b) {
-        if (a == null) {
-            return b == null;
-        }
-        if (b == null) {
-            return false;
-        }
-        return a.equals(b);
+        return ExactJsonValues.equal(a, b);
     }
 
     /** 序列化值描述：null 缺失显式标注，超长截断并记录总长度。 */

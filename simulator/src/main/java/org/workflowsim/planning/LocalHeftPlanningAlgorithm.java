@@ -11,36 +11,32 @@ import org.workflowsim.Task;
  *
  * <p><b>算法</b>（Topcuoglu, Hariri &amp; Wu, IEEE TPDS 2002）：按向上 rank
  * {@code r_u(t) = w̄_t + max_{child}(c̄_edge + r_u(child))} 降序选择任务；对每个任务
- * 在全部 VM 上计算插入式最早完成时间（EFT，允许填入空闲间隙），选最小 EFT，平局取
+ * 在兼容 VM 上计算插入式最早完成时间（EFT，允许填入空闲间隙），选最小 EFT，平局取
  * 较小 VM ID；rank 平局取较小任务 ID。</p>
  *
- * <p><b>通信建模</b>——本规划器的关键差异点：任务间数据传输按 LOCAL 文件系统运行时的
- * 历史规则逐位镜像（{@code WorkflowDatacenter.legacyProcessDataStageInForComputeJob}）：
- * 每个真实输入文件独立累加 {@code size / (1e6 × maxBwth)}；{@code SOURCE} 站点传输率取
- * 目标 VM 带宽；VM 间传输率取 {@code min(bw_src, bw_dst)}；文件已在目标 VM 上则零传输；
- * 同一文件多个副本取最快来源；stage-in 后副本目录增加目标 VM。副本状态按调度顺序演进，
- * 与运行时派发顺序一致。</p>
+ * <p><b>通信建模</b>：每个真实输入文件累加 {@code size / (1e6 × maxBwth)}；
+ * SOURCE→VM 取目标带宽，VM→VM 取双方较小带宽；在任务依赖就绪时已经可用的目标
+ * 副本免传输，其他可见副本取最快来源。副本记录带最早可用时刻：输入在整个传输
+ * hold 完成时可用，输出在计划计算完成时可用；计划分配本身不使未来副本提前可读。</p>
  *
  * <p><b>执行语义对齐</b>：与论文的 AST（Actual Start Time）语义一致——输入传输是
  * <em>执行前网络延迟</em>，不是 VM 工作：每个父任务的文件在其完成时刻开始传输
  * （父任务间并行），可与目标 VM 忙碌期重叠；任务的计划开始时刻 =
- * {@code max(VM 空闲, max_pred(parentFinish + Σc_files_from_pred))}，VM 只被计算
- * MI 占用。该语义由 {@code DataMovementModel.preExecutionTransferDelayV1()} 在
- * 运行时逐位镜像（引擎在任务就绪时按父任务估计传输延迟、传输完成后派发）。任务×VM
- * 异构成本矩阵存在时按矩阵秒数折算 MI（{@code Math.round}，镜像 STATIC 派发折算）；
- * 缺省时沿用解析期 MI/mips 缩放。</p>
+ * {@code max(VM 可插入空闲时刻, 输入就绪时刻)}，VM 只被计算 MI 占用。
+ * 父任务文件保留 {@code parentFinish + Σc_files_from_pred} 的无争用估计；外部输入
+ * （包括根任务）从本 Job 的依赖就绪时点开始传输。正 hold 使用运行模型的最小事件
+ * 间隔钳制。计算成本统一通过 {@code TaskExecutionModel} 折算：有矩阵时
+ * {@code round(seconds * mips) / mips}，否则使用原始单 PE MI/mips。</p>
  *
  * <p><b>适用前提</b>：LOCAL 文件系统、NONE 聚类、无故障、无建模开销、
  * {@code preExecutionTransferDelayV1} 数据移动模型与 SPACE_SHARED VM；由
  * {@link PlanningContext#validateLocalStaticDag()} 强制。规划器写出的每任务 VM 映射与
  * 计划开始时间由 {@code StaticSchedulePlan} 强制为运行时的每 VM 派发顺序。</p>
  *
- * <p><b>边界声明</b>：不建模链路争用、网络拓扑或多工作流并发传输；运行时对传输延迟
- * 施加最小事件间隔钳制而规划器不钳制，亚秒级传输可能产生微小漂移；计划-运行时对齐在
- * 任务时长 ≥ 最小事件间隔 + 完成保护量（0.11 秒）时成立，更短的任务会被运行时完成事件
- * 规则推后。它是抽象模型上的 HEFT，不是真实平台校准。同论文的 CPOP 算法由
- * {@link LocalCpopPlanningAlgorithm} 实现，两规划器共享
- * {@link AbstractLocalCommPlanningAlgorithm} 的执行模型镜像。</p>
+ * <p><b>边界声明</b>：不建模链路争用或完整事件队列；副本只由当前已规划任务提供，
+ * 后规划任务更早产生副本、同刻事件次序、短计算的完成规则及并发争用都可能使
+ * 计划与运行时不同。它是抽象模型上的 HEFT，不是真实平台校准。LOCAL_CPOP 与
+ * LOCAL_PEFT 共用 {@link AbstractLocalCommPlanningAlgorithm} 的估计机制。</p>
  */
 public final class LocalHeftPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 

@@ -24,7 +24,7 @@ import org.workflowsim.data.TransferContentionEngine;
  *   <li>同主机：空路径（VM 间本地交换，不占用拓扑链路）；</li>
  *   <li>上行 aggregate 选择：a = srcEdge mod availA（availA = 拥有 core 上行
  *       的 aggregate 数 = ceil(2m/k)；满配时 availA = k/2）；</li>
- *   <li>跨 Pod core 选择：在 aggregate a 的可用 core {(a,j) : a·(k/2)+j < m}
+ *   <li>跨 Pod core 选择：在 aggregate a 的可用 core {(a,j) : a·(k/2)+j &lt; m}
  *       中取 j = (srcEdge + dstEdge + srcPod + dstPod) mod jCount；</li>
  *   <li>结构性质决定目的 Pod 侧 aggregate 必为同一编号 a（core (a,j) 连接所有
  *       Pod 的 aggregate a）；下行链路唯一。</li>

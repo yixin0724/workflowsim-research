@@ -31,6 +31,7 @@ mvn -v
 | 两个模块完整验证 | `mvn verify` |
 | 仅核心完整验证 | `mvn -pl :workflowsim verify` |
 | 两个模块清理后完整验证 | `mvn clean verify` |
+| 清理后联合验收（含核心 API 文档） | `mvn -Pjavadoc clean verify` 或 `make audit` |
 | 清理两个模块的构建输出 | `mvn clean` |
 | 仅清理核心构建输出 | `mvn -pl :workflowsim clean` |
 | 核心 API 文档及验证 | `mvn -pl :workflowsim -Pjavadoc verify` |
@@ -69,9 +70,38 @@ open simulator/target/site/jacoco/index.html
 ```
 
 [CI 配置](../../.github/workflows/ci.yml) 对推送/PR 到 `main` 使用 JDK 17 执行
-`mvn -B verify`，默认覆盖两个模块。测试引用的五个 WfFormat/WfInstances 小型输入已通过
-[忽略规则](../../.gitignore) 的白名单纳入版本库；缺失必需输入会失败，相关测试不再因
-语料缺失跳过。完整的大型语料仍需另行准备，见[数据集说明](../../datasets/README.md)。
+`mvn -B -Pjavadoc verify`，覆盖两个模块及核心 API 文档；随后使用 Node 22 与固定版本
+Chromium 验证真实生成的离线报告。测试引用的五个 WfFormat/WfInstances 小型输入已通过
+[忽略规则](../../.gitignore) 的白名单纳入版本库，缺失必需输入会失败。
+
+D2 的当前模型复跑测试使用现场生成的小型证据，标准检出必跑；另有两个明确标为可选的
+历史兼容测试，缺少保留研究时会逐项显示跳过，不能用它们替代必跑验证，也不向父目录
+借用历史输出。完整大型语料需另行准备，见[数据集说明](../../datasets/README.md)。
+
+## 离线报告浏览器验收
+
+这不是新的仿真 Web 服务，也不需要启动替代服务器。检查器直接以 `file://` 打开真实
+Workbench 报告，并拦截所有 HTTP 请求。依赖固定在[浏览器依赖清单](../../scripts/package.json)
+与[锁文件](../../scripts/package-lock.json)中，不依赖某台机器的全局 npm 包。
+
+```bash
+npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+# 没有本机 Chrome 时安装 Chromium；Linux CI 使用 install --with-deps chromium。
+scripts/node_modules/.bin/playwright-core install chromium
+
+mvn -pl :workflowsim-experiments -am test-compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.workbench.WorkbenchBrowserFixtures \
+  -Dexec.classpathScope=test \
+  '-Dexec.args="/absolute/checkout" "/absolute/new-browser-output"'
+node scripts/verify-report.cjs /absolute/new-browser-output/browser-fixtures.json
+node scripts/test-report-checker.cjs /absolute/new-browser-output/browser-fixtures.json
+```
+
+输出目录必须尚不存在。矩阵包含在线/网络、多种子、单报告再生、全失败、成功失败混合与
+1000 任务大图，核对算法/种子标签、成功图表计数、VM与任务筛选、聚焦关系、图形截断、
+390px 布局、浏览器错误和离线行为。可提供第二个脚本参数保存截图目录；单份 HTML 的旧
+调用方式仍可使用。macOS 默认使用已安装的 Google Chrome，其他平台使用已安装的
+Playwright Chromium；可用 `WORKFLOWSIM_CHROME` 显式指定浏览器可执行文件。
 
 ## API 文档
 

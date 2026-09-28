@@ -17,7 +17,7 @@ mvn verify
 | 历史示例 | `src/main/java/org/workflowsim/examples/**` | 保留原始示例 FQCN，便于教学和兼容性探索。它们可能使用历史 API/相对路径，不能自动作为已认证研究入口。 |
 | 教程与交叉校验 | `src/main/java/org/workflowsim/examples/**`、`src/test/java/org/workflowsim/experiments/tutorials/**` | 展示 DAX/WfCommons 输入、解析器交叉校验和端到端冒烟路径。教程结果不是冻结基线。 |
 | 参考实验 | `src/main/java/org/workflowsim/experiments/reference/**` | 已冻结配置、输入哈希、算法集合和证据规则的可复核参考实现。P7 位于其 `p7` 子包。 |
-| 研究实验 | `src/main/java/org/workflowsim/experiments/fattree/`、`src/main/java/org/workflowsim/experiments/network/` 与 `studies/{fattree-scheduling-campaign,network-limited-r10}/` | Fat-tree × 调度 campaign（R7/R8，历史协议）与当前 network-limited-r10 研究驱动；每项研究有独立身份与工件边界。 |
+| 研究实验 | `src/main/java/org/workflowsim/experiments/fattree/`、`src/main/java/org/workflowsim/experiments/network/` 与 `studies/` | 历史 Fat-tree campaign、网络受限、PEFT 比较与敏感性矩阵；修正后的新执行和历史保留工件使用不同协议身份，见[协议修订说明](../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。 |
 | Workbench 统一入口 | `src/main/java/org/workflowsim/experiments/workbench/` | R10 统一运行与报告入口（Workbench），从经过校验的 v4 证据生成报告。 |
 | rerun 差异比对 | `src/main/java/org/workflowsim/experiments/rerun/` | D2 历史证据复跑与核心量机械比对（`RerunDiffExecutor`，见 `docs/experiments/RERUN_DIFF_CONTRACT.md`）。 |
 
@@ -46,6 +46,6 @@ P7 的详细执行与验证规则见 [`reference/p7/README.md`](reference/p7/REA
 
 每个新研究应在写代码前冻结以下内容：研究问题、比较算法的同一决策层、工作流输入哈希、平台配置、随机化设计、主要/次要指标、统计方法、停止条件和输出保留决策。详细模板和目录约定见 [`studies/README.md`](studies/README.md) 与 [`../docs/experiments/CAMPAIGNS.md`](../docs/experiments/CAMPAIGNS.md)。
 
-实现后至少执行 `mvn verify`。通用证据包由 `ExperimentArtifactWriter.write(...)` 写出 manifest v4、metrics v2 与事件流 v1；manifest 内 provenance 仍为 v3，校验器兼容历史 manifest v2/v3。
+实现后执行 `mvn -Pjavadoc clean verify`，报告改动还应执行[浏览器矩阵验收](../docs/getting-started/BUILD.md#离线报告浏览器验收)。通用证据包写出 manifest v4、metrics v2、events v1，provenance 保持 v3；新运行记录 `WORK_CONSERVING_TASK_EXECUTION_V2`。历史工件可读不表示它们已在当前模型复跑相同，尤其旧 R12/R13 的非标准 PEFT 结果需要重新评估。
 
 标准检出已包含质量门禁引用的五个 WfFormat/WfInstances 小型输入，相关测试缺失必需输入时会失败，不再跳过；完整大型语料需另行准备，见[数据集说明](../datasets/README.md)。实验输出与 `target/` 是生成物；需要长期保留的研究证据按协议归档，其余输出由运行者在检查后清理。

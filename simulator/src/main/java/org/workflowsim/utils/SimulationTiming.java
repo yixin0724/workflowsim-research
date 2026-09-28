@@ -18,7 +18,8 @@ public final class SimulationTiming {
      * @param currentTime 当前模拟时间
      * @param predictedCompletionTime 内核预测的完成时间
      * @param minimumEventIntervalSeconds 内核允许的最小事件间隔，单位为模拟秒
-     * @return 可接受的最早完成时间
+     * @return 可接受、有限且晚于当前时刻的最早完成时间
+     * @throws IllegalArgumentException 当时间非法、加法溢出或浮点时钟无法前进时
      */
     public static double earliestCloudletCompletionTime(double currentTime,
             double predictedCompletionTime, double minimumEventIntervalSeconds) {
@@ -26,8 +27,13 @@ public final class SimulationTiming {
                 || !isFiniteNonNegative(minimumEventIntervalSeconds)) {
             throw new IllegalArgumentException("CloudSim timing values must be finite and non-negative");
         }
-        return Math.max(predictedCompletionTime, currentTime + minimumEventIntervalSeconds
+        double completion = Math.max(predictedCompletionTime, currentTime + minimumEventIntervalSeconds
                 + CLOUDLET_COMPLETION_SAFETY_SECONDS);
+        if (!Double.isFinite(completion) || completion <= currentTime) {
+            throw new IllegalArgumentException("Cloudlet completion cannot advance the finite simulation "
+                    + "clock at its current precision: " + currentTime);
+        }
+        return completion;
     }
 
     private static boolean isFiniteNonNegative(double value) {

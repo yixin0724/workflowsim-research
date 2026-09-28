@@ -234,6 +234,62 @@ class WorkbenchIntegrationTest {
     }
 
     @Test
+    void standaloneReportLabelsTheActualOnlineOrStaticDecisionLayer() throws Exception {
+        for (String selected : Arrays.asList("FCFS", "READY_BATCH_MCT", "RANDOM")) {
+            JsonObject source = base();
+            boolean staticPlanner = "RANDOM".equals(selected);
+            algorithms(source, algorithm("candidate", staticPlanner ? null : selected,
+                    staticPlanner ? selected : null));
+            Path experiment = Workbench.run(json(directory.resolve(selected + ".json"), source),
+                    directory.resolve("label-output"));
+            Path target = directory.resolve(selected + "-report.html");
+
+            Workbench.main(new String[]{"report", manifest(experiment).toString(), target.toString()});
+
+            JsonObject displayed = payload(target).getAsJsonArray("runs").get(0).getAsJsonObject();
+            assertEquals(selected, displayed.get("candidate").getAsString());
+            assertEquals(object(manifest(experiment)), displayed.getAsJsonObject("manifest"));
+        }
+    }
+
+    @Test
+    void reportUsesExactDecimalSeedStringsWithoutChangingNumericEvidence() throws Exception {
+        long[] expected = {9007199254740992L, 9007199254740993L, Long.MIN_VALUE, Long.MAX_VALUE};
+        JsonObject source = base();
+        JsonArray seeds = new JsonArray();
+        for (long seed : expected) { seeds.add(seed); }
+        source.add("seeds", seeds);
+        Path experiment = Workbench.run(json(directory.resolve("large-seeds.json"), source),
+                directory.resolve("seed-output"));
+        JsonArray records = object(experiment.resolve("experiment.json")).getAsJsonArray("runs");
+        JsonArray displayed = payload(experiment.resolve("report.html")).getAsJsonArray("runs");
+        Set<String> displayedSeeds = new HashSet<String>();
+        assertEquals(expected.length, records.size());
+        assertEquals(expected.length, displayed.size());
+        for (int i = 0; i < expected.length; i++) {
+            JsonObject record = records.get(i).getAsJsonObject();
+            JsonObject row = displayed.get(i).getAsJsonObject();
+            assertTrue(record.get("seed").getAsJsonPrimitive().isNumber());
+            assertEquals(expected[i], record.get("seed").getAsLong());
+            assertTrue(row.get("seed").getAsJsonPrimitive().isString(),
+                    "HTML display seeds must survive JavaScript JSON.parse without Number rounding");
+            assertEquals(Long.toString(expected[i]), row.get("seed").getAsString());
+            displayedSeeds.add(row.get("seed").getAsString());
+            JsonObject manifest = object(experiment.resolve(record.get("manifest").getAsString()));
+            assertEquals(expected[i], manifest.getAsJsonObject("configuration").get("rootSeed").getAsLong());
+            assertTrue(manifest.getAsJsonObject("configuration").get("rootSeed").getAsJsonPrimitive().isNumber());
+            assertEquals(manifest, row.getAsJsonObject("manifest"), "do not rewrite the validated evidence payload");
+        }
+        assertEquals(expected.length, displayedSeeds.size());
+        Path standalone = directory.resolve("large-seed-standalone.html");
+        Workbench.main(new String[]{"report", manifest(experiment).toString(), standalone.toString()});
+        JsonElement standaloneSeed = payload(standalone).getAsJsonArray("runs")
+                .get(0).getAsJsonObject().get("seed");
+        assertTrue(standaloneSeed.getAsJsonPrimitive().isString());
+        assertEquals(Long.toString(expected[0]), standaloneSeed.getAsString());
+    }
+
+    @Test
     void cliSignalsRuntimeFailureAfterPersistingTheFailedExperiment() throws Exception {
         Path config = json(directory.resolve("failing-config.json"), failingConfiguration());
         Path root = directory.resolve("failed-cli-output");

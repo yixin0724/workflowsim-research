@@ -1,25 +1,29 @@
 # WorkflowSim Makefile
 # 简化常用 Maven 构建命令
 
-.PHONY: all build test verify clean coverage install help
+.PHONY: all build test verify audit clean coverage install package rebuild help
 
 # 默认目标
 all: build
 
-# 编译核心代码
+# 编译核心与实验模块
 build:
-	@echo "编译核心代码..."
+	@echo "编译核心与实验模块..."
 	mvn compile
 
-# 运行核心测试（~15秒）
+# 运行两个模块的单元/语义测试
 test:
-	@echo "运行核心测试..."
+	@echo "运行两个模块的单元/语义测试..."
 	mvn test
 
 # 运行完整测试（核心 + 实验，~2分钟）
 verify:
 	@echo "运行完整测试（包括实验模块）..."
 	mvn verify
+
+# 清理后联合验收，含核心 API 文档
+audit:
+	mvn -Pjavadoc clean verify
 
 # 清理构建产物
 clean:
@@ -56,9 +60,10 @@ rebuild: clean build
 help:
 	@echo "WorkflowSim 构建命令："
 	@echo ""
-	@echo "  make build    - 编译核心代码 (~5秒)"
-	@echo "  make test     - 运行核心测试 (~15秒)"
-	@echo "  make verify   - 运行完整测试，包括实验模块 (~2分钟)"
+	@echo "  make build    - 编译核心与实验模块"
+	@echo "  make test     - 两个模块的单元/语义测试"
+	@echo "  make verify   - 两个模块完整测试与覆盖率门禁"
+	@echo "  make audit    - 清理后联合验收，额外检查核心 API 文档"
 	@echo "  make clean    - 清理构建产物"
 	@echo "  make coverage - 生成测试覆盖率报告"
 	@echo "  make package  - 打包 JAR（跳过测试）"

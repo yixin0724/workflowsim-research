@@ -80,6 +80,9 @@ public class Task extends Cloudlet {
      */
     private java.util.Map<Integer, Double> vmExecutionCostSeconds;
 
+    /** Per-attempt compute MI, before stage-in; null until execution work is resolved. */
+    private Long effectiveExecutionLengthMi;
+
     /**
      * 创建一个工作流任务。
      *
@@ -158,6 +161,33 @@ public class Task extends Cloudlet {
      */
     public boolean hasVmExecutionCostSeconds() {
         return vmExecutionCostSeconds != null;
+    }
+
+    /** @return immutable matrix projection; empty when no matrix was declared */
+    public java.util.Map<Integer, Double> getVmExecutionCostSeconds() {
+        return vmExecutionCostSeconds == null
+                ? java.util.Collections.<Integer, Double>emptyMap() : vmExecutionCostSeconds;
+    }
+
+    /**
+     * Return the current attempt's compute work, excluding any stage-in injected into its Job.
+     * Before dispatch the declared input length is the fallback; matrix resolution occurs at dispatch.
+     *
+     * @return per-PE compute MI for this attempt
+     */
+    public long getEffectiveExecutionLengthMi() {
+        return effectiveExecutionLengthMi == null ? getCloudletLength()
+                : effectiveExecutionLengthMi.longValue();
+    }
+
+    /**
+     * Record effective compute work without modifying the original logical task length.
+     *
+     * @param value positive representable per-PE MI for the current attempt
+     */
+    public void setEffectiveExecutionLengthMi(long value) {
+        effectiveExecutionLengthMi = Long.valueOf(
+                org.workflowsim.utils.TaskExecutionModel.requireRepresentableLength(value, getNumberOfPes()));
     }
 
     /** @return 输入工作流声明的任务类型或名称 */

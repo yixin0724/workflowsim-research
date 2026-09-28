@@ -1,5 +1,9 @@
 # 敏感性响应面研究（R13）— 结果
 
+> **历史结果与 PEFT 公式纠错**：以下546次记录使用的旧 `LOCAL_PEFT` 是**非标准实现**：递推错误计入当前任务自身的 `w(t,p)`，出口 OCT 取平均计算成本。正文记录的 ready-list 修复未改动这两处公式错误；运行成功、旧黄金通过或证据完整性通过均不构成标准 PEFT 的正确性证明。因此旧数值与“退化/激活/乐观偏差”等解释不能用于判断标准 PEFT 的优劣或 OCT 机制。原预注册、数值表及历史正文不改写。
+>
+> 作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)与[全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章**印刷 p.71 的 Eq.7 / 出口条件、p.73 的 Algorithm 1**给出后继 `w(child,p')` 与出口 `OCT=0`。新 `sensitivity-response-r13-v2` 研究将采用该定义并重新评估；本页不声明修正后结果已生成。见[协议修订说明](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+
 - 协议：`sensitivity-response-r13-v1`（[PROTOCOL.md](PROTOCOL.md)，预注册内容在实验前写定）
 - 证据：`output/sensitivity-r13/network-study.json` + `runs/`（打包 `output/sensitivity-r13-evidence.tar.gz`，gitignored）
 - 规模：7 workflows × 26 conditions × 3 planners（seed 11）= **546 runs，0 failed**

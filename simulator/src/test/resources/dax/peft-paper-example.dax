@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Arabnejad and Barbosa, DOI 10.1109/TPDS.2013.57, Figure 1.
+  Author's open thesis Chapter 3, printed p64 / PDF p76:
+  https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf
+  Each edge has its own file; at 1 MB/s, bytes / 1000000 is the paper edge cost.
+  runtime=100 is a positive placeholder. Tests supply the authoritative 10x3
+  computation matrix from the paper. See peft-paper-example.SOURCE.md.
+-->
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" version="3.3">
+  <job id="T1" name="peft-paper-T1" runtime="100">
+    <uses file="peft-e1-2" link="output" size="17000000"/>
+    <uses file="peft-e1-3" link="output" size="31000000"/>
+    <uses file="peft-e1-4" link="output" size="29000000"/>
+    <uses file="peft-e1-5" link="output" size="13000000"/>
+    <uses file="peft-e1-6" link="output" size="7000000"/>
+  </job>
+  <job id="T2" name="peft-paper-T2" runtime="100">
+    <uses file="peft-e1-2" link="input" size="17000000"/>
+    <uses file="peft-e2-8" link="output" size="3000000"/>
+    <uses file="peft-e2-9" link="output" size="30000000"/>
+  </job>
+  <job id="T3" name="peft-paper-T3" runtime="100">
+    <uses file="peft-e1-3" link="input" size="31000000"/>
+    <uses file="peft-e3-7" link="output" size="16000000"/>
+  </job>
+  <job id="T4" name="peft-paper-T4" runtime="100">
+    <uses file="peft-e1-4" link="input" size="29000000"/>
+    <uses file="peft-e4-8" link="output" size="11000000"/>
+    <uses file="peft-e4-9" link="output" size="7000000"/>
+  </job>
+  <job id="T5" name="peft-paper-T5" runtime="100">
+    <uses file="peft-e1-5" link="input" size="13000000"/>
+    <uses file="peft-e5-9" link="output" size="57000000"/>
+  </job>
+  <job id="T6" name="peft-paper-T6" runtime="100">
+    <uses file="peft-e1-6" link="input" size="7000000"/>
+    <uses file="peft-e6-8" link="output" size="5000000"/>
+  </job>
+  <job id="T7" name="peft-paper-T7" runtime="100">
+    <uses file="peft-e3-7" link="input" size="16000000"/>
+    <uses file="peft-e7-10" link="output" size="9000000"/>
+  </job>
+  <job id="T8" name="peft-paper-T8" runtime="100">
+    <uses file="peft-e2-8" link="input" size="3000000"/>
+    <uses file="peft-e4-8" link="input" size="11000000"/>
+    <uses file="peft-e6-8" link="input" size="5000000"/>
+    <uses file="peft-e8-10" link="output" size="42000000"/>
+  </job>
+  <job id="T9" name="peft-paper-T9" runtime="100">
+    <uses file="peft-e2-9" link="input" size="30000000"/>
+    <uses file="peft-e4-9" link="input" size="7000000"/>
+    <uses file="peft-e5-9" link="input" size="57000000"/>
+    <uses file="peft-e9-10" link="output" size="7000000"/>
+  </job>
+  <job id="T10" name="peft-paper-T10" runtime="100">
+    <uses file="peft-e7-10" link="input" size="9000000"/>
+    <uses file="peft-e8-10" link="input" size="42000000"/>
+    <uses file="peft-e9-10" link="input" size="7000000"/>
+  </job>
+  <child ref="T2"><parent ref="T1"/></child>
+  <child ref="T3"><parent ref="T1"/></child>
+  <child ref="T4"><parent ref="T1"/></child>
+  <child ref="T5"><parent ref="T1"/></child>
+  <child ref="T6"><parent ref="T1"/></child>
+  <child ref="T7"><parent ref="T3"/></child>
+  <child ref="T8"><parent ref="T2"/><parent ref="T4"/><parent ref="T6"/></child>
+  <child ref="T9"><parent ref="T2"/><parent ref="T4"/><parent ref="T5"/></child>
+  <child ref="T10"><parent ref="T7"/><parent ref="T8"/><parent ref="T9"/></child>
+</adag>

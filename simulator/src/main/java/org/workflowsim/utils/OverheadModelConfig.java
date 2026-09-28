@@ -72,7 +72,7 @@ public final class OverheadModelConfig {
                 .build();
     }
 
-    /** @return 工作流引擎处理延迟的采样间隔 */
+    /** @return WED 子批次最大作业数；0 表示不拆分，非空批次仍应用已配置延迟 */
     public int getWorkflowEngineDelayInterval() { return workflowEngineDelayInterval; }
     /** @return 旧开销模型使用的逻辑带宽 */
     public double getBandwidth() { return bandwidth; }
@@ -160,7 +160,7 @@ public final class OverheadModelConfig {
         private Map<Integer, DistributionSpec> postDelays = Collections.emptyMap();
         private Map<Integer, DistributionSpec> clusteringDelays = Collections.emptyMap();
 
-        /** @param value 工作流引擎延迟采样间隔 @return 当前构建器 */
+        /** @param value WED 子批次最大作业数，0 表示整批不拆分 @return 当前构建器 */
         public Builder workflowEngineDelayInterval(int value) {
             workflowEngineDelayInterval = value;
             return this;

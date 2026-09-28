@@ -35,10 +35,12 @@ public final class PlatformProfiles {
      * 创建异构 MIPS 的本地抽象平台：每个 Host 配置一台单核 VM，VM ID 按
      * {@code vmMips} 列表顺序从 0 递增。
      *
-     * <p>用于论文复现类实验（如 PSO 复现需要异构 VM 使“成本 = 执行时间 × 单价
-     * （mips/1000）”的适应度成本维度有意义）。Host 的每 PE MIPS 固定为对应 VM 的
-     * 2 倍，与 {@link #homogeneousLocal(String, int)} 的 Host/VM 比例一致；其余
-     * Host/VM 资源规格与同构平台相同。</p>
+     * <p>用于比较不同计算能力下的调度行为。仅改变 MIPS 不会使无矩阵 PSO 的成本项
+     * 随映射变化：{@code (rawLength / mips) * (mips / 1000) = rawLength / 1000}。
+     * 配置任务×VM 成本矩阵后，有效执行秒数不再必须与 MIPS 成反比，PSO 的成本项
+     * 才可能依映射变化；其单价仍是抽象启发式，不是真实云定价。
+     * Host 的每 PE MIPS 固定为对应 VM 的 2 倍，与
+     * {@link #homogeneousLocal(String, int)} 的 Host/VM 比例一致；其余资源规格相同。</p>
      *
      * <p>该平台是配置驱动的研究基线，不是任何真实云的机型回放。</p>
      *

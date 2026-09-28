@@ -1,5 +1,7 @@
 # 等待时间指标修正实施总结
 
+> **后续语义澄清**：下文为历史实施记录。当前 bounded slowdown 的 1.0 不等价于无等待（短任务可被 10 秒阈值钳制）；执行前传输的等待与 legacy 执行信封也有不同包含范围。最新定义、CPU/矩阵修正和验证范围见[正确性整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)与[指标实现](../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java)。
+
 > **R9 注记（2026-09-16）**：本文保留历史实施记录。文中涉及的
 > `ExperimentConsoleSummary` / `ExperimentCsvWriter` / `ExperimentHtmlReportWriter`
 > 三个输出写器及模板 `MyConfigurableExperiment` 已在 R9 作为死代码移除（无主流程

@@ -121,9 +121,11 @@ max(100, floor(runtimeSeconds * runtimeReferenceMips * runtimeScale))
 
 默认 `runtimeReferenceMips=1000.0`、`runtimeScale=1.0`。MI 是模拟的计算工作量，不能解释为
 来源硬件无关的实际 CPU 用量。显式 `TaskCostMatrix` 则按 Task/VM 执行秒数覆盖成本估计，
-运行时按目标 VM MIPS 舍入为正整数 MI。
+规划与运行通过同一换算规则按目标 VM MIPS 舍入为正整数 MI。原始归一化长度保留在
+`lengthMi`，当前尝试的计算量记录为 `effectiveExecutionLengthMi`；计算 MI×PE×1,000,000
+必须在 signed long 范围内，非正舍入及溢出会明确失败，不会静默截断。
 
-JSON 文件大小以字节表示，父子关系必须一致；缺失端点、单侧依赖或环会被拒绝。
+文件大小以有限非负的字节当量表示，流体模型保留可表示的小数字节，不把正需求静默截断成零；正传输时间下溢等不可表示条件会明确失败。DAX 禁止 DOCTYPE/外部实体，不能通过未纳入输入指纹的 DTD 改变任务模型。JSON 父子关系必须一致；缺失端点、单侧依赖或环会被拒绝。
 实验 manifest v4 记录输入哈希、到达时刻、任务成本矩阵与平台拓扑，provenance 保持 v3；
 历史 manifest v2/v3 继续可读，但不能视作带有 v4 新增的完整配置。
 
