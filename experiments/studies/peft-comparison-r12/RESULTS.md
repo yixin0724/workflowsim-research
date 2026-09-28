@@ -1,5 +1,9 @@
 # S5 PEFT 对比研究：结果解读
 
+> **历史结果与 PEFT 公式纠错**：以下126次记录中的旧 `LOCAL_PEFT` 是**非标准实现**，错误使用当前任务自身的 `w(t,p)`，并把出口 OCT 设为平均计算成本。旧数值及“接近等价”“前瞻退化”等历史解释不能用于判断标准 PEFT 的优劣或 OCT 机制；原表及正文保留，不追认其“论文正确性”声明。后续 ready-list 修复没有纠正该递推。
+>
+> 依据作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)与[全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章**印刷 p.71（Eq.7 / 出口条件）、p.73（Algorithm 1）**，新 `peft-comparison-r12-v2` 研究将使用后继 `w(child,p')` 和出口 `OCT=0`。标准 PEFT 的表现需新研究评估；本页不表示修正后结果已生成。见[协议修订说明](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+
 正式协议 `peft-comparison-r12-v1` 共126次运行，全部成功并通过逐运行证据、完整矩阵与统计重算校验。完整自动结果见 [结果表](../../../output/peft-comparison-r12/results.md)，条件与平台限制见 [协议](PROTOCOL.md)。R10 的504次证据保持冻结，未重跑。
 
 ## 可以支持的结论

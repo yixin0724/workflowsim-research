@@ -56,13 +56,13 @@ public final class TransferContentionEngine {
 
     /** 一个活动传输的流体状态。 */
     private static final class Transfer {
-        private final long bytes;
+        private final double bytes;
         private final List<String> occupiedResources;
         private final double nominalRateBytesPerSecond;
         private double remainingBytes;
         private double rateBytesPerSecond;
 
-        private Transfer(long bytes, List<String> occupiedResources,
+        private Transfer(double bytes, List<String> occupiedResources,
                 double nominalRateBytesPerSecond) {
             this.bytes = bytes;
             this.occupiedResources = occupiedResources;
@@ -72,7 +72,12 @@ public final class TransferContentionEngine {
         }
 
         private boolean completed() {
-            return remainingBytes <= Math.max(1.0e-9, 1.0e-9 * bytes);
+            // A fixed absolute byte tolerance can exceed a small flow's entire payload.
+            // Keep relative round-off protection, account for representable spacing, and
+            // never classify an untouched positive flow as completed (including subnormals).
+            double tolerance = Math.min(bytes * 0.5,
+                    Math.max(1.0e-9 * bytes, 4.0 * Math.ulp(bytes)));
+            return remainingBytes <= tolerance;
         }
     }
 
@@ -115,6 +120,23 @@ public final class TransferContentionEngine {
      */
     public AdvanceResult addTransfer(long transferId, long bytes, String sourceEndpoint,
             String destinationEndpoint, double nominalRateBytesPerSecond, double now) {
+        return addTransfer(transferId, (double) bytes, sourceEndpoint, destinationEndpoint,
+                nominalRateBytesPerSecond, now);
+    }
+
+    /**
+     * Register a finite positive, possibly fractional byte demand on two endpoints.
+     *
+     * @param transferId unique transfer identifier
+     * @param bytes finite positive modeled bytes; no integer rounding is applied
+     * @param sourceEndpoint source resource key
+     * @param destinationEndpoint destination resource key
+     * @param nominalRateBytesPerSecond finite positive nominal rate
+     * @param now current simulation time
+     * @return completed earlier transfers and the next predicted completion
+     */
+    public AdvanceResult addTransfer(long transferId, double bytes, String sourceEndpoint,
+            String destinationEndpoint, double nominalRateBytesPerSecond, double now) {
         if (sourceEndpoint == null || destinationEndpoint == null) {
             throw new IllegalArgumentException("Transfer endpoints cannot be null");
         }
@@ -138,15 +160,34 @@ public final class TransferContentionEngine {
      */
     public AdvanceResult addTransfer(long transferId, long bytes, List<String> occupiedResources,
             double nominalRateBytesPerSecond, double now) {
+        return addTransfer(transferId, (double) bytes, occupiedResources, nominalRateBytesPerSecond, now);
+    }
+
+    /**
+     * Register a finite positive, possibly fractional byte demand on a resource set.
+     *
+     * @param transferId unique transfer identifier
+     * @param bytes finite positive modeled bytes
+     * @param occupiedResources resource keys; an empty list has no shared capacity constraint
+     * @param nominalRateBytesPerSecond finite positive nominal rate
+     * @param now current simulation time
+     * @return completed earlier transfers and the next predicted completion
+     */
+    public AdvanceResult addTransfer(long transferId, double bytes, List<String> occupiedResources,
+            double nominalRateBytesPerSecond, double now) {
         if (activeTransfers.containsKey(transferId)) {
             throw new IllegalArgumentException("Duplicate transfer id: " + transferId);
         }
-        if (bytes <= 0L) {
-            throw new IllegalArgumentException("Transfer bytes must be positive: " + bytes);
+        if (!(bytes > 0.0) || !Double.isFinite(bytes)) {
+            throw new IllegalArgumentException("Transfer bytes must be positive and finite: " + bytes);
         }
         if (!(nominalRateBytesPerSecond > 0.0) || Double.isInfinite(nominalRateBytesPerSecond)) {
             throw new IllegalArgumentException("Nominal rate must be positive and finite: "
                     + nominalRateBytesPerSecond);
+        }
+        double nominalDuration = bytes / nominalRateBytesPerSecond;
+        if (!(nominalDuration > 0.0) || !Double.isFinite(nominalDuration)) {
+            throw new IllegalArgumentException("Positive transfer duration is not representable: " + nominalDuration);
         }
         if (occupiedResources == null) {
             throw new IllegalArgumentException("Occupied resources cannot be null");
@@ -291,6 +332,11 @@ public final class TransferContentionEngine {
                 throw new IllegalStateException("Max-min solver made no progress");
             }
             growing = survivors;
+        }
+        for (Transfer transfer : activeTransfers.values()) {
+            if (!(transfer.rateBytesPerSecond > 0.0) || !Double.isFinite(transfer.rateBytesPerSecond)) {
+                throw new IllegalStateException("Effective transfer rate must remain positive and finite");
+            }
         }
     }
 

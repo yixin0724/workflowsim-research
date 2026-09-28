@@ -1,5 +1,7 @@
 # 网络受限调度研究 R10：协议与保留说明
 
+> **执行模型修订**：本页保留历史协议 `network-limited-r10-v2`。当前执行器以相同参数矩阵生成 `network-limited-r10-v3`，声明修正后执行模型；下面的命令不再意味着重放旧模型。历史证据只读兼容，不改写旧数值。见[协议修订与认证范围](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+
 协议ID：`network-limited-r10-v2`。Java驱动位于 `org.workflowsim.experiments.network`；资格检查仅根据输入结构及文件声明，不观察算法效果再挑选样本。
 
 资格检查作用于解析后的模型：DAX解析器对重复INPUT的不同尺寸沿用“首次声明优先并警告”的兼容规则，CyberShake含这类声明；原始文件不修改，哈希保留原始内容。解析后仍存在的INPUT/OUTPUT尺寸冲突会被LOCAL规划器拒绝。该研究比较的是上述明确转换规则下的抽象输入，不是对原始文件每一处声明均无歧义的认证。

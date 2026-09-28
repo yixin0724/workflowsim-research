@@ -31,7 +31,7 @@ class NetworkStudyTest {
     @Test void peftComparisonVariantReusesFrozenMatrixWithThreeDeterministicPlanners(@TempDir Path output) throws Exception {
         NetworkStudyPlan full = NetworkStudyPlan.create("full", true, datasets(), output.resolve("peft-full"));
         assertEquals(NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL, full.getProtocol());
-        assertEquals("peft-comparison-r12-v1", full.getProtocol());
+        assertEquals("peft-comparison-r12-v2", full.getProtocol());
         assertEquals(7, full.getWorkflows().size());
         assertEquals(Arrays.asList(4, 16), full.getVmCounts());
         assertEquals(126, full.getRunCount());
@@ -40,7 +40,7 @@ class NetworkStudyTest {
         assertEquals(1, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).size());
         assertEquals(11L, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).get(0));
         Map<String, Object> protocol = full.asMap();
-        assertEquals("peft-comparison-r12-v1", protocol.get("protocol"));
+        assertEquals("peft-comparison-r12-v2", protocol.get("protocol"));
         assertTrue(protocol.get("inference").toString().contains("HOLM_TWO_PLANNERS"));
         assertEquals(18, NetworkStudyPlan.create("smoke", true, datasets(), output.resolve("peft-small")).getRunCount());
         // r10 协议保持冻结：默认变体的常量与运行数不受 S5 影响
@@ -53,7 +53,7 @@ class NetworkStudyTest {
     @Test void sensitivityVariantDeclaresResponseSurfaceMatrix(@TempDir Path output) throws Exception {
         NetworkStudyPlan full = NetworkStudyPlan.create("full", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13,
                 datasets(), output.resolve("r13-full"));
-        assertEquals("sensitivity-response-r13-v1", full.getProtocol());
+        assertEquals("sensitivity-response-r13-v2", full.getProtocol());
         assertEquals(NetworkStudyPlan.SENSITIVITY_PROTOCOL, full.getProtocol());
         assertEquals(7, full.getWorkflows().size());
         assertEquals(Arrays.asList(4, 8, 16, 32), full.getVmCounts());
@@ -84,6 +84,38 @@ class NetworkStudyTest {
         assertEquals(NetworkStudyPlan.StudyVariant.PEFT_COMPARISON, NetworkStudyPlan.variantArgument("peft-comparison"));
         assertEquals(NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, NetworkStudyPlan.variantArgument("sensitivity-r13"));
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.variantArgument("unknown"));
+    }
+
+    @Test void registeredNewAndHistoricalMatricesHaveIndependentModeIdentitiesWithoutFileIo() {
+        String[][] protocols = {
+                {NetworkStudyPlan.HISTORICAL_PROTOCOL, NetworkStudyPlan.PROTOCOL},
+                {NetworkStudyPlan.HISTORICAL_PEFT_COMPARISON_PROTOCOL, NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL},
+                {NetworkStudyPlan.HISTORICAL_SENSITIVITY_PROTOCOL, NetworkStudyPlan.SENSITIVITY_PROTOCOL}
+        };
+        int[] fullCounts = {504, 126, 546};
+        int[] smokeCounts = {36, 18, 30};
+        for (int variant = 0; variant < protocols.length; variant++) {
+            for (int revision = 0; revision < 2; revision++) {
+                for (String mode : Arrays.asList("full", "smoke")) {
+                    NetworkStudyPlan declared = NetworkStudyPlan.canonical(mode, protocols[variant][revision]);
+                    assertEquals("full".equals(mode) ? fullCounts[variant] : smokeCounts[variant], declared.getRunCount());
+                    assertEquals("full".equals(mode) ? 7 : 2, declared.getWorkflows().size());
+                    assertEquals(revision == 0, declared.isHistoricalProtocol());
+                    assertEquals(revision == 1, declared.asMap().containsKey("executionSemantics"));
+                    for (NetworkStudyPlan.WorkflowCase workflow : declared.getWorkflows()) {
+                        assertFalse(workflow.path.isAbsolute(), "canonical declarations use logical paths, not the current machine");
+                        assertTrue(workflow.sha256.matches("[0-9a-f]{64}"));
+                    }
+                }
+            }
+        }
+        NetworkStudyPlan historical = NetworkStudyPlan.canonical("full", NetworkStudyPlan.HISTORICAL_PROTOCOL);
+        assertEquals("2a7a23bed50abc515523036ea220f292be0a8196a554e8dafeb2e8aba2407ee6",
+                historical.getWorkflows().get(5).sha256);
+        assertEquals("342347cfb5cb139b52d903a611cb84ff205078250d3bdb754152cfb239af97e2",
+                historical.getWorkflows().get(6).sha256);
+        assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.canonical("partial", NetworkStudyPlan.PROTOCOL));
+        assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.canonical("full", "unregistered-protocol"));
     }
 
     @Test void heterogeneousPlatformsUseDeclaredDeterministicMipsPatterns() {

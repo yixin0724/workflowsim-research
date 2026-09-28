@@ -41,6 +41,7 @@ import org.workflowsim.utils.Parameters.ClassType;
 import org.workflowsim.utils.Parameters.FileType;
 import org.workflowsim.utils.SimulationConstants;
 import org.workflowsim.utils.SimulationTiming;
+import org.workflowsim.utils.TaskExecutionModel;
 
 /**
  * 工作流专用数据中心，在 CloudSim {@link Datacenter} 的基础上处理 {@link Job}、
@@ -387,7 +388,9 @@ public class WorkflowDatacenter extends Datacenter {
      */
     @Override
     protected void processCloudletSubmit(SimEvent ev, boolean ack) {
-        updateCloudletProcessing();
+        // A change to an execution set is a work-accounting boundary, not a periodic tick.
+        // Settle existing work and idle clocks before adding the new Job, even within cadence.
+        updateCloudletProcessing(true);
 
         try {
             Object payload = ev.getData();
@@ -441,20 +444,21 @@ public class WorkflowDatacenter extends Datacenter {
              * （受 CloudSim 整数 MI 舍入影响）。重试路径同样经过本方法，折算自动生效。
              * 未携带投影的任务保持原始 MI/mips 缩放行为。
              */
-            if (job.getClassType() == ClassType.COMPUTE.value && job.getTaskList().size() == 1) {
-                Task costTask = job.getTaskList().get(0);
-                Double costSeconds = costTask.getVmExecutionCostSeconds(vmId);
-                if (costSeconds != null) {
-                    long convertedMi = Math.round(costSeconds.doubleValue() * vm.getMips());
-                    if (convertedMi <= 0L) {
-                        throw new IllegalStateException("Task cost matrix entry for Job "
-                                + job.getCloudletId() + " on VM " + vmId
-                                + " converts to non-positive MI (" + convertedMi
-                                + "); cost seconds and VM MIPS must yield at least 1 MI");
-                    }
-                    job.setCloudletLength(convertedMi);
+            long computeLengthMi = job.getEffectiveExecutionLengthMi();
+            if (job.getClassType() == ClassType.COMPUTE.value) {
+                for (Task task : job.getTaskList()) {
+                    task.setEffectiveExecutionLengthMi(
+                            TaskExecutionModel.executionLengthMi(task, vmId, vm.getMips()));
+                }
+                if (job.getTaskList().size() == 1
+                        && job.getTaskList().get(0).hasVmExecutionCostSeconds()) {
+                    computeLengthMi = job.getTaskList().get(0).getEffectiveExecutionLengthMi();
                 }
             }
+            // Keep compute work separate from CloudSim's mutable, stage-in-inclusive envelope.
+            // A retry starts here from pure compute work and resolves its matrix again.
+            job.setEffectiveExecutionLengthMi(computeLengthMi);
+            job.setCloudletLength(computeLengthMi);
 
             switch (Parameters.getCostModel()) {
                 case DATACENTER:
@@ -500,6 +504,12 @@ public class WorkflowDatacenter extends Datacenter {
                 }
             }
 
+            // Validate the total envelope before CloudSim converts MI * PEs to long instructions.
+            double envelopeMi = job.getCloudletLength() + vm.getMips() * fileTransferTime;
+            if (!Double.isFinite(envelopeMi) || envelopeMi >= (double) Long.MAX_VALUE) {
+                throw new IllegalArgumentException("Stage-in overflows the executable Job envelope");
+            }
+            TaskExecutionModel.requireRepresentableLength((long) envelopeMi, job.getNumberOfPes());
             CloudletScheduler scheduler = vm.getCloudletScheduler();
             long cloudletLengthBeforeStageIn = job.getCloudletLength();
             double estimatedFinishTime = scheduler.cloudletSubmit(job, fileTransferTime);
@@ -592,7 +602,7 @@ public class WorkflowDatacenter extends Datacenter {
         boolean firstTask = true;
         for (Task task : job.getTaskList()) {
             task.setExecStartTime(start_time);
-            double task_runtime = task.getCloudletLength() / vm.getMips();
+            double task_runtime = task.getEffectiveExecutionLengthMi() / vm.getMips();
             start_time += task_runtime;
             // CloudSim 不支持在这里直接重写 Job 的结束时间，只记录 Task 级模型结束时刻。
             task.setTaskFinishTime(start_time);
@@ -600,6 +610,7 @@ public class WorkflowDatacenter extends Datacenter {
                     SimulationEventRecorder.attributes("taskId", task.getCloudletId(),
                             "taskStartTime", task.getExecStartTime(), "taskFinishTime",
                             task.getTaskFinishTime(), "taskLengthMi", task.getCloudletLength(),
+                            "effectiveExecutionLengthMi", task.getEffectiveExecutionLengthMi(),
                             "modeledStageInSecondsBeforeTask",
                             firstTask ? effectiveStageInSeconds : 0.0,
                             "requestedDataStageInSecondsForJob", requestedStageInSeconds,
@@ -876,8 +887,12 @@ public class WorkflowDatacenter extends Datacenter {
      */
     @Override
     protected void updateCloudletProcessing() {
-        // 启动期允许额外一次处理循环，避免初始 VM/调度器状态未被推进。
-        if (CloudSim.clock() < 0.111 || CloudSim.clock() >= getLastProcessTime()
+        updateCloudletProcessing(false);
+    }
+
+    /** Settle work before execution-set changes; cadence limits periodic updates only. */
+    private void updateCloudletProcessing(boolean executionSetChanging) {
+        if (executionSetChanging || CloudSim.clock() < 0.111 || CloudSim.clock() >= getLastProcessTime()
                 + CloudSim.getMinTimeBetweenEvents()) {
             List<? extends Host> list = getVmAllocationPolicy().getHostList();
             double smallerTime = Double.MAX_VALUE;

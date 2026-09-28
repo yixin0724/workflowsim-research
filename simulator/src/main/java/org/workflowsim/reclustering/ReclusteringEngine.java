@@ -65,7 +65,10 @@ public class ReclusteringEngine {
             throw new IllegalStateException("Failed Job " + job.getCloudletId()
                     + " has no executable class type to preserve for retry");
         }
-        newJob.setVmId(-1);
+        // Data preparation precedes dispatch: a static mapping must already exist on retry.
+        // Online schedulers may replace this hint when they make their next decision.
+        newJob.setVmId(job.getVmId());
+        newJob.setNumberOfPes(job.getNumberOfPes());
         try {
             newJob.setCloudletStatus(Cloudlet.CREATED);
         } catch (Exception exception) {
@@ -112,7 +115,8 @@ public class ReclusteringEngine {
         switch (FailureParameters.getFTCluteringAlgorithm()) {
                 case FTCLUSTERING_NOOP:
 
-                    jobList.add(createJob(id, job, job.getCloudletLength(), job.getTaskList(), true));
+                    jobList.add(createJob(id, job, job.getEffectiveExecutionLengthMi(),
+                            job.getTaskList(), true));
                     // 重试 Job 尚未提交，无需处理失败 Job 的提交状态。
                     break;
                 /**
@@ -169,7 +173,12 @@ public class ReclusteringEngine {
             Task source = (Task) rawTask;
             Task copy = new Task(source.getCloudletId(), source.getCloudletLength());
             copy.setUserId(source.getUserId());
+            copy.setVmId(source.getVmId());
             copy.setNumberOfPes(source.getNumberOfPes());
+            if (source.hasVmExecutionCostSeconds()) {
+                copy.setVmExecutionCostSeconds(source.getVmExecutionCostSeconds());
+            }
+            // Do not copy the old effective work/timestamps: resolve the new attempt afresh.
             copy.setDepth(source.getDepth());
             copy.setPriority(source.getPriority());
             copy.setImpact(source.getImpact());

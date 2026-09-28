@@ -8,6 +8,7 @@ import java.util.Random;
 import org.cloudbus.cloudsim.Vm;
 import org.workflowsim.Task;
 import org.workflowsim.utils.SimulationRandom;
+import org.workflowsim.utils.TaskExecutionModel;
 
 /**
  * PSO（粒子群优化）工作流规划算法——论文复现实现。
@@ -17,7 +18,7 @@ import org.workflowsim.utils.SimulationRandom;
  * AINA 2010</b>；参考开源实现：{@code meysamhit/workflowsim-pso}（该仓库的
  * {@code PSOPlanningAlgorithm/Particle/FitnessFunction}）。</p>
  *
- * <h3>算法核心（与参考实现一致）</h3>
+ * <h2>算法核心（与参考实现一致）</h2>
  * <ul>
  *   <li>每个粒子编码一个 Task→VM 映射；种群规模 30，迭代 100；</li>
  *   <li>适应度 = 0.8·总成本 + 0.2·makespan（成本模型见
@@ -27,7 +28,7 @@ import org.workflowsim.utils.SimulationRandom;
  *       {@code SchedulingAlgorithm.STATIC} 执行（平台契约强制）。</li>
  * </ul>
  *
- * <h3>与参考实现的刻意差异（平台契约适配）</h3>
+ * <h2>与参考实现的刻意差异（平台契约适配）</h2>
  * <ul>
  *   <li>随机数：使用 {@code SimulationRandom.newJavaRandom("planning.pso")} 命名
  *       组件流（根种子经 campaign 种子控制、可复现），替代参考实现硬编码的
@@ -35,12 +36,15 @@ import org.workflowsim.utils.SimulationRandom;
  *   <li>VM 候选先按 VM ID 升序排序，位置值域为该有序列表的下标——确定性平局
  *       契约，与受支持算法族一致；</li>
  *   <li>Task 按 ID 升序排序后与位置维度对应，保证映射定义不依赖解析顺序；</li>
+ *   <li>矩阵存在时使用与运行时相同的有效执行秒数；初始化与位置更新后把 PE 不兼容
+ *       坐标投影到最近可行 VM 下标，等距离取较小 VM ID，不增加随机抽样。
+ *       全兼容平台上的原坐标、随机流和更新公式不变；</li>
  *   <li>参考实验用 {@code planning=PSO + scheduling=ROUNDROBIN}——在当前平台
  *       上该组合被 {@code SimulationConfig} 拒绝（规划算法必须搭配 STATIC 派发），
  *       且 ROUNDROBIN 调度会覆盖规划映射；复现实验使用 {@code PSO + STATIC}。</li>
  * </ul>
  *
- * <h3>已知模型限制（忠实保留自参考实现）</h3>
+ * <h2>已知模型限制（忠实保留自参考实现）</h2>
  * <p>适应度采用<b>顺序执行 VM 负载模型</b>，忽略 DAG 依赖边——参考实现与论文的
  * 简化成本模型均如此。运行侧 makespan 以引擎依赖释放后的真实执行为准。</p>
  *
@@ -109,11 +113,15 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
 
         int taskCount = tasks.size();
         int vmCount = vms.size();
+        List<List<Integer>> compatibleIndices = compatibleVmIndices(tasks, vms);
         Random random = SimulationRandom.newJavaRandom("planning.pso");
 
         List<PsoParticle> swarm = new ArrayList<PsoParticle>();
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            swarm.add(new PsoParticle(taskCount, vmCount, random));
+            PsoParticle particle = new PsoParticle(taskCount, vmCount, random);
+            constrainToCompatibleVms(particle.getPosition(), compatibleIndices);
+            particle.setBestPosition(particle.getPosition());
+            swarm.add(particle);
         }
 
         int[] globalBestPosition = null;
@@ -132,10 +140,15 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
                     globalBestFitness = fitness;
                 }
             }
+            if (globalBestPosition == null) {
+                throw new IllegalStateException("PSO found no finite-fitness compatible mapping; "
+                        + "check task costs and VM MIPS");
+            }
             for (PsoParticle particle : swarm) {
                 particle.updateVelocity(globalBestPosition, INERTIA_WEIGHT,
                         COGNITIVE_COEFFICIENT, SOCIAL_COEFFICIENT, random);
                 particle.updatePosition(vmCount);
+                constrainToCompatibleVms(particle.getPosition(), compatibleIndices);
             }
             lastIterationCount = iter + 1;
         }
@@ -158,6 +171,43 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
             lastMapping.put(Integer.valueOf(task.getCloudletId()), Integer.valueOf(vm.getId()));
         }
         lastBestFitness = globalBestFitness;
+    }
+
+    private static List<List<Integer>> compatibleVmIndices(List<Task> tasks, List<Vm> vms) {
+        List<List<Integer>> result = new ArrayList<List<Integer>>();
+        for (Task task : tasks) {
+            List<Integer> candidates = new ArrayList<Integer>();
+            for (int index = 0; index < vms.size(); index++) {
+                Vm vm = vms.get(index);
+                if (task.getNumberOfPes() <= vm.getNumberOfPes()) {
+                    // 在采样前校验所有可行坐标，缺失矩阵条目不得取决于随机粒子是否访问它。
+                    TaskExecutionModel.executionSeconds(task, vm.getId(), vm.getMips());
+                    candidates.add(Integer.valueOf(index));
+                }
+            }
+            if (candidates.isEmpty()) {
+                throw new IllegalArgumentException("PSO cannot map task " + task.getCloudletId()
+                        + "; no compatible VM has sufficient processing elements");
+            }
+            result.add(candidates);
+        }
+        return result;
+    }
+
+    /** 保留原 VM 下标坐标系；不可行位置投影到最近可行下标，等距离取较小 VM ID。 */
+    private static void constrainToCompatibleVms(int[] position, List<List<Integer>> candidates) {
+        for (int task = 0; task < position.length; task++) {
+            int selected = candidates.get(task).get(0).intValue();
+            int distance = Math.abs(position[task] - selected);
+            for (Integer candidate : candidates.get(task)) {
+                int candidateDistance = Math.abs(position[task] - candidate.intValue());
+                if (candidateDistance < distance) {
+                    selected = candidate.intValue();
+                    distance = candidateDistance;
+                }
+            }
+            position[task] = selected;
+        }
     }
 
     /** @return 最近一次收敛的全局最优适应度；未运行或无输入时为 {@code NaN} */

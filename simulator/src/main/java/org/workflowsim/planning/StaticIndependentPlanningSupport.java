@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;
+import org.workflowsim.utils.TaskExecutionModel;
 
 /**
  * 离线独立任务基线共用的确定性机械逻辑。
@@ -67,8 +68,9 @@ abstract class StaticIndependentPlanningSupport extends BasePlanningAlgorithm {
     }
 
     protected final double executionTime(Task task, CondorVM vm) {
-        // CloudSim 多 PE 任务并行执行，使用单 PE 长度与运行时一致
-        return isCompatible(task, vm) ? task.getCloudletLength() / vm.getMips()
+        // 与运行时共用矩阵秒数→整数 MI 转换；无矩阵时保留单 PE 原始长度。
+        return isCompatible(task, vm)
+                ? TaskExecutionModel.executionSeconds(task, vm.getId(), vm.getMips())
                 : Double.POSITIVE_INFINITY;
     }
 
@@ -94,7 +96,7 @@ abstract class StaticIndependentPlanningSupport extends BasePlanningAlgorithm {
     }
 
     /**
-     * 计算 {@code availability[vm] + taskLength / vmMips} 最小的可兼容 VM。
+     * 计算 {@code availability[vm] + effectiveComputeSeconds(task, vm)} 最小的可兼容 VM。
      * 相等完成时间选择较小 VM ID。
      */
     protected final Choice earliestCompletion(Task task, List<CondorVM> vms,

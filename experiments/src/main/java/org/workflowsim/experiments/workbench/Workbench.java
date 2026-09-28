@@ -44,8 +44,11 @@ public final class Workbench {
                 if (Files.exists(target)) { throw new IOException("Report output already exists: " + target); }
                 JsonObject manifest = HtmlReports.validatedManifest(Paths.get(args[1]));
                 Map<String, Object> row = new LinkedHashMap<String, Object>();
-                row.put("candidate", manifest.getAsJsonObject("configuration").get("planningAlgorithm").getAsString());
-                row.put("seed", manifest.getAsJsonObject("configuration").get("rootSeed").getAsLong());
+                JsonObject configuration = manifest.getAsJsonObject("configuration");
+                String planner = configuration.get("planningAlgorithm").getAsString();
+                row.put("candidate", "INVALID".equals(planner)
+                        ? configuration.get("schedulingAlgorithm").getAsString() : planner);
+                row.put("seed", configuration.get("rootSeed").getAsBigDecimal().longValueExact());
                 row.put("status", manifest.getAsJsonObject("result").get("logicalTaskCompletionStatus").getAsString());
                 row.put("manifest", manifest);
                 HtmlReports.experiment("单次仿真实验", java.util.Collections.singletonList(row), target); return;

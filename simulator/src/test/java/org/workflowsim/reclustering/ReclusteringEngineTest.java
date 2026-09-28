@@ -2,6 +2,7 @@ package org.workflowsim.reclustering;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,6 +78,27 @@ class ReclusteringEngineTest {
         assertSame(file, retry.getFileList().get(0));
         assertTrue(retry.getRequiredFiles().contains("input"));
         assertSame(retry, child.getParentList().get(child.getParentList().size() - 1));
+    }
+
+    @Test
+    void noopRetryCopiesCostMatrixProjectionForEveryCandidateVm() {
+        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
+                FailureParameters.FTCMonitor.MONITOR_NONE,
+                FailureParameters.FTCFailure.FAILURE_NONE, null);
+        Task original = new Task(1, 10000L);
+        java.util.Map<Integer, Double> costs = new java.util.LinkedHashMap<>();
+        costs.put(3, 1.0);
+        costs.put(8, 5.0);
+        original.setVmExecutionCostSeconds(costs);
+        Job failed = computeJob(40, original);
+        failed.setVmId(8);
+        Job retry = ReclusteringEngine.process(failed, 41).get(0);
+        Task copy = retry.getTaskList().get(0);
+        assertNotNull(copy.getVmExecutionCostSeconds(3), "Retry must retain its model, not just old Job MI");
+        assertEquals(1.0, copy.getVmExecutionCostSeconds(3), 0.0);
+        assertEquals(5.0, copy.getVmExecutionCostSeconds(8), 0.0);
+        assertEquals(8, retry.getVmId(), "A static target is already needed before data preparation");
+        assertNotSame(original, copy);
     }
 
     @Test

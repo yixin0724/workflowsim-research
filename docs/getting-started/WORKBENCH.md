@@ -39,7 +39,9 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 - 可设置 `runtimeScale`、`runtimeReferenceMips`、`minEventIntervalSeconds`、`deadlineSeconds`；截止时间是事后观察。
 - 可选 `taskCostMatrix` 是 `{taskId, vmId, executionSeconds}` 对象数组，须覆盖全部逻辑任务×VM，仅适用于允许该矩阵的静态轨道。
 - `algorithms` 每项有唯一安全 `id`，以及 `scheduler` 或 `planner`。有 planner 时默认 STATIC；无 planner 时默认 FCFS。
-- `seeds` 是1至100个互不重复的整数，默认 `[42]`。总运行数≤500。确定性算法多种子结果仅作重复性观察，不计作独立统计样本。
+- `seeds` 是1至100个互不重复的有符号64位整数，默认 `[42]`。总运行数≤500。确定性算法多种子结果仅作重复性观察，不计作独立统计样本。
+
+HTML 内部显示行的 `seed` 使用精确十进制字符串，避免浏览器 `JSON.parse` 将大于 2^53 的相邻整数合并；运行选择、对比表和条件栏使用同一字符串。原配置、运行索引以及内嵌 manifest 的 `rootSeed` 仍保留原数值，显示适配不会改写模拟参数或证据。
 
 未知字段、字符串冒充数字、小数整数、重复算法ID、跨决策层混比、无效模型组合、缺失输入、独立任务算法输入含边等会被拒绝。该入口当前针对无故障、无额外开销实验；故障/开销研究继续使用完整 Java API，不能用未知JSON字段悄然开启。RL_POLICY 也继续通过 Java `RlEnvironment` 接入外部策略；平台不训练模型。
 
@@ -72,11 +74,11 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
   -Dexec.args="report /absolute/run/result.manifest.json /absolute/new-report.html"
 ```
 
-单独报告命令拒绝覆盖现有目标。历史由各实验记录扫描重建，可见损坏记录而不会悄然略过；多进程写同一历史目录时需要在全部进程结束后执行一次 `history` 取得完整最新索引。同一JVM内实验串行。
+单独报告命令拒绝覆盖现有目标；在线轨道以实际 scheduler 命名，静态轨道以 planner 命名，不把在线运行的占位规划器 `INVALID` 当成方案名。历史由各实验记录扫描重建，可见损坏记录而不会悄然略过；多进程写同一历史目录时需要在全部进程结束后执行一次 `history` 取得完整最新索引。同一JVM内实验串行。
 
 ## 验收
 
-配置单元测试覆盖严格解析、组合边界和输入资格。入口集成测试覆盖配置→仿真→v4工件校验→HTML→历史、失败记录、重复实验隔离和HTML转义；最后运行全量 `mvn clean verify`。
+配置单元测试覆盖严格解析、组合边界和输入资格。入口集成测试覆盖配置→仿真→v4工件校验→HTML→历史、失败记录、重复实验隔离、HTML转义、算法标签及大整数种子载荷；最后运行全量 `mvn clean verify`。这些 Java 检查不执行浏览器 JavaScript，不能替代下面的显式浏览器验收；大种子报告还应核对运行选择器和条件栏的完整数字。
 
 浏览器验收脚本为 `scripts/verify-report.cjs`，检查运行选择、VM/任务筛选、依赖图聚焦、图表、390px窄屏布局、无浏览器错误和无外部HTTP请求。测试工具只需临时安装 `playwright-core` 并复用已有Chrome：
 

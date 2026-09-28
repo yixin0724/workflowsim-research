@@ -21,6 +21,8 @@ public final class SimulationSession implements AutoCloseable {
     private final SimulationConfig config;
     private boolean closed;
     private boolean cloudSimInitialized;
+    /** True only after this session enters a kernel initialization attempt. */
+    private boolean ownsCloudSimKernel;
     /** 会话打开时的 Log 全局开关状态，close 时恢复（R8 审计修复 P1-5）。 */
     private final boolean logDisabledAtOpen;
 
@@ -75,10 +77,14 @@ public final class SimulationSession implements AutoCloseable {
     /**
      * 在所有 WorkflowSim 全局状态已配置、任何仿真实体创建前初始化 CloudSim 内核。
      *
+     * <p>通过本地参数检查后，显式初始化调用将内核生命周期交给本会话管理；进入内核的
+     * 初始化尝试即使失败也会被清理。仅打开会话、或在进入内核前拒绝参数，不取得其他
+     * legacy 内核的归属。会话存续期间不要从其他调用方替换内核；只支持串行生命周期。</p>
+     *
      * @param users CloudSim 用户数
      * @param calendar 仿真开始日历；{@code null} 时交由 CloudSim 处理
      * @param trace 是否启用 CloudSim 事件跟踪输出
-     * @throws IllegalStateException 当会话已关闭或 CloudSim 已初始化时
+     * @throws IllegalStateException 当会话已关闭、CloudSim 已初始化或内核初始化失败时
      */
     public void initializeCloudSim(int users, Calendar calendar, boolean trace) {
         requireOpen();
@@ -88,15 +94,22 @@ public final class SimulationSession implements AutoCloseable {
         if (users < 0) {
             throw new IllegalArgumentException("CloudSim user count cannot be negative");
         }
-        CloudSim.init(users, calendar, trace, config.getCloudSimMinEventIntervalSeconds());
-        // R8 审计修复（P1-3）：vendored CloudSim.init 吞掉全部初始化异常（仅 Log），
-        // 失败后 cisId 保持 -1——标准路径不可达，但任何扩展踩中会产出静默停滞或
-        // 0 任务"成功"报告。此处断言内核服务实体确实注册成功。
-        if (CloudSim.getCloudInfoServiceEntityId() < 0) {
-            throw new IllegalStateException("CloudSim kernel initialization failed: "
-                    + "Cloud Information Service entity was not registered");
+        // Ownership starts after local argument checks, before the first global kernel mutation.
+        // Even a failed initialization can leave partial roots that this session must release.
+        ownsCloudSimKernel = true;
+        try {
+            CloudSim.init(users, calendar, trace, config.getCloudSimMinEventIntervalSeconds());
+            // The legacy init may log and swallow an initialization exception. A fresh init now
+            // clears the old CIS id first, so a missing service cannot masquerade as prior success.
+            if (CloudSim.getCloudInfoServiceEntityId() < 0) {
+                throw new IllegalStateException("CloudSim kernel initialization failed: "
+                        + "Cloud Information Service entity was not registered");
+            }
+            cloudSimInitialized = true;
+        } catch (RuntimeException | Error failure) {
+            CloudSim.reset();
+            throw failure;
         }
-        cloudSimInitialized = true;
     }
 
     public SimulationConfig getConfig() {
@@ -109,10 +122,33 @@ public final class SimulationSession implements AutoCloseable {
         }
     }
 
+    /** Attempt every WorkflowSim cleanup even if a preceding cleanup unexpectedly fails. */
+    private static void resetWorkflowGlobals() {
+        try {
+            FailureGenerator.reset();
+        } finally {
+            try {
+                FailureMonitor.reset();
+            } finally {
+                try {
+                    FailureParameters.reset();
+                } finally {
+                    try {
+                        ReplicaCatalog.reset();
+                    } finally {
+                        Parameters.reset();
+                    }
+                }
+            }
+        }
+    }
+
     /**
-     * 清理 WorkflowSim 全局状态。
+     * Release session state after serial execution, including failed or unstarted owned kernels.
      *
-     * <p>已完成的 CloudSim 运行会自行清理内核状态；未完成的运行会在下一会话前被停止。</p>
+     * <p>Successful reports must be frozen before closing, as SimulationRunner does. Cleanup
+     * invokes no user entity callbacks. A session that never entered kernel initialization
+     * leaves an unowned legacy kernel untouched. This is not concurrent cancellation.</p>
      */
     @Override
     public void close() {
@@ -120,19 +156,27 @@ public final class SimulationSession implements AutoCloseable {
             if (closed) {
                 return;
             }
-            if (cloudSimInitialized && CloudSim.running()) {
-                CloudSim.stopSimulation();
+            try {
+                if (ownsCloudSimKernel) {
+                    // Do not call finishSimulation: it can run pending user entities and callbacks.
+                    CloudSim.reset();
+                }
+            } finally {
+                try {
+                    resetWorkflowGlobals();
+                } finally {
+                    try {
+                        Log.setDisabled(logDisabledAtOpen);
+                    } finally {
+                        closed = true;
+                        cloudSimInitialized = false;
+                        ownsCloudSimKernel = false;
+                        if (activeSession == this) {
+                            activeSession = null;
+                        }
+                    }
+                }
             }
-            FailureGenerator.reset();
-            FailureMonitor.reset();
-            FailureParameters.reset();
-            ReplicaCatalog.reset();
-            Parameters.reset();
-            // R8 审计修复（P1-5）：Log 是 JVM 全局静态开关且无会话管理，测试/执行器
-            // disable 后不恢复会让下一会话继承关闭状态，吞掉内核所有"仅日志"诊断。
-            Log.setDisabled(logDisabledAtOpen);
-            closed = true;
-            activeSession = null;
         }
     }
 }

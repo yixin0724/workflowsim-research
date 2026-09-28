@@ -1,5 +1,9 @@
 # 敏感性响应面研究（R13）：协议与保留说明
 
+> **历史协议与 PEFT 公式纠错**：本页 `sensitivity-response-r13-v1` 的旧 `LOCAL_PEFT` 是**非标准实现**：OCT 错误使用当前任务自身的 `w(t,p)`，出口取平均计算成本。R13 的 ready-list 修复只改变就绪任务的分配纪律，**没有纠正 OCT 递推和出口条件**。因此下文原预注册、“同构退化/异构激活”解释及历史数值不能作为标准 PEFT 优劣或 OCT 机制的证据；原文保留，不事后改写。
+>
+> 参见作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)和[博士论文全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章**印刷 p.71（Eq.7 / 出口条件）、p.73（Algorithm 1）**。新 `sensitivity-response-r13-v2` 研究将按后继 `w(child,p')`、出口 `OCT=0` 的标准定义与修正执行模型重新评估；本说明不代表新研究结果已生成。见[协议修订与认证范围](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+
 协议ID：`sensitivity-response-r13-v1`。Java驱动复用 `org.workflowsim.experiments.network`（NetworkStudyPlan/Executor/Summary/Validator 的 sensitivity-r13 变体）。本研究是**描述性敏感性响应面**：回答"规划器相对收益如何随 VM 数量、链路带宽、VM 异构度三个轴变化"，不做参数拟合或外推。
 
 ## 与冻结证据的关系

@@ -69,9 +69,9 @@ public final class SimulationMetrics {
     private final double p95ComputeTrueSlowdown;
     /** 真实减速比最大值。 */
     private final double maxComputeTrueSlowdown;
-    /** 仅成功作业的总等待时间均值（秒）；剔除失败尝试后的无偏口径。 */
+    /** 仅成功作业的总等待时间均值（秒）；仅条件于成功尝试，不宣称消除了选择偏差。 */
     private final double successOnlyMeanComputeTotalWaitingTimeSeconds;
-    /** 仅成功作业的真实减速比均值；剔除失败尝试后的无偏口径。 */
+    /** 仅成功作业的真实减速比均值；仅条件于成功尝试，不宣称消除了选择偏差。 */
     private final double successOnlyMeanComputeTrueSlowdown;
     /** success-only 变体的观测数（成功且就绪事件齐备的计算作业）。 */
     private final int successOnlyWaitingObservationCount;
@@ -98,7 +98,7 @@ public final class SimulationMetrics {
     private final double totalVmModeledBusyIntervalSeconds;
     private final double meanVmModeledIntervalUtilization;
     private final double vmModeledBusyTimeCoefficientOfVariation;
-    /** VM 利用率 Jain 公平性指数 ∈ (0,1]；补充 CV 无法区分的分布形态信息。 */
+    /** VM 利用率 Jain 公平性指数 ∈ (0,1]；同窗口非零负载下等于 1/(1+CV²)。 */
     private final double vmUtilizationJainFairnessIndex;
     private final boolean controlledSharedStorageCriticalPathReferenceAvailable;
     private final String controlledSharedStorageCriticalPathReferenceScope;
@@ -497,7 +497,7 @@ public final class SimulationMetrics {
             }
         }
         // ── 指标增强：分布统计、公平性指数、success-only 变体、重试放大率 ──
-        // VM 利用率 Jain 公平性指数：(Σu)² / (n·Σu²)，补充 CV 无法区分的分布形态。
+        // VM 利用率 Jain 公平性指数：(Σu)² / (n·Σu²)，当前同窗口下与 CV 等价。
         double vmUtilizationJainFairnessIndex = jainFairnessIndex(vmUtilizations(frozenVm));
         // 等待/减速比分布统计（排序后最近秩法取中位数/p95/max）。
         Collections.sort(totalWaitingSamples);
@@ -738,8 +738,10 @@ public final class SimulationMetrics {
     /**
      * 返回计算作业的平均总等待时间（从就绪到开始执行）。
      * <p>这是调度研究中最核心的等待时间指标，等于
-     * {@code startTime - readyTime}，涵盖了调度器队列等待和派发延迟两部分。
-     * 它从 {@link SimulationEventType#JOB_READY} 事件提取就绪时间。</p>
+     * {@code startTime - readyTime}，包含调度器等待与派发延迟。
+     * 执行前传输模型还把数据准备持有计入此等待；legacy 模型则把 stage-in 放入执行信封，
+     * 因此跨数据移动模型比较时必须同时声明这些不同的包含范围。
+     * 就绪时间来自 {@link SimulationEventType#JOB_READY} 事件。</p>
      * <p>与 {@link #getMeanComputeReadyToDecisionDelaySeconds()} 和
      * {@link #getMeanComputeDecisionToStartDelaySeconds()} 的关系：
      * 总等待 ≈ 就绪到决策延迟 + 决策到开始延迟。</p>
@@ -755,14 +757,10 @@ public final class SimulationMetrics {
      * 然后取算术平均。两处边界处理：</p>
      * <ul>
      *   <li>分母下限 10 秒：防止极短作业导致数值爆炸（bounded slowdown）</li>
-     *   <li>结果下限 1.0：保证减速比语义（不存在"加速"，1.0 即理想无等待）</li>
+     *   <li>结果下限 1.0：保证不存在小于一的建模减速比</li>
      * </ul>
-     * <p>该指标能有效区分不同调度算法的性能：
-     * <ul>
-     *   <li>1.0 = 理想状态（无等待）</li>
-     *   <li>>1.0 = 存在调度等待，数值越大表示效率越低</li>
-     * </ul>
-     * </p>
+     * <p>短任务的等待可能被 10 秒分母阈值和下限钳制掩盖，因此 1.0 不等价于无等待。
+     * 比较时应同时报告等待时间、执行时间分布与样本数。</p>
      * <p>与 {@link #getMeanJobVmLevelSlowdown()} 的区别：后者基于 VM 到达时间，
      * 在 WorkflowSim 中恒为 1.0；本指标基于作业就绪时间，能真实反映调度延迟。</p>
      *
@@ -772,12 +770,11 @@ public final class SimulationMetrics {
 
     /**
      * 返回参与真实减速比计算的作业数量。
-     * <p>只有同时满足以下条件的作业才参与计算：
+     * <p>只有同时满足以下条件的作业才参与计算：</p>
      * <ul>
      *   <li>有 JOB_READY 事件记录（readyTime 非 null）</li>
-     *   <li>startTime >= readyTime（时间戳有效）</li>
+     *   <li>startTime &gt;= readyTime（时间戳有效）</li>
      * </ul>
-     * </p>
      *
      * @return 观测计数
      */
@@ -811,7 +808,7 @@ public final class SimulationMetrics {
     /**
      * 返回仅成功作业的平均总等待时间（秒）。
      *
-     * <p>剔除失败尝试后的无偏口径：失败尝试的等待时间计入总体均值会使
+     * <p>仅条件于成功尝试，不宣称消除了选择偏差：失败尝试的等待时间计入总体均值会使
      * 跨失败率方案的比较失真，本变体只统计成功完成作业的样本。</p>
      *
      * @return 以模拟秒表示的 success-only 平均总等待时间；无观测时为 0.0
@@ -897,9 +894,13 @@ public final class SimulationMetrics {
     /** @return 与 {@link #getModeledDataTransferFileCount()} 相同的逻辑输入需求文件数 */
     public int getModeledRequiredInputDemandFileCount() { return modeledDataTransferFileCount; }
     /**
-     * 模型生成的计算 Job 数据 stage-in 延迟总和。
+     * DATA_STAGE_IN_MODELED 记录的名义 stage-in 估计秒数之和。
      *
-     * @return 以模拟秒表示的总 stage-in 延迟
+     * <p>执行前模型的父组可并行，争用模型仍在此记录无争用名义估计；因此这个和既不是
+     * 整个网络的墙钟耗时，也不是实际争用持有时长之和。实际数据准备对作业的影响会进入
+     * ready-to-start 等待及完成时刻。</p>
+     *
+     * @return 以模拟秒表示的名义 stage-in 估计总和
      */
     public double getTotalModeledDataTransferSeconds() { return totalModeledDataTransferSeconds; }
     /**
@@ -915,9 +916,9 @@ public final class SimulationMetrics {
         return totalModeledRequiredInputBytes;
     }
     /**
-     * 每个计算 Job 观测对应的平均数据 stage-in 延迟。
+     * 每个计算 Job 数据模型观测对应的平均名义 stage-in 估计。
      *
-     * @return 以模拟秒表示的平均延迟
+     * @return 以模拟秒表示的平均名义估计，不是平均实际争用持有时间
      */
     public double getMeanModeledDataTransferSeconds() { return meanModeledDataTransferSeconds; }
     /**
@@ -1207,9 +1208,9 @@ public final class SimulationMetrics {
     /**
      * Jain 公平性指数：(Σu)² / (n·Σu²)。
      *
-     * <p>值域 (0,1]，1.0 表示完全公平（所有 VM 利用率相同）。与 CV 互补：
-     * CV 无法区分"两台各 50%"与"一台 100% 一台 0%"这类形态差异。
-     * 空列表或全零利用率返回 1.0（零负载视为完全公平）。</p>
+     * <p>值域 (0,1]，1.0 表示所有 VM 利用率相同。对当前同一观测窗口、相同 VM 样本且
+     * 非零平均负载，Jain = 1 / (1 + CV²)，两者不是独立的分布形态信息。
+     * 空列表或全零利用率返回 1.0（这是零负载的约定，不表示资源被充分利用）。</p>
      *
      * @param utilizations 各 VM 的利用率样本（≥0）
      * @return Jain 公平性指数

@@ -15,23 +15,24 @@ import org.workflowsim.Task;
 /**
  * 与 WorkflowSim 受控 LOCAL 文件系统执行模型对齐的通信感知 PEFT 静态 DAG 规划器。
  *
- * <p><b>算法</b>（Arabnejad &amp; Barbosa, IEEE TPDS 2014, Predict Earliest Finish
- * Time）：对每个任务与 VM 计算乐观成本表
- * {@code OCT(t, p) = w(t,p) + max_{child}( min_{p'}( OCT(child, p') + c̄(t, child, p, p') ))}，
- * 出口任务 {@code OCT(t_exit, p) = w̄_exit}（出口任务在全部 VM 上的平均计算秒数，
- * 论文原文约定，对所有 VM 一致）；任务优先级为 OCT 在全部 VM 上的平均值（论文 rank_o）
- * 降序，平局取较小任务 ID；VM 选择最小化乐观目标 {@code EFT(t,p) + OCT(t,p)}，
- * 平局取较小 VM ID。与 HEFT 的纯贪心 EFT 选择不同，OCT 项把任务以下子 DAG 的
- * 乐观后续成本纳入当前 VM 决策，且选择过程只做一次前向扫描（无回溯）。</p>
+ * <p><b>算法</b>（Arabnejad &amp; Barbosa, IEEE TPDS 2014, Eq. (7)）：
+ * {@code OCT(t,p) = max_child min_p'(OCT(child,p') + w(child,p') + c(t,child,p,p'))}，
+ * 出口 {@code OCT(exit,p) = 0}。OCT 从后继开始计成本，不含当前任务自身计算量。
+ * 每轮在依赖就绪任务中选择兼容 VM 平均 OCT 最高者（rank_o），平局取较小 Task ID；
+ * 分配给插入式 {@code EFT(t,p) + OCT(t,p)} 最小的兼容 VM，平局取较小 VM ID。</p>
+ *
+ * <p><b>一级来源</b>：作者公开博士论文第3章明确收录 DOI 10.1109/TPDS.2013.57，
+ * 印刷 p71 Eq. (7) 与出口零条件、p73 Eq. (9) 和 Algorithm 1；
+ * <a href="https://repositorio-aberto.up.pt/handle/10216/92290">University of Porto author source</a>。
+ * 原先“自身 w + 后继 OCT、出口均值”的实现并非原 PEFT；其历史结果不能作为论文复现证据。</p>
  *
  * <p><b>通信建模</b>——与 {@link SharedStoragePeftPlanningAlgorithm}（共享存储轨道，
- * 无链路模型，通信项 c ≡ 0 的退化 PEFT）的关键区别：OCT 递推使用真实的按 VM 对
- * LOCAL 通信成本 {@code c̄(t, child, p, p') = bytes / (1e6 × min(bw_p, bw_p'))}
- * （p = p' 时为零，与论文同处理器零通信约定一致），字节数取任务边上父 OUTPUT ∩
- * 子 INPUT 的文件大小之和。执行层的 stage-in 估算、副本状态演进与 AST 语义与
- * {@link LocalHeftPlanningAlgorithm} 逐位一致——两者共享
- * {@link AbstractLocalCommPlanningAlgorithm} 的执行模型镜像，本类只实现优先级与
- * 选择规则。</p>
+ * 无链路模型，通信项 c ≡ 0 的退化 PEFT）的关键区别：OCT 使用模型内按 VM 对的
+ * LOCAL 通信成本 {@code c(t, child, p, p') = bytes / (1e6 × min(bw_p, bw_p'))}
+ * （p = p' 时为零），字节数取父 OUTPUT ∩ 子 INPUT。原文按平均链路成本建模，
+ * 异构端点带宽与副本局部性是本平台的显式适配，并非原文完整网络模型。
+ * stage-in 与带时间戳副本使用和 {@link LocalHeftPlanningAlgorithm} 相同的
+ * {@link AbstractLocalCommPlanningAlgorithm} 估计；本类只实现 OCT、优先级及选择规则。</p>
  *
  * <p><b>适用前提</b>：LOCAL 文件系统、NONE 聚类、无故障、无建模开销、
  * {@code preExecutionTransferDelayV1} 数据移动模型与 SPACE_SHARED VM；由
@@ -40,11 +41,11 @@ import org.workflowsim.Task;
  *
  * <p><b>边界声明</b>：OCT 是调度前静态量——按 VM 对无争用带宽计算，不做副本局部性
  * 减免（运行期 stage-in 可利用已演进的副本，实际传输可能快于 OCT 估计）；不建模
- * 链路争用、网络拓扑或多工作流并发传输（同 LOCAL_HEFT 边界）；运行时最小事件间隔
- * 钳制与完成事件规则带来的微小漂移同样适用。rank_o 降序在异构成本下理论上不保证
- * 拓扑序（子任务 OCT 跨 VM 落差可超过父任务平均计算成本），因此分配采用 HEFT 系
+ * 链路争用、网络拓扑或多工作流并发传输（同 LOCAL_HEFT 边界）；副本估计不完整重放
+ * 事件顺序，短计算的完成规则仍可能造成偏差。rank_o 降序在异构成本下理论上不保证
+ * 拓扑序（后继处理器最小化可使父 OCT 低于后继的跨 VM 平均值），因此分配采用论文的
  * 标准就绪表纪律：每轮在前驱均已分配的任务中取 rank_o 最高者（平局取较小任务 ID）。
- * 当 rank_o 序本身拓扑合法时（全部同构平台与论文算例，由既有单测逐位守护），就绪表
+ * 当 rank_o 序本身拓扑合法时（例如本次核对的论文算例，由既有单测逐位守护），就绪表
  * 选择与字面 rank_o 序逐项一致，调度不变。它是抽象模型上的 PEFT，不是真实平台校准。</p>
  */
 public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
@@ -76,7 +77,7 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
         double stageInFinish = stageInFinishTime();
         // 就绪表纪律：每轮在“前驱均已分配”的任务中取 rank_o 最高者。rank_o 降序
         // 在异构成本下不保证拓扑序（见类边界声明），字面顺序直接分配会让基类
-        // readyTime 快速失败；当 rank_o 序本身拓扑合法（全部同构平台与论文算例）
+        // readyTime 快速失败；当 rank_o 序本身拓扑合法（例如本次核对的论文算例）
         // 时，就绪表选择与字面 rank_o 序逐项一致，调度逐位不变。
         List<Task> remaining = new ArrayList<Task>(priority);
         Set<Task> allocated = new HashSet<Task>();
@@ -110,17 +111,25 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
         }
         Map<CondorVM, Double> perVm = new LinkedHashMap<CondorVM, Double>();
         for (CondorVM vm : vms()) {
+            if (!isCompatible(task, vm)) {
+                perVm.put(vm, Double.valueOf(Double.POSITIVE_INFINITY));
+                continue;
+            }
             double oct;
             if (task.getChildList().isEmpty()) {
-                // 论文出口条件：OCT(t_exit, p) = w̄_exit（平均计算成本，逐 VM 一致）。
-                oct = meanComputeSeconds(task);
+                // Arabnejad/Barbosa Eq. (7): no successor work remains at an exit.
+                oct = 0.0;
             } else {
                 double worstChild = 0.0;
                 for (Task child : task.getChildList()) {
                     Map<CondorVM, Double> childOct = octPerVm(child);
                     double bestPlacement = Double.POSITIVE_INFINITY;
                     for (CondorVM childVm : vms()) {
+                        if (!isCompatible(child, childVm)) {
+                            continue;
+                        }
                         double candidate = childOct.get(childVm).doubleValue()
+                                + computeSecondsOn(child, childVm)
                                 + communicationSeconds(task, child, vm, childVm);
                         if (candidate < bestPlacement) {
                             bestPlacement = candidate;
@@ -130,7 +139,7 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
                         worstChild = bestPlacement;
                     }
                 }
-                oct = computeSecondsOn(task, vm) + worstChild;
+                oct = worstChild;
             }
             perVm.put(vm, Double.valueOf(oct));
         }
@@ -138,14 +147,22 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
         return perVm;
     }
 
-    /** 任务优先级 = OCT 在全部 VM 上的平均值（论文 rank_o）；run() 中可用。 */
+    /** 任务优先级 = OCT 在兼容 VM 上的平均值（rank_o）；run() 中可用。 */
     final double priorityOf(Task task) {
         Map<CondorVM, Double> perVm = octPerVm(task);
         double total = 0.0;
-        for (Double value : perVm.values()) {
-            total += value.doubleValue();
+        int count = 0;
+        for (Map.Entry<CondorVM, Double> entry : perVm.entrySet()) {
+            if (isCompatible(task, entry.getKey())) {
+                total += entry.getValue().doubleValue();
+                count++;
+            }
         }
-        return total / perVm.size();
+        if (count == 0) {
+            throw new IllegalArgumentException(label() + " cannot rank task " + task.getCloudletId()
+                    + "; no compatible VM");
+        }
+        return total / count;
     }
 
     /** 任务在指定 VM 上的 OCT；未计算抛 {@link IllegalStateException}。 */

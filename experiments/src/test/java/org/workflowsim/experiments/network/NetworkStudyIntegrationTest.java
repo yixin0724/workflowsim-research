@@ -56,7 +56,7 @@ class NetworkStudyIntegrationTest {
                 NetworkStudyTest.datasets(), output);
         assertEquals(30, NetworkStudyValidator.validate(index));
         String document = new String(Files.readAllBytes(index), StandardCharsets.UTF_8);
-        assertTrue(document.contains("sensitivity-response-r13-v1"));
+        assertTrue(document.contains("sensitivity-response-r13-v2"));
         assertTrue(document.contains("-HET_STRONG-"));
         assertTrue(document.contains("-HET_MILD-"));
         assertTrue(document.contains("-HET_EXTREME-"));
@@ -98,7 +98,7 @@ class NetworkStudyIntegrationTest {
         Path index = NetworkStudyExecutor.execute("smoke", true, NetworkStudyTest.datasets(), output);
         assertEquals(18, NetworkStudyValidator.validate(index));
         String document = new String(Files.readAllBytes(index), StandardCharsets.UTF_8);
-        assertTrue(document.contains("peft-comparison-r12-v1"));
+        assertTrue(document.contains("peft-comparison-r12-v2"));
         assertTrue(document.contains("LOCAL_PEFT"));
         assertFalse(document.contains("\"RANDOM\""));
         assertFalse(document.contains("\"PSO\""));

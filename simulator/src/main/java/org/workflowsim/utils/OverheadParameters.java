@@ -34,7 +34,7 @@ import org.workflowsim.Job;
  */
 public class OverheadParameters {
 
-    /** 工作流引擎延迟采样间隔。 */
+    /** WED 子批次最大作业数（0 表示整批不拆分）。 */
     private final int WED_INTERVAL;
     /** 旧开销路径使用的逻辑带宽。 */
     private final double bandwidth;
@@ -50,7 +50,7 @@ public class OverheadParameters {
     /**
      * 创建旧式开销参数。
      *
-     * @param wed_interval 工作流引擎延迟采样间隔
+     * @param wed_interval WED 子批次最大作业数（0 表示整批不拆分）
      * @param wed_delay 工作流引擎延迟生成器
      * @param queue_delay 队列延迟生成器
      * @param post_delay 后处理延迟生成器
@@ -77,7 +77,7 @@ public class OverheadParameters {
         return this.bandwidth;
     }
 
-    /** @return 工作流引擎延迟采样间隔 */
+    /** @return WED 子批次最大作业数（0 表示整批不拆分） */
     public int getWEDInterval() {
         return this.WED_INTERVAL;
     }

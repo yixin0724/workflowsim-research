@@ -16,7 +16,6 @@ import org.workflowsim.experiment.ExperimentEvidenceContext;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
 import org.workflowsim.utils.Parameters;
-import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
 /** Streams an explicit study to independent v4 evidence bundles, then validates its summary. */
@@ -79,10 +78,8 @@ public final class NetworkStudyExecutor {
                             if (heterogeneityAxis) { record.put("heterogeneity", condition.heterogeneity); }
                             record.put("planner", planner.name()); record.put("seed", seed);
                             try {
-                                SimulationConfig config = SimulationConfig.builder(workflow.path.toString(), vmCount)
-                                        .planningAlgorithm(planner).schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
-                                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL).randomSeed(seed)
-                                        .dataMovementModel(NetworkStudyPlan.movement(network)).build();
+                                SimulationConfig config = NetworkStudyPlan.configuration(
+                                        workflow.path.toString(), vmCount, network, planner, seed);
                                 SimulationReport report = new SimulationRunner().run(config,
                                         NetworkStudyPlan.platform(vmCount, network, condition.heterogeneity));
                                 if (!report.isWorkflowCompletedSuccessfully()) { throw new IllegalStateException("Incomplete workflow"); }
@@ -140,8 +137,10 @@ public final class NetworkStudyExecutor {
                 : peft ? "# PEFT 对比研究（S5，r10 冻结矩阵）\n\n" : "# 网络受限调度研究 R10\n\n");
         out.append("协议：").append(plan.getProtocol()).append("；计划 ").append(plan.getRunCount())
                 .append(" 次；已执行 ").append(summary.get("runCount")).append(" 次；状态 ").append(summary.get("status")).append("。\n\n")
+                .append("执行模型：").append(org.workflowsim.utils.TaskExecutionModel.EXECUTION_SEMANTICS)
+                .append("。本次是修正模型下的新执行，沿用参数矩阵而不冒认R10/R12/R13冻结结果；完整性校验不等于与旧科学量逐位相同。\n\n")
                 .append(sensitivity
-                        ? "三个列表规划器（HEFT/CPOP/PEFT）均确定性，每条件只运行一次（seed 11）；基线为LOCAL_HEFT，候选为LOCAL_CPOP/LOCAL_PEFT。响应面沿VM数（4/8/16/32）×链路带宽（端点1 MB/s；fat-tree 0.125/0.5/1.25/5 MB/s）展开，异构块在fat-tree-constrained上加入MILD/STRONG/EXTREME三种确定性VM MIPS混合。VM=32时fat-tree取k=8（k=4仅容纳16台主机），跨VM数的比较受此影响，仅作描述性解读。机制检验（预登记）：S5在同构VM上发现PEFT的OCT前瞻项退化、与HEFT大量精确打平；本研究预测该差异只在异构VM条件下被激活。所有曲面均为描述性，不做参数拟合。经典DAX与合成负载分开，固定样本的探索性结论不能外推真实云。改善百分比为正表示候选比HEFT更快。\n\n"
+                        ? "三个列表规划器（HEFT/CPOP/PEFT）均确定性，每条件只运行一次（seed 11）；基线为LOCAL_HEFT，候选为LOCAL_CPOP/LOCAL_PEFT。响应面沿VM数（4/8/16/32）×链路带宽（端点1 MB/s；fat-tree 0.125/0.5/1.25/5 MB/s）展开，异构块在fat-tree-constrained上加入MILD/STRONG/EXTREME三种确定性VM MIPS混合。VM=32时fat-tree取k=8（k=4仅容纳16台主机），跨VM数的比较受此影响，仅作描述性解读。本轮沿用R13参数矩阵，不继承旧模型下的预登记判定；机制解释需要逐DAG映射诊断和独立消融，不能仅由完成时间证明。所有曲面均为描述性，不做参数拟合。经典DAX与合成负载分开，固定样本的探索性结论不能外推真实云。改善百分比为正表示候选比HEFT更快。\n\n"
                         : peft
                         ? "三个列表规划器（HEFT/CPOP/PEFT）均确定性，每条件只运行一次（seed 11）；基线为LOCAL_HEFT，候选为LOCAL_CPOP/LOCAL_PEFT。先在每个DAG内汇总种子，再按DAG配对。经典DAX与合成负载分开，固定样本的探索性结论不能外推真实云。改善百分比为正表示候选比HEFT更快。平台VM同构（1000 MIPS），PEFT的OCT前瞻项在各VM上相同，与HEFT的差异只来自任务排序。\n\n"
                         : "HEFT/CPOP每个条件只运行一次；RANDOM/PSO使用声明的独立种子。先在每个DAG内汇总种子，再按DAG配对。经典DAX与合成负载分开，固定样本的探索性结论不能外推真实云。改善百分比为正表示候选比HEFT更快。\n\n")

@@ -540,10 +540,10 @@ public final class WorkflowEngine extends SimEntity {
         if (job.getClassType() != ClassType.COMPUTE.value) {
             return -1.0;
         }
-        // 防御性守卫：就绪时刻没有静态 VM 映射时无法估计目标侧传输（配置层已拒绝
-        // INVALID 规划层 + 新数据移动模型的组合，此处仅作兜底，避免运行期崩溃）。
+        // Missing mappings are an execution contract violation, never a no-transfer fallback.
         if (job.getVmId() < 0) {
-            return -1.0;
+            throw new IllegalStateException("Pre-execution transfer requires a static VM mapping for Job "
+                    + job.getCloudletId());
         }
         // 新数据移动模型下，计算 Job 统一记录传输证据（即使没有真实输入文件，
         // 与历史提交路径的证据覆盖保持一致）。
@@ -551,7 +551,7 @@ public final class WorkflowEngine extends SimEntity {
 
         double now = CloudSim.clock();
         double totalSeconds = 0.0;
-        long requiredBytes = 0L;
+        double requiredBytes = 0.0;
         int fileCount = 0;
         double maxArrival = now;
         Set<String> attributedNames = new HashSet<String>();
@@ -576,7 +576,8 @@ public final class WorkflowEngine extends SimEntity {
                     continue;
                 }
                 double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
-                totalSeconds += seconds;
+                validateTransferEstimate(sumTransferableBytes(fromParent, job, datacenter), seconds);
+                totalSeconds = addFiniteTransferQuantity(totalSeconds, seconds, "modeled transfer seconds");
                 maxArrival = Math.max(maxArrival, parent.getFinishTime() + seconds);
             }
             // 未由任何父任务产生的外部输入（SOURCE 副本）自始可用，传输自就绪时刻开始。
@@ -588,12 +589,13 @@ public final class WorkflowEngine extends SimEntity {
             }
             if (!external.isEmpty()) {
                 double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
-                totalSeconds += seconds;
+                validateTransferEstimate(sumTransferableBytes(external, job, datacenter), seconds);
+                totalSeconds = addFiniteTransferQuantity(totalSeconds, seconds, "modeled transfer seconds");
                 maxArrival = Math.max(maxArrival, now + seconds);
             }
             for (FileItem file : fileList) {
                 if (file.isRealInputFile(fileList)) {
-                    requiredBytes += file.getSize();
+                    requiredBytes = addFiniteTransferQuantity(requiredBytes, file.getSize(), "required input bytes");
                     fileCount++;
                 }
             }
@@ -605,7 +607,7 @@ public final class WorkflowEngine extends SimEntity {
         double delay = maxArrival - now;
         eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job,
                 SimulationEventRecorder.attributes("modeledTransferSeconds", totalSeconds,
-                        "requiredFileBytes", (double) requiredBytes,
+                        "requiredFileBytes", requiredBytes,
                         "modeledTransferFileCount", fileCount,
                         "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
                         "dataArrivalDelaySeconds", Math.max(delay, 0.0)));
@@ -643,11 +645,7 @@ public final class WorkflowEngine extends SimEntity {
         }
         List<Job> batch = new ArrayList<Job>();
         batch.add(job);
-        double delay = 0.0;
-        if (Parameters.getOverheadParams().getWEDDelay() != null) {
-            delay = Parameters.getOverheadParams().getWEDDelay(batch);
-        }
-        schedule(job.getUserId(), delay, CloudSimTags.CLOUDLET_SUBMIT, batch);
+        dispatchReadyBatch(job.getUserId(), batch);
     }
 
     /**
@@ -681,17 +679,16 @@ public final class WorkflowEngine extends SimEntity {
         if (job.getClassType() != ClassType.COMPUTE.value) {
             return false;
         }
-        // 防御性守卫：就绪时刻没有静态 VM 映射时无法确定目标端点（配置层已拒绝
-        // INVALID 规划层 + 争用模型的组合，此处仅作兜底）。
         if (job.getVmId() < 0) {
-            return false;
+            throw new IllegalStateException("Contention transfer requires a static VM mapping for Job "
+                    + job.getCloudletId());
         }
         TransferContentionEngine contention = datacenter.getTransferContentionEngine();
         double now = CloudSim.clock();
         settleContentionTransfers(datacenter, contention.advance(now).getCompletedTransferIds());
         List<FileItem> fileList = job.getFileList();
         Set<Long> pending = new LinkedHashSet<Long>();
-        long requiredBytes = 0L;
+        double requiredBytes = 0.0;
         int fileCount = 0;
         int pathLinkCount = 0;
         double modeledSeconds = 0.0;
@@ -720,14 +717,15 @@ public final class WorkflowEngine extends SimEntity {
                     continue;
                 }
                 double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
-                long bytes = sumRealInputBytes(fromParent);
-                requiredBytes += bytes;
+                double bytes = sumRealInputBytes(fromParent);
+                requiredBytes = addFiniteTransferQuantity(requiredBytes, bytes, "required input bytes");
                 fileCount += fromParent.size();
-                modeledSeconds += seconds;
+                modeledSeconds = addFiniteTransferQuantity(modeledSeconds, seconds, "modeled transfer seconds");
                 // R8 审计修复（F2）：争用流只携带真正需要传输的字节（与 seconds
                 // 同口径）——已本地文件贡献零秒，也不再计入争用字节量。
-                long transferredBytes = sumTransferableBytes(fromParent, job, datacenter);
-                if (seconds <= 0.0 || transferredBytes <= 0L) {
+                double transferredBytes = sumTransferableBytes(fromParent, job, datacenter);
+                validateTransferEstimate(transferredBytes, seconds);
+                if (seconds <= 0.0 || transferredBytes <= 0.0) {
                     continue; // 副本已在目标 VM 上，零传输。
                 }
                 String sourceEndpoint = localFileSystem
@@ -764,13 +762,14 @@ public final class WorkflowEngine extends SimEntity {
             }
             if (!external.isEmpty()) {
                 double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
-                long bytes = sumRealInputBytes(external);
-                requiredBytes += bytes;
+                double bytes = sumRealInputBytes(external);
+                requiredBytes = addFiniteTransferQuantity(requiredBytes, bytes, "required input bytes");
                 fileCount += external.size();
-                modeledSeconds += seconds;
+                modeledSeconds = addFiniteTransferQuantity(modeledSeconds, seconds, "modeled transfer seconds");
                 // R8 审计修复（F2）：与父组同口径，只对真正传输的字节建流。
-                long transferredBytes = sumTransferableBytes(external, job, datacenter);
-                if (seconds > 0.0 && transferredBytes > 0L) {
+                double transferredBytes = sumTransferableBytes(external, job, datacenter);
+                validateTransferEstimate(transferredBytes, seconds);
+                if (seconds > 0.0 && transferredBytes > 0.0) {
                     long transferId = nextContentionTransferId++;
                     if (fatTree) {
                         // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
@@ -791,7 +790,7 @@ public final class WorkflowEngine extends SimEntity {
         }
         Map<String, Object> stageInAttributes = SimulationEventRecorder.attributes(
                 "modeledTransferSeconds", modeledSeconds,
-                "requiredFileBytes", (double) requiredBytes,
+                "requiredFileBytes", requiredBytes,
                 "modeledTransferFileCount", fileCount,
                 "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
                 "contentionTransferGroupCount", (double) pending.size());
@@ -801,9 +800,15 @@ public final class WorkflowEngine extends SimEntity {
         eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job,
                 stageInAttributes);
         if (pending.isEmpty()) {
-            // 全部输入本地（或零传输）：立即登记副本并释放。
-            dispatchContentionStageInComplete(datacenter, job);
-            return true;
+            // No actual transfer: join the ordinary ready batch instead of sampling WED once
+            // per Job merely because a contention model was selected.
+            try {
+                datacenter.registerStageInReplicasForComputeJob(job);
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not register zero-transfer inputs for Job "
+                        + job.getCloudletId(), exception);
+            }
+            return false;
         }
         contentionJobPendingTransfers.put(job.getCloudletId(), pending);
         Double nextCompletion = contention.advance(now).getNextCompletionTime();
@@ -814,10 +819,10 @@ public final class WorkflowEngine extends SimEntity {
     }
 
     /** 累计一组文件的字节量（组内均为真实输入文件）。 */
-    private static long sumRealInputBytes(List<FileItem> files) {
-        long bytes = 0L;
+    private static double sumRealInputBytes(List<FileItem> files) {
+        double bytes = 0.0;
         for (FileItem file : files) {
-            bytes += file.getSize();
+            bytes = addFiniteTransferQuantity(bytes, file.getSize(), "required input bytes");
         }
         return bytes;
     }
@@ -828,15 +833,37 @@ public final class WorkflowEngine extends SimEntity {
      * <p>组内文件已按真实输入过滤；本地命中文件贡献零秒也不计入字节，保证争用流
      * 的字节/秒比例与 V1 逐文件估算一致（R8 审计修复 F2）。</p>
      */
-    private long sumTransferableBytes(List<FileItem> files, Job job,
+    private double sumTransferableBytes(List<FileItem> files, Job job,
             WorkflowDatacenter datacenter) {
-        long bytes = 0L;
+        double bytes = 0.0;
         for (FileItem file : files) {
             if (!datacenter.isFileLocalForJob(file, job)) {
-                bytes += file.getSize();
+                bytes = addFiniteTransferQuantity(bytes, file.getSize(), "transferable bytes");
             }
         }
         return bytes;
+    }
+
+    private static double addFiniteTransferQuantity(double total, double value, String field) {
+        double result = total + value;
+        if (!Double.isFinite(total) || total < 0.0 || !Double.isFinite(value) || value < 0.0
+                || !Double.isFinite(result)) {
+            throw new IllegalArgumentException("Non-finite or negative " + field + " aggregate");
+        }
+        return result;
+    }
+
+    /** A positive nonlocal demand cannot silently become the zero-transfer path by underflow. */
+    private static void validateTransferEstimate(double transferredBytes, double seconds) {
+        if (!Double.isFinite(seconds) || seconds < 0.0) {
+            throw new IllegalArgumentException("Transfer estimate must be finite and nonnegative");
+        }
+        if (transferredBytes > 0.0) {
+            double rate = transferredBytes / seconds;
+            if (!(seconds > 0.0) || !(rate > 0.0) || !Double.isFinite(rate)) {
+                throw new IllegalArgumentException("Positive nonlocal bytes require representable positive transfer seconds and rate");
+            }
+        }
     }
 
     /**
@@ -894,11 +921,7 @@ public final class WorkflowEngine extends SimEntity {
         }
         List<Job> batch = new ArrayList<Job>();
         batch.add(job);
-        double delay = 0.0;
-        if (Parameters.getOverheadParams().getWEDDelay() != null) {
-            delay = Parameters.getOverheadParams().getWEDDelay(batch);
-        }
-        schedule(job.getUserId(), delay, CloudSimTags.CLOUDLET_SUBMIT, batch);
+        dispatchReadyBatch(job.getUserId(), batch);
     }
 
     /**
@@ -1087,39 +1110,35 @@ public final class WorkflowEngine extends SimEntity {
             }
 
         }
-        /** 每个调度器分别按照其工作流引擎延迟配置接收一个投递批次。 */
         for (int i = 0; i < getSchedulers().size(); i++) {
+            dispatchReadyBatch(getSchedulerId(i), allocationList.get(getSchedulerId(i)));
+        }
+    }
 
-            List submittedList = allocationList.get(getSchedulerId(i));
-            // 延迟模型可将一个调度器的待投递列表切分为多个事件批次。
-
-            int interval = Parameters.getOverheadParams().getWEDInterval();
-            double delay = 0.0;
-            if(Parameters.getOverheadParams().getWEDDelay()!=null){
-                delay = Parameters.getOverheadParams().getWEDDelay(submittedList);
+    /**
+     * One WED rule for ordinary and post-transfer release: interval zero means an unsplit
+     * batch, not discarded overhead. Positive intervals set the maximum batch size.
+     * Sample once from the first Job's depth and apply it cumulatively to every sub-batch,
+     * including a final partial batch. Empty batches consume no randomness.
+     */
+    private void dispatchReadyBatch(int scheduler, List<Job> jobs) {
+        if (jobs.isEmpty()) { return; }
+        int interval = Parameters.getOverheadParams().getWEDInterval();
+        int batchSize = interval > 0 ? Math.min(interval, jobs.size()) : jobs.size();
+        double baseDelay = Parameters.getOverheadParams().getWEDDelay(jobs);
+        if (!Double.isFinite(baseDelay) || baseDelay < 0.0) {
+            throw new IllegalStateException("Workflow-engine delay must be finite and non-negative");
+        }
+        double delay = 0.0;
+        for (int first = 0; first < jobs.size();) {
+            int end = first + Math.min(batchSize, jobs.size() - first);
+            delay += baseDelay;
+            if (!Double.isFinite(delay)) {
+                throw new IllegalStateException("Workflow-engine batch delay overflow");
             }
-
-            double delaybase = delay;
-            int size = submittedList.size();
-            if (interval > 0 && interval <= size) {
-                int index = 0;
-                List subList = new ArrayList();
-                while (index < size) {
-                    subList.add(submittedList.get(index));
-                    index++;
-                    if (index % interval == 0) {
-                        // 当前子批次已作为事件负载发出，后续元素必须写入新的列表实例。
-                        schedule(getSchedulerId(i), delay, CloudSimTags.CLOUDLET_SUBMIT, subList);
-                        delay += delaybase;
-                        subList = new ArrayList();
-                    }
-                }
-                if (!subList.isEmpty()) {
-                    schedule(getSchedulerId(i), delay, CloudSimTags.CLOUDLET_SUBMIT, subList);
-                }
-            } else if (!submittedList.isEmpty()) {
-                sendNow(this.getSchedulerId(i), CloudSimTags.CLOUDLET_SUBMIT, submittedList);
-            }
+            schedule(scheduler, delay, CloudSimTags.CLOUDLET_SUBMIT,
+                    new ArrayList<Job>(jobs.subList(first, end)));
+            first = end;
         }
     }
 

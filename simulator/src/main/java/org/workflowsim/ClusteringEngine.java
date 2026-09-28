@@ -210,9 +210,13 @@ public final class ClusteringEngine extends SimEntity {
             }
         }
         getJobList().add(job);
-        long inputBytes = 0L;
+        double inputBytes = 0.0;
         for (FileItem file : fileList) {
-            inputBytes += file.getSize();
+            double bytes = file.getSize();
+            if (!Double.isFinite(bytes) || bytes < 0.0 || !Double.isFinite(inputBytes + bytes)) {
+                throw new IllegalArgumentException("External input byte demand must be finite and non-negative");
+            }
+            inputBytes += bytes;
         }
         eventRecorder.record(SimulationEventType.STAGE_IN_JOB_CREATED, CloudSim.clock(), job,
                 SimulationEventRecorder.attributes("inputFileCount", fileList.size(),

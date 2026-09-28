@@ -12,21 +12,51 @@ Every maintained algorithm must have a decision contract, an explicit model
 adaptation statement, deterministic tie-break rules, and a test oracle that
 does not call the production decision helper being checked.
 
+## Common Execution and Decision-Layer Contract
+
+The standard runner supports `NONE` clustering and `SPACE_SHARED` VMs only.
+Every non-empty planner requires `STATIC`, and `STATIC` requires a planner.
+Placements must be PE-compatible; dispatch still allows at most one Job per VM
+at a time. A complete static plan enforces per-VM order, not exact timestamps.
+
+Time-aware independent planners, PSO, LOCAL planners and execution share
+`TaskExecutionModel`: compute seconds are raw per-PE length / MIPS without a
+matrix, or `round(matrixSeconds * MIPS) / MIPS` with one. A matrix is
+authoritative, so missing coordinates cannot fall back to raw MI. Rounded work
+must be positive and representable as signed-long instructions, including PE
+multiplicity. Source Task length and per-attempt effective execution MI are
+separate; planning does not overwrite the source length.
+
+These are compute-cost estimates, not total runtime Job envelopes. New
+manifests identify corrected execution with
+`executionSemantics = WORK_CONSERVING_TASK_EXECUTION_V2`; historical artifacts
+are not rewritten to appear as current evidence. Regression coverage is not a
+claim that every supported configuration or original-paper assumption has been
+independently verified.
+
 ## Shared-Storage Static DAG Track
 
-The controlled model is `SHARED` storage, no clustering, no overhead, disabled
-failures, capacity-feasible single-PE `SPACE_SHARED` VMs with a deterministic
-profile VM-to-Host placement, and a model-generated 110 MI stage-in Job on the
-lowest VM ID. A real input file contributes
-`floor(vmMips * fileSize / 1e6 / storageRate) / vmMips` seconds to a candidate
-Task duration. Compute duration uses CloudSim's `cloudletTotalLength`, which is
-the Task length multiplied by its requested PE count. Parent-to-child data
-movement is represented by DAG release plus this per-Task storage delay, not by
-a calibrated link-level network model. Every Cloudlet completion is scheduled
-no earlier than the current time plus `cloudSimMinEventIntervalSeconds + 0.01`.
-Root compute Tasks begin only after one further
-`cloudSimMinEventIntervalSeconds` event-kernel release interval after the
-stage-in Job returns.
+The controlled model is `SHARED` storage, `NONE` clustering, no overhead,
+disabled failures, `legacyWorkflowsimV1()` data movement, and capacity-feasible
+`SPACE_SHARED` VMs with deterministic VM-to-Host placement. Task cost matrices
+are rejected on this track. Candidates must have at least the Task's requested
+PE count; multi-PE compatibility is supported, while dispatch still permits
+only one Job per VM at a time.
+
+A model-generated 110 MI stage-in Job runs on the lowest VM ID. For a compute
+Task, sum all real input file delays first:
+`transferSeconds = sum(fileSize / 1e6 / storageRate)`. The candidate duration is
+`(rawPerPeLengthMi + floor(vmMips * transferSeconds)) / vmMips`.
+Rounding is once per Task's summed delay, not once per file. Requested PEs
+execute in parallel, so multiplying the per-PE length by PE count is not the
+wall-clock duration formula. Parent-to-child movement is represented by DAG
+release plus this storage delay, not by a calibrated network schedule.
+
+Completion-event scheduling uses the minimum-event interval and 0.01-second
+safety margin; it does not license starting new work with stale CPU progress.
+Root Jobs also wait one kernel release interval after stage-in returns. Planned
+timings do not replay the complete event loop, and the static dispatcher
+enforces per-VM order rather than exact planned timestamps.
 
 A one-VM-per-Host layout remains the recommended reference layout because it
 removes Host placement as an experimental factor. Profiles may co-locate VMs
@@ -71,15 +101,23 @@ Heterogeneous Systems by an Optimistic Cost Table*, IEEE TPDS 25(3), 2014, DOI
 includes interprocessor communication costs. This contract retains the OCT
 successor look-ahead, average-OCT priority, and `EFT + OCT` selection core, but
 sets the communication term to zero because the controlled model does not
-represent topology, routing, or link contention. The communication-aware PEFT
-variant lives on the LOCAL track as `LOCAL_PEFT` (contract and reproduction
-evidence in `docs/algorithms/CATALOG.md`, section *Communication-Aware Static
-DAG Planners*), where the OCT communication term `c(t,child,p,p')` is the
-pairwise-VM transfer estimate `bytes / (1e6 × min(bw_p, bw_p'))` and the exit
-condition is the paper's `OCT(t_exit,p) = w̄_exit`. A communication-aware variant
-with the full paper OCT communication term exists in the LOCAL track as
-`LOCAL_PEFT`（契约与复现证据见 `docs/algorithms/CATALOG.md` 的
-Communication-Aware Static DAG Planners 一节与算法 manifest）。
+represent topology, routing, or link contention. The LOCAL track also maintains
+`LOCAL_PEFT`, with pairwise communication
+`bytes / (1e6 × min(bw_p, bw_p'))` for different VMs and zero for the same VM.
+Both maintained PEFT tracks now use successor-cost OCT and exit zero. The
+LOCAL equation is `max_child min_p'[OCT(child,p') + w(child,p') + c(t,child,p,p')]`;
+SHARED removes communication but uses its shared-storage execution-duration
+model, so their full runtime assumptions still differ.
+
+This coordinate and exit condition were verified against the author's
+[open article chapter](https://repositorio-aberto.up.pt/handle/10216/92290),
+Chapter 3 printed p71 Eq. (7), p72 Table 5 and p73 Algorithm 1. Its actual
+Figure 1 has PEFT/HEFT makespans 122/133, not the older HEFT-origin input's
+claimed76/80. The former LOCAL current-task-cost/exit-mean version was a
+nonstandard algorithm, not an equivalent exit-constant convention. Its old
+results must not be relabeled as original PEFT. New machine contracts carry
+`PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2`. See the
+[algorithm catalog](<CATALOG.md>) and [source provenance](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>).
 
 ## Independent-Task Static Track
 
@@ -94,6 +132,65 @@ second-best completion-time loss. The taxonomy source is Maheswaran et al.,
 *Dynamic Mapping of a Class of Independent Tasks onto Heterogeneous Computing
 Systems*, JPDC 59(2), 1999, DOI [10.1006/jpdc.1999.1581](https://doi.org/10.1006/jpdc.1999.1581).
 
+## LOCAL Data-Availability and Ready-List Contract
+
+LOCAL_HEFT/CPOP/PEFT require LOCAL storage, STATIC dispatch, NONE clustering,
+no modeled overhead/failure, SPACE_SHARED VMs and a preExecution-family data
+model. Planning stays contention-free even when runtime uses endpoint or
+Fat-tree contention. Fat-tree also requires the matching topology declaration.
+
+A candidate reads only replicas whose recorded availability is no later than
+the Task's dependency-ready time. Parent-file groups use the parent's planned
+finish plus the sum of that parent's file delays; different parents overlap.
+External inputs, including root inputs, begin at the consuming Job's
+**dependency-ready time**, not simulated zero. Bootstrap's datacenter replica
+does not make a destination-VM local copy.
+
+Positive input holds use the configured minimum event interval. All real input
+replicas are registered at the **whole hold's completion**, before any possible
+VM queue wait; output replicas at planned compute finish. Recording a future
+placement must not grant an earlier local hit. Valid earlier gap insertions
+remain allowed when their own inputs can arrive in time.
+
+The planner does not replay the complete runtime event queue. Same-time
+ordering, replicas produced by later-planned Tasks, short compute completion
+rules and contention remain explicit sources of prediction differences.
+Required independent oracles include root and non-root external inputs,
+shared-input future replicas, valid gap insertion, and input availability
+before consumer compute starts; see the
+[LOCAL data-availability tests](<../../simulator/src/test/java/org/workflowsim/planning/LocalDataAvailabilityPlanningTest.java>).
+
+PE-compatible costs are used for rank averages. CPOP's one critical processor
+must support its entire selected path. LOCAL_PEFT selects the highest mean OCT
+**among dependency-ready Tasks**, then minimizes EFT+OCT over compatible VMs;
+incompatible OCT entries never enter its rank average. A child with higher
+rank than its parent is handled by this ready list, not rejected. The primary
+source explicitly uses this ready-list discipline. The corrected implementation
+is guarded by [independent Eq. (7) counterexamples](<../../simulator/src/test/java/org/workflowsim/planning/LocalPeftSuccessorCostContractTest.java>)
+and the [actual paper fixture](<../../simulator/src/test/java/org/workflowsim/planning/LocalPeftPrimarySourcePaperTest.java>),
+including TaskOutcome effective MI and compute-window agreement with Job timing.
+
+## Mapping-Only Cost Contract
+
+Independent time-aware strategies use the common effective compute cost.
+OLB updates availability with that cost; MET ignores availability; MCT,
+Min-Min, Max-Min and Sufferage use the corresponding completion estimates.
+Sufferage defines loss as zero when there is only one compatible VM.
+STATIC_ROUND_ROBIN and RANDOM intentionally do not optimize those costs.
+
+PSO also consumes effective matrix costs but keeps its sequential VM-load
+objective and ignores DAG/network timing. With `price = MIPS/1000`, cost is
+mathematically mapping-invariant **only in the no-matrix raw-MI case**:
+`sum(rawPerPeLength)/1000`. With a matrix, it is
+`sum(effectiveSeconds(task,assignedVm) * assignedVmMips/1000)` and may vary by
+mapping. The price remains an abstract heuristic. Incompatible particle
+positions are projected to the nearest compatible VM index, ties by lower VM
+ID, without additional random draws. The whole compatible domain is checked
+before sampling; missing matrix coordinates do not depend on which particles
+happen to visit them. Independent expectations and cost-oblivious controls
+live in the [matrix regression tests](<../../simulator/src/test/java/org/workflowsim/planning/PlanningCostMatrixRegressionTest.java>)
+and [PE-domain tests](<../../simulator/src/test/java/org/workflowsim/planning/PlanningPeCompatibilityTest.java>).
+
 ## Metric Contract
 
 Metrics are simulator-derived quantities, not production observability data.
@@ -104,14 +201,15 @@ Metrics are simulator-derived quantities, not production observability data.
 | Logical Task completion | A source logical Task is completed only when it appears in at least one successful compute Job. | Retry after failure, clustering, no source Task snapshot |
 | Simulation end and logical workflow completion | Historical `makespanSeconds` and explicit `simulationEndSeconds` are the same CloudSim end clock. `logicalTaskCompletionSeconds` is available only when every source logical Task has a successful compute Job; it is the latest among those Tasks' first successful Job-envelope finish times. | Incomplete workflow and no-logical-Task runs have no logical completion time; `terminalLifecycleTailSeconds` is available only for complete workflows. |
 | Attempt, retry, and failure evidence | One completed Job outcome is one Job attempt. Retry attempts are identified by `RETRY_JOB_CREATED` evidence and its failed parent; failed compute envelope/cost totals include complete failed attempts. | Missing, duplicate, self-referential, or non-failed retry-parent evidence fails metric derivation rather than silently changing counts. |
-| Delay metrics | Only Jobs with ordered `JOB_READY` and `SCHEDULING_DECISION` observations contribute | Missing observations and decision recorded after start |
+| Delay metrics | Total waiting/bounded slowdown require an ordered ready-to-start observation; ready-to-decision requires both corresponding events, while decision-to-start uses its own observation count. VM-queue waiting starts at VM submission, not Job readiness. | Missing events, decision after start, and distinct sample counts; preExecution waiting includes data preparation, unlike legacy in-envelope stage-in. |
+| Bounded slowdown / waiting percentiles | Per-attempt `max((wait+execution)/max(execution,10s),1)` then arithmetic mean; waiting median/P95 use the documented nearest-rank convention. | A value of 1 does not prove zero waiting; empty samples, short jobs, retry attempts, and percentile tails. |
 | VM busy/utilization | Union of completed Job intervals per VM; not host utilization | Overlap, gaps, zero makespan, idle VM |
-| Data-stage-in demand | File count and bytes are the compute Jobs' modeled logical external-input demand. Stage-in seconds are model-produced delays. | A local replica can make modeled delay zero; neither field is a physical network/storage traffic ledger. |
+| Data-stage-in demand | Count/bytes describe inputs external to each compute Job, including files produced by workflow parents; they are not limited to SOURCE inputs. Stage-in seconds sum nominal estimates, including in contention variants. | Local hits can give zero delay; overlapping groups mean the sum is not network wall time, and it is not an actual contention-duration or link-traffic ledger. |
 | Modeled processing cost | Sum every completed Job attempt's CPU-envelope component and declared-file bandwidth component. Declared file bytes are summed continuously in decimal MB (`1,000,000` bytes) with no per-file billing rounding. | Failed and retry attempts remain included; effective stage-in MI can affect the CPU envelope; memory/storage price fields are not charged by this model. |
 | Algorithm decision overhead | Recorded `System.nanoTime` around explicit static planner runs and runtime scheduling cycles; never simulated time | Missing/non-numeric planner event, online run with no explicit planner, and wall-clock exclusion from deterministic fingerprints |
 | SLR reference | Available only in the controlled shared-storage scope | Unsupported storage/overhead/failure scope and invalid DAG |
 | Deadline SLA observation | Positive deadline compares `simulationEndSeconds` from simulated time zero; it never alters dispatch, admission, retry, or failure behavior. | No deadline requested, incomplete workflow, and late completion |
-| Task timing accuracy | Job timing is the CloudSim envelope including effective integral-MI stage-in; logical-Task timing is the compute window after that delay and is exact only when the two coincide | Retry attempt, clustered Job, requested-versus-effective stage-in, and failed Job |
+| Task timing accuracy | `lengthMi` retains parsed/normalized source work; `effectiveExecutionLengthMi` is the current attempt's compute work after matrix rounding. Task windows use effective work. Legacy/fixed stage-in may enlarge the Job envelope, while preExecution transfers precede it; exact timing requires one Task and matching Task/Job windows. | Matrix shorter/longer than source, retry copying, requested/effective stage-in, quantization and failed attempts; do not substitute the source length for effective work. |
 
 The current failure model determines outcome after an attempt has reached its
 Job envelope completion boundary. Only successful Tasks commit their declared

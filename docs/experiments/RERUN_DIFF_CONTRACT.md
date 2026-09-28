@@ -1,6 +1,6 @@
 # Rerun 与差异比对契约（D2）
 
-状态：已实现（分支 `feature/r11-rerun-diff`，阶段 1–7）。实现偏离本契约时，先改契约再改代码；实现期固化的补充决策见文末「实现备注」。
+状态：已实现，包含正确性整改中的迁址路径、精确整数比较及执行模型修订约定。契约与实现必须同步维护；补充决策见文末「实现备注」。
 
 ## 目标与非目标
 
@@ -62,7 +62,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 ## 配置重建规则
 
 - 重建仅使用 manifest 中已记录的字段：`configuration`、`platform`、`inputs`。不引入 manifest 之外的默认值；manifest 中为 `null` 的字段按其 schema 语义处理（显式空值 ≠ 缺省值）。
-- 重建产物必须通过现有 `SimulationConfig`/`PlatformProfile` 的全部校验（未知字段拒绝、容量预检等），即 rerun 走的是与首次运行完全相同的入口约束。
+- 重建产物必须通过现有 `SimulationConfig`/`PlatformProfile` 的模型组合、容量和放置预检，即 rerun 走的是与首次运行相同的配置入口约束；证据字段的结构检查由读取器负责。
 - 若当前代码已不兼容该 manifest 的组合（例如算法标签已被拒绝、契约版本变化），报告状态为 `RECONSTRUCTION_REJECTED`，附上拒绝原因。**这是合法结果，不是错误**：它说明历史证据与当前代码语义不兼容，正是需要暴露的信息。
 
 ## 比对规则：三类字段
@@ -71,7 +71,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 
 | 来源 | 字段 |
 |---|---|
-| manifest `configuration` | 全部字段（算法标签、种子、fileSystem、dataMovementModel、overheadModel、clustering、failureModel 等） |
+| manifest `configuration` | 全部字段（含 rootSeed、executionSemantics、fileSystem、dataMovementModel、overheadModel、clustering、failureModel 等）；仅 `workflowPaths[]` 的路径文本和 `algorithmContract` 身份声明按下文豁免，路径数组长度仍属核心量 |
 | manifest `platform` | 全部字段（hosts、vms、storage、costs、networkTopology） |
 | manifest `inputs` | sha256、sizeBytes、format、declaredVersion、taskCount、normalizations（**不含 path**，路径属易变量） |
 | manifest `workflowProfile` | 全部字段 |
@@ -80,7 +80,9 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 | metrics | 全部字段，**除** `totalSchedulingDecisionWallClockNanos`、`totalPlanningDecisionWallClockNanos` |
 | events | 事件总数、每条事件的 `sequence`/`simulationTime`/`type`/`taskIds`/业务 attributes；**除** 各事件 attributes 中的本机耗时字段（如 `planningDecisionElapsedNanos`，REPRODUCIBILITY 契约已声明其排除在确定性 fingerprint 外） |
 
-比对方式为**序列化值的精确相等**：浮点数不设 epsilon 容差。理由：项目已声明"相同数据集根下复跑产出逐位一致的 makespan"，任何需要容差才能通过的情形都是未修复的非确定性来源，应修源头而不是放宽比较。
+比对方式为**JSON 值的精确相等**，不是文本字节相等：对象键顺序无关，数组顺序保留；数值按十进制精确值比较，`1000`、`1000.0`、`1e3` 等值，但不先转换成 double，不设 epsilon 容差。因而大于 2^53 的相邻 long 种子仍不同，浮点相邻值也不能靠容差通过。输入 SHA、大小、格式、顺序和路径数组长度始终参与核心比较。
+
+新证据包含 `configuration.executionSemantics=WORK_CONSERVING_TASK_EXECUTION_V2`。旧 v4 缺少此字段仍可读；重建后执行的是当前模型，不会补造“旧模型已被重放”的声明。即使部分数值恰好一致，执行模型声明或核心科学量变化仍应报告 `DIVERGED`。参见[网络研究协议修订](<NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
 
 ### 易变量（白名单豁免，仅记录）
 
@@ -88,9 +90,12 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 - `runtime.*` 全部（JVM 版本、OS）；
 - metrics 与 events 中的本机 wall-clock 纳秒字段；
 - `artifacts[].sha256`/`sizeBytes`（新 manifest 因 provenance 不同而哈希必然不同）；
-- 输入与 workflowOutcomes 的绝对路径。
+- `inputs[].path`、`configuration.workflowPaths[]`、`result.workflowOutcomes[].path` 的路径文本；只在输入定位与 SHA/大小核对通过的复跑链路中应用，不豁免输入身份、输入顺序或数组长度。
+- `configuration.algorithmContract` 作为身份信息单独报告；算法标签和执行模型版本不因此获得豁免。
 
 白名单是**显式枚举**，实现为常量清单并配单元测试。新增易变字段必须走契约修订，不允许实现时随手加豁免——豁免清单每放宽一项，检出真实漂移的能力就弱一分。
+
+对象成员名必须先按 RFC 6901 编码（先 `~`→`~0`，再 `/`→`~1`），再拼接指针并判定白名单；数组索引仍使用原有数字路径。根字面 key `configuration/algorithmContract` 的指针是 `/configuration~1algorithmContract`，其变化属于核心差异，不能冒充实际嵌套的 `/configuration/algorithmContract`；`provenance/extra` 同理。真实易变子树的差异记录也使用相同转义规则。
 
 ### 身份信息（不参与判定，但必须醒目报告）
 
@@ -120,18 +125,18 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 
 ## 验收标准
 
-1. **历史证据复现**：对 `output/network-study-r10-final/runs/` 中至少一个经典 DAX run 和一个合成负载 run 执行 rerun，verdict 为 `IDENTICAL_CORE`；
-2. **分歧检出**：复制一份历史证据、篡改 manifest 中一个核心量（如 makespan），rerun 报告 `DIVERGED` 且分歧清单精确指出被篡改字段；
+1. **同模型复现（必跑）**：由当前代码生成小型 DAX 与合成负载证据，再执行 rerun，verdict 为 `IDENTICAL_CORE`；迁址同内容输入后也应如此，不依赖被忽略的历史输出目录；
+2. **分歧检出**：对通过结构校验的受控核心漂移或旧执行模型声明，rerun 报告 `DIVERGED` 且精确指出字段。未通过结构/交叉约束的篡改应为 `EVIDENCE_INVALID`，不能为了进入差异阶段而放松证据校验；
 3. **输入防护**：篡改输入文件内容后 rerun 报告 `INPUT_HASH_MISMATCH`；移走输入文件后报告 `INPUT_UNRESOLVED` 且列出候选路径；
 4. **不兼容防护**：构造一个含已拒绝算法标签的 manifest，rerun 报告 `RECONSTRUCTION_REJECTED`；
 5. **旧证据可读**：v2/v3 manifest 被明确拒绝并说明原因，不进入执行流程；
-6. **回归**：`mvn clean verify` 全绿；现有 Workbench、NetworkStudy、campaign 路径行为与产物无任何变化（rerun 是纯增量能力）。
+6. **回归与历史保留**：运行 `mvn clean verify` 并以本次报告为准。旧 v4 保持只读兼容，冻结工件不改写；核心执行模型修正后，不以旧数值充当当前黄金，也不承诺新旧产物不变。
 
 ## 测试要求
 
 - **单元**：三类字段清单的枚举测试（核心量清单、易变量白名单、身份信息各自固定）；输入定位三级回退逻辑；verdict 判定逻辑；报告序列化。
 - **语义**：篡改-检出配对测试（每类 verdict 至少一个手造样例，样例本身是小规模、可手算验证的输入）。
-- **集成**：真实历史证据目录的端到端 rerun（验收标准 1、2），按现有惯例命名 `*IntegrationTest`，进入 `mvn verify` 门禁。
+- **集成**：新鲜微型证据的端到端 rerun 与模型修订检出（验收标准 1、2）必须进入 `mvn verify`。历史证据的只读兼容另设可选测试，未提供本地归档时明确报告跳过，不影响必跑链路。
 
 ## 与后续任务的接口预留
 
@@ -144,4 +149,4 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 - **模拟执行阶段失败也映射 `RECONSTRUCTION_REJECTED`**：重建通过了但 `SimulationRunner` 拒绝执行（如历史故障模型参数在当前语义下必然耗尽重试预算），属于"历史证据与当前代码不兼容"的合法结果，与重建期拒绝同判，失败原因中标注"模拟执行阶段"。
 - **metrics 分歧去重**：manifest 内嵌 `metrics` 与 metrics sidecar 是同一份核心量（工件校验器强制二者逐字相等），比对器对两份文档各记一条完全相同的分歧；实现按（指针, 旧值, 新值）精确去重，报告只出现一条。
 - **一致性篡改的含义**：工件校验器强制 manifest 内嵌 metrics == sidecar metrics，且 sidecar 的 sha256/sizeBytes 记录在 `artifacts[]` 中。因此篡改核心量并期望通过结构校验到达 `DIVERGED`，必须同步改写三处（manifest metrics、sidecar 文件、artifacts 哈希/大小）；只改 manifest 会被 `EVIDENCE_INVALID` 提前拦截——这正是防线应有的行为。
-- 测试分布：verdict/枚举与白名单单元测试、三类 verdict 的篡改-检出配对在 `RerunDiffExecutorTest`（夹具级，8 用例）、真实历史证据端到端在 `RerunDiffExecutorIntegrationTest`（经典 DAX run 走输入定位 tier 2，合成 run 走 tier 1），均纳入 `mvn verify` 门禁。历史证据目录不在 git 中时集成测试按 `assumeTrue` 整类跳过。
+- 测试分布：[夹具级验收](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/RerunDiffExecutorTest.java>)覆盖 verdict 与迁址；[必跑集成](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/RerunDiffExecutorIntegrationTest.java>)每次生成当前模型的微型证据，覆盖 tier 2/tier 1 和执行模型修订差异。[可选历史兼容](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/HistoricalEvidenceCompatibilityIntegrationTest.java>)只读本次检出的归档，每个缺失用例明确跳过；不再向父目录搜索并借用另一检出的历史证据。

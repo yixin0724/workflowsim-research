@@ -54,6 +54,23 @@ class WorkflowParserStrictValidationTest {
         // 如果上面的 parse 成功返回，说明没有抛异常，符合预期
     }
 
+    @Test
+    void rejectsExternalDtdInsteadOfConsumingUnfingerprintedRuntime() throws Exception {
+        Path dtd = temporaryDirectory.resolve("runtime.dtd");
+        Files.write(dtd, "<!ENTITY runtime \"5\">".getBytes(StandardCharsets.UTF_8));
+        String xml = "<?xml version=\"1.0\"?><!DOCTYPE adag SYSTEM \"" + dtd.toUri() + "\">"
+                + "<adag version=\"3.3\"><job id=\"a\" runtime=\"&runtime;\"/></adag>";
+        assertThrows(WorkflowValidationException.class, () -> parse(xml),
+                "The primary input hash must not omit a DTD that controls task execution");
+    }
+
+    @Test
+    void rejectsDoctypeEvenWhenTheEntityIsDeclaredInline() {
+        String xml = "<?xml version=\"1.0\"?><!DOCTYPE adag [<!ENTITY runtime \"1\">]>"
+                + "<adag version=\"3.3\"><job id=\"a\" runtime=\"&runtime;\"/></adag>";
+        assertThrows(WorkflowValidationException.class, () -> parse(xml));
+    }
+
     private void parse(String contents) throws Exception {
         Path input = temporaryDirectory.resolve("workflow.dax");
         Files.write(input, contents.getBytes(StandardCharsets.UTF_8));
