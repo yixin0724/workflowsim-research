@@ -383,6 +383,13 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException("Workflow input paths cannot be empty");
                 }
             }
+            // Validate required models before any cross-model condition dereferences them.
+            if (overheadModel == null || clusteringParameters == null
+                    || schedulingAlgorithm == null || planningAlgorithm == null
+                    || fileSystem == null || costModel == null || failureModel == null
+                    || dataMovementModel == null) {
+                throw new IllegalArgumentException("Simulation configuration contains a required null value");
+            }
             if (workflowArrivalSeconds == null
                     || workflowArrivalSeconds.size() != workflowPaths.size()) {
                 throw new IllegalArgumentException("Workflow arrival seconds must cover every "
@@ -413,12 +420,6 @@ public final class SimulationConfig {
             }
             if (vmCount <= 0) {
                 throw new IllegalArgumentException("VM count must be positive");
-            }
-            if (overheadModel == null || clusteringParameters == null
-                    || schedulingAlgorithm == null || planningAlgorithm == null
-                    || fileSystem == null || costModel == null || failureModel == null
-                    || dataMovementModel == null) {
-                throw new IllegalArgumentException("Simulation configuration contains a required null value");
             }
             if (deadline < 0L) {
                 throw new IllegalArgumentException("Deadline must be zero (not requested) or a positive simulated second");
@@ -503,11 +504,10 @@ public final class SimulationConfig {
                             + "(silent planning/runtime divergence)");
                 }
             }
-            // LOCAL_HEFT/LOCAL_CPOP/LOCAL_PEFT 的规划侧 AST（按父任务并行传输、传输与
-            // VM 忙碌期重叠）逐位镜像运行时 preExecutionTransferDelayV1 的执行前传输
-            // 延迟模型，模型前提在配置层提前强制（规划器运行时还会再次校验）。链路
-            // 争用模型（R2）同样可用于本轨道：规划侧仍按无争用 AST 估计，运行期并发
-            // 传输公平共享 VM 端点带宽，两者在并发负载下的可解释偏差由文档声明。
+            // LOCAL 列表规划使用父组并行传输和带可用时刻副本的无争用估计，
+            // 不是完整运行事件重放；这些模型前提在配置层和规划器中分别校验。
+            // 争用变体的运行期还受端点/链路容量及固定每 VM 顺序约束，
+            // 不能把规划时刻与任意 preExecution 轨道宣称为逐位一致。
             if (planningAlgorithm == PlanningAlgorithm.LOCAL_HEFT
                     || planningAlgorithm == PlanningAlgorithm.LOCAL_CPOP
                     || planningAlgorithm == PlanningAlgorithm.LOCAL_PEFT) {
@@ -530,8 +530,7 @@ public final class SimulationConfig {
                         && !dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
                         && !dataMovementModel.isFatTreeContentionV1()) {
                     throw new IllegalArgumentException(label + " requires "
-                            + "DataMovementModel.preExecutionTransferDelayV1() (planning AST and "
-                            + "runtime transfer delays bit-aligned), "
+                            + "DataMovementModel.preExecutionTransferDelayV1() (no-contention planning estimate), "
                             + "preExecutionTransferDelayWithContentionV1() (runtime endpoint link "
                             + "contention, documented planner/execution divergence under "
                             + "concurrency), or fatTreeContentionV1() (runtime fat-tree path link "
