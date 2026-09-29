@@ -7,10 +7,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonToken;
-import java.io.IOException;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,7 +61,7 @@ public final class NetworkLedgerCodec {
      * @throws IllegalArgumentException for invalid content
      */
     public static Decoded decode(String json){
-        JsonObject root=object(parse(json),"ledger");
+        JsonObject root=parseDocument(json);
         keys(root,"schema","flowUnit","numericProfile","accountingVersion","units","evidence","metrics");
         equal(root,"schema",SCHEMA);equal(root,"flowUnit","V1_PARENT_OR_EXTERNAL_GROUP");
         equal(root,"numericProfile",TransferTraceValidator.NUMERIC_PROFILE);equal(root,"accountingVersion",NetworkTraceMetrics.ACCOUNTING_VERSION);
@@ -203,29 +199,91 @@ public final class NetworkLedgerCodec {
         else if(value.isJsonArray())for(JsonElement child:value.getAsJsonArray())wireNumbers(child,depth+1);
         else if(value.isJsonPrimitive()&&value.getAsJsonPrimitive().isNumber())decimal(value,"encoded number");
     }
-    private static JsonElement parse(String json){
+    /**
+     * Read strict JSON syntax into a fresh transport object while preserving numeric types.
+     * This lexical helper does NOT validate network semantics or supplied metrics; use
+     * {@link #decode(String)} for a certificate. It also supports exact numeric tokens
+     * longer than Gson JsonReader's 1024-character buffer, within our 4096-character limit.
+     * @param json complete JSON object
+     * @return fresh JSON tree with exact BigDecimal numeric primitives
+     * @throws IllegalArgumentException for invalid syntax or numeric/depth limits
+     */
+    public static JsonObject parseDocument(String json){
         if(json==null)throw bad("Network ledger JSON is required");
-        try(JsonReader reader=new JsonReader(new StringReader(json))){
-            reader.setLenient(false);JsonElement value=readValue(reader,0);
-            if(reader.peek()!=JsonToken.END_DOCUMENT)throw bad("Trailing JSON content");return value;
-        }catch(IOException|IllegalStateException e){throw new IllegalArgumentException("Invalid network ledger JSON",e);}
+        JsonSyntax parser=new JsonSyntax(json);JsonElement value=parser.value(0);parser.space();
+        if(parser.at!=json.length())throw parser.error("Trailing JSON content");return object(value,"network ledger JSON");
     }
-    private static JsonElement readValue(JsonReader r,int depth)throws IOException{
-        if(depth>MAX_JSON_DEPTH)throw bad("Network ledger JSON nesting exceeds limit");
-        switch(r.peek()){
-            case BEGIN_OBJECT:
-                JsonObject object=new JsonObject();r.beginObject();while(r.hasNext()){
-                    String name=r.nextName();if(object.has(name))throw bad("Duplicate JSON key: "+name);
-                    object.add(name,readValue(r,depth+1));
-                }r.endObject();return object;
-            case BEGIN_ARRAY:
-                JsonArray array=new JsonArray();r.beginArray();while(r.hasNext())array.add(readValue(r,depth+1));r.endArray();return array;
-            case STRING:return new JsonPrimitive(r.nextString());
-            case NUMBER:return new JsonPrimitive(number(r.nextString(),"JSON number"));
-            case BOOLEAN:return new JsonPrimitive(r.nextBoolean());
-            case NULL:r.nextNull();return JsonNull.INSTANCE;
-            default:throw bad("Unexpected JSON token: "+r.peek());
+
+    /** RFC 8259 lexical grammar only; semantic reconstruction stays in the codec above. */
+    private static final class JsonSyntax {
+        final String text;int at;
+        JsonSyntax(String text){this.text=text;at=!text.isEmpty()&&text.charAt(0)==0xfeff?1:0;}
+        JsonElement value(int depth){
+            if(depth>MAX_JSON_DEPTH)throw error("JSON nesting exceeds limit");space();char c=peek();
+            if(c=='{'){
+                at++;JsonObject object=new JsonObject();space();if(take('}'))return object;
+                while(true){
+                    space();if(peek()!='"')throw error("Object keys must be quoted strings");String key=string();
+                    if(object.has(key))throw error("Duplicate JSON key: "+key);space();expect(':');object.add(key,value(depth+1));space();
+                    if(take('}'))return object;expect(',');
+                }
+            }
+            if(c=='['){
+                at++;JsonArray array=new JsonArray();space();if(take(']'))return array;
+                while(true){array.add(value(depth+1));space();if(take(']'))return array;expect(',');}
+            }
+            if(c=='"')return new JsonPrimitive(string());
+            if(c=='t'){literal("true");return new JsonPrimitive(true);}
+            if(c=='f'){literal("false");return new JsonPrimitive(false);}
+            if(c=='n'){literal("null");return JsonNull.INSTANCE;}
+            if(c=='-'||digit(c))return numeric();
+            throw error("Expected JSON value");
         }
+        JsonPrimitive numeric(){
+            int start=at;take('-');
+            if(take('0')){ /* A following digit is rejected by the enclosing delimiter grammar. */ }
+            else if(peek()>='1'&&peek()<='9')digits(start);
+            else throw error("Invalid JSON number integer part");
+            if(take('.')){int first=at;digits(start);if(at==first)throw error("Number fraction needs digits");}
+            if(peek()=='e'||peek()=='E'){
+                at++;if(peek()=='+'||peek()=='-')at++;int first=at;digits(start);
+                if(at==first)throw error("Number exponent needs digits");
+            }
+            if(at-start>MAX_NUMBER_DIGITS)throw error("Numeric token exceeds limit");
+            return new JsonPrimitive(number(text.substring(start,at),"JSON number"));
+        }
+        void digits(int start){while(digit(peek())){at++;if(at-start>MAX_NUMBER_DIGITS)throw error("Numeric token exceeds limit");}}
+        String string(){
+            expect('"');StringBuilder result=new StringBuilder();
+            while(at<text.length()){
+                char c=text.charAt(at++);if(c=='"')return result.toString();
+                if(c<0x20)throw error("Unescaped string control character");
+                if(c!=92){result.append(c);continue;}
+                if(at>=text.length())throw error("Incomplete string escape");char escape=text.charAt(at++);
+                if(escape=='"'||escape==92||escape=='/'){result.append(escape);continue;}
+                switch(escape){
+                    case 'b':result.append((char)8);break;
+                    case 'f':result.append((char)12);break;
+                    case 'n':result.append((char)10);break;
+                    case 'r':result.append((char)13);break;
+                    case 't':result.append((char)9);break;
+                    case 'u':
+                        if(text.length()-at<4)throw error("Incomplete Unicode escape");int code=0;
+                        for(int i=0;i<4;i++){char h=text.charAt(at++);int hex=h>='0'&&h<='9'?h-'0':h>='a'&&h<='f'?h-'a'+10:h>='A'&&h<='F'?h-'A'+10:-1;
+                            if(hex<0)throw error("Invalid Unicode escape");code=code*16+hex;}
+                        result.append((char)code);break;
+                    default:throw error("Invalid string escape");
+                }
+            }
+            throw error("Unterminated string");
+        }
+        void literal(String value){if(!text.startsWith(value,at))throw error("Invalid JSON literal");at+=value.length();}
+        void space(){while(at<text.length()){char c=text.charAt(at);if(c!=' '&&c!=10&&c!=13&&c!=9)return;at++;}}
+        char peek(){return at<text.length()?text.charAt(at):(char)0;}
+        boolean take(char c){if(at<text.length()&&text.charAt(at)==c){at++;return true;}return false;}
+        void expect(char c){if(!take(c))throw error("Expected delimiter "+c);}
+        static boolean digit(char c){return c>='0'&&c<='9';}
+        IllegalArgumentException error(String message){return bad(message+" at character "+at);}
     }
     private static JsonObject object(JsonElement e,String name){if(e==null||!e.isJsonObject())throw bad("Expected object: "+name);return e.getAsJsonObject();}
     private static JsonArray array(JsonElement e,String name){if(e==null||!e.isJsonArray())throw bad("Expected array: "+name);return e.getAsJsonArray();}

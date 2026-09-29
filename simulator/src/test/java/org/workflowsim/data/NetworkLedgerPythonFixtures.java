@@ -73,7 +73,8 @@ public final class NetworkLedgerPythonFixtures {
                     NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1,"source","VM:fixture",e.getStart().getOccupiedResources()));
         NetworkRunEvidence evidence=NetworkRunEvidence.capture(NetworkEvidenceConfig.fluidGroupLedger(BUDGET),
                 DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1,engine.getTraceSnapshot(),bindings);
-        Path path=root.resolve(name+".network-ledger.json");Files.write(path,NetworkLedgerCodec.encode(evidence).getBytes(StandardCharsets.UTF_8));
+        String encoded=NetworkLedgerCodec.encode(evidence);NetworkLedgerCodec.decode(encoded);
+        Path path=root.resolve(name+".network-ledger.json");Files.write(path,encoded.getBytes(StandardCharsets.UTF_8));
         inputs.add(root.relativize(path).toString().replace('\\','/'));
     }
     private static void runtime(Path root,List<String> inputs,Path dax,boolean fat,int budget,String tag)throws Exception{

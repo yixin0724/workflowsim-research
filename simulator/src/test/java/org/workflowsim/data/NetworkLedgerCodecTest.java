@@ -179,6 +179,49 @@ class NetworkLedgerCodecTest {
                 .compareTo(d.getMetrics().getTransferMetrics().getAdmittedPayloadBytes()));
     }
 
+    @Test void exactBinary64ProductLongerThanReaderBufferRoundTripsStrictly() {
+        TransferContentionEngine engine=new TransferContentionEngine(10);engine.setEndpointCapacity("A",Double.MIN_VALUE);
+        engine.addTransfer(1,1,Collections.singletonList("A"),1,0);engine.advance(Double.MIN_VALUE);
+        NetworkFlowBinding binding=NetworkFlowBinding.of(1,1,91,Collections.singletonList(5),null,
+                NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1,"source","VM:42",Collections.singletonList("A"));
+        NetworkRunEvidence evidence=NetworkRunEvidence.capture(NetworkEvidenceConfig.fluidGroupLedger(10),KIND,engine.getTraceSnapshot(),Collections.singletonList(binding));
+        BigDecimal area=new BigDecimal(Double.MIN_VALUE).multiply(new BigDecimal(Double.MIN_VALUE));
+        assertTrue(area.toString().length()>1024,"valid exact products exceed the Gson stream token buffer");
+        NetworkLedgerCodec.Decoded decoded=NetworkLedgerCodec.decode(NetworkLedgerCodec.encode(evidence));
+        assertEquals(0,area.compareTo(decoded.getMetrics().getTransferMetrics().getModeledRateAreaBytes()));
+        assertTrue(decoded.getMetrics().getTransferMetrics().getModeledRateAreaBytes().signum()>0);
+    }
+
+    @Test void lexicalLongNumbersStayNumericAndRawTokenLimitsStayStrict() {
+        String exact=new BigDecimal(Double.MIN_VALUE).multiply(new BigDecimal(Double.MIN_VALUE)).toString();
+        JsonObject parsed=NetworkLedgerCodec.parseDocument("{\"number\":"+exact+",\"text\":\""+exact+"\"}");
+        assertTrue(parsed.getAsJsonPrimitive("number").isNumber());assertTrue(parsed.getAsJsonPrimitive("text").isString());
+        assertEquals(0,new BigDecimal(exact).compareTo(parsed.get("number").getAsBigDecimal()));
+        String limit="1."+repeat('0',4094);assertEquals(4096,limit.length());
+        assertEquals(0,BigDecimal.ONE.compareTo(NetworkLedgerCodec.parseDocument("{\"n\":"+limit+"}").get("n").getAsBigDecimal()));
+        assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.parseDocument("{\"n\":"+limit+"0}"));
+        assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.parseDocument("{\"n\":0e"+repeat('0',4096)+"}"));
+    }
+
+    @Test void lexicalScaleAndDepthBoundariesDoNotReplaceSemanticValidation() {
+        for(String n:Arrays.asList("1e4096","1e-4096","-0","1E+3"))assertTrue(NetworkLedgerCodec.parseDocument("{\"n\":"+n+"}").getAsJsonPrimitive("n").isNumber());
+        for(String n:Arrays.asList("1e4097","1e-4097","1.0e-4096"))assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.parseDocument("{\"n\":"+n+"}"));
+        assertDoesNotThrow(()->NetworkLedgerCodec.parseDocument("{\"n\":"+repeat('[',63)+"0"+repeat(']',63)+"}"));
+        assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.parseDocument("{\"n\":"+repeat('[',64)+"0"+repeat(']',64)+"}"));
+        assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.decode("{\"n\":1e-4096}"),"lexical-only helper is not a network certificate");
+    }
+
+    @Test void lexicalParserPreservesEscapesAndRejectsDecodedKeyCollisions() {
+        JsonObject value=NetworkLedgerCodec.parseDocument("\ufeff {\"s\":\"a\\\"b\\\\c\\n\\u4e2d\",\"v\":[true,false,null]}");
+        assertEquals("a\"b\\c\n中",value.get("s").getAsString());
+        assertTrue(value.getAsJsonArray("v").get(0).getAsBoolean());assertFalse(value.getAsJsonArray("v").get(1).getAsBoolean());assertTrue(value.getAsJsonArray("v").get(2).isJsonNull());
+        for(String n:Arrays.asList("+1","01",".1","1.","1e+","NaN","1true","Infinity","0x1","-"))
+            assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.parseDocument("{\"n\":"+n+"}"));
+        for(String json:Arrays.asList("{\"schema\":1,\"\\u0073chema\":2}","{\"x\":\"\\x41\"}","{\"x\":\"\\u123\"}",
+                "{\"x\":\"a"+(char)1+"b\"}","{\"x\":1,}","{\"x\":[1,]}","{\"x\":truefalse}","{x:1}","{}{}","/*x*/{}", "\u000b{}"))
+            assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.parseDocument(json));
+    }
+
     @Test void unknownFieldsAndUnretainedBindingsAreRejectedRatherThanDropped() {
         JsonObject wrong=document();event(wrong,1).getAsJsonObject("start").addProperty("fake",1);bad(wrong);
         wrong=document();wrong.addProperty("ignored",true);bad(wrong);
@@ -216,6 +259,7 @@ class NetworkLedgerCodecTest {
         assertThrows(IllegalArgumentException.class,()->NetworkLedgerCodec.encode(e));
     }
 
+    private static String repeat(char value,int count){char[] chars=new char[count];Arrays.fill(chars,value);return new String(chars);}
     private static NetworkRunEvidence sample(int budget){
         TransferContentionEngine engine=new TransferContentionEngine(budget);engine.setEndpointCapacity("VM:7",100);
         engine.addTransfer(Long.MAX_VALUE,500,PATH,100,0);engine.addTransfer(Long.MIN_VALUE,1000,PATH,100,0);engine.advance(20);

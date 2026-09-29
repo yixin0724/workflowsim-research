@@ -70,10 +70,10 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 - v4的`configuration.networkEvidence`缺省代表OFF；ON的mode和maxTraceRecords必须重建，不能退回无记录运行。独立manifest不能替代所声明的网络sidecar。
 - 读取器复用工件验证器对network-ledger角色、哈希、严格内容和运行上下文的检查，保存已验证的可选路径与捕获状态；损坏或缺失的已声明账本属于`EVIDENCE_INVALID`。
 - 网络sidecar的**全部内容**在`/networkLedger/...`命名空间做精确核心比较。artifact哈希/大小依旧豁免，但其内容不会因此被漏比；此命名空间不继承根`/runtime`、`/provenance`的豁免。
-- 两侧均OFF时跳过网络比较，不新增网络字段；只有一侧合法包含账本时属于核心分歧。大long身份及BigDecimal聚合仍按精确十进制值比较，不经double降精度。
+- 两侧均OFF时跳过网络比较，不新增网络字段；只有一侧合法包含账本时属于核心分歧。大long身份及BigDecimal聚合仍按精确十进制值比较，不经double降精度。网络比较使用严格词法树，超过1024字符的数值也不能退化成字符串；等值写法相等，真实极小十进制漂移仍可检出。
 - 任一侧为TRUNCATED时，JSON和Markdown报告增加条件`networkEvidenceCoverageNote`。此时即使`IDENTICAL_CORE`也只说明保留的网络记录与聚合观察匹配，**不认证完整网络服务历史**。OFF及两侧完整捕获不增加null/false占位字段。
 
-见[账本格式](<../advanced/NETWORK_LEDGER_FORMAT.md>)和[独立Python检查](<../advanced/NETWORK_LEDGER_PYTHON.md>)。Workbench网络配置/显示仍是后续NF-002D，不与本次rerun能力混为一谈。
+见[账本格式](<../advanced/NETWORK_LEDGER_FORMAT.md>)和[独立Python检查](<../advanced/NETWORK_LEDGER_PYTHON.md>)。Workbench另提供[安全离线网络显示](<../advanced/NETWORK_REPORT_DISPLAY.md>)，显示适配不改写原始证据，也不改变本节核心比较规则。
 
 ## 比对规则：三类字段
 

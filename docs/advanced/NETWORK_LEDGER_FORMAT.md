@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-`NetworkLedgerCodec`提供严格JSON编解码与不可变重建；`ExperimentArtifactWriter`现在已能写出ON网络账本，`ExperimentArtifactValidator`会同时核对内容及运行上下文。另有不调用Java的[独立Python检查器](<NETWORK_LEDGER_PYTHON.md>)。已接入[ON重放与精确网络比较](<../experiments/RERUN_DIFF_CONTRACT.md>)；**Workbench配置/显示仍属后续接线，不把本阶段等同于完整P0/P2交付。**
+`NetworkLedgerCodec`提供严格JSON编解码与不可变重建；`ExperimentArtifactWriter`现在已能写出ON网络账本，`ExperimentArtifactValidator`会同时核对内容及运行上下文。另有不调用Java的[独立Python检查器](<NETWORK_LEDGER_PYTHON.md>)。已接入[ON重放与精确网络比较](<../experiments/RERUN_DIFF_CONTRACT.md>)；Workbench已支持[严格可选配置](<../getting-started/WORKBENCH.md>)与[安全离线网络显示](<NETWORK_REPORT_DISPLAY.md>)；新版本物理模型与在线闭环仍是后续范围。
 
 ```java
 String json = NetworkLedgerCodec.encode(report.getNetworkEvidence());
@@ -38,7 +38,7 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 ## 文档头
 
 - schema：`workflowsim-network-ledger-v1`
-- 预定工件role：`network-ledger`，文件名`<runId>.network-ledger.json`
+- 工件role：`network-ledger`，文件名`<runId>.network-ledger.json`
 - flowUnit：`V1_PARENT_OR_EXTERNAL_GROUP`
 - units：time=`SIMULATION_SECONDS`，bytes=`MODELED_BYTES`，rate=`BYTES_PER_SECOND`
 - numericProfile：`BINARY64_SCALAR_MAXMIN_8ULP_CAPPED_1E_MINUS12_V1`
@@ -60,6 +60,8 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 8. 运行独立trace语义/容量证书校验，精确关联保留START与bindings，核对输入计数分区，重新计算并比较所有metrics字段。
 9. 截断证据中的额外未保留binding不能被读取器静默过滤。engineCreated=false不能掩盖非空记录、时间或输入观察。
 
+`parseDocument(String)`提供严格的有界词法JSON树，保留超过Gson流缓冲区长度的精确数值类型；它不替代`decode`的语义/指标校验。数字原始长度、Unicode转义、解码后重复键与JSON深度均检查，绝不靠宽松模式把长数字当字符串。
+
 对象成员顺序不影响语义；事件、路径、Task列表等数组顺序保留。binary64字段按数值比较，精确整数与十进制聚合字段不会通过有损浮点比较。
 
 ## 保证与非保证
@@ -67,7 +69,7 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 - `Decoded`仅返回不可变证据和重新计算的不可变指标；修改源JSON树不影响它们。
 - COMPLETE、TRUNCATED、无引擎零观察、缺失输入计数等状态保持不同含义。
 - 纯codec不持有manifest中的Job结果、VM放置或主事件；正式工件校验另核对配置、实际VM放置、Job/Task身份、来源/确定性路径、平台容量、Job-ready/输入完成/Job开始时间和每Job组计数。输入引用数与主事件一致，正传输组数不得超过非本地引用数，每个Job尝试至多一个V1外部输入组（也约束已保留前缀）。精确引用字节与原double归组量在明确累加误差边界内核对，不能把允许的±1归组舍入差当作局部性。
-- v4旧工具可能只验证额外角色的哈希而不理解这些网络语义。ON证据必须使用升级后的校验/重放链路；专用rerun已升级并逐字段比较sidecar；Workbench网络显示仍待后续完成。
+- v4旧工具可能只验证额外角色的哈希而不理解这些网络语义。ON证据必须使用升级后的校验/重放链路；专用rerun已升级并逐字段比较sidecar；Workbench正常与独立报告均内嵌有界的已验证网络显示投影。
 - 内部一致性不等于密码学真实性，也不证明未知截断后缀存在。
 
-22项codec测试覆盖正常/所有保留前缀往返、巨大十进制聚合、长ID、标签作为纯数据、非法结构和派生摘要篡改。既有真实端点/Fat-tree/局部性/故障重试捕获也执行严格往返测试。非法绑定异常类型和写读数值边界先被测试发现，再实施修正。
+26项codec测试覆盖正常/所有保留前缀往返、巨大与超1024字符的精确十进制聚合、长ID、标签作为纯数据、严格词法边界、非法结构和派生摘要篡改。既有真实端点/Fat-tree/局部性/故障重试捕获也执行严格往返测试。非法绑定异常类型和写读数值边界先被测试发现，再实施修正。

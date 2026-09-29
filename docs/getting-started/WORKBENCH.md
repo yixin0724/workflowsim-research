@@ -62,7 +62,7 @@ HTML 内部显示行的 `seed` 使用精确十进制字符串，避免浏览器 
 - 每个候选和每个seed都会保留该选项；ON在每个run下另写独立network-ledger工件，OFF继续保持原三件套和manifest字段集合。
 - 记录预算耗尽只截断证据，不截断仿真；截断不是“零网络流量”。账本和派生指标可用[独立Python检查器](<../advanced/NETWORK_LEDGER_PYTHON.md>)校验，或通过[rerun精确比较](<../experiments/RERUN_DIFF_CONTRACT.md>)复验。
 
-本配置接线阶段已支持生成、验证与重放账本；HTML专用网络摘要和有界预览属于紧接的展示子功能，不以原有VM利用率图冒充网络指标。
+正常运行报告与独立报告现已显示专用网络摘要、流/FCT、资源占用和已保留事件预览；不是把原有VM利用率图改名为网络指标。OFF、完整捕获、开启记录但零流、截断与无有效结果分别提示。精确数值以字符串显示，流/资源/事件表分别最多64/64/128条；实际捕获截断与界面省略有独立计数，详细边界见[安全离线网络报告](<../advanced/NETWORK_REPORT_DISPLAY.md>)。
 
 ```bash
 mvn -pl :workflowsim-experiments -am compile exec:java \
@@ -106,12 +106,11 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 
 配置单元测试覆盖严格解析、组合边界和输入资格。入口集成测试覆盖配置→仿真→v4工件校验→HTML→历史、失败记录、重复实验隔离、HTML转义、算法标签及大整数种子载荷；最后运行全量 `mvn clean verify`。这些 Java 检查不执行浏览器 JavaScript，不能替代下面的显式浏览器验收；大种子报告还应核对运行选择器和条件栏的完整数字。
 
-浏览器验收脚本为 `scripts/verify-report.cjs`，检查运行选择、VM/任务筛选、依赖图聚焦、图表、390px窄屏布局、无浏览器错误和无外部HTTP请求。测试工具只需临时安装 `playwright-core` 并复用已有Chrome：
+[浏览器验收脚本](<../../scripts/verify-report.cjs>)检查运行选择、VM/任务筛选、依赖图聚焦、图表、390px窄屏布局、网络精确文本和预览计数、无浏览器错误以及无HTTP/额外file读取。[验证器反例测试](<../../scripts/test-report-checker.cjs>)会破坏临时报告副本，确认这些闸门确实能失败。使用仓库固定版本的Playwright并复用已有Chrome：
 
 ```bash
-npm install --prefix /tmp/workflowsim-browser-check --no-audit --no-fund playwright-core
-NODE_PATH=/tmp/workflowsim-browser-check/node_modules \
-  WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
+npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
   node scripts/verify-report.cjs /absolute/experiment/report.html
 ```
 

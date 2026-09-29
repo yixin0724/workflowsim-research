@@ -80,6 +80,8 @@ public final class WorkbenchBrowserFixtures {
         ExperimentArtifactWriter.writeJson(largeConfig, large);
         reports.add(describe("large-dag", Workbench.run(largeConfig, output.resolve("large"))));
 
+        NetworkBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
+
         Map<String, Object> index = new LinkedHashMap<>();
         index.put("schema", "workflowsim-browser-fixtures-v1"); index.put("reports", reports);
         ExperimentArtifactWriter.writeJson(output.resolve("browser-fixtures.json"), index);

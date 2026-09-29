@@ -42,7 +42,8 @@ public final class Workbench {
             case "report":
                 requireLength(args, 3); Path target = Paths.get(args[2]);
                 if (Files.exists(target)) { throw new IOException("Report output already exists: " + target); }
-                JsonObject manifest = HtmlReports.validatedManifest(Paths.get(args[1]));
+                HtmlReports.ValidatedReport evidence = HtmlReports.validatedReport(Paths.get(args[1]));
+                JsonObject manifest = evidence.getManifest();
                 Map<String, Object> row = new LinkedHashMap<String, Object>();
                 JsonObject configuration = manifest.getAsJsonObject("configuration");
                 String planner = configuration.get("planningAlgorithm").getAsString();
@@ -50,7 +51,7 @@ public final class Workbench {
                         ? configuration.get("schedulingAlgorithm").getAsString() : planner);
                 row.put("seed", configuration.get("rootSeed").getAsBigDecimal().longValueExact());
                 row.put("status", manifest.getAsJsonObject("result").get("logicalTaskCompletionStatus").getAsString());
-                row.put("manifest", manifest);
+                evidence.attachTo(row);
                 HtmlReports.experiment("单次仿真实验", java.util.Collections.singletonList(row), target); return;
             default: throw new IllegalArgumentException("Unknown command: " + args[0]);
         }
@@ -89,11 +90,11 @@ public final class Workbench {
                         SimulationReport report = new SimulationRunner().run(candidate.config.withRandomSeed(seed), config.getPlatform());
                         ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
                                 report, directory.resolve("runs").resolve(runId), "result", context);
-                        JsonObject manifest = HtmlReports.validatedManifest(artifacts.getManifest());
+                        HtmlReports.ValidatedReport evidence = HtmlReports.validatedReport(artifacts.getManifest());
                         String status = report.isWorkflowCompletedSuccessfully() ? "COMPLETED_SUCCESSFULLY" : "INCOMPLETE";
                         row.put("status", status); row.put("manifest", directory.relativize(artifacts.getManifest()).toString().replace('\\', '/'));
                         row.put("makespanSeconds", report.getMakespan());
-                        reportRow.put("status", status); reportRow.put("manifest", manifest);
+                        reportRow.put("status", status); evidence.attachTo(reportRow);
                     } catch (Exception failure) {
                         String message = message(failure);
                         row.put("status", "FAILED"); row.put("error", message);

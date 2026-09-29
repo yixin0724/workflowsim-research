@@ -101,8 +101,8 @@ public final class EvidenceCoreDiffer {
         // Artifact hashes/sizes remain volatile, but the ledger contents are scientific core.
         // The separate namespace deliberately inherits NONE of the root provenance/runtime exemptions.
         if(original.getNetworkLedgerPath()!=null||rerun.getNetworkLedgerPath()!=null){
-            compareJson("/networkLedger",original.getNetworkLedgerPath()==null?null:readJson(original.getNetworkLedgerPath()),
-                    rerun.getNetworkLedgerPath()==null?null:readJson(rerun.getNetworkLedgerPath()),false,core,volatileNoted);
+            compareJson("/networkLedger",original.getNetworkLedgerPath()==null?null:readNetworkJson(original.getNetworkLedgerPath()),
+                    rerun.getNetworkLedgerPath()==null?null:readNetworkJson(rerun.getNetworkLedgerPath()),false,core,volatileNoted);
         }
 
         // manifest 内嵌 metrics 与 sidecar 是同一份核心量（工件校验器强制相等），
@@ -278,6 +278,12 @@ public final class EvidenceCoreDiffer {
     private static JsonObject readJson(Path path) throws IOException {
         return JsonParser.parseString(new String(Files.readAllBytes(path),
                 StandardCharsets.UTF_8)).getAsJsonObject();
+    }
+
+    private static JsonObject readNetworkJson(Path path) throws IOException {
+        String text=StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(Files.readAllBytes(path))).toString();
+        try { return org.workflowsim.data.NetworkLedgerCodec.parseDocument(text); }
+        catch(IllegalArgumentException invalid){throw new IOException("Invalid network JSON during core comparison",invalid);}
     }
 
     private static boolean nullSafeEquals(JsonElement a, JsonElement b) {

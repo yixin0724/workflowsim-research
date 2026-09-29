@@ -3,7 +3,6 @@ package org.workflowsim.experiments.workbench;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -60,8 +59,28 @@ public final class HtmlReports {
     }
 
     public static JsonObject validatedManifest(Path path) throws IOException {
-        ExperimentArtifactValidator.validate(path);
-        return JsonParser.parseString(new String(Files.readAllBytes(path), StandardCharsets.UTF_8)).getAsJsonObject();
+        return ExperimentArtifactValidator.validate(path).getManifestSnapshot();
+    }
+
+    /** Shared report seam: network projection is separate from the unchanged scientific manifest. */
+    static ValidatedReport validatedReport(Path path) throws IOException {
+        return validatedReport(ExperimentArtifactValidator.validate(path));
+    }
+
+    static ValidatedReport validatedReport(ExperimentArtifactValidator.ValidationResult validated) {
+        return new ValidatedReport(validated.getManifestSnapshot(),
+                NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(),true));
+    }
+
+    static final class ValidatedReport {
+        private final JsonObject manifest;
+        private final Map<String,Object> network;
+        private ValidatedReport(JsonObject manifest,Map<String,Object> network){this.manifest=manifest;this.network=network;}
+        JsonObject getManifest(){return manifest;}
+        void attachTo(Map<String,Object> row){
+            row.put("manifest",manifest);
+            if(network==null)row.remove("networkEvidence");else row.put("networkEvidence",network);
+        }
     }
 
     static String escape(String value) {

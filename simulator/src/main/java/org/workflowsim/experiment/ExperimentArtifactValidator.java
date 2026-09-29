@@ -95,7 +95,7 @@ public final class ExperimentArtifactValidator {
         }
         if(networkContext!=null)networkContext.finish();
         return new ValidationResult(manifest, metrics, events, actualEvents,networkLedger,
-                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus());
+                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus(),decoded,root);
     }
 
     private static void validateManifestTopLevelShape(JsonObject root) throws IOException {
@@ -403,17 +403,23 @@ public final class ExperimentArtifactValidator {
         private final int eventCount;
         private final Path networkLedger;
         private final org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus;
+        private final org.workflowsim.data.NetworkLedgerCodec.Decoded decodedNetworkLedger;
+        private final JsonObject validatedManifest;
 
         private ValidationResult(Path manifest, Path metrics, Path events, int eventCount,Path networkLedger,
-                org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus) {
+                org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
+                org.workflowsim.data.NetworkLedgerCodec.Decoded decodedNetworkLedger, JsonObject validatedManifest) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
             this.eventCount = eventCount;
-            this.networkLedger=networkLedger;this.networkCaptureStatus=networkCaptureStatus;
+            this.networkLedger=networkLedger;this.networkCaptureStatus=networkCaptureStatus;this.decodedNetworkLedger=decodedNetworkLedger;
+            this.validatedManifest=validatedManifest;
         }
 
         public Path getManifest() { return manifest; }
+        /** @return defensive copy of the manifest actually validated with this result; performs no further I/O */
+        public JsonObject getManifestSnapshot() { return validatedManifest.deepCopy(); }
         public Path getMetrics() { return metrics; }
         public Path getEvents() { return events; }
         public int getEventCount() { return eventCount; }
@@ -421,5 +427,7 @@ public final class ExperimentArtifactValidator {
         public Path getNetworkLedger() { return networkLedger; }
         /** @return validated capture status, or null for OFF */
         public org.workflowsim.data.TransferTraceSnapshot.Status getNetworkCaptureStatus() { return networkCaptureStatus; }
+        /** @return immutable already-validated/recomputed ledger, or null for OFF; performs no further I/O */
+        public org.workflowsim.data.NetworkLedgerCodec.Decoded getDecodedNetworkLedger() { return decodedNetworkLedger; }
     }
 }

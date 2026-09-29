@@ -117,6 +117,21 @@ class NetworkRerunIntegrationTest {
         assertTrue(diff.getCoreDivergences().stream().anyMatch(d->d.getPointer().startsWith("/networkLedger/runtime")));
     }
 
+    @Test void pureDifferTreatsLongExactNumericTokensAsNumbersNotUnquotedStrings()throws Exception{
+        Path run=fixture(false,2000);RerunEvidence source=RerunEvidenceReader.read(run);JsonObject a=read(source.getNetworkLedgerPath()),b=a.deepCopy();
+        BigDecimal tiny=new BigDecimal(Double.MIN_VALUE).multiply(new BigDecimal(Double.MIN_VALUE));assertTrue(tiny.toString().length()>1024);
+        a.getAsJsonObject("metrics").getAsJsonObject("transferMetrics").addProperty("modeledRateAreaBytes",tiny);
+        b.getAsJsonObject("metrics").getAsJsonObject("transferMetrics").addProperty("modeledRateAreaBytes",tiny.setScale(tiny.scale()+1));
+        Path pa=temporary.resolve("long-number-a.json"),pb=temporary.resolve("long-number-b.json");ExperimentArtifactWriter.writeJson(pa,a);ExperimentArtifactWriter.writeJson(pb,b);
+        // Comparator-only transport fixtures: these deliberately bypass semantic evidence reconstruction.
+        RerunEvidence first=new RerunEvidence(source.getRunDirectory(),source.getManifestPath(),source.getMetricsPath(),source.getEventsPath(),source.getEventCount(),source.getManifest(),pa,source.getNetworkCaptureStatus());
+        RerunEvidence second=new RerunEvidence(source.getRunDirectory(),source.getManifestPath(),source.getMetricsPath(),source.getEventsPath(),source.getEventCount(),source.getManifest(),pb,source.getNetworkCaptureStatus());
+        assertTrue(EvidenceCoreDiffer.compare(first,second).isIdenticalCore(),"equivalent long JSON numeric spellings are still exact-equal");
+        b.getAsJsonObject("metrics").getAsJsonObject("transferMetrics").addProperty("modeledRateAreaBytes",tiny.add(BigDecimal.ONE.scaleByPowerOfTen(-3000)));
+        ExperimentArtifactWriter.writeJson(pb,b);
+        assertFalse(EvidenceCoreDiffer.compare(first,second).isIdenticalCore(),"tiny real decimal drift cannot disappear through binary64 conversion");
+    }
+
     @Test void corruptOrMissingDeclaredLedgerIsEvidenceInvalidRatherThanExecutionDrift()throws Exception{
         for(boolean missing:new boolean[]{false,true}){
             Path run=fixture(false,2000);Path ledger=run.resolve("result.network-ledger.json");
