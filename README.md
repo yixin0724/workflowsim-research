@@ -4,7 +4,7 @@ WorkflowSim 是科学工作流调度研究的离散事件模拟器。它把任�
 
 模型结果用于同条件研究比较，不能直接声称重放真实工作流执行、预测生产网络或估算云服务商账单。Java 侧负责仿真环境、策略适配与证据，不建设深度学习训练器或模型训练流程。
 
-**正确性修订**：当前执行语义标识为 `WORK_CONSERVING_TASK_EXECUTION_V2`，修正了 CPU 工作量结算、成本矩阵、重试及 LOCAL 数据可达时间等问题。[首轮整改记录](docs/advanced/SIMULATION_CORRECTNESS_REPAIR.md)保留对应证据；[第二轮配置与性质审计](docs/advanced/CONFIGURATION_PROPERTY_AUDIT.md)进一步检查配置组合、深DAG和参考/deadline指标。旧研究工件不覆盖；本轮迭代化优化另以完整规范矩阵重放核对是否保持正常结果。
+**正确性与可扩展性**：当前执行语义为 `WORK_CONSERVING_TASK_EXECUTION_V2`。[首轮整改](docs/advanced/SIMULATION_CORRECTNESS_REPAIR.md)修复执行与证据问题，[第二轮审计](docs/advanced/CONFIGURATION_PROPERTY_AUDIT.md)检查配置组合、深DAG和参考/deadline，[第三轮审计](docs/advanced/GRAPH_PLANNING_SCALABILITY_AUDIT.md)以有界计数优化高扇入/出校验、宽图槽位重复查询和OCT文件扫描。旧研究不覆盖；优化通过独立参考与同条件实际轨迹对照，而非为保持排名调参数。
 
 ## 统一实验入口
 

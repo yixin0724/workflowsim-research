@@ -1,6 +1,6 @@
 # WorkflowSim 文档中心
 
-按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，最新配置组合、DAG性质和参考指标检查见[第二轮审计](advanced/CONFIGURATION_PROPERTY_AUDIT.md)，上一轮已合并修复见[整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)，新旧研究身份见[协议修订说明](experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。
+按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，最新有界计数与语义保持优化见[第三轮可扩展性审计](advanced/GRAPH_PLANNING_SCALABILITY_AUDIT.md)，配置/DAG性质见[第二轮审计](advanced/CONFIGURATION_PROPERTY_AUDIT.md)，已合并首轮修复见[整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)，新旧研究身份见[协议修订说明](experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。
 
 [网络受限研究](../experiments/studies/network-limited-r10/PROTOCOL.md)、[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)与[敏感性研究（R13）](../experiments/studies/sensitivity-r13/PROTOCOL.md)保留历史协议及结果，不自动代表当前模型。尤其旧 R12/R13 的 LOCAL_PEFT 递推不符合已核对的原论文，不能用旧数字评价标准 PEFT。
 
@@ -41,6 +41,7 @@ docs/
 │   └── 文献调研_工作流调度_2021-2025.md  # 启发式/元启发式/QoS 工作流调度 2021–2025 文献调研
 │
 ├── advanced/                   # 专题与维护者文档
+│   ├── GRAPH_PLANNING_SCALABILITY_AUDIT.md # 第三轮有界计数、可扩展性与语义保持
 │   ├── CONFIGURATION_PROPERTY_AUDIT.md # 第二轮配置组合、DAG性质与参考指标审计
 │   ├── SIMULATION_CORRECTNESS_REPAIR.md # 首轮正确性整改、独立证据与验证范围
 │   ├── QUALITY_AUDIT.md        # 历史质量审计，不代替当前认证
@@ -74,7 +75,7 @@ docs/
 | 如何复跑一份历史 run 并机械验证核心量是否一致？ | [`experiments/RERUN_DIFF_CONTRACT.md`](experiments/RERUN_DIFF_CONTRACT.md)（CLI 用法、verdict 与退出码、报告格式） |
 | P7 冻结基线的矩阵和结果？ | [`experiments/reference-baselines/P7_PROTOCOL.md`](experiments/reference-baselines/P7_PROTOCOL.md)、[`P7_RESULTS.md`](experiments/reference-baselines/P7_RESULTS.md) |
 | 规划器收益如何随 VM 数/带宽/异构度变化（R13）？ | [`../experiments/studies/sensitivity-r13/PROTOCOL.md`](../experiments/studies/sensitivity-r13/PROTOCOL.md)、[`RESULTS.md`](../experiments/studies/sensitivity-r13/RESULTS.md) |
-| 当前修复与验证覆盖到哪里？ | [第二轮配置与性质审计](advanced/CONFIGURATION_PROPERTY_AUDIT.md)、[首轮整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)；[旧质量审计](advanced/QUALITY_AUDIT.md)仅作历史参考 |
+| 当前修复与验证覆盖到哪里？ | [第三轮可扩展性审计](advanced/GRAPH_PLANNING_SCALABILITY_AUDIT.md)、[第二轮配置与性质审计](advanced/CONFIGURATION_PROPERTY_AUDIT.md)、[首轮整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)；旧审计仅作对应时期参考 |
 | WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
 | 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |
 | Fat-tree 网络拓扑的原理与设计？ | [`research/FAT_TREE_PRINCIPLES.md`](research/FAT_TREE_PRINCIPLES.md)、[`research/FAT_TREE_DESIGN.md`](research/FAT_TREE_DESIGN.md) |
