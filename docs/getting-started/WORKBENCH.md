@@ -45,6 +45,31 @@ HTML 内部显示行的 `seed` 使用精确十进制字符串，避免浏览器 
 
 未知字段、字符串冒充数字、小数整数、重复算法ID、跨决策层混比、无效模型组合、缺失输入、独立任务算法输入含边等会被拒绝。该入口当前针对无故障、无额外开销实验；故障/开销研究继续使用完整 Java API，不能用未知JSON字段悄然开启。RL_POLICY 也继续通过 Java `RlEnvironment` 接入外部策略；平台不训练模型。
 
+## 可选网络账本
+
+使用[启用记录的独立示例](<../../experiments/configs/network-ledger-comparison.json>)，或在已有配置的`simulation`中加入：
+
+```json
+"networkEvidence": {
+  "mode": "FLUID_GROUP_LEDGER_V1",
+  "maxTraceRecords": 20000
+}
+```
+
+- **缺省是OFF**，不要用null、false、OFF对象或预算0代替省略。
+- mode与预算必须同时存在，预算是1至2147483647的精确数值整数；字符串、布尔值、非整数小数和未知字段会在创建输出目录前被拒绝。
+- 仅支持两种现有流体争用模型：`PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1`、`PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1`。现有静态mapper、拓扑、LOCAL/SHARED约束不变，不会自动替换模型或调度算法。
+- 每个候选和每个seed都会保留该选项；ON在每个run下另写独立network-ledger工件，OFF继续保持原三件套和manifest字段集合。
+- 记录预算耗尽只截断证据，不截断仿真；截断不是“零网络流量”。账本和派生指标可用[独立Python检查器](<../advanced/NETWORK_LEDGER_PYTHON.md>)校验，或通过[rerun精确比较](<../experiments/RERUN_DIFF_CONTRACT.md>)复验。
+
+本配置接线阶段已支持生成、验证与重放账本；HTML专用网络摘要和有界预览属于紧接的展示子功能，不以原有VM利用率图冒充网络指标。
+
+```bash
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
+  -Dexec.args="run experiments/configs/network-ledger-comparison.json output/workbench"
+```
+
 ## 历史与证据
 
 每次实验包含：
@@ -58,6 +83,7 @@ experiment-<UUID>/
     result.manifest.json   # v4完整条件与结果
     result.metrics.json
     result.events.jsonl
+    result.network-ledger.json  # 仅显式开启networkEvidence时存在
 ```
 
 逐运行证据写出后即调用核心验证器。运行失败会记录根因并继续其他方案，失败不进入完成时间排行榜；命令完成后若存在失败会以非零退出。进程被强制中断时，已完成运行保留，状态可能仍为RUNNING，可通过历史页面识别。文件采用同目录临时写入后原子替换；三件套不是跨文件事务，因此必须以最终校验通过为完整证据标准。

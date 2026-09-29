@@ -20,6 +20,8 @@ import org.workflowsim.WorkflowParser;
 import org.workflowsim.Task;
 import org.workflowsim.FileItem;
 import org.workflowsim.data.DataMovementModel;
+import org.workflowsim.data.NetworkEvidenceConfig;
+import org.workflowsim.data.NetworkLedgerCodec;
 import org.workflowsim.experiment.AlgorithmCatalog;
 import org.workflowsim.network.FatTreeTopology;
 import org.workflowsim.network.NetworkTopologySpec;
@@ -78,9 +80,11 @@ public final class WorkbenchConfig {
         if (arrivals.size() != paths.size()) { throw new IllegalArgumentException("workflowArrivalSeconds must match workflowPaths"); }
         PlatformProfile platform = platform(object(root, "platform"));
         JsonObject sim = root.has("simulation") ? object(root, "simulation") : new JsonObject();
-        fields(sim, "simulation", "fileSystem", "dataMovementModel", "runtimeScale", "runtimeReferenceMips", "minEventIntervalSeconds", "deadlineSeconds", "taskCostMatrix", "fixedEndpoint");
+        fields(sim, "simulation", "fileSystem", "dataMovementModel", "runtimeScale", "runtimeReferenceMips", "minEventIntervalSeconds", "deadlineSeconds", "taskCostMatrix", "fixedEndpoint", "networkEvidence");
         ReplicaCatalog.FileSystem fs = ReplicaCatalog.FileSystem.valueOf(text(sim, "fileSystem", "SHARED"));
         DataMovementModel movement = movement(sim);
+        NetworkEvidenceConfig networkEvidence = sim.has("networkEvidence")
+                ? NetworkLedgerCodec.decodeConfig(sim.get("networkEvidence")) : NetworkEvidenceConfig.off();
         if (movement.isFatTreeContentionV1() != (platform.getNetworkTopology() != null)) { throw new IllegalArgumentException("Fat-tree data movement and networkTopology must be selected together"); }
         List<Long> seeds = new ArrayList<Long>();
         if (root.has("seeds")) {
@@ -108,6 +112,7 @@ public final class WorkbenchConfig {
             track = candidateTrack;
             SimulationConfig config = SimulationConfig.builder(paths, platform.getVms().size())
                     .workflowArrivalSeconds(arrivals).fileSystem(fs).dataMovementModel(movement)
+                    .networkEvidence(networkEvidence)
                     .schedulingAlgorithm(scheduler).planningAlgorithm(planner)
                     .randomSeed(seeds.get(0)).runtimeScale(decimal(sim, "runtimeScale", 1, true))
                     .runtimeReferenceMips(decimal(sim, "runtimeReferenceMips", 1000, true))
