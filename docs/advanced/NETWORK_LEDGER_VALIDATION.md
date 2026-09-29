@@ -3,7 +3,7 @@
 ## 当前能力与边界
 
 本阶段提供Java API的独立语义校验，不调用生产端的progressive-filling求解器来计算“期望速率”。
-已有运行级捕获、绑定、独立校验、精确字节/FCT/资源指标和实际局部性观测；**正式sidecar导出、rerun网络比较和Workbench显示仍属后续功能**。在导出接线完成前，ON工件入口继续明确拒绝写入，OFF历史工件格式不变。
+已有运行级捕获、绑定、独立Java校验、精确指标、实际局部性和正式sidecar导出；**独立Python检查、rerun网络比较和Workbench配置/显示仍属后续功能**。ON使用完整bundle导出，独立manifest不能丢弃账本；OFF历史工件格式不变。正式写读约束见[网络账本V1编解码契约](<NETWORK_LEDGER_FORMAT.md>)。
 
 ```java
 NetworkRunEvidence evidence = report.getNetworkEvidence(); // OFF为null

@@ -261,8 +261,8 @@ public final class SimulationReport {
 
     /**
      * Optional immutable grouped-fluid capture, frozen before session cleanup.
-     * COMPLETE zero-flow capture differs from OFF and TRUNCATED. This API slice
-     * does not yet export a sidecar or derive network metrics.
+     * COMPLETE zero-flow capture differs from OFF and TRUNCATED. This accessor
+     * performs no I/O or metric derivation; use NetworkRunMetrics and the artifact writer separately.
      * @return captured network evidence, or null when OFF
      */
     public NetworkRunEvidence getNetworkEvidence() { return networkEvidence; }

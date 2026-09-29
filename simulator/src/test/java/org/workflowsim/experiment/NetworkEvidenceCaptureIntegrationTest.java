@@ -36,7 +36,7 @@ import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
-/** NF002A grouped capture is observational and Java-API-only until export wiring. */
+/** Grouped capture remains observational; later gates also validate its codec and artifact context. */
 class NetworkEvidenceCaptureIntegrationTest {
     private static final Gson JSON = new GsonBuilder().serializeNulls().create();
     private static final int FULL_BUDGET = 2000;
@@ -301,25 +301,31 @@ class NetworkEvidenceCaptureIntegrationTest {
             assertEquals(0,new java.math.BigDecimal("10000000000000000").add(java.math.BigDecimal.valueOf(small))
                     .compareTo(m.getTransferableInputReferenceBytes()));
             assertEquals(0,java.math.BigDecimal.valueOf(small==1?-1:1).compareTo(m.getAdmittedMinusTransferableReferenceBytes()));
+            ExperimentArtifactWriter.ExperimentArtifacts files=ExperimentArtifactWriter.write(on,temporary.resolve("large-rounding-bundle-"+small),"run");
+            assertNotNull(ExperimentArtifactValidator.validate(files.getManifest()).getNetworkLedger());
         }
     }
 
     @Test
-    void temporaryArtifactGuardRejectsOnBeforeCreatingOrOverwritingAnyFile() throws Exception {
+    void artifactExportNowPublishesValidatedLedgerInsteadOfSilentlyDroppingCapture() throws Exception {
         SimulationReport report = run(input("guard-bundle.dax", rootDax(0.5)), false, 1, FULL_BUDGET);
-        Path absent = temporary.resolve("new-bundle");
-        assertGuard(assertThrows(UnsupportedOperationException.class, () -> ExperimentArtifactWriter.write(report, absent, "on")));
-        assertFalse(Files.exists(absent));
-        Path existing = Files.createDirectory(temporary.resolve("existing-bundle"));
-        byte[] sentinel = "unchanged existing evidence\n".getBytes(StandardCharsets.UTF_8);
-        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl")) Files.write(existing.resolve("on." + suffix), sentinel);
-        assertGuard(assertThrows(UnsupportedOperationException.class, () -> ExperimentArtifactWriter.write(report, existing, "on", null)));
-        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl")) assertArrayEquals(sentinel, Files.readAllBytes(existing.resolve("on." + suffix)));
-        assertEquals(3, fileNames(existing).size(), "Reject before temporary or sidecar files are created");
+        for(String name:Arrays.asList("new-bundle","replacement-bundle")){
+            Path directory=temporary.resolve(name);
+            if(name.startsWith("replacement")){
+                Files.createDirectories(directory);
+                for(String suffix:Arrays.asList("manifest.json","metrics.json","events.jsonl"))
+                    Files.write(directory.resolve("on."+suffix),"old output".getBytes(StandardCharsets.UTF_8));
+            }
+            ExperimentArtifactWriter.ExperimentArtifacts artifacts=ExperimentArtifactWriter.write(report,directory,"on",null);
+            assertEquals(Arrays.asList("on.events.jsonl","on.manifest.json","on.metrics.json","on.network-ledger.json"),fileNames(directory));
+            assertEquals(artifacts.getNetworkLedger(),ExperimentArtifactValidator.validate(artifacts.getManifest()).getNetworkLedger());
+            assertTrue(org.workflowsim.data.NetworkLedgerCodec.decode(new String(Files.readAllBytes(artifacts.getNetworkLedger()),StandardCharsets.UTF_8))
+                    .getMetrics().getTransferMetrics().isAvailable());
+        }
     }
 
     @Test
-    void temporaryManifestGuardCoversEveryOverloadBeforeWritingFiles() throws Exception {
+    void standaloneManifestGuardRequiresBundleExportBeforeWritingFiles() throws Exception {
         SimulationReport report = run(input("guard-manifest.dax", rootDax(0.5)), true, 1, FULL_BUDGET);
         Path missingDirectory = temporary.resolve("new-manifest-directory");
         assertGuard(assertThrows(UnsupportedOperationException.class, () -> ExperimentManifestWriter.writeJson(report, missingDirectory.resolve("on.json"))));
@@ -398,6 +404,7 @@ class NetworkEvidenceCaptureIntegrationTest {
         assertEquals(traceEvents(report, TransferTraceEvent.Type.START).size(), traceEvents(report, TransferTraceEvent.Type.COMPLETE).size());
     }
     private static void assertAllRetainedStartsBound(SimulationReport report) {
+        assertDoesNotThrow(() -> NetworkLedgerContextValidator.validateReport(report));
         String encoded=org.workflowsim.data.NetworkLedgerCodec.encode(report.getNetworkEvidence());
         org.workflowsim.data.NetworkLedgerCodec.Decoded decoded=org.workflowsim.data.NetworkLedgerCodec.decode(encoded);
         assertEquals(encoded,org.workflowsim.data.NetworkLedgerCodec.encode(decoded.getEvidence()));
@@ -489,7 +496,7 @@ class NetworkEvidenceCaptureIntegrationTest {
     }
     private static void assertGuard(UnsupportedOperationException failure) {
         String message = failure.getMessage().toLowerCase(java.util.Locale.ROOT);
-        assertTrue(message.contains("network") && message.contains("export") && message.contains("not wired"), message);
+        assertTrue(message.contains("network") && message.contains("export") && message.contains("bundle"), message);
     }
     private static List<String> fileNames(Path directory) throws Exception {
         try (Stream<Path> paths = Files.list(directory)) { return paths.map(path -> path.getFileName().toString()).sorted().collect(Collectors.toList()); }

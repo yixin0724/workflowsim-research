@@ -74,12 +74,28 @@ public final class ExperimentArtifactValidator {
         if (!manifestMetrics.equals(sidecarMetrics)) {
             throw new IOException("Manifest metrics do not match the metrics sidecar");
         }
-        int actualEvents = validateEvents(events);
+        boolean networkRequested=root.getAsJsonObject("configuration").has("networkEvidence");
+        Path networkLedger=paths.get(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE);
+        if(networkRequested!=(networkLedger!=null))throw new IOException("Network recording configuration and network-ledger artifact role disagree");
+        org.workflowsim.data.NetworkLedgerCodec.Decoded decoded=null;
+        NetworkLedgerContextValidator networkContext=null;
+        if(networkRequested){
+            if(!MANIFEST_SCHEMA_V4.equals(schema))throw new IOException("Network ledger artifacts require manifest v4");
+            String content=StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(Files.readAllBytes(networkLedger))).toString();
+            try { decoded=org.workflowsim.data.NetworkLedgerCodec.decode(content); }
+            catch(IllegalArgumentException invalid){throw new IOException("Invalid network ledger content",invalid);}
+            networkContext=new NetworkLedgerContextValidator(root,decoded.getEvidence());
+        }
+        int actualEvents = validateEvents(events,networkContext);
         if (actualEvents != expectedEvents) {
             throw new IOException("Event count mismatch: manifest declares " + expectedEvents
                     + " but JSONL contains " + actualEvents);
         }
-        return new ValidationResult(manifest, metrics, events, actualEvents);
+        if(networkContext!=null)networkContext.finish();
+        return new ValidationResult(manifest, metrics, events, actualEvents,networkLedger,
+                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus());
     }
 
     private static void validateManifestTopLevelShape(JsonObject root) throws IOException {
@@ -233,7 +249,7 @@ public final class ExperimentArtifactValidator {
         return metrics;
     }
 
-    private static int validateEvents(Path path) throws IOException {
+    private static int validateEvents(Path path, NetworkLedgerContextValidator networkContext) throws IOException {
         int count = 0;
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line;
@@ -252,6 +268,7 @@ public final class ExperimentArtifactValidator {
                     throw new IOException("JSONL event sequence mismatch at line " + (count + 1)
                             + ": expected " + count + " but found " + sequence);
                 }
+                if(networkContext!=null)networkContext.acceptEvent(event);
                 count++;
             }
         }
@@ -347,7 +364,7 @@ public final class ExperimentArtifactValidator {
             throw new IOException(subject + " is missing number " + key);
         }
         try {
-            return object.get(key).getAsLong();
+            return object.get(key).getAsBigDecimal().longValueExact();
         } catch (RuntimeException exception) {
             throw new IOException(subject + " has invalid number " + key, exception);
         }
@@ -384,17 +401,25 @@ public final class ExperimentArtifactValidator {
         private final Path metrics;
         private final Path events;
         private final int eventCount;
+        private final Path networkLedger;
+        private final org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus;
 
-        private ValidationResult(Path manifest, Path metrics, Path events, int eventCount) {
+        private ValidationResult(Path manifest, Path metrics, Path events, int eventCount,Path networkLedger,
+                org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
             this.eventCount = eventCount;
+            this.networkLedger=networkLedger;this.networkCaptureStatus=networkCaptureStatus;
         }
 
         public Path getManifest() { return manifest; }
         public Path getMetrics() { return metrics; }
         public Path getEvents() { return events; }
         public int getEventCount() { return eventCount; }
+        /** @return validated network ledger path, or null for OFF */
+        public Path getNetworkLedger() { return networkLedger; }
+        /** @return validated capture status, or null for OFF */
+        public org.workflowsim.data.TransferTraceSnapshot.Status getNetworkCaptureStatus() { return networkCaptureStatus; }
     }
 }

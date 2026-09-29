@@ -26,12 +26,22 @@ public final class ExperimentManifestWriter {
     private ExperimentManifestWriter() {
     }
 
-    /** NF002A guard: requested capture must not silently disappear from exported evidence. */
-    static void requireNetworkLedgerExportSupported(SimulationReport report) {
-        if (report.getConfig().getNetworkEvidenceConfig().isEnabled()) {
-            throw new UnsupportedOperationException("Network ledger export is not wired yet (NF002A); "
-                    + "inspect SimulationReport.getNetworkEvidence() through the Java API until ledger export is implemented");
-        }
+    /** Standalone manifests must not silently drop requested network evidence. */
+    static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
+        int ledgers=0;
+        for(Map<String,Object> artifact:artifacts)if(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(artifact.get("role")))ledgers++;
+        boolean enabled=report.getConfig().getNetworkEvidenceConfig().isEnabled();
+        if(enabled&&ledgers==0)throw new UnsupportedOperationException("Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
+        if(ledgers>1||(!enabled&&ledgers!=0))throw new IllegalArgumentException("Network ledger artifact role disagrees with recording configuration");
+    }
+
+    /** Minimal no-I/O context for the same preflight checks used by artifact readers. */
+    static Map<String,Object> networkContextSnapshot(SimulationReport report) {
+        Map<String,Object> root=new LinkedHashMap<String,Object>();
+        root.put("configuration",configuration(report.getConfig()));root.put("platform",platform(report.getPlatform()));
+        Map<String,Object> result=new LinkedHashMap<String,Object>();
+        result.put("simulationEndSeconds",report.getSimulationEndSeconds());result.put("jobs",report.getJobs());
+        result.put("actualVmHostAssignments",report.getActualVmHostAssignments());root.put("result",result);return root;
     }
 
     /**
@@ -44,7 +54,7 @@ public final class ExperimentManifestWriter {
      * @param outputFile manifest 输出文件
      * @throws IOException 当 manifest 无法写入时抛出
      * @throws IllegalArgumentException 当报告或输出路径为空时抛出
-     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
+     * @throws UnsupportedOperationException if ON network evidence is exported without a complete bundle reference
      */
     public static void writeJson(SimulationReport report, Path outputFile) throws IOException {
         writeJson(report, outputFile, (ExperimentEvidenceContext) null);
@@ -62,7 +72,7 @@ public final class ExperimentManifestWriter {
      * @param evidenceContext 可选的 reference 或 study 研究身份
      * @throws IOException 当 manifest 无法写入时抛出
      * @throws IllegalArgumentException 当报告或输出路径为空时抛出
-     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
+     * @throws UnsupportedOperationException if ON network evidence is exported without a complete bundle reference
      */
     public static void writeJson(SimulationReport report, Path outputFile,
             ExperimentEvidenceContext evidenceContext) throws IOException {
@@ -83,7 +93,7 @@ public final class ExperimentManifestWriter {
         if (report == null || outputFile == null) {
             throw new IllegalArgumentException("Report and output path are required");
         }
-        requireNetworkLedgerExportSupported(report);
+        requireNetworkLedgerReference(report, artifacts);
         ExperimentArtifactWriter.writeJson(outputFile, toManifest(report, artifacts, evidenceContext));
     }
 

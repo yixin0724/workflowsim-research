@@ -61,6 +61,13 @@ final class ManifestV4Validator {
         }
         validateMatrix(config, root, vmIds);
         DataMovementModel model = readMovement(object(config, "dataMovementModel"));
+        if(config.has("networkEvidence")){
+            try {
+                org.workflowsim.data.NetworkLedgerCodec.decodeConfig(config.get("networkEvidence"));
+                if(!model.isPreExecutionTransferDelayWithContentionV1()&&!model.isFatTreeContentionV1())
+                    throw new IllegalArgumentException("Network recording requires a supported fluid model");
+            } catch(IllegalArgumentException invalid){throw new IOException("Invalid networkEvidence configuration",invalid);}
+        }
         validateTopology(required(platform, "networkTopology"), model, hostIds);
         if (root.has("workflowGraph")) { validateGraph(root); }
     }

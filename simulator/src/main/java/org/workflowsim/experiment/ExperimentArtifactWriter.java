@@ -26,17 +26,16 @@ public final class ExperimentArtifactWriter {
 
     /**
      * 写入 {@code <runId>.manifest.json}、{@code <runId>.metrics.json} 和
-     * {@code <runId>.events.jsonl}。
+     * {@code <runId>.events.jsonl}；ON时另写独立network-ledger JSON。
      *
      * <p>只有对应新文件完整写入后，才会原子替换同名已有文件。</p>
      *
      * @param report 已完成仿真的不可变报告
-     * @param outputDirectory 存放三个工件的输出目录
+     * @param outputDirectory 存放既有三件套和可选网络账本的输出目录
      * @param runId 文件名安全的运行标识
-     * @return 三个已写入工件的绝对路径
+     * @return 已写入工件的绝对路径；OFF的网络账本路径为null
      * @throws IOException 当目录或工件无法写入时抛出
      * @throws IllegalArgumentException 当报告、输出目录或运行标识不合法时抛出
-     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
      */
     public static ExperimentArtifacts write(SimulationReport report, Path outputDirectory,
             String runId) throws IOException {
@@ -47,21 +46,27 @@ public final class ExperimentArtifactWriter {
      * 写入完整证据工件包，并将可选的 reference/study 身份写入 manifest。
      *
      * @param report 已完成仿真的不可变报告
-     * @param outputDirectory 存放三个工件的输出目录
+     * @param outputDirectory 存放既有三件套和可选网络账本的输出目录
      * @param runId 文件名安全的运行标识
      * @param evidenceContext 可选的 reference 或 study 研究身份
-     * @return 三个已写入工件的绝对路径
+     * @return 已写入工件的绝对路径；OFF的网络账本路径为null
      * @throws IOException 当目录或工件无法写入时抛出
      * @throws IllegalArgumentException 当报告、输出目录或运行标识不合法时抛出
-     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
      */
     public static ExperimentArtifacts write(SimulationReport report, Path outputDirectory,
             String runId, ExperimentEvidenceContext evidenceContext) throws IOException {
         if (report == null || outputDirectory == null) {
             throw new IllegalArgumentException("Report and output directory are required");
         }
-        ExperimentManifestWriter.requireNetworkLedgerExportSupported(report);
         validateRunId(runId);
+        boolean networkEnabled=report.getConfig().getNetworkEvidenceConfig().isEnabled();
+        if(networkEnabled!=(report.getNetworkEvidence()!=null))throw new IOException("Network capture disagrees with recording configuration");
+        com.google.gson.JsonObject networkDocument=null;
+        if(networkEnabled){
+            try { networkDocument=org.workflowsim.data.NetworkLedgerCodec.document(report.getNetworkEvidence()); }
+            catch(IllegalArgumentException|IllegalStateException invalid){throw new IOException("Invalid network evidence before export",invalid);}
+            NetworkLedgerContextValidator.validateReport(report);
+        }
         Path directory = outputDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);
 
@@ -74,8 +79,14 @@ public final class ExperimentArtifactWriter {
         List<Map<String, Object>> artifacts = new ArrayList<Map<String, Object>>();
         artifacts.add(artifact("metrics", metrics));
         artifacts.add(artifact("events", events));
+        Path networkLedger=null;
+        if(networkDocument!=null){
+            networkLedger=directory.resolve(runId+".network-ledger.json");
+            writeJson(networkLedger,networkDocument);
+            artifacts.add(artifact(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE,networkLedger));
+        }
         ExperimentManifestWriter.writeJson(report, manifest, artifacts, evidenceContext);
-        return new ExperimentArtifacts(manifest, metrics, events);
+        return new ExperimentArtifacts(manifest, metrics, events, networkLedger);
     }
 
     /**
@@ -168,20 +179,24 @@ public final class ExperimentArtifactWriter {
         }
     }
 
-    /** {@link #write} 生成的三个不可变证据工件路径。 */
+    /** {@link #write} 生成的既有工件路径和可选网络账本路径。 */
     public static final class ExperimentArtifacts {
         private final Path manifest;
         private final Path metrics;
         private final Path events;
+        private final Path networkLedger;
 
-        private ExperimentArtifacts(Path manifest, Path metrics, Path events) {
+        private ExperimentArtifacts(Path manifest, Path metrics, Path events, Path networkLedger) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
+            this.networkLedger = networkLedger;
         }
 
         public Path getManifest() { return manifest; }
         public Path getMetrics() { return metrics; }
         public Path getEvents() { return events; }
+        /** @return network sidecar path, or null when recording was OFF */
+        public Path getNetworkLedger() { return networkLedger; }
     }
 }
