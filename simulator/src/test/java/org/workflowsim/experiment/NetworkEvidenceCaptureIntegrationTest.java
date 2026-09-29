@@ -398,6 +398,9 @@ class NetworkEvidenceCaptureIntegrationTest {
         assertEquals(traceEvents(report, TransferTraceEvent.Type.START).size(), traceEvents(report, TransferTraceEvent.Type.COMPLETE).size());
     }
     private static void assertAllRetainedStartsBound(SimulationReport report) {
+        String encoded=org.workflowsim.data.NetworkLedgerCodec.encode(report.getNetworkEvidence());
+        org.workflowsim.data.NetworkLedgerCodec.Decoded decoded=org.workflowsim.data.NetworkLedgerCodec.decode(encoded);
+        assertEquals(encoded,org.workflowsim.data.NetworkLedgerCodec.encode(decoded.getEvidence()));
         org.workflowsim.data.TransferTraceValidator.validate(report.getNetworkEvidence().getTraceSnapshot(),
                 report.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
         org.workflowsim.data.NetworkTraceMetrics networkMetrics=org.workflowsim.data.NetworkTraceMetrics.calculate(
