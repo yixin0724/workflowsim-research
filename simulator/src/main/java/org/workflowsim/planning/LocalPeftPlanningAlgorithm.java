@@ -126,6 +126,8 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
     /** 后继表项均已计算；保留原 VM/child 遍历、算术顺序及 PE 兼容域。 */
     private Map<CondorVM, Double> computeOctPerVm(Task task) {
         Map<CondorVM, Double> perVm = new LinkedHashMap<CondorVM, Double>();
+        // One parent and one fill only. Preparation and later first-OCT queries remain separate reads.
+        Map<Task, Double> edgeBytes = new HashMap<Task, Double>();
         for (CondorVM vm : vms()) {
             if (!isCompatible(task, vm)) {
                 perVm.put(vm, Double.valueOf(Double.POSITIVE_INFINITY));
@@ -146,7 +148,7 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
                         }
                         double candidate = childOct.get(childVm).doubleValue()
                                 + computeSecondsOn(child, childVm)
-                                + communicationSeconds(task, child, vm, childVm);
+                                + communicationSeconds(task, child, vm, childVm, edgeBytes);
                         if (candidate < bestPlacement) {
                             bestPlacement = candidate;
                         }

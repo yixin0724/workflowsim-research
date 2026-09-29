@@ -434,7 +434,27 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         if (from.getId() == to.getId()) {
             return 0.0;
         }
-        double bytes = communicationBytes(parent, child);
+        return communicationSecondsForBytes(communicationBytes(parent, child), from, to);
+    }
+
+    /**
+     * 同一父任务的一次 OCT 行组计算内复用静态边字节数，包括零交集。
+     * 调用方拥有该局部 map；它不跨 prepare/首次 lazy OCT 阶段保留，也不缓存副本状态。
+     */
+    final double communicationSeconds(Task parent, Task child, CondorVM from, CondorVM to,
+            Map<Task, Double> edgeBytes) {
+        if (from.getId() == to.getId()) {
+            return 0.0;
+        }
+        Double bytes = edgeBytes.get(child);
+        if (bytes == null) {
+            bytes = Double.valueOf(communicationBytes(parent, child));
+            edgeBytes.put(child, bytes);
+        }
+        return communicationSecondsForBytes(bytes.doubleValue(), from, to);
+    }
+
+    private static double communicationSecondsForBytes(double bytes, CondorVM from, CondorVM to) {
         if (!(bytes > 0.0)) {
             return 0.0;
         }
