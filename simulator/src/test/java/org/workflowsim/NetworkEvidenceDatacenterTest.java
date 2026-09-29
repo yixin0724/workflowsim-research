@@ -55,6 +55,9 @@ class NetworkEvidenceDatacenterTest {
             assertTrue(engine.getTraceSnapshot().getEvents().isEmpty());
             assertNull(datacenter.captureNetworkEvidence());
             assertNull(candidateBindings(datacenter), "OFF must allocate no binding history");
+            datacenter.recordNetworkInputDemand(new FileItem("ignored-off",.5),true);
+            Field demand=WorkflowDatacenter.class.getDeclaredField("inputDemandTracker");demand.setAccessible(true);
+            assertNull(demand.get(datacenter),"OFF must allocate no input-demand tracker");
         }
     }
 

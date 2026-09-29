@@ -3,13 +3,13 @@
 ## 当前能力与边界
 
 本阶段提供Java API的独立语义校验，不调用生产端的progressive-filling求解器来计算“期望速率”。
-已有运行级捕获、绑定、独立校验和精确字节/FCT/资源指标；**实际局部性观测、正式sidecar导出、rerun网络比较和Workbench显示仍属后续功能**。在导出接线完成前，ON工件入口继续明确拒绝写入，OFF历史工件格式不变。
+已有运行级捕获、绑定、独立校验、精确字节/FCT/资源指标和实际局部性观测；**正式sidecar导出、rerun网络比较和Workbench显示仍属后续功能**。在导出接线完成前，ON工件入口继续明确拒绝写入，OFF历史工件格式不变。
 
 ```java
 NetworkRunEvidence evidence = report.getNetworkEvidence(); // OFF为null
 if (evidence != null) {
-    NetworkTraceMetrics metrics = NetworkTraceMetrics.calculate(
-        evidence.getTraceSnapshot(), evidence.getConfig().getMaxTraceRecords());
+    NetworkRunMetrics runMetrics = NetworkRunMetrics.calculate(evidence);
+    NetworkTraceMetrics metrics = runMetrics.getTransferMetrics();
     TransferTraceValidator.Result checked = metrics.getValidation(); // 已先校验
     if (metrics.isAvailable()) { // 仅COMPLETE capture发布完整捕获总量
         BigDecimal service = metrics.getServicedBalanceDeltaBytes();
@@ -49,6 +49,21 @@ if (evidence != null) {
 - 从未受限的SOURCE有流量面积、无利用率分母。资源后来才登记容量时，先前无上限阶段的流量不进入受限时期的利用率分子。
 
 22项指标测试覆盖上述算式、相邻零时长完成、0/截断、正负舍入差、巨大累计量、nearest-rank和不可变性；实际端点、Fat-tree、局部命中、分数文件、截断和故障重试捕获也参与集成核对。
+
+## 实际局部性观察
+
+局部性不使用“需求字节减服务字节”推断。原有输入循环只调用一次本地副本判断，将**同一个布尔结果**同时用于原有跳过分支和可选观察计数器；不重复查目录、不改入流/释放/副本策略。
+
+`NetworkInputDemandTracker`仅保留固定数量的long/BigDecimal聚合项，不保存每文件或每Job历史。其冻结快照的范围为`V1_GROUP_INPUT_REFERENCES`：包含父组中的重复引用、不同Job尝试的再次引用以及零字节引用，不能解释为唯一文件数或有限缓存模型。
+
+- requiredReferenceBytes按所观察到的double文件大小精确累计；localReferenceBytes只累计实际被跳过的引用；transferableReferenceBytes为其余引用。
+- 计数和字节满足各自的精确分区关系。零引用没有命中率分母；零字节引用仍会增加引用数，但没有字节命中率分母。
+- `NetworkRunMetrics`分别给出引用数命中率、字节命中率，以及`admittedMinusTransferableReferenceBytes`。
+- 最后一项是原V1 double归组入流量与精确非本地引用量的**有符号差异**，不是局部性收益。例如同组`1e16+1`或`1e16+3`会产生-1或+1的入流舍入差；实际local计数仍为0。
+- 原始计数器可在trace预算耗尽后继续O(1)聚合，但TRUNCATED不发布完整捕获的局部性指标。
+- 旧的低层`NetworkRunEvidence.capture`重载若未提供观察，局部性为`INPUT_COUNTERS_UNAVAILABLE`，不会捏造零命中；OFF也与零需求完整捕获不同。
+
+11项新增计数/运行测试覆盖不可变性、非法输入不改状态、精确小值、本地/非本地实际分支、零引用/零字节、截断、正负归组误差；原故障重试及ON/OFF隔离对照也检查每次真实尝试的引用数。当前观察是聚合证据，不是逐文件完成时间线；工件层仍需将其与主事件、绑定和来源身份一起验证。
 
 ## 完整捕获的校验语法
 

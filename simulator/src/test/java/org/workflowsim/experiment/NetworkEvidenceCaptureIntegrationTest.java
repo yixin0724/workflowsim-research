@@ -238,9 +238,70 @@ class NetworkEvidenceCaptureIntegrationTest {
             }
             assertEquals(computeAttempts, on.getNetworkEvidence().getBindings().size(),
                     "Shared inputs are fetched for every actual attempt, including failed/retry attempts");
+            org.workflowsim.data.NetworkRunMetrics observed=org.workflowsim.data.NetworkRunMetrics.calculate(on.getNetworkEvidence());
+            assertEquals(Long.valueOf(computeAttempts),observed.getInputReferenceCount());
+            assertEquals(Long.valueOf(0),observed.getLocalInputReferenceCount());
+            assertEquals(0,observed.getLocalInputReferenceBytes().signum());
         }
         assertTrue(observedRetries > 0, "The bounded seed set must exercise real retry capture");
         System.out.println("NETWORK_EVIDENCE_RETRY_CONTROL retries=" + observedRetries);
+    }
+
+    @Test
+    void localityCountersObserveActualSkipDecisionsRatherThanServiceShortfalls() throws Exception {
+        Path workflow=input("locality-observation.dax",GROUPED_DAX);
+        for(boolean fatTree:Arrays.asList(false,true))for(int vmCount:new int[]{1,2}){
+            SimulationReport off=run(workflow,fatTree,vmCount,0),on=run(workflow,fatTree,vmCount,FULL_BUDGET);
+            assertOldEvidenceEquals(off,on);
+            org.workflowsim.data.NetworkRunMetrics m=org.workflowsim.data.NetworkRunMetrics.calculate(on.getNetworkEvidence());
+            assertEquals(org.workflowsim.data.NetworkRunMetrics.LocalityStatus.AVAILABLE,m.getLocalityStatus());
+            assertEquals(Long.valueOf(4),m.getInputReferenceCount());
+            assertEquals(Long.valueOf(vmCount==1?2:0),m.getLocalInputReferenceCount());
+            assertEquals(0,new java.math.BigDecimal("5000000.5").compareTo(m.getRequiredInputReferenceBytes()));
+            assertEquals(0,java.math.BigDecimal.valueOf(vmCount==1?5000000:0).compareTo(m.getLocalInputReferenceBytes()));
+            assertEquals(vmCount==1?.5:0,m.getLocalReferenceFraction(),0);
+            assertEquals(vmCount==1?5000000.0/5000000.5:0,m.getLocalByteFraction(),1e-15);
+            assertEquals(0,m.getAdmittedMinusTransferableReferenceBytes().signum());
+        }
+    }
+
+    @Test
+    void zeroDemandAndZeroSizeReferencesHaveDifferentLocalityDenominators() throws Exception {
+        for(Double bytes:new Double[]{null,0.0}){
+            SimulationReport report=run(input("locality-zero-"+bytes+".dax",rootDax(bytes)),false,1,FULL_BUDGET);
+            org.workflowsim.data.NetworkRunMetrics m=org.workflowsim.data.NetworkRunMetrics.calculate(report.getNetworkEvidence());
+            assertEquals(org.workflowsim.data.NetworkRunMetrics.LocalityStatus.AVAILABLE,m.getLocalityStatus());
+            assertEquals(Long.valueOf(bytes==null?0:1),m.getInputReferenceCount());assertNull(m.getLocalByteFraction());
+            if(bytes==null)assertNull(m.getLocalReferenceFraction());else assertEquals(0,m.getLocalReferenceFraction(),0);
+            assertEquals(0,m.getTransferMetrics().getAdmittedPayloadBytes().signum());
+        }
+    }
+
+    @Test
+    void truncationDoesNotPublishUncertifiedLocalityTotals() throws Exception {
+        SimulationReport report=run(input("locality-truncated.dax",GROUPED_DAX),false,1,1);
+        assertEquals(4,report.getNetworkEvidence().getInputDemand().getReferenceCount());
+        assertEquals(2,report.getNetworkEvidence().getInputDemand().getLocalReferenceCount());
+        org.workflowsim.data.NetworkRunMetrics m=org.workflowsim.data.NetworkRunMetrics.calculate(report.getNetworkEvidence());
+        assertEquals(org.workflowsim.data.NetworkRunMetrics.LocalityStatus.TRUNCATED_TRACE,m.getLocalityStatus());
+        assertFalse(m.getTransferMetrics().isAvailable());assertNull(m.getLocalInputReferenceBytes());assertNull(m.getLocalByteFraction());
+    }
+
+    @Test
+    void groupDoubleRoundingGapCannotBeMistakenForLocalitySavings() throws Exception {
+        for(int small:new int[]{1,3}){
+            String dax="<adag><job id=\"root\" runtime=\"1\"><uses file=\"large\" link=\"input\" size=\"10000000000000000\"/>"
+                    +"<uses file=\"small\" link=\"input\" size=\""+small+"\"/></job></adag>";
+            Path workflow=input("locality-rounding-"+small+".dax",dax);
+            SimulationReport off=run(workflow,false,1,0),on=run(workflow,false,1,FULL_BUDGET);assertOldEvidenceEquals(off,on);
+            org.workflowsim.data.NetworkRunMetrics m=org.workflowsim.data.NetworkRunMetrics.calculate(on.getNetworkEvidence());
+            assertEquals(org.workflowsim.data.NetworkRunMetrics.LocalityStatus.AVAILABLE,m.getLocalityStatus());
+            assertEquals(Long.valueOf(2),m.getInputReferenceCount());assertEquals(Long.valueOf(0),m.getLocalInputReferenceCount());
+            assertEquals(0,m.getLocalInputReferenceBytes().signum());assertEquals(0,m.getLocalByteFraction(),0);
+            assertEquals(0,new java.math.BigDecimal("10000000000000000").add(java.math.BigDecimal.valueOf(small))
+                    .compareTo(m.getTransferableInputReferenceBytes()));
+            assertEquals(0,java.math.BigDecimal.valueOf(small==1?-1:1).compareTo(m.getAdmittedMinusTransferableReferenceBytes()));
+        }
     }
 
     @Test

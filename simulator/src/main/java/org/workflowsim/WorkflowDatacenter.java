@@ -40,6 +40,8 @@ import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.data.NetworkEvidenceConfig;
 import org.workflowsim.data.NetworkFlowBinding;
 import org.workflowsim.data.NetworkRunEvidence;
+import org.workflowsim.data.NetworkInputDemandSnapshot;
+import org.workflowsim.data.NetworkInputDemandTracker;
 import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.failure.FailureGenerator;
 import org.workflowsim.utils.ReplicaCatalog;
@@ -79,6 +81,8 @@ public class WorkflowDatacenter extends Datacenter {
     private NetworkEvidenceConfig networkEvidenceConfig = NetworkEvidenceConfig.off();
     /** Bounded early-admission metadata, allocated only when recording an enabled binding. */
     private Map<Long, NetworkFlowBinding> networkFlowBindings;
+    /** Enabled-only aggregate input observations; no per-file history is retained. */
+    private NetworkInputDemandTracker inputDemandTracker;
     /** Fat-tree 链路争用模型使用的已放置拓扑（标准运行器安装，可为 null）。 */
     private org.workflowsim.network.FatTreeTopology fatTreeTopology;
 
@@ -153,6 +157,16 @@ public class WorkflowDatacenter extends Datacenter {
     /** @return immutable run-local observation option */
     public NetworkEvidenceConfig getNetworkEvidenceConfig() { return networkEvidenceConfig; }
 
+    /** Observe the locality decision already made by the original grouped-input loop. */
+    void recordNetworkInputDemand(FileItem file, boolean local) {
+        if (!networkEvidenceConfig.isEnabled()) return;
+        if (transferContentionEngine == null)
+            throw new IllegalStateException("Input demand can only be observed after creating the transfer engine");
+        if (file == null) throw new IllegalArgumentException("Input reference is required");
+        if (inputDemandTracker == null) inputDemandTracker = new NetworkInputDemandTracker();
+        inputDemandTracker.record(file.getSize(), local);
+    }
+
     /** Copy attribution after successful admission, before any later advance can remove it. */
     void recordNetworkFlowBinding(long transferId, Job job, Integer parentJobId,
             NetworkFlowBinding.GroupKind groupKind, String sourceEndpoint, String destinationEndpoint,
@@ -185,8 +199,10 @@ public class WorkflowDatacenter extends Datacenter {
         List<NetworkFlowBinding> candidates = networkFlowBindings == null
                 ? Collections.<NetworkFlowBinding>emptyList()
                 : new ArrayList<NetworkFlowBinding>(networkFlowBindings.values());
+        NetworkInputDemandSnapshot inputDemand=inputDemandTracker==null
+                ? NetworkInputDemandSnapshot.empty():inputDemandTracker.snapshot();
         return NetworkRunEvidence.capture(networkEvidenceConfig, dataMovementModel.getKind(),
-                transferContentionEngine.getTraceSnapshot(), candidates);
+                transferContentionEngine.getTraceSnapshot(), candidates, inputDemand);
     }
 
     /**

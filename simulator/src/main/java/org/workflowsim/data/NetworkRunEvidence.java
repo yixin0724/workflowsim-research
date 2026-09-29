@@ -10,7 +10,8 @@ import java.util.Map;
  * Immutable run-local observation of the existing grouped fluid model.
  * Only retained START bindings are exposed. COMPLETE means capture completeness,
  * not flow completion; TRUNCATED must never imply complete network statistics.
- * No per-file completion or derived network metrics are claimed by this API slice.
+ * Aggregate input-reference observations, when supplied, do not imply per-file completion.
+ * Derived metrics remain a separate operation on the frozen capture.
  */
 public final class NetworkRunEvidence {
     private final NetworkEvidenceConfig config;
@@ -18,13 +19,16 @@ public final class NetworkRunEvidence {
     private final TransferTraceSnapshot traceSnapshot;
     private final List<NetworkFlowBinding> bindings;
     private final boolean engineCreated;
+    private final NetworkInputDemandSnapshot inputDemand;
 
     private NetworkRunEvidence(NetworkEvidenceConfig config, DataMovementModel.Kind modelKind,
-            TransferTraceSnapshot trace, List<NetworkFlowBinding> bindings, boolean engineCreated) {
+            TransferTraceSnapshot trace, List<NetworkFlowBinding> bindings, boolean engineCreated,
+            NetworkInputDemandSnapshot inputDemand) {
         this.config = config; this.modelKind = modelKind; this.traceSnapshot = trace;
         this.bindings = bindings.isEmpty() ? Collections.<NetworkFlowBinding>emptyList()
                 : Collections.unmodifiableList(new ArrayList<NetworkFlowBinding>(bindings));
         this.engineCreated = engineCreated;
+        this.inputDemand = inputDemand;
     }
 
     /**
@@ -38,7 +42,7 @@ public final class NetworkRunEvidence {
         return new NetworkRunEvidence(config, modelKind,
                 new TransferTraceSnapshot(TransferTraceSnapshot.Status.COMPLETE,
                         Collections.<TransferTraceEvent>emptyList(), 0L, 0.0),
-                Collections.<NetworkFlowBinding>emptyList(), false);
+                Collections.<NetworkFlowBinding>emptyList(), false, NetworkInputDemandSnapshot.empty());
     }
 
     /**
@@ -54,6 +58,20 @@ public final class NetworkRunEvidence {
      */
     public static NetworkRunEvidence capture(NetworkEvidenceConfig config, DataMovementModel.Kind modelKind,
             TransferTraceSnapshot trace, List<NetworkFlowBinding> candidates) {
+        return capture(config, modelKind, trace, candidates, null);
+    }
+
+    /**
+     * Freeze trace/bindings together with optional actual input-reference observations.
+     * @param config enabled recording option
+     * @param modelKind supported data model
+     * @param trace immutable engine snapshot
+     * @param candidates bounded admission bindings
+     * @param inputDemand immutable observations; null means unavailable, never inferred zero
+     * @return immutable joined capture
+     */
+    public static NetworkRunEvidence capture(NetworkEvidenceConfig config, DataMovementModel.Kind modelKind,
+            TransferTraceSnapshot trace, List<NetworkFlowBinding> candidates, NetworkInputDemandSnapshot inputDemand) {
         requireEnabledContention(config, modelKind);
         if (trace == null || trace.getStatus() == TransferTraceSnapshot.Status.DISABLED || candidates == null)
             throw new IllegalArgumentException("Enabled network evidence requires an enabled trace and candidate bindings");
@@ -79,7 +97,7 @@ public final class NetworkRunEvidence {
         }
         if (trace.getStatus() == TransferTraceSnapshot.Status.COMPLETE && !byOrdinal.isEmpty())
             throw new IllegalStateException("Complete network trace has candidate bindings without retained START records");
-        return new NetworkRunEvidence(config, modelKind, trace, retained, true);
+        return new NetworkRunEvidence(config, modelKind, trace, retained, true, inputDemand);
     }
 
     private static void requireEnabledContention(NetworkEvidenceConfig config, DataMovementModel.Kind kind) {
@@ -93,4 +111,6 @@ public final class NetworkRunEvidence {
     /** @return immutable NF001 snapshot with original coverage */ public TransferTraceSnapshot getTraceSnapshot() { return traceSnapshot; }
     /** @return immutable retained START bindings */ public List<NetworkFlowBinding> getBindings() { return bindings; }
     /** @return whether a real run-local fluid engine was created */ public boolean isEngineCreated() { return engineCreated; }
+    /** @return actual immutable grouped-input observations, or null if not supplied */
+    public NetworkInputDemandSnapshot getInputDemand() { return inputDemand; }
 }

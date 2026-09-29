@@ -849,7 +849,9 @@ public final class WorkflowEngine extends SimEntity {
             WorkflowDatacenter datacenter) {
         double bytes = 0.0;
         for (FileItem file : files) {
-            if (!datacenter.isFileLocalForJob(file, job)) {
+            boolean local = datacenter.isFileLocalForJob(file, job);
+            datacenter.recordNetworkInputDemand(file, local);
+            if (!local) {
                 bytes = addFiniteTransferQuantity(bytes, file.getSize(), "transferable bytes");
             }
         }
