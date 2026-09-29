@@ -337,6 +337,8 @@ class NetworkEvidenceCaptureIntegrationTest {
         assertEquals(traceEvents(report, TransferTraceEvent.Type.START).size(), traceEvents(report, TransferTraceEvent.Type.COMPLETE).size());
     }
     private static void assertAllRetainedStartsBound(SimulationReport report) {
+        org.workflowsim.data.TransferTraceValidator.validate(report.getNetworkEvidence().getTraceSnapshot(),
+                report.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
         Map<Long, NetworkFlowBinding> bindings = new LinkedHashMap<Long, NetworkFlowBinding>();
         for (NetworkFlowBinding binding : report.getNetworkEvidence().getBindings()) {
             assertNull(bindings.put(binding.getAdmissionOrdinal(), binding));
