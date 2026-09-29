@@ -110,14 +110,18 @@ final class NetworkLedgerContextValidator {
         if(!evidence.isEngineCreated()&&!stages.isEmpty())throw fail("Modeled input stage requires a created fluid engine");
         NetworkInputDemandSnapshot input=evidence.getInputDemand();
         if(input.getReferenceCount()!=references)throw fail("Input reference counter differs from main events");
+        long groups=0;for(StageView stage:stages.values())groups+=stage.groups;
+        if(groups>input.getReferenceCount()-input.getLocalReferenceCount())throw fail("Positive input groups exceed observed nonlocal references");
         if(required.subtract(input.getRequiredReferenceBytes()).abs().compareTo(requiredError)>0)throw fail("Input reference bytes differ beyond modeled summation rounding");
         Map<Long,NetworkFlowBinding> bindings=new HashMap<Long,NetworkFlowBinding>();
+        Set<Integer> externalJobs=new HashSet<Integer>();
         for(NetworkFlowBinding b:evidence.getBindings()){
             JobView job=jobs.get(b.getJobId());
             if(job==null||job.type!=Parameters.ClassType.COMPUTE.value||!job.tasks.equals(b.getTaskIds())||!endpoint(job.vm).equals(b.getDestinationEndpoint()))throw fail("Network binding differs from consuming Job/Task/VM");
             if(bindings.put(b.getAdmissionOrdinal(),b)!=null)throw fail("Duplicate network binding ordinal");
             List<String> path=new ArrayList<String>();
             if(b.getGroupKind()==NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1){
+                if(!externalJobs.add(b.getJobId()))throw fail("V1 permits only one external input group per Job attempt");
                 if(!"source".equals(b.getSourceEndpoint())||b.getParentJobId()!=null)throw fail("External group has an invalid source");
                 if(topology==null)path.add("source");path.add(endpoint(job.vm));
             }else{

@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-`NetworkLedgerCodec`提供严格JSON编解码与不可变重建；`ExperimentArtifactWriter`现在已能写出ON网络账本，`ExperimentArtifactValidator`会同时核对内容及运行上下文。**独立Python检查、rerun网络比较与Workbench配置/显示仍属后续接线，不把本阶段等同于完整P0/P2交付。**
+`NetworkLedgerCodec`提供严格JSON编解码与不可变重建；`ExperimentArtifactWriter`现在已能写出ON网络账本，`ExperimentArtifactValidator`会同时核对内容及运行上下文。另有不调用Java的[独立Python检查器](<NETWORK_LEDGER_PYTHON.md>)。**rerun网络比较与Workbench配置/显示仍属后续接线，不把本阶段等同于完整P0/P2交付。**
 
 ```java
 String json = NetworkLedgerCodec.encode(report.getNetworkEvidence());
@@ -33,7 +33,7 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 - v4的networkEvidence对象必须与network-ledger角色同时存在；null、false、OFF对象或非法预算不能被当成缺省OFF。
 - 工件大小与事件序号按精确long校验，不接受小数截断或越界转换。
 
-19项工件集成测试覆盖完整/截断/零流、OFF目录复用、写前预检保护、重算哈希后的非法指标/服务/来源/路径/容量/局部性、观察时刻与Job释放、精确长度、UTF-8及搬迁。拓扑正控制包含同edge、跨Pod、显式放置和缩减core；不会为不可信的大k分配整张拓扑。
+21项工件集成测试覆盖完整/截断/零流、OFF目录复用、写前预检保护、重算哈希后的非法指标/服务/来源/路径/容量/局部性、观察时刻与Job释放、精确长度、UTF-8及搬迁。拓扑正控制包含同edge、跨Pod、显式放置和缩减core；不会为不可信的大k分配整张拓扑。
 
 ## 文档头
 
@@ -66,7 +66,7 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 
 - `Decoded`仅返回不可变证据和重新计算的不可变指标；修改源JSON树不影响它们。
 - COMPLETE、TRUNCATED、无引擎零观察、缺失输入计数等状态保持不同含义。
-- 纯codec不持有manifest中的Job结果、VM放置或主事件；正式工件校验另核对配置、实际VM放置、Job/Task身份、来源/确定性路径、平台容量、Job-ready/输入完成/Job开始时间和每Job组计数。输入引用数与主事件一致，精确引用字节与原double归组量在明确累加误差边界内核对，不能把允许的±1归组舍入差当作局部性。
+- 纯codec不持有manifest中的Job结果、VM放置或主事件；正式工件校验另核对配置、实际VM放置、Job/Task身份、来源/确定性路径、平台容量、Job-ready/输入完成/Job开始时间和每Job组计数。输入引用数与主事件一致，正传输组数不得超过非本地引用数，每个Job尝试至多一个V1外部输入组（也约束已保留前缀）。精确引用字节与原double归组量在明确累加误差边界内核对，不能把允许的±1归组舍入差当作局部性。
 - v4旧工具可能只验证额外角色的哈希而不理解这些网络语义。ON证据必须使用升级后的校验/重放链路；目前专用rerun与Workbench网络显示仍待后续完成。
 - 内部一致性不等于密码学真实性，也不证明未知截断后缀存在。
 

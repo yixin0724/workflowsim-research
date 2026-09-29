@@ -33,6 +33,30 @@ jobs:
       - name: Verify independent evidence and statistics checkers
         run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
 
+      - name: Verify independent network checker self-tests
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-network-ledger.py
+
+      - name: Generate network ledger producer fixtures
+        run: >-
+          mvn -B -Pcore-exec -pl :workflowsim -am test-compile exec:java
+          -Dexec.mainClass=org.workflowsim.data.NetworkLedgerPythonFixtures
+          -Dexec.classpathScope=test
+          -Dexec.args="\"$PWD/output/network-ci\""
+
+      - name: Check generated ledgers independently in Python
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from _network_audit import inspect_path
+          root = Path('output/network-ci')
+          index = json.loads((root / 'fixtures.json').read_text(encoding='utf-8'))
+          for name in index['inputs']:
+              result = inspect_path(root / name)
+              print(json.dumps(dict(input=name, **result), allow_nan=False))
+          PY
+
       - name: Set up Node for offline report checks
         uses: actions/setup-node@v4
         with:
@@ -69,6 +93,7 @@ jobs:
             experiments/target/surefire-reports/
             experiments/target/failsafe-reports/
             output/workbench-ci/
+            output/network-ci/
 
       # 质量门禁引用的 5 个 WfFormat/WfInstances 小型输入已纳入版本库（见 .gitignore 白名单）。
       # 标准检出会执行相关测试；缺失必需输入会失败，不会自动跳过。

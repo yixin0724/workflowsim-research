@@ -195,6 +195,68 @@ class NetworkLedgerArtifactIntegrationTest {
         ledger=recompute(ledger);replaceLedger(files,ledger);assertThrows(IOException.class,()->ExperimentArtifactValidator.validate(files.getManifest()));
     }
 
+    @Test void localReferenceCountCannotExceedTheNonlocalReferencesNeededByGroups() throws Exception {
+        for(int budget:new int[]{2000,1}){
+            ExperimentArtifactWriter.ExperimentArtifacts files=write(report(false,budget,true));JsonObject ledger=read(files.getNetworkLedger());
+            JsonObject input=ledger.getAsJsonObject("evidence").getAsJsonObject("inputDemand");
+            assertEquals(2,input.get("referenceCount").getAsInt());assertEquals(0,input.get("localReferenceCount").getAsInt());
+            input.addProperty("localReferenceCount",1); // zero-byte alleged local hit leaves byte totals unchanged
+            ledger=recompute(ledger);replaceLedger(files,ledger);
+            assertThrows(IOException.class,()->ExperimentArtifactValidator.validate(files.getManifest()));
+        }
+    }
+
+    @Test void oneJobCannotSplitItsExternalInputsIntoMultipleV1Groups() throws Exception {
+        SimulationReport template=report(false,2000,false);Path dax=temporary.resolve("split-external.dax");
+        Files.write(dax,("<adag><job id=\"root\" runtime=\"1\"><uses file=\"a\" link=\"input\" size=\"0.25\"/>"
+                +"<uses file=\"b\" link=\"input\" size=\"0.25\"/></job></adag>").getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config=SimulationConfig.builder(dax.toString(),2).planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)
+                .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC).fileSystem(ReplicaCatalog.FileSystem.LOCAL).randomSeed(1)
+                .dataMovementModel(DataMovementModel.preExecutionTransferDelayWithContentionV1())
+                .networkEvidence(NetworkEvidenceConfig.fluidGroupLedger(2000)).build();
+        ExperimentArtifactWriter.ExperimentArtifacts files=write(new SimulationRunner().run(config,template.getPlatform()));
+        JsonObject ledger=read(files.getNetworkLedger()),evidence=ledger.getAsJsonObject("evidence"),trace=evidence.getAsJsonObject("traceSnapshot");
+        JsonArray rows=trace.getAsJsonArray("events"),split=new JsonArray();JsonObject start=null,service=null,complete=null;
+        for(JsonElement item:rows){JsonObject row=item.getAsJsonObject();String type=row.get("type").getAsString();
+            if("CAPACITY".equals(type))split.add(row.deepCopy());else if("START".equals(type))start=row.deepCopy();
+            else if("SERVICE_SEGMENT".equals(type))service=row.deepCopy();else if("COMPLETE".equals(type))complete=row.deepCopy();}
+        assertNotNull(start);assertNotNull(service);assertNotNull(complete);
+        long secondId=start.get("transferId").getAsLong()+1;
+        start.getAsJsonObject("start").addProperty("bytes",.25);split.add(start);
+        JsonObject second=start.deepCopy();second.addProperty("transferId",secondId);second.addProperty("admissionOrdinal",2);
+        second.getAsJsonObject("start").addProperty("initialRateBytesPerSecond",500000);split.add(second);
+        JsonObject change=start.deepCopy();change.addProperty("type","RATE_CHANGE");change.add("start",JsonNull.INSTANCE);
+        JsonObject rate=new JsonObject();rate.addProperty("previousRateBytesPerSecond",1000000);rate.addProperty("rateBytesPerSecond",500000);change.add("rateChange",rate);split.add(change);
+        service.getAsJsonObject("serviceSegment").addProperty("rateBytesPerSecond",500000);
+        service.getAsJsonObject("serviceSegment").addProperty("remainingBefore",.25);split.add(service);
+        JsonObject secondService=service.deepCopy();secondService.addProperty("transferId",secondId);secondService.addProperty("admissionOrdinal",2);split.add(secondService);
+        split.add(complete);JsonObject secondComplete=complete.deepCopy();secondComplete.addProperty("transferId",secondId);secondComplete.addProperty("admissionOrdinal",2);split.add(secondComplete);
+        renumber(split);trace.add("events",split);
+        JsonArray bindings=evidence.getAsJsonArray("bindings");assertEquals(1,bindings.size());
+        JsonObject secondBinding=bindings.get(0).getAsJsonObject().deepCopy();secondBinding.addProperty("externalTransferId",secondId);secondBinding.addProperty("admissionOrdinal",2);bindings.add(secondBinding);
+        ledger=recompute(ledger);replaceLedger(files,ledger);
+        StringBuilder eventText=new StringBuilder();
+        for(String line:Files.readAllLines(files.getEvents(),StandardCharsets.UTF_8)){
+            JsonObject row=JsonParser.parseString(line).getAsJsonObject();
+            if("DATA_STAGE_IN_MODELED".equals(row.get("type").getAsString())&&row.get("classType").getAsInt()==Parameters.ClassType.COMPUTE.value)
+                row.getAsJsonObject("attributes").addProperty("contentionTransferGroupCount",2.0);
+            eventText.append(row.toString()).append('\n');
+        }
+        Files.write(files.getEvents(),eventText.toString().getBytes(StandardCharsets.UTF_8));JsonObject manifest=read(files.getManifest());
+        role(manifest,"events").addProperty("sha256",ExperimentProvenance.fingerprint(files.getEvents()));role(manifest,"events").addProperty("sizeBytes",Files.size(files.getEvents()));
+        ExperimentArtifactWriter.writeJson(files.getManifest(),manifest);
+        assertThrows(IOException.class,()->ExperimentArtifactValidator.validate(files.getManifest()));
+        // Both false external STARTs remain visible in this prefix; generic codec still accepts it.
+        JsonObject truncated=ledger.deepCopy(),prefixTrace=truncated.getAsJsonObject("evidence").getAsJsonObject("traceSnapshot");
+        JsonArray completeRows=prefixTrace.getAsJsonArray("events"),prefixRows=new JsonArray();
+        for(int i=0;i<4;i++)prefixRows.add(completeRows.get(i).deepCopy());
+        prefixTrace.add("events",prefixRows);prefixTrace.addProperty("status","TRUNCATED");prefixTrace.addProperty("droppedCount",completeRows.size()-4);
+        truncated.getAsJsonObject("evidence").getAsJsonObject("config").addProperty("maxTraceRecords",4);
+        truncated=recompute(truncated);manifest=read(files.getManifest());manifest.getAsJsonObject("configuration").getAsJsonObject("networkEvidence").addProperty("maxTraceRecords",4);
+        ExperimentArtifactWriter.writeJson(files.getManifest(),manifest);replaceLedger(files,truncated);
+        assertThrows(IOException.class,()->ExperimentArtifactValidator.validate(files.getManifest()));
+    }
+
     @Test void coherentNegativeHostIdentityIsNotAValidDeclaredPlatform() throws Exception {
         ExperimentArtifactWriter.ExperimentArtifacts files=write(report(false,2000,true));JsonObject manifest=read(files.getManifest());
         for(JsonElement host:manifest.getAsJsonObject("platform").getAsJsonArray("hosts"))
