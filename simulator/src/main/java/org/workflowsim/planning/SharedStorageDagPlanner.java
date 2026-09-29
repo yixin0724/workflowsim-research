@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,9 @@ final class SharedStorageDagPlanner {
     private final Map<Task, Double> finishes = new HashMap<Task, Double>();
     private final Map<CondorVM, List<Reservation>> reservations =
             new HashMap<CondorVM, List<Reservation>>();
+    /** 每个 VM 身份最多一条最近查询；plan() 每次创建新规划器，不跨计划保留缓存。 */
+    private final Map<CondorVM, SlotQuery> lastSlotQueries =
+            new IdentityHashMap<CondorVM, SlotQuery>();
 
     private SharedStorageDagPlanner(List<Task> sourceTasks, List rawVms,
             PlanningContext context, Strategy strategy) {
@@ -265,7 +269,7 @@ final class SharedStorageDagPlanner {
                 if (Double.isInfinite(duration)) {
                     continue;
                 }
-                double earliestStart = earliestStart(reservations.get(vm), readyTime, duration);
+                double earliestStart = earliestStartForReadyPair(vm, readyTime, duration);
                 DlsCandidate candidate = new DlsCandidate(task, vm,
                         upwardRanks.get(task).doubleValue() - earliestStart);
                 if (selected == null || candidate.isBetterThan(selected)) {
@@ -309,7 +313,7 @@ final class SharedStorageDagPlanner {
                 if (Double.isInfinite(duration)) {
                     continue;
                 }
-                double earliestStart = earliestStart(reservations.get(vm), readyTime, duration);
+                double earliestStart = earliestStartForReadyPair(vm, readyTime, duration);
                 EtfCandidate candidate = new EtfCandidate(task, vm, earliestStart,
                         upwardRanks.get(task).doubleValue());
                 if (selected == null || candidate.isBetterThan(selected)) {
@@ -600,7 +604,9 @@ final class SharedStorageDagPlanner {
             if (Double.isInfinite(duration)) {
                 continue;
             }
-            double start = earliestStart(reservations.get(vm), readyTime, duration);
+            double start = strategy == Strategy.DLS || strategy == Strategy.ETF
+                    ? earliestStartForReadyPair(vm, readyTime, duration)
+                    : earliestStart(reservations.get(vm), readyTime, duration);
             double finish = start + duration;
             if (finish < selectedFinish || (Double.compare(finish, selectedFinish) == 0
                     && selectedVm != null && vm.getId() < selectedVm.getId())) {
@@ -617,6 +623,10 @@ final class SharedStorageDagPlanner {
     }
 
     private void reserve(Task task, CondorVM vm, double start, double finish) {
+        if (strategy == Strategy.DLS || strategy == Strategy.ETF) {
+            // 任何插入都开始新的占用代次，不能复用该 VM 旧日历的查询结果。
+            lastSlotQueries.remove(vm);
+        }
         reservations.get(vm).add(new Reservation(start, finish));
         Collections.sort(reservations.get(vm), new Comparator<Reservation>() {
             @Override
@@ -642,6 +652,32 @@ final class SharedStorageDagPlanner {
             readyTime = Math.max(readyTime, parentFinish.doubleValue());
         }
         return readyTime;
+    }
+
+    /**
+     * 仅 DLS/ETF 复用同一 VM 最近一次完全相同的插槽查询。
+     *
+     * <p>每个 VM 最多一条记录，总空间 O(V)；reserve 使该 VM 的占用代次失效。
+     * 不同查询只覆盖旧记录，连续不同的 ready/duration 不承诺减少扫描阶数。
+     * 未命中仍执行原始循环，不合并区间，也不近似时间比较。</p>
+     */
+    private double earliestStartForReadyPair(CondorVM vm, double readyTime, double duration) {
+        long readyBits = Double.doubleToRawLongBits(readyTime);
+        long durationBits = Double.doubleToRawLongBits(duration);
+        SlotQuery cached = lastSlotQueries.get(vm);
+        if (cached != null && cached.readyBits == readyBits && cached.durationBits == durationBits) {
+            return cached.start;
+        }
+        double start = earliestStart(reservations.get(vm), readyTime, duration);
+        if (cached == null) {
+            lastSlotQueries.put(vm, new SlotQuery(readyBits, durationBits, start));
+        } else {
+            // 复用记录对象，避免 all-distinct 查询逐对分配缓存键/记录。
+            cached.readyBits = readyBits;
+            cached.durationBits = durationBits;
+            cached.start = start;
+        }
+        return start;
     }
 
     private static double earliestStart(List<Reservation> schedule, double readyTime, double duration) {
@@ -759,6 +795,18 @@ final class SharedStorageDagPlanner {
             }
             int byTaskId = Integer.compare(task.getCloudletId(), other.task.getCloudletId());
             return byTaskId != 0 ? byTaskId < 0 : vm.getId() < other.vm.getId();
+        }
+    }
+
+    private static final class SlotQuery {
+        private long readyBits;
+        private long durationBits;
+        private double start;
+
+        private SlotQuery(long readyBits, long durationBits, double start) {
+            this.readyBits = readyBits;
+            this.durationBits = durationBits;
+            this.start = start;
         }
     }
 
