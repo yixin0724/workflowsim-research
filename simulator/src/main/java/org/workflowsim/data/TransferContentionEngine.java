@@ -1,6 +1,7 @@
 package org.workflowsim.data;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,12 @@ public final class TransferContentionEngine {
         private double remainingBytes;
         private double rateBytesPerSecond;
 
+        // Enabled-only primitive bookkeeping; OFF allocates no per-flow trace object.
+        private long traceAdmissionOrdinal;
+        private double tracePreviousRate;
+        private double traceRemainingBefore;
+        private double traceRemainingAfterService;
+
         private Transfer(double bytes, List<String> occupiedResources,
                 double nominalRateBytesPerSecond) {
             this.bytes = bytes;
@@ -81,11 +88,111 @@ public final class TransferContentionEngine {
         }
     }
 
+    /** Allocated only for a positive record budget; never calls user code. */
+    private static final class TraceState {
+        private final int maxEvents;
+        private final List<TransferTraceEvent> events = new ArrayList<TransferTraceEvent>();
+        private long droppedCount;
+        private long nextAdmissionOrdinal = 1L;
+        private double intervalStart;
+
+        private TraceState(int maxEvents) { this.maxEvents = maxEvents; }
+
+        // Call only for true events. Reserve before DTO construction or resource copying.
+        private long reserveSequence() {
+            if (events.size() == maxEvents) {
+                droppedCount++;
+                return 0L;
+            }
+            return events.size() + 1L;
+        }
+
+        private void capacity(String resource, double capacity, double engineTime) {
+            long sequence = reserveSequence();
+            if (sequence != 0L) {
+                events.add(TransferTraceEvent.capacity(sequence, engineTime, resource, capacity));
+            }
+        }
+
+        private void start(long id, Transfer transfer, double now) {
+            long sequence = reserveSequence();
+            if (sequence != 0L) {
+                events.add(TransferTraceEvent.start(sequence, now, id, transfer.traceAdmissionOrdinal,
+                        transfer.bytes, transfer.occupiedResources, transfer.nominalRateBytesPerSecond,
+                        transfer.rateBytesPerSecond));
+            }
+        }
+
+        private void rateChange(long id, Transfer transfer, double effectiveTime, double observedTime) {
+            long sequence = reserveSequence();
+            if (sequence != 0L) {
+                events.add(TransferTraceEvent.rateChange(sequence, effectiveTime, observedTime, id,
+                        transfer.traceAdmissionOrdinal, transfer.tracePreviousRate, transfer.rateBytesPerSecond));
+            }
+        }
+
+        private void service(long id, Transfer transfer, double effectiveTime, double observedTime, double elapsed) {
+            long sequence = reserveSequence();
+            if (sequence != 0L) {
+                events.add(TransferTraceEvent.serviceSegment(sequence, intervalStart, effectiveTime, observedTime,
+                        id, transfer.traceAdmissionOrdinal, elapsed, transfer.rateBytesPerSecond,
+                        transfer.traceRemainingBefore, transfer.traceRemainingAfterService));
+            }
+        }
+
+        private void complete(long id, Transfer transfer, double effectiveTime, double observedTime) {
+            long sequence = reserveSequence();
+            if (sequence != 0L) {
+                events.add(TransferTraceEvent.complete(sequence, effectiveTime, observedTime,
+                        id, transfer.traceAdmissionOrdinal, transfer.traceRemainingAfterService));
+            }
+        }
+    }
+
     /** 端点容量表：未注册的端点视为容量无限。 */
     private final Map<String, Double> endpointCapacitiesBytesPerSecond = new LinkedHashMap<String, Double>();
     /** 活动传输表，按插入顺序迭代保证确定性。 */
     private final Map<Long, Transfer> activeTransfers = new LinkedHashMap<Long, Transfer>();
     private double lastAdvanceTime = 0.0;
+    private final TraceState traceState;
+
+    /** Construct the original, history-free engine with capture disabled. */
+    public TransferContentionEngine() { this(0); }
+
+    /**
+     * Construct an engine with optional bounded internal trace capture.
+     * A positive budget retains a deterministic prefix. Exactly filling it is
+     * still COMPLETE; only a subsequent true event makes capture TRUNCATED.
+     * Once full, true events are counted without allocating their DTOs or trace
+     * resource copies. The budget bounds records, not bytes: START resource
+     * lists and caller-retained snapshots can use additional memory.
+     *
+     * @param maxTraceEvents zero disables capture; positive values bound retained events
+     * @throws IllegalArgumentException if the budget is negative
+     */
+    public TransferContentionEngine(int maxTraceEvents) {
+        if (maxTraceEvents < 0) {
+            throw new IllegalArgumentException("Trace event budget cannot be negative: " + maxTraceEvents);
+        }
+        traceState = maxTraceEvents == 0 ? null : new TraceState(maxTraceEvents);
+    }
+
+    /**
+     * Return a deeply immutable point-in-time trace view. Capture completeness
+     * does not indicate that every active transfer has finished. This query
+     * neither advances the clock nor emits an event.
+     *
+     * @return trace status, immutable event prefix, dropped count, and known engine time
+     */
+    public TransferTraceSnapshot getTraceSnapshot() {
+        if (traceState == null) {
+            return new TransferTraceSnapshot(TransferTraceSnapshot.Status.DISABLED,
+                    Collections.<TransferTraceEvent>emptyList(), 0L, lastAdvanceTime);
+        }
+        return new TransferTraceSnapshot(traceState.droppedCount == 0L
+                ? TransferTraceSnapshot.Status.COMPLETE : TransferTraceSnapshot.Status.TRUNCATED,
+                traceState.events, traceState.droppedCount, lastAdvanceTime);
+    }
 
     /**
      * 注册一个端点的容量。
@@ -105,6 +212,9 @@ public final class TransferContentionEngine {
             throw new IllegalStateException("Cannot change capacity while transfers are active");
         }
         endpointCapacitiesBytesPerSecond.put(endpoint, capacityBytesPerSecond);
+        if (traceState != null) {
+            traceState.capacity(endpoint, capacityBytesPerSecond, lastAdvanceTime);
+        }
     }
 
     /**
@@ -200,7 +310,16 @@ public final class TransferContentionEngine {
         AdvanceResult result = advance(now);
         activeTransfers.put(transferId, new Transfer(bytes,
                 new ArrayList<String>(occupiedResources), nominalRateBytesPerSecond));
+        if (traceState != null) {
+            activeTransfers.get(transferId).traceAdmissionOrdinal = traceState.nextAdmissionOrdinal++;
+            captureCurrentRates();
+        }
         recomputeRates();
+        if (traceState != null) {
+            Transfer admitted = activeTransfers.get(transferId);
+            traceState.start(transferId, admitted, now);
+            recordRateChanges(now, admitted);
+        }
         return new AdvanceResult(result.getCompletedTransferIds(), earliestCompletion(now));
     }
 
@@ -227,22 +346,40 @@ public final class TransferContentionEngine {
                 }
             }
             double elapsed = Math.min(now - lastAdvanceTime, nextDuration);
+            if (traceState != null) { traceState.intervalStart = lastAdvanceTime; }
             for (Transfer transfer : activeTransfers.values()) {
+                if (traceState != null) { transfer.traceRemainingBefore = transfer.remainingBytes; }
                 transfer.remainingBytes = Math.max(0.0,
                         transfer.remainingBytes - transfer.rateBytesPerSecond * elapsed);
+                if (traceState != null) { transfer.traceRemainingAfterService = transfer.remainingBytes; }
             }
             if (earliest != null && elapsed >= nextDuration) {
                 // Round-off in subtraction must not leave the actual earliest flow alive.
                 earliest.remainingBytes = 0.0;
             }
             lastAdvanceTime = Math.min(now, lastAdvanceTime + elapsed);
+            if (traceState != null && elapsed > 0.0) {
+                // All services precede completions; retain elapsed even if the two clocks round equal.
+                for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
+                    traceState.service(entry.getKey(), entry.getValue(), lastAdvanceTime, now, elapsed);
+                }
+            }
             List<Long> settled = new ArrayList<Long>();
             for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
                 if (entry.getValue().completed()) { settled.add(entry.getKey()); }
             }
+            if (traceState != null) {
+                for (Long id : settled) {
+                    traceState.complete(id, activeTransfers.get(id), lastAdvanceTime, now);
+                }
+            }
             for (Long id : settled) { activeTransfers.remove(id); }
             completed.addAll(settled);
-            if (!settled.isEmpty()) { recomputeRates(); }
+            if (!settled.isEmpty()) {
+                if (traceState != null) { captureCurrentRates(); }
+                recomputeRates();
+                if (traceState != null) { recordRateChanges(now, null); }
+            }
             if (elapsed == 0.0 && settled.isEmpty()) {
                 throw new IllegalStateException("Transfer integration made no progress");
             }
@@ -268,6 +405,23 @@ public final class TransferContentionEngine {
             throw new IllegalArgumentException("Unknown active transfer: " + transferId);
         }
         return transfer.rateBytesPerSecond;
+    }
+
+    /** Enabled-only: remember final rates before the untouched solver runs. */
+    private void captureCurrentRates() {
+        for (Transfer transfer : activeTransfers.values()) {
+            transfer.tracePreviousRate = transfer.rateBytesPerSecond;
+        }
+    }
+
+    /** Called only after successful final-rate validation; START covers the new admission. */
+    private void recordRateChanges(double observedTime, Transfer admitted) {
+        for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
+            Transfer transfer = entry.getValue();
+            if (transfer != admitted && transfer.tracePreviousRate != transfer.rateBytesPerSecond) {
+                traceState.rateChange(entry.getKey(), transfer, lastAdvanceTime, observedTime);
+            }
+        }
     }
 
     /** 残余容量和未冻结流占用数；同一资源的重复键按出现次数计费。 */
