@@ -20,8 +20,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -93,6 +95,8 @@ public final class WorkflowParser {
     }
     /** DAX 任务名称到任务对象的临时索引。 */
     protected Map<String, Task> mName2Task;
+    /** Directed task-ID pairs seen in the current DAX input; lists retain first-declaration order. */
+    private final Set<Long> daxDependencyEdges = new HashSet<>();
 
     /**
      * 创建工作流解析器。
@@ -122,6 +126,7 @@ public final class WorkflowParser {
     public void parse() {
         setTaskList(new ArrayList<Task>());
         mName2Task.clear();
+        daxDependencyEdges.clear();
         inputReports.clear();
         taskWorkflowIndices.clear();
         jobIdStartsFrom = 1;
@@ -253,6 +258,7 @@ public final class WorkflowParser {
                     WorkflowInputReport.Format.DAX_XML, root.getAttributeValue("version"));
             List<Task> parsedTasks = new ArrayList<>();
             mName2Task.clear();
+            daxDependencyEdges.clear();
 
             // 先建立全部任务定义，才能严格解析和验证后续的依赖引用。
             for (Element node : list) {
@@ -394,10 +400,10 @@ public final class WorkflowParser {
             if (parentTask == null) {
                 throw new WorkflowValidationException("DAX dependency references missing parent " + parentName);
             }
-            if (!parentTask.getChildList().contains(childTask)) {
+            long edge = ((long) parentTask.getCloudletId() << 32)
+                    | (childTask.getCloudletId() & 0xffffffffL);
+            if (daxDependencyEdges.add(edge)) {
                 parentTask.addChild(childTask);
-            }
-            if (!childTask.getParentList().contains(parentTask)) {
                 childTask.addParent(parentTask);
             }
         }

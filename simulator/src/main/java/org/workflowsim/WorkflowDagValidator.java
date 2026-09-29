@@ -48,14 +48,21 @@ public final class WorkflowDagValidator {
             if (taskById.put(task.getCloudletId(), task) != null) {
                 throw new WorkflowValidationException("Duplicate task ID " + task.getCloudletId());
             }
+            if (task.getParentList() == null || task.getChildList() == null) {
+                throw new WorkflowValidationException("Task " + task.getCloudletId()
+                        + " has a null adjacency list");
+            }
             taskSet.add(task);
             task.setDepth(0);
         }
 
         Map<Task, Integer> remainingParents = new HashMap<>();
+        // Per-validation lazy indexes only: Task lists remain authoritative and keep their order.
+        Map<Task, Set<Task>> parentMembership = new HashMap<>();
+        Map<Task, Set<Task>> childMembership = new HashMap<>();
         for (Task task : tasks) {
-            validateNeighbours(task, task.getParentList(), taskSet, true);
-            validateNeighbours(task, task.getChildList(), taskSet, false);
+            validateNeighbours(task, task.getParentList(), taskSet, true, childMembership);
+            validateNeighbours(task, task.getChildList(), taskSet, false, parentMembership);
             remainingParents.put(task, task.getParentList().size());
         }
 
@@ -95,7 +102,7 @@ public final class WorkflowDagValidator {
     }
 
     private static void validateNeighbours(Task task, List<Task> neighbours,
-            Set<Task> taskSet, boolean parents) {
+            Set<Task> taskSet, boolean parents, Map<Task, Set<Task>> reverseMembership) {
         Set<Task> unique = new HashSet<>();
         for (Task neighbour : neighbours) {
             String relation = parents ? "parent" : "child";
@@ -111,10 +118,12 @@ public final class WorkflowDagValidator {
                 throw new WorkflowValidationException("Task " + task.getCloudletId()
                         + " has a duplicate " + relation + " " + neighbour.getCloudletId());
             }
-            boolean symmetric = parents
-                    ? neighbour.getChildList().contains(task)
-                    : neighbour.getParentList().contains(task);
-            if (!symmetric) {
+            Set<Task> reverse = reverseMembership.get(neighbour);
+            if (reverse == null) {
+                reverse = new HashSet<>(parents ? neighbour.getChildList() : neighbour.getParentList());
+                reverseMembership.put(neighbour, reverse);
+            }
+            if (!reverse.contains(task)) {
                 throw new WorkflowValidationException("Task " + task.getCloudletId()
                         + " has an asymmetric " + relation + " relation with task "
                         + neighbour.getCloudletId());

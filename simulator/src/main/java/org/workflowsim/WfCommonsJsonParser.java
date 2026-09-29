@@ -18,9 +18,11 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.cloudbus.cloudsim.Log;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.FileType;
@@ -342,10 +344,11 @@ public final class WfCommonsJsonParser {
             List<SpecTask> specTaskList,
             Map<String, SpecTask> specTasks,
             Map<String, Task> tasksByWfCommonsId) {
+        Set<Long> linkedEdges = new HashSet<>();
         for (SpecTask specTask : specTaskList) {
             Task task = tasksByWfCommonsId.get(specTask.id);
-            addParentEdges(task, specTask.parents, specTasks, tasksByWfCommonsId, specTask.id);
-            addChildEdges(task, specTask.children, specTasks, tasksByWfCommonsId, specTask.id);
+            addParentEdges(task, specTask.parents, specTasks, tasksByWfCommonsId, specTask.id, linkedEdges);
+            addChildEdges(task, specTask.children, specTasks, tasksByWfCommonsId, specTask.id, linkedEdges);
         }
     }
 
@@ -356,14 +359,16 @@ public final class WfCommonsJsonParser {
      */
     private static void validateDeclaredDependencySymmetry(List<SpecTask> specTaskList,
             Map<String, SpecTask> specTasks) {
+        Map<String, Set<String>> parentMembership = new HashMap<>();
+        Map<String, Set<String>> childMembership = new HashMap<>();
         for (SpecTask task : specTaskList) {
-            validateDeclaredParents(task, specTasks);
-            validateDeclaredChildren(task, specTasks);
+            validateDeclaredParents(task, specTasks, childMembership);
+            validateDeclaredChildren(task, specTasks, parentMembership);
         }
     }
 
     private static void validateDeclaredParents(SpecTask child,
-            Map<String, SpecTask> specTasks) {
+            Map<String, SpecTask> specTasks, Map<String, Set<String>> childMembership) {
         if (child.parents == null) {
             return;
         }
@@ -373,7 +378,7 @@ public final class WfCommonsJsonParser {
                 throw new IllegalArgumentException("Task " + child.id
                         + " references missing parent " + parentId);
             }
-            if (parent.children == null || !parent.children.contains(child.id)) {
+            if (!declares(parent.id, parent.children, child.id, childMembership)) {
                 throw new WorkflowValidationException("Inconsistent WfCommons dependency: task "
                         + child.id + " lists " + parentId + " as a parent, but task "
                         + parentId + " does not list " + child.id + " as a child");
@@ -382,7 +387,7 @@ public final class WfCommonsJsonParser {
     }
 
     private static void validateDeclaredChildren(SpecTask parent,
-            Map<String, SpecTask> specTasks) {
+            Map<String, SpecTask> specTasks, Map<String, Set<String>> parentMembership) {
         if (parent.children == null) {
             return;
         }
@@ -392,7 +397,7 @@ public final class WfCommonsJsonParser {
                 throw new IllegalArgumentException("Task " + parent.id
                         + " references missing child " + childId);
             }
-            if (child.parents == null || !child.parents.contains(parent.id)) {
+            if (!declares(child.id, child.parents, parent.id, parentMembership)) {
                 throw new WorkflowValidationException("Inconsistent WfCommons dependency: task "
                         + parent.id + " lists " + childId + " as a child, but task "
                         + childId + " does not list " + parent.id + " as a parent");
@@ -400,12 +405,26 @@ public final class WfCommonsJsonParser {
         }
     }
 
+    /** A local membership snapshot for one symmetry-validation call, never retained across parses. */
+    private static boolean declares(String taskId, List<String> references, String expected,
+            Map<String, Set<String>> membership) {
+        if (references == null) {
+            return false;
+        }
+        Set<String> indexed = membership.get(taskId);
+        if (indexed == null) {
+            indexed = new HashSet<>(references);
+            membership.put(taskId, indexed);
+        }
+        return indexed.contains(expected);
+    }
+
     private static void addParentEdges(
             Task childTask,
             List<String> parentIds,
             Map<String, SpecTask> specTasks,
             Map<String, Task> tasksByWfCommonsId,
-            String childId) {
+            String childId, Set<Long> linkedEdges) {
         if (parentIds == null) {
             return;
         }
@@ -413,7 +432,7 @@ public final class WfCommonsJsonParser {
             if (!specTasks.containsKey(parentId)) {
                 throw new IllegalArgumentException("Task " + childId + " references missing parent " + parentId);
             }
-            addEdge(tasksByWfCommonsId.get(parentId), childTask);
+            addEdge(tasksByWfCommonsId.get(parentId), childTask, linkedEdges);
         }
     }
 
@@ -422,7 +441,7 @@ public final class WfCommonsJsonParser {
             List<String> childIds,
             Map<String, SpecTask> specTasks,
             Map<String, Task> tasksByWfCommonsId,
-            String parentId) {
+            String parentId, Set<Long> linkedEdges) {
         if (childIds == null) {
             return;
         }
@@ -430,15 +449,15 @@ public final class WfCommonsJsonParser {
             if (!specTasks.containsKey(childId)) {
                 throw new IllegalArgumentException("Task " + parentId + " references missing child " + childId);
             }
-            addEdge(parentTask, tasksByWfCommonsId.get(childId));
+            addEdge(parentTask, tasksByWfCommonsId.get(childId), linkedEdges);
         }
     }
 
-    private static void addEdge(Task parentTask, Task childTask) {
-        if (!parentTask.getChildList().contains(childTask)) {
+    private static void addEdge(Task parentTask, Task childTask, Set<Long> linkedEdges) {
+        long edge = ((long) parentTask.getCloudletId() << 32)
+                | (childTask.getCloudletId() & 0xffffffffL);
+        if (linkedEdges.add(edge)) {
             parentTask.addChild(childTask);
-        }
-        if (!childTask.getParentList().contains(parentTask)) {
             childTask.addParent(parentTask);
         }
     }
