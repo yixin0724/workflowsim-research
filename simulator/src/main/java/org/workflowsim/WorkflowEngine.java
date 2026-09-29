@@ -33,6 +33,7 @@ import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.workflowsim.data.NetworkFlowBinding;
 import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
@@ -731,6 +732,8 @@ public final class WorkflowEngine extends SimEntity {
                 String sourceEndpoint = localFileSystem
                         ? "VM:" + parent.getVmId() : Parameters.SOURCE;
                 long transferId = nextContentionTransferId++;
+                String destinationEndpoint = "VM:" + job.getVmId();
+                List<String> resources;
                 if (fatTree) {
                     // Fat-tree：资源集 = 两端点 + 确定性路由的全部链路键。
                     List<String> pathLinks = Parameters.SOURCE.equals(sourceEndpoint)
@@ -738,18 +741,21 @@ public final class WorkflowEngine extends SimEntity {
                             : datacenter.fatTreePathResources(parent.getVmId(), job.getVmId(),
                                     job.getUserId());
                     pathLinkCount += pathLinks.size();
-                    List<String> resources = new ArrayList<String>();
+                    resources = new ArrayList<String>();
                     resources.add(sourceEndpoint);
-                    resources.add("VM:" + job.getVmId());
+                    resources.add(destinationEndpoint);
                     resources.addAll(pathLinks);
                     settleContentionTransfers(datacenter, contention.addTransfer(
                             transferId, transferredBytes, resources,
                             transferredBytes / seconds, now).getCompletedTransferIds());
                 } else {
+                    resources = java.util.Arrays.asList(sourceEndpoint, destinationEndpoint);
                     settleContentionTransfers(datacenter, contention.addTransfer(
-                            transferId, transferredBytes, sourceEndpoint,
-                            "VM:" + job.getVmId(), transferredBytes / seconds, now).getCompletedTransferIds());
+                            transferId, transferredBytes, resources,
+                            transferredBytes / seconds, now).getCompletedTransferIds());
                 }
+                datacenter.recordNetworkFlowBinding(transferId, job, Integer.valueOf(parent.getCloudletId()),
+                        NetworkFlowBinding.GroupKind.PARENT_GROUP_V1, sourceEndpoint, destinationEndpoint, resources);
                 contentionTransferJobs.put(transferId, job);
                 pending.add(transferId);
             }
@@ -771,15 +777,21 @@ public final class WorkflowEngine extends SimEntity {
                 validateTransferEstimate(transferredBytes, seconds);
                 if (seconds > 0.0 && transferredBytes > 0.0) {
                     long transferId = nextContentionTransferId++;
+                    String destinationEndpoint = "VM:" + job.getVmId();
+                    List<String> resources;
                     if (fatTree) {
                         // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
+                        resources = java.util.Collections.singletonList(destinationEndpoint);
                         settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes,
-                                java.util.Collections.singletonList("VM:" + job.getVmId()),
-                                transferredBytes / seconds, now).getCompletedTransferIds());
+                                resources, transferredBytes / seconds, now).getCompletedTransferIds());
                     } else {
-                        settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes, Parameters.SOURCE,
-                                "VM:" + job.getVmId(), transferredBytes / seconds, now).getCompletedTransferIds());
+                        resources = java.util.Arrays.asList(Parameters.SOURCE, destinationEndpoint);
+                        settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes,
+                                resources, transferredBytes / seconds, now).getCompletedTransferIds());
                     }
+                    datacenter.recordNetworkFlowBinding(transferId, job, null,
+                            NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1, Parameters.SOURCE,
+                            destinationEndpoint, resources);
                     contentionTransferJobs.put(transferId, job);
                     pending.add(transferId);
                 }

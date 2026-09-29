@@ -36,6 +36,7 @@ public final class ExperimentArtifactWriter {
      * @return 三个已写入工件的绝对路径
      * @throws IOException 当目录或工件无法写入时抛出
      * @throws IllegalArgumentException 当报告、输出目录或运行标识不合法时抛出
+     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
      */
     public static ExperimentArtifacts write(SimulationReport report, Path outputDirectory,
             String runId) throws IOException {
@@ -52,12 +53,14 @@ public final class ExperimentArtifactWriter {
      * @return 三个已写入工件的绝对路径
      * @throws IOException 当目录或工件无法写入时抛出
      * @throws IllegalArgumentException 当报告、输出目录或运行标识不合法时抛出
+     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
      */
     public static ExperimentArtifacts write(SimulationReport report, Path outputDirectory,
             String runId, ExperimentEvidenceContext evidenceContext) throws IOException {
         if (report == null || outputDirectory == null) {
             throw new IllegalArgumentException("Report and output directory are required");
         }
+        ExperimentManifestWriter.requireNetworkLedgerExportSupported(report);
         validateRunId(runId);
         Path directory = outputDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);

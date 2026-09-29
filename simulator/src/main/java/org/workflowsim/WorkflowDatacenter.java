@@ -15,8 +15,12 @@
  */
 package org.workflowsim;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.CloudletScheduler;
 import org.cloudbus.cloudsim.Consts;
@@ -33,6 +37,9 @@ import org.cloudbus.cloudsim.core.SimEvent;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.data.DataMovementModel;
+import org.workflowsim.data.NetworkEvidenceConfig;
+import org.workflowsim.data.NetworkFlowBinding;
+import org.workflowsim.data.NetworkRunEvidence;
 import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.failure.FailureGenerator;
 import org.workflowsim.utils.ReplicaCatalog;
@@ -52,7 +59,7 @@ import org.workflowsim.utils.TaskExecutionModel;
  * CloudletScheduler，并安排下一次数据中心处理事件。完成检测会先判定 compute Job 的故障结果，
  * 再仅为成功的逻辑 Task 登记输出副本，最后将完成 Cloudlet 返回给其用户。
  *
- * <p>该类仅建模传输耗时，不实现共享链路竞争、物理存储容量分配或重试策略。负载不是
+ * <p>该类将所选模型的共享链路竞争委托给流体引擎，不实现物理存储容量分配或重试策略。负载不是
  * {@link Job}、目标 VM 不存在/不是 {@link CondorVM}、或副本与带宽约束无效时会快速失败并抛出
  * {@link IllegalStateException}；失败 Job 的恢复由工作流引擎及重聚类流程负责。
  *
@@ -68,6 +75,10 @@ public class WorkflowDatacenter extends Datacenter {
     private DataMovementModel dataMovementModel = DataMovementModel.legacyWorkflowsimV1();
     /** 链路争用模型下的流体传输争用引擎（惰性创建，见 {@link #getTransferContentionEngine()}）。 */
     private TransferContentionEngine transferContentionEngine;
+    /** Run-local opt-in; no global Parameters flag is consulted. */
+    private NetworkEvidenceConfig networkEvidenceConfig = NetworkEvidenceConfig.off();
+    /** Bounded early-admission metadata, allocated only when recording an enabled binding. */
+    private Map<Long, NetworkFlowBinding> networkFlowBindings;
     /** Fat-tree 链路争用模型使用的已放置拓扑（标准运行器安装，可为 null）。 */
     private org.workflowsim.network.FatTreeTopology fatTreeTopology;
 
@@ -127,6 +138,58 @@ public class WorkflowDatacenter extends Datacenter {
     }
 
     /**
+     * Install run-local observation before the fluid engine is created.
+     * @param value required immutable option; OFF preserves the old default
+     * @throws IllegalArgumentException for a null option
+     * @throws IllegalStateException after engine creation
+     */
+    public void setNetworkEvidenceConfig(NetworkEvidenceConfig value) {
+        if (value == null) throw new IllegalArgumentException("Network evidence configuration cannot be null");
+        if (transferContentionEngine != null)
+            throw new IllegalStateException("Network evidence must be configured before creating the transfer engine");
+        networkEvidenceConfig = value;
+    }
+
+    /** @return immutable run-local observation option */
+    public NetworkEvidenceConfig getNetworkEvidenceConfig() { return networkEvidenceConfig; }
+
+    /** Copy attribution after successful admission, before any later advance can remove it. */
+    void recordNetworkFlowBinding(long transferId, Job job, Integer parentJobId,
+            NetworkFlowBinding.GroupKind groupKind, String sourceEndpoint, String destinationEndpoint,
+            List<String> occupiedResources) {
+        if (!networkEvidenceConfig.isEnabled()) return;
+        if (transferContentionEngine == null)
+            throw new IllegalStateException("Cannot bind a network flow before a successful transfer admission");
+        long ordinal = transferContentionEngine.getActiveTransferAdmissionOrdinal(transferId);
+        // Each START consumes at least one record. Later ordinals cannot be in a retained prefix.
+        if (ordinal > networkEvidenceConfig.getMaxTraceRecords()) return;
+        List<Integer> taskIds = new ArrayList<Integer>();
+        for (Task task : job.getTaskList()) taskIds.add(task.getCloudletId());
+        NetworkFlowBinding binding = NetworkFlowBinding.of(transferId, ordinal, job.getCloudletId(),
+                taskIds, parentJobId, groupKind, sourceEndpoint, destinationEndpoint, occupiedResources);
+        if (networkFlowBindings == null) networkFlowBindings = new LinkedHashMap<Long, NetworkFlowBinding>();
+        if (networkFlowBindings.containsKey(ordinal))
+            throw new IllegalStateException("Network admission already has a binding: " + ordinal);
+        networkFlowBindings.put(ordinal, binding);
+    }
+
+    /**
+     * Freeze current trace and bounded attribution without creating or advancing an engine.
+     * @return immutable enabled evidence, or null when OFF
+     * @throws IllegalStateException if retained admissions and bindings disagree
+     */
+    public NetworkRunEvidence captureNetworkEvidence() {
+        if (!networkEvidenceConfig.isEnabled()) return null;
+        if (transferContentionEngine == null)
+            return NetworkRunEvidence.empty(networkEvidenceConfig, dataMovementModel.getKind());
+        List<NetworkFlowBinding> candidates = networkFlowBindings == null
+                ? Collections.<NetworkFlowBinding>emptyList()
+                : new ArrayList<NetworkFlowBinding>(networkFlowBindings.values());
+        return NetworkRunEvidence.capture(networkEvidenceConfig, dataMovementModel.getKind(),
+                transferContentionEngine.getTraceSnapshot(), candidates);
+    }
+
+    /**
      * 安装 Fat-tree 链路争用模型使用的已放置拓扑。
      *
      * @param value 非空的已放置拓扑（主机覆盖平台全部 Host）
@@ -161,7 +224,9 @@ public class WorkflowDatacenter extends Datacenter {
             return null;
         }
         if (transferContentionEngine == null) {
-            transferContentionEngine = new TransferContentionEngine();
+            transferContentionEngine = networkEvidenceConfig.isEnabled()
+                    ? new TransferContentionEngine(networkEvidenceConfig.getMaxTraceRecords())
+                    : new TransferContentionEngine();
             for (Host host : getVmAllocationPolicy().getHostList()) {
                 for (Vm vm : host.getVmList()) {
                     transferContentionEngine.setEndpointCapacity("VM:" + vm.getId(),

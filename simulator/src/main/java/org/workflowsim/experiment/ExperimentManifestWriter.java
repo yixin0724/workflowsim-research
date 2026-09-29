@@ -26,6 +26,14 @@ public final class ExperimentManifestWriter {
     private ExperimentManifestWriter() {
     }
 
+    /** NF002A guard: requested capture must not silently disappear from exported evidence. */
+    static void requireNetworkLedgerExportSupported(SimulationReport report) {
+        if (report.getConfig().getNetworkEvidenceConfig().isEnabled()) {
+            throw new UnsupportedOperationException("Network ledger export is not wired yet (NF002A); "
+                    + "inspect SimulationReport.getNetworkEvidence() through the Java API until ledger export is implemented");
+        }
+    }
+
     /**
      * 将一份报告写为独立 JSON manifest。
      *
@@ -36,6 +44,7 @@ public final class ExperimentManifestWriter {
      * @param outputFile manifest 输出文件
      * @throws IOException 当 manifest 无法写入时抛出
      * @throws IllegalArgumentException 当报告或输出路径为空时抛出
+     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
      */
     public static void writeJson(SimulationReport report, Path outputFile) throws IOException {
         writeJson(report, outputFile, (ExperimentEvidenceContext) null);
@@ -53,6 +62,7 @@ public final class ExperimentManifestWriter {
      * @param evidenceContext 可选的 reference 或 study 研究身份
      * @throws IOException 当 manifest 无法写入时抛出
      * @throws IllegalArgumentException 当报告或输出路径为空时抛出
+     * @throws UnsupportedOperationException if network evidence is ON; ledger export is not wired yet
      */
     public static void writeJson(SimulationReport report, Path outputFile,
             ExperimentEvidenceContext evidenceContext) throws IOException {
@@ -73,6 +83,7 @@ public final class ExperimentManifestWriter {
         if (report == null || outputFile == null) {
             throw new IllegalArgumentException("Report and output path are required");
         }
+        requireNetworkLedgerExportSupported(report);
         ExperimentArtifactWriter.writeJson(outputFile, toManifest(report, artifacts, evidenceContext));
     }
 
@@ -161,6 +172,12 @@ public final class ExperimentManifestWriter {
                 + "NO_INTERNAL_BILLING_ROUNDING;"
                 + "MEMORY_AND_STORAGE_PRICES_ARE_DECLARED_BUT_NOT_CHARGED_BY_THIS_MODEL");
         values.put("dataMovementModel", dataMovementModel(config.getDataMovementModel()));
+        if (config.getNetworkEvidenceConfig().isEnabled()) {
+            Map<String, Object> networkEvidence = new LinkedHashMap<String, Object>();
+            networkEvidence.put("mode", config.getNetworkEvidenceConfig().getMode().name());
+            networkEvidence.put("maxTraceRecords", config.getNetworkEvidenceConfig().getMaxTraceRecords());
+            values.put("networkEvidence", networkEvidence);
+        }
         values.put("overheadModel", overheadModel(config.getOverheadModel()));
         values.put("clustering", clustering(config));
         values.put("failureModel", failureModel(config.getFailureModel()));

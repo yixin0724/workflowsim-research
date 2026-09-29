@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.workflowsim.data.DataMovementModel;
+import org.workflowsim.data.NetworkEvidenceConfig;
 import org.workflowsim.failure.FailureModelConfig;
 import org.workflowsim.utils.Parameters.CostModel;
 import org.workflowsim.utils.Parameters.PlanningAlgorithm;
@@ -35,6 +36,7 @@ public final class SimulationConfig {
     private final CostModel costModel;
     private final FailureModelConfig failureModel;
     private final DataMovementModel dataMovementModel;
+    private final NetworkEvidenceConfig networkEvidenceConfig;
     private final TaskCostMatrix taskCostMatrix;
 
     private SimulationConfig(Builder builder) {
@@ -56,6 +58,7 @@ public final class SimulationConfig {
         this.costModel = builder.costModel;
         this.failureModel = builder.failureModel;
         this.dataMovementModel = builder.dataMovementModel;
+        this.networkEvidenceConfig = builder.networkEvidenceConfig;
         this.taskCostMatrix = builder.taskCostMatrix;
     }
 
@@ -162,6 +165,11 @@ public final class SimulationConfig {
         return dataMovementModel;
     }
 
+    /** @return immutable run-local network evidence option; OFF by default */
+    public NetworkEvidenceConfig getNetworkEvidenceConfig() {
+        return networkEvidenceConfig;
+    }
+
     /** @return 可选的任务×VM 异构执行成本矩阵；未配置时为 {@code null} */
     public TaskCostMatrix getTaskCostMatrix() {
         return taskCostMatrix;
@@ -192,6 +200,7 @@ public final class SimulationConfig {
                 .costModel(costModel)
                 .failureModel(failureModel)
                 .dataMovementModel(dataMovementModel)
+                .networkEvidence(networkEvidenceConfig)
                 .taskCostMatrix(taskCostMatrix);
     }
 
@@ -234,6 +243,7 @@ public final class SimulationConfig {
         private CostModel costModel = CostModel.DATACENTER;
         private FailureModelConfig failureModel = FailureModelConfig.disabled();
         private DataMovementModel dataMovementModel = DataMovementModel.legacyWorkflowsimV1();
+        private NetworkEvidenceConfig networkEvidenceConfig = NetworkEvidenceConfig.off();
         private TaskCostMatrix taskCostMatrix;
 
         private Builder(List<String> workflowPaths, int vmCount) {
@@ -346,6 +356,16 @@ public final class SimulationConfig {
         }
 
         /**
+         * Select bounded observation of an existing fluid model, without changing physics.
+         * @param value required immutable option; use off() to disable
+         * @return this builder
+         */
+        public Builder networkEvidence(NetworkEvidenceConfig value) {
+            this.networkEvidenceConfig = value;
+            return this;
+        }
+
+        /**
          * 设置可选的任务×VM 异构执行成本矩阵（论文复现支撑）。
          *
          * @param value 任务×VM 执行成本矩阵；null 表示未配置（保持 MI/mips 缩放）
@@ -387,8 +407,15 @@ public final class SimulationConfig {
             if (overheadModel == null || clusteringParameters == null
                     || schedulingAlgorithm == null || planningAlgorithm == null
                     || fileSystem == null || costModel == null || failureModel == null
-                    || dataMovementModel == null) {
+                    || dataMovementModel == null || networkEvidenceConfig == null) {
                 throw new IllegalArgumentException("Simulation configuration contains a required null value");
+            }
+            if (networkEvidenceConfig.isEnabled()
+                    && !dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                    && !dataMovementModel.isFatTreeContentionV1()) {
+                throw new IllegalArgumentException("Enabled network evidence requires "
+                        + "preExecutionTransferDelayWithContentionV1() or fatTreeContentionV1(); "
+                        + "unsupported data movement model " + dataMovementModel.getKind());
             }
             if (workflowArrivalSeconds == null
                     || workflowArrivalSeconds.size() != workflowPaths.size()) {

@@ -195,6 +195,24 @@ public final class TransferContentionEngine {
     }
 
     /**
+     * Read a live admission's actual ordinal without advancing, copying history or emitting records.
+     * Available after a successful admission even when its START was beyond the retained prefix.
+     * @param transferId caller's currently active transfer ID
+     * @return actual positive engine ordinal, not the caller ID
+     * @throws IllegalStateException if capture is disabled or the transfer is no longer active
+     */
+    public long getActiveTransferAdmissionOrdinal(long transferId) {
+        if (traceState == null) {
+            throw new IllegalStateException("Admission ordinals require enabled transfer trace capture");
+        }
+        Transfer transfer = activeTransfers.get(transferId);
+        if (transfer == null) {
+            throw new IllegalStateException("No active transfer admission for id: " + transferId);
+        }
+        return transfer.traceAdmissionOrdinal;
+    }
+
+    /**
      * 注册一个端点的容量。
      *
      * @param endpoint 端点键（如 {@code "VM:3"}）

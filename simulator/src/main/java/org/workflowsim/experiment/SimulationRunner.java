@@ -61,6 +61,7 @@ public final class SimulationRunner {
             WorkflowDatacenter datacenter = PlatformFactory.createDatacenter("datacenter-0", platform);
             datacenter.setEventRecorder(events);
             datacenter.setDataMovementModel(config.getDataMovementModel());
+            datacenter.setNetworkEvidenceConfig(config.getNetworkEvidenceConfig());
             if (fatTreeTopology != null) {
                 datacenter.setFatTreeTopology(fatTreeTopology);
             }
@@ -96,7 +97,7 @@ public final class SimulationRunner {
                 return SimulationReport.capture(config, platform, makespan,
                         planner.getWorkflowParser().getInputReports(), completedJobs, events.snapshot(),
                         planner.getParsedTaskSnapshot(), planner.getSharedStorageDagPlanTrace(),
-                        actualVmHostAssignments);
+                        actualVmHostAssignments, datacenter.captureNetworkEvidence());
             } catch (IOException exception) {
                 throw new SimulationExecutionException(
                         "Simulation completed but its evidence record could not be created", exception);

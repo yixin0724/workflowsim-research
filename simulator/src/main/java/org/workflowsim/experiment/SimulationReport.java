@@ -19,6 +19,7 @@ import org.cloudbus.cloudsim.Cloudlet;
 import org.workflowsim.Job;
 import org.workflowsim.Task;
 import org.workflowsim.WorkflowInputReport;
+import org.workflowsim.data.NetworkRunEvidence;
 import org.workflowsim.planning.SharedStorageDagPlanTrace;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.SimulationConfig;
@@ -41,6 +42,7 @@ public final class SimulationReport {
     private final WorkflowProfile workflowProfile;
     private final SimulationMetrics metrics;
     private final SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
+    private final NetworkRunEvidence networkEvidence;
     private final List<WorkflowOutcome> workflowOutcomes;
     private final List<TaskNode> workflowGraph;
 
@@ -49,7 +51,7 @@ public final class SimulationReport {
             List<JobOutcome> jobs, List<TaskOutcome> tasks, Map<Integer, VmSummary> vmSummaries,
             Map<Integer, Integer> actualVmHostAssignments, int successfulJobs, int failedJobs,
             List<SimulationEvent> events, List<Task> sourceTasks,
-            SharedStorageDagPlanTrace sharedStorageDagPlanTrace) {
+            SharedStorageDagPlanTrace sharedStorageDagPlanTrace, NetworkRunEvidence networkEvidence) {
         this.config = config;
         this.platform = platform;
         this.makespan = makespan;
@@ -64,6 +66,7 @@ public final class SimulationReport {
         this.failedJobs = failedJobs;
         this.events = Collections.unmodifiableList(new ArrayList<>(events));
         this.sharedStorageDagPlanTrace = sharedStorageDagPlanTrace;
+        this.networkEvidence = networkEvidence;
         this.workflowProfile = WorkflowProfile.fromTasks(sourceTasks);
         Map<Integer, TaskNode> graph = new TreeMap<Integer, TaskNode>();
         for (Task task : sourceTasks) { graph.put(task.getCloudletId(), new TaskNode(task)); }
@@ -110,7 +113,7 @@ public final class SimulationReport {
             double makespan, List<WorkflowInputReport> inputReports, List<Job> completedJobs,
             List<SimulationEvent> events, List<Task> sourceTasks,
             SharedStorageDagPlanTrace sharedStorageDagPlanTrace,
-            Map<Integer, Integer> actualVmHostAssignments)
+            Map<Integer, Integer> actualVmHostAssignments, NetworkRunEvidence networkEvidence)
             throws IOException {
         if (inputReports == null || inputReports.size() != config.getWorkflowPaths().size()) {
             throw new IllegalStateException("Completed simulation has "
@@ -164,7 +167,7 @@ public final class SimulationReport {
         return new SimulationReport(config, platform, makespan, inputs, inputReports,
                 jobs, tasks, vmSummaries, actualVmHostAssignments, successes, failures,
                 events == null ? Collections.<SimulationEvent>emptyList() : events, sourceTasks,
-                sharedStorageDagPlanTrace);
+                sharedStorageDagPlanTrace, networkEvidence);
     }
 
     public SimulationConfig getConfig() { return config; }
@@ -255,6 +258,14 @@ public final class SimulationReport {
      * @return 不可变的仿真指标集合
      */
     public SimulationMetrics getMetrics() { return metrics; }
+
+    /**
+     * Optional immutable grouped-fluid capture, frozen before session cleanup.
+     * COMPLETE zero-flow capture differs from OFF and TRUNCATED. This API slice
+     * does not yet export a sidecar or derive network metrics.
+     * @return captured network evidence, or null when OFF
+     */
+    public NetworkRunEvidence getNetworkEvidence() { return networkEvidence; }
     /**
      * 返回共享存储静态 DAG 规划的追踪记录。
      *
