@@ -339,6 +339,17 @@ class NetworkEvidenceCaptureIntegrationTest {
     private static void assertAllRetainedStartsBound(SimulationReport report) {
         org.workflowsim.data.TransferTraceValidator.validate(report.getNetworkEvidence().getTraceSnapshot(),
                 report.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
+        org.workflowsim.data.NetworkTraceMetrics networkMetrics=org.workflowsim.data.NetworkTraceMetrics.calculate(
+                report.getNetworkEvidence().getTraceSnapshot(),report.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
+        assertEquals(report.getNetworkEvidence().getTraceSnapshot().getStatus()==TransferTraceSnapshot.Status.COMPLETE,
+                networkMetrics.isAvailable());
+        if(networkMetrics.isAvailable()){
+            assertEquals(report.getNetworkEvidence().getBindings().size(),networkMetrics.getFlows().size());
+            assertEquals(0,networkMetrics.getAdmittedPayloadBytes().compareTo(networkMetrics.getServicedBalanceDeltaBytes()
+                    .add(networkMetrics.getCompletionResidualBytes()).add(networkMetrics.getRemainingLedgerBytes())));
+        }else{
+            assertNull(networkMetrics.getAdmittedPayloadBytes());assertNull(networkMetrics.getCompletedFctSampleCount());
+        }
         Map<Long, NetworkFlowBinding> bindings = new LinkedHashMap<Long, NetworkFlowBinding>();
         for (NetworkFlowBinding binding : report.getNetworkEvidence().getBindings()) {
             assertNull(bindings.put(binding.getAdmissionOrdinal(), binding));

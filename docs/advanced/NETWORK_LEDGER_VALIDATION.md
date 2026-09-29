@@ -1,14 +1,20 @@
-# 流体账本独立校验（NF-002B1）
+# 流体账本独立校验与精确指标（NF-002B1/B2）
 
 ## 当前能力与边界
 
 本阶段提供Java API的独立语义校验，不调用生产端的progressive-filling求解器来计算“期望速率”。
-已有运行级捕获和绑定；**网络指标、正式sidecar导出、rerun网络比较和Workbench显示仍属后续功能**。在导出接线完成前，ON工件入口继续明确拒绝写入，OFF历史工件格式不变。
+已有运行级捕获、绑定、独立校验和精确字节/FCT/资源指标；**实际局部性观测、正式sidecar导出、rerun网络比较和Workbench显示仍属后续功能**。在导出接线完成前，ON工件入口继续明确拒绝写入，OFF历史工件格式不变。
 
 ```java
 NetworkRunEvidence evidence = report.getNetworkEvidence(); // OFF为null
-TransferTraceValidator.Result checked = TransferTraceValidator.validate(
-    evidence.getTraceSnapshot(), evidence.getConfig().getMaxTraceRecords());
+if (evidence != null) {
+    NetworkTraceMetrics metrics = NetworkTraceMetrics.calculate(
+        evidence.getTraceSnapshot(), evidence.getConfig().getMaxTraceRecords());
+    TransferTraceValidator.Result checked = metrics.getValidation(); // 已先校验
+    if (metrics.isAvailable()) { // 仅COMPLETE capture发布完整捕获总量
+        BigDecimal service = metrics.getServicedBalanceDeltaBytes();
+    }
+}
 ```
 
 - `COMPLETE`表示所有记录均保留，不表示所有流已完成。活动流可以处于完整的中途快照中。
@@ -17,6 +23,32 @@ TransferTraceValidator.Result checked = TransferTraceValidator.validate(
 - 对截断尾部只检查已观测语法和必要的上下界；**不证明任意未知后缀存在，也不重建被丢弃的历史**。
 - 这是内部一致性校验，不是对整份被一致重写证据的密码学认证。配置、Job绑定、主事件与provenance仍需在工件层关联校验。
 - 当前运行捕获中的流是`PARENT_GROUP_V1`或`EXTERNAL_GROUP_V1`；不是逐文件流。来源标签为`MODELED_CONSTRAINED_SOURCE`，不等于名义估算器实际选择的逐文件副本。
+
+## 精确派生指标（NF-002B2）
+
+`NetworkTraceMetrics.calculate`先调用独立校验器，再读取冻结快照，不访问活引擎、不推进时间。会计版本为`EXACT_BINARY64_INPUT_DECIMAL_V1`：把记录中的double精确表示为BigDecimal后执行不舍入的乘积和累加。
+
+| 量 | 定义与限制 |
+| --- | --- |
+| admittedPayloadBytes | 所有START的需求字节B |
+| servicedBalanceDeltaBytes | 精确累加before-after，记作D |
+| modeledRateAreaBytes | 精确累加rate×原始elapsed，记作A；不替换为时钟差 |
+| completionResidualBytes | 完成时的数值移除R，不是网络服务 |
+| remainingLedgerBytes | 尚未完成的账本余额Q |
+| rateAreaMinusBalanceDeltaBytes | 有符号A-D，可正可负，不取绝对值或归零 |
+| completedDemandBytes | 已完成流的原始需求，不等于已传输服务量 |
+
+每条流都检查精确的`B=D+R+Q`，不错误断言`A=D`。大余额减去0.5后可能仍是同一个double：此时D=0、A=0.5，差异必须保留。BigDecimal也避免超过Double.MAX_VALUE的跨流总量或容量积分被输出为Infinity。
+
+- 每个入流序号独立保存FCT，即使外部ID被重用。活动流的完成时间/FCT为null，属于删失样本。
+- effective FCT与observed FCT、通知滞后分别保留。零effective FCT可以伴随正服务，不输出虚构或无限吞吐率。
+- 均值先以DECIMAL128求均值再转换为double；p95使用整数计算的nearest-rank，不插值。
+- OFF/TRUNCATED保留校验诊断，但字节总量、FCT样本总量和利用率统计不可用；不是以零替代。COMPLETE零流则有真实零字节总量，但没有FCT或利用率样本。
+- 资源积分按原路径重复权重收费，不能把所有资源的积分之和当作唯一交付字节。
+- 利用率是`boundedRateArea/capacityArea`，**每个正elapsed服务批次只计一次容量面积**，排除全局空闲间隔；当时已登记但未占用的资源计零负载。
+- 从未受限的SOURCE有流量面积、无利用率分母。资源后来才登记容量时，先前无上限阶段的流量不进入受限时期的利用率分子。
+
+22项指标测试覆盖上述算式、相邻零时长完成、0/截断、正负舍入差、巨大累计量、nearest-rank和不可变性；实际端点、Fat-tree、局部命中、分数文件、截断和故障重试捕获也参与集成核对。
 
 ## 完整捕获的校验语法
 
