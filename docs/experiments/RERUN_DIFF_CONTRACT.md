@@ -28,7 +28,7 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
   -Dexec.args="<run-dir> <output-dir>"
 ```
 
-- `<run-dir>`：单个 run 的证据目录，必须包含 `result.manifest.json`（schema 为 `workflowsim-experiment-manifest-v4`）、`result.metrics.json`、`result.events.jsonl` 三件套。
+- `<run-dir>`：单个 run 的证据目录，必须包含 `result.manifest.json`（schema 为 `workflowsim-experiment-manifest-v4`）、`result.metrics.json`、`result.events.jsonl` 三件套；ON时还必须包含manifest登记的`result.network-ledger.json`。
 - v1 只接受**单个 run 目录**。study 级批量（遍历 `runs/` 下全部目录并汇总）是后续独立任务，不在本轮验收内。
 - v1 只接受 manifest v4。历史 v2/v3 证据可读不可 rerun，遇到时明确拒绝并说明原因，不静默降级。
 - `<output-dir>`：必须不存在或为空。rerun 产出写入该目录，沿用现有"证据文件逐个原子替换"的写盘纪律。不覆盖任何已有文件。
@@ -65,6 +65,16 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 - 重建产物必须通过现有 `SimulationConfig`/`PlatformProfile` 的模型组合、容量和放置预检，即 rerun 走的是与首次运行相同的配置入口约束；证据字段的结构检查由读取器负责。
 - 若当前代码已不兼容该 manifest 的组合（例如算法标签已被拒绝、契约版本变化），报告状态为 `RECONSTRUCTION_REJECTED`，附上拒绝原因。**这是合法结果，不是错误**：它说明历史证据与当前代码语义不兼容，正是需要暴露的信息。
 
+## 可选网络账本（NF-002C）
+
+- v4的`configuration.networkEvidence`缺省代表OFF；ON的mode和maxTraceRecords必须重建，不能退回无记录运行。独立manifest不能替代所声明的网络sidecar。
+- 读取器复用工件验证器对network-ledger角色、哈希、严格内容和运行上下文的检查，保存已验证的可选路径与捕获状态；损坏或缺失的已声明账本属于`EVIDENCE_INVALID`。
+- 网络sidecar的**全部内容**在`/networkLedger/...`命名空间做精确核心比较。artifact哈希/大小依旧豁免，但其内容不会因此被漏比；此命名空间不继承根`/runtime`、`/provenance`的豁免。
+- 两侧均OFF时跳过网络比较，不新增网络字段；只有一侧合法包含账本时属于核心分歧。大long身份及BigDecimal聚合仍按精确十进制值比较，不经double降精度。
+- 任一侧为TRUNCATED时，JSON和Markdown报告增加条件`networkEvidenceCoverageNote`。此时即使`IDENTICAL_CORE`也只说明保留的网络记录与聚合观察匹配，**不认证完整网络服务历史**。OFF及两侧完整捕获不增加null/false占位字段。
+
+见[账本格式](<../advanced/NETWORK_LEDGER_FORMAT.md>)和[独立Python检查](<../advanced/NETWORK_LEDGER_PYTHON.md>)。Workbench网络配置/显示仍是后续NF-002D，不与本次rerun能力混为一谈。
+
 ## 比对规则：三类字段
 
 ### 核心量（必须逐位一致）
@@ -79,6 +89,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 | manifest `result` | 全部字段（makespan、jobs、tasks、vmSummaries、actualVmHostAssignments、workflowOutcomes），其中 `workflowOutcomes[].path` 除外 |
 | metrics | 全部字段，**除** `totalSchedulingDecisionWallClockNanos`、`totalPlanningDecisionWallClockNanos` |
 | events | 事件总数、每条事件的 `sequence`/`simulationTime`/`type`/`taskIds`/业务 attributes；**除** 各事件 attributes 中的本机耗时字段（如 `planningDecisionElapsedNanos`，REPRODUCIBILITY 契约已声明其排除在确定性 fingerprint 外） |
+| network-ledger（ON） | 全部字段；使用`/networkLedger/...`独立核心命名空间，不新增任何内容豁免 |
 
 比对方式为**JSON 值的精确相等**，不是文本字节相等：对象键顺序无关，数组顺序保留；数值按十进制精确值比较，`1000`、`1000.0`、`1e3` 等值，但不先转换成 double，不设 epsilon 容差。因而大于 2^53 的相邻 long 种子仍不同，浮点相邻值也不能靠容差通过。输入 SHA、大小、格式、顺序和路径数组长度始终参与核心比较。
 
@@ -106,7 +117,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 
 输出目录内生成：
 
-- `rerun/`：新三件套（`result.manifest.json`、`result.metrics.json`、`result.events.jsonl`）；
+- `rerun/`：新三件套（`result.manifest.json`、`result.metrics.json`、`result.events.jsonl`），ON时另含`result.network-ledger.json`；
 - `rerun-report.json`：机器可读结论，字段包括 `verdict`、`inputResolution`（每个输入的命中路径与哈希核对结果）、`coreDivergences`（分歧字段的 JSON 指针、旧值、新值；单字段值过长时截断并记录截断标记）、`volatileFieldsNoted`、`codeIdentityNote`、两侧 `sourceTreeSha256`；
 - `rerun-report.md`：人类可读摘要。
 
@@ -119,7 +130,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 | `INPUT_UNRESOLVED` | 输入无法定位 |
 | `INPUT_HASH_MISMATCH` | 输入定位成功但哈希/大小不符 |
 | `RECONSTRUCTION_REJECTED` | 配置重建被当前代码校验拒绝 |
-| `EVIDENCE_INVALID` | 原三件套自身未通过结构校验 |
+| `EVIDENCE_INVALID` | 原证据包（含ON声明的网络账本）未通过结构、内容或跨文件校验 |
 
 退出码：`IDENTICAL_CORE` 为 0；`DIVERGED` 为非零；其余失败状态各有独立非零码。这使得 rerun 可以直接作为 CI/门禁步骤使用。实现的具体分配：`IDENTICAL_CORE`=0、`DIVERGED`=1、`INPUT_UNRESOLVED`=2、`INPUT_HASH_MISMATCH`=3、`RECONSTRUCTION_REJECTED`=4、`EVIDENCE_INVALID`=5；命令行用法错误=64、意外异常=70（与 verdict 码不冲突）。
 

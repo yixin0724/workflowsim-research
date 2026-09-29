@@ -15,7 +15,7 @@ import java.util.List;
  * 字段与契约一一对应：{@code verdict}、{@code inputResolution}、
  * {@code coreDivergences}、{@code volatileFieldsNoted}、{@code codeIdentityNote}
  * 与两侧 {@code sourceTreeSha256}；失败路径额外携带 {@code failureReason} 与
- * {@code failureDetails}（如 INPUT_UNRESOLVED 的候选路径清单）。</p>
+ * {@code failureDetails}（如 INPUT_UNRESOLVED 的候选路径清单）；截断网络证据另含条件覆盖说明。</p>
  *
  * <p>本类只做数据承载与序列化，不做 verdict 裁决。</p>
  */
@@ -42,6 +42,8 @@ public final class RerunReport {
     private final String rerunSourceTreeSha256;
     private final String originalAlgorithmContract;
     private final String rerunAlgorithmContract;
+    /** Added to JSON only when relevant; serializeNulls must not change old OFF report shape. */
+    private final transient String networkEvidenceCoverageNote;
 
     RerunReport(Builder builder) {
         this.verdict = builder.verdict.name();
@@ -58,6 +60,7 @@ public final class RerunReport {
         this.rerunSourceTreeSha256 = builder.rerunSourceTreeSha256;
         this.originalAlgorithmContract = builder.originalAlgorithmContract;
         this.rerunAlgorithmContract = builder.rerunAlgorithmContract;
+        this.networkEvidenceCoverageNote=builder.networkEvidenceCoverageNote;
     }
 
     public RerunVerdict getVerdict() {
@@ -119,9 +122,15 @@ public final class RerunReport {
         return rerunAlgorithmContract;
     }
 
-    /** 机器可读 JSON（pretty，含 null 键，便于跨版本 diff）。 */
+    /** @return conditional warning for truncated network evidence, or null */
+    public String getNetworkEvidenceCoverageNote() { return networkEvidenceCoverageNote; }
+
+    /** 机器可读JSON；旧字段保留null，网络覆盖说明只在截断时增加。 */
     public String toJson() {
-        return JSON.toJson(this);
+        if(networkEvidenceCoverageNote==null)return JSON.toJson(this);
+        JsonObject document=JSON.toJsonTree(this).getAsJsonObject();
+        if(networkEvidenceCoverageNote!=null)document.addProperty("networkEvidenceCoverageNote",networkEvidenceCoverageNote);
+        return JSON.toJson(document);
     }
 
     /** 人类可读 markdown 摘要。 */
@@ -133,6 +142,9 @@ public final class RerunReport {
         md.append("- 原始 run：`").append(runDirectory).append("`\n");
         md.append("- 输出目录：`").append(outputDirectory).append("`\n\n");
 
+        if(networkEvidenceCoverageNote!=null){
+            md.append("## 网络证据覆盖\n\n").append(networkEvidenceCoverageNote).append("\n\n");
+        }
         md.append("## 代码身份\n\n");
         if (codeIdentityNote == null) {
             md.append("（未取得两侧源码树哈希，无法比较）\n\n");
@@ -301,6 +313,7 @@ public final class RerunReport {
         private String rerunSourceTreeSha256;
         private String originalAlgorithmContract;
         private String rerunAlgorithmContract;
+        private String networkEvidenceCoverageNote;
 
         Builder verdict(RerunVerdict value) {
             this.verdict = value;
@@ -335,6 +348,15 @@ public final class RerunReport {
             this.rerunSourceTreeSha256 = diff.getRerunSourceTreeSha256();
             this.originalAlgorithmContract = diff.getOriginalAlgorithmContract();
             this.rerunAlgorithmContract = diff.getRerunAlgorithmContract();
+            return this;
+        }
+
+        Builder networkEvidenceCoverage(org.workflowsim.data.TransferTraceSnapshot.Status original,
+                org.workflowsim.data.TransferTraceSnapshot.Status rerun) {
+            this.networkEvidenceCoverageNote=original==org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED
+                    ||rerun==org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED
+                    ? "⚠ 网络账本已截断：即使结论为 IDENTICAL_CORE，也仅表示保留的网络记录与聚合观察一致，不证明完整网络服务历史一致。"
+                    :null;
             return this;
         }
 

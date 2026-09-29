@@ -26,7 +26,7 @@ import org.workflowsim.experiments.common.ExactJsonValues;
  * <p>契约（docs/experiments/RERUN_DIFF_CONTRACT.md §比对规则）三类字段：</p>
  * <ul>
  *   <li><b>核心量</b>——manifest 中除显式豁免外的全部字段、metrics 全部字段
- *       （除两个墙钟纳秒总量）、events 全部字段（除 attributes 中的本机耗时键）。
+ *       （除两个墙钟纳秒总量）、events全部字段（除本机耗时键）及可选network-ledger全部字段。
  *       比对方式为序列化值的<b>精确相等</b>，浮点不设 epsilon：需要容差才能通过的
  *       情形都是未修复的非确定性来源，应修源头而不是放宽比较。</li>
  *   <li><b>易变量</b>——显式枚举的白名单（provenance/runtime 全子树、artifacts 哈希、
@@ -98,6 +98,12 @@ public final class EvidenceCoreDiffer {
         compareJson("", readJson(original.getMetricsPath()), readJson(rerun.getMetricsPath()),
                 false, core, volatileNoted);
         compareEvents(original.getEventsPath(), rerun.getEventsPath(), core, volatileNoted);
+        // Artifact hashes/sizes remain volatile, but the ledger contents are scientific core.
+        // The separate namespace deliberately inherits NONE of the root provenance/runtime exemptions.
+        if(original.getNetworkLedgerPath()!=null||rerun.getNetworkLedgerPath()!=null){
+            compareJson("/networkLedger",original.getNetworkLedgerPath()==null?null:readJson(original.getNetworkLedgerPath()),
+                    rerun.getNetworkLedgerPath()==null?null:readJson(rerun.getNetworkLedgerPath()),false,core,volatileNoted);
+        }
 
         // manifest 内嵌 metrics 与 sidecar 是同一份核心量（工件校验器强制相等），
         // 两处比对会对同一分歧各记一条；按（指针, 旧值, 新值）精确去重。

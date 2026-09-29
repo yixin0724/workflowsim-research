@@ -117,6 +117,7 @@ public final class RerunDiffExecutor {
                             ? RerunVerdict.IDENTICAL_CORE : RerunVerdict.DIVERGED)
                     .inputResolution(RerunReport.inputResolutionsOf(execution.getInputs()))
                     .divergences(diff)
+                    .networkEvidenceCoverage(evidence.getNetworkCaptureStatus(),rerunEvidence.getNetworkCaptureStatus())
                     .codeIdentityNote(identityNote(diff.getOriginalSourceTreeSha256(),
                             diff.getRerunSourceTreeSha256()))
                     .build();

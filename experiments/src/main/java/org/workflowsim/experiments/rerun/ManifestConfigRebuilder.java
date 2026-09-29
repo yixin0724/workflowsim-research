@@ -241,6 +241,10 @@ public final class ManifestConfigRebuilder {
                         "configuration.failureModel")))
                 .dataMovementModel(rebuildDataMovementModel(requireObject(config,
                         "dataMovementModel", "configuration.dataMovementModel")));
+        // Historical v4 absence is explicitly OFF; a present extension must never be ignored.
+        if(config.has("networkEvidence")){
+            builder.networkEvidence(org.workflowsim.data.NetworkLedgerCodec.decodeConfig(config.get("networkEvidence")));
+        }
         JsonElement taskCostMatrix = config.get("taskCostMatrix");
         if (taskCostMatrix != null && !taskCostMatrix.isJsonNull()) {
             builder.taskCostMatrix(rebuildTaskCostMatrix(taskCostMatrix.getAsJsonObject()));

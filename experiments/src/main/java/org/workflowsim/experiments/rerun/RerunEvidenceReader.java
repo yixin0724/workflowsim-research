@@ -72,7 +72,8 @@ public final class RerunEvidenceReader {
             throw fail("Evidence structure validation failed: " + e.getMessage(), e);
         }
         return new RerunEvidence(directory, validated.getManifest(), validated.getMetrics(),
-                validated.getEvents(), validated.getEventCount(), root);
+                validated.getEvents(), validated.getEventCount(), root,
+                validated.getNetworkLedger(), validated.getNetworkCaptureStatus());
     }
 
     private static Path locateManifest(Path directory) throws RerunFailureException, IOException {
