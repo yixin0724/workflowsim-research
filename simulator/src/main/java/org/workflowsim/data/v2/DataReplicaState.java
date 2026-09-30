@@ -98,6 +98,11 @@ public final class DataReplicaState {
         /** @return typed known locations in stable order */ public List<DataLocation> getLocations(){return locations;}
         /** @return immutable active tickets in ordinal order */ public List<CopyTicket> getActiveCopies(){return active;}
         /**
+         * @param file known logical identity
+         * @return immutable file definition even when no copy is yet visible
+         */
+        public DataflowFilePlan.FileDefinition getFile(DataflowFilePlan.FileId file){return plan.getFile(file);}
+        /**
          * @param file known file identity
          * @return currently visible replicas, in stable location order
          */
