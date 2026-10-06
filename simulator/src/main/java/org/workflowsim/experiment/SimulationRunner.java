@@ -49,6 +49,7 @@ public final class SimulationRunner {
                     + " does not match platform VM count " + platform.getVms().size());
         }
         validateCostModel(config, platform);
+        if(config.getDataMovementModel().isCoherentStorageDataflowV3()!=(platform.getSourceStorage()!=null))throw new SimulationConfigurationException("Bounded sourceStorage must be present exactly for the storage V3 dataflow model");
         // Fat-tree 链路争用模型：在会话外装配拓扑并校验模型与拓扑声明的双向契约
         // （配置异常在此直接以 SimulationConfigurationException 抛出，不被执行期
         // 包装；拓扑构造是纯配置计算，不触碰 CloudSim 状态）。
@@ -71,9 +72,10 @@ public final class SimulationRunner {
             planner.setTaskCostMatrix(config.getTaskCostMatrix());
             WorkflowEngine engine = planner.getWorkflowEngine();
             org.workflowsim.data.v2.CoherentDataflowRuntime coherent=null;
-            if(config.getDataMovementModel().isCoherentFileDataflowV2()){
-                coherent=new org.workflowsim.data.v2.CoherentDataflowRuntime(config.getDataMovementModel().isCoherentShared(),
-                        config.getNetworkEvidenceConfig().getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2?config.getNetworkEvidenceConfig().getMaxTraceRecords():0);
+            if(config.getDataMovementModel().usesCoherentDataflowRuntime()){
+                int budget=config.getNetworkEvidenceConfig().isEnabled()?config.getNetworkEvidenceConfig().getMaxTraceRecords():0;
+                coherent=config.getDataMovementModel().isCoherentStorageDataflowV3()?org.workflowsim.data.v2.CoherentDataflowRuntime.withStorage(config.getDataMovementModel().usesSharedDataflowResources(),budget,config.getFileSystem()==org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED):new org.workflowsim.data.v2.CoherentDataflowRuntime(config.getDataMovementModel().isCoherentShared(),budget);
+                if(platform.getSourceStorage()!=null)datacenter.setSourceStorage(platform.getSourceStorage());
                 planner.setCoherentDataflowRuntime(coherent);engine.setCoherentDataflowRuntime(coherent);datacenter.setCoherentDataflowRuntime(coherent,engine.getId());
             }
             List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
@@ -105,7 +107,7 @@ public final class SimulationRunner {
                         planner.getWorkflowParser().getInputReports(), completedJobs, events.snapshot(),
                         planner.getParsedTaskSnapshot(), planner.getSharedStorageDagPlanTrace(),
                         actualVmHostAssignments, datacenter.captureNetworkEvidence(),datacenter.captureFileLifecycleEvidence(),
-                        coherent==null?null:coherent.getFilePlanDocument());
+                        coherent==null?null:coherent.getFilePlanDocument(),datacenter.captureStorageLifecycleEvidence());
             } catch (IOException exception) {
                 throw new SimulationExecutionException(
                         "Simulation completed but its evidence record could not be created", exception);
@@ -182,7 +184,7 @@ public final class SimulationRunner {
      */
     private static org.workflowsim.network.FatTreeTopology prepareFatTreeTopology(
             SimulationConfig config, PlatformProfile platform) {
-        boolean coherent=config.getDataMovementModel().isCoherentFileDataflowV2();
+        boolean coherent=config.getDataMovementModel().usesCoherentDataflowRuntime();
         if (config.getDataMovementModel().isFatTreeContentionV1()||(coherent&&platform.getNetworkTopology()!=null)) {
             if (platform.getNetworkTopology() == null) {
                 throw new SimulationConfigurationException(config.getDataMovementModel().getKind()

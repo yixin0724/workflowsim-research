@@ -5,7 +5,7 @@ import com.google.gson.JsonObject;
 /** Immutable observed lifecycle record. Payload semantics are validated by the versioned codec. */
 public final class FileLifecycleEvent {
     /** Actual successful runtime operations, ordered even when observations share a timestamp. */
-    public enum Type { EXTERNAL_SEEDED, TASK_FINISHED, JOB_INPUT_REQUESTED, INPUT_RESOLVED, COPY_ADMITTED, COPY_SETTLED, JOB_DATA_READY, JOB_CPU_STARTED }
+    public enum Type { EXTERNAL_SEEDED, TASK_FINISHED, JOB_INPUT_REQUESTED, INPUT_RESOLVED, COPY_ADMITTED, COPY_SETTLED, JOB_DATA_READY, JOB_CPU_STARTED, INPUT_WAITING_FOR_STORE, OUTPUT_RESOLVED }
     private final long sequence;
     private final double observedTime;
     private final Type type;

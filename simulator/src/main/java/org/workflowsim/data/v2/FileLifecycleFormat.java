@@ -38,6 +38,7 @@ final class FileLifecycleFormat {
         o.add("locations",locations);o.add("resources",resources);o.add("vmHostAssignments",hosts);o.add("topology",JsonNull.INSTANCE);
         FatTreeTopology topology=fabric.getTopology();if(topology!=null){JsonObject t=new JsonObject();t.addProperty("kind","FAT_TREE");t.addProperty("k",topology.getK());t.addProperty("coreSwitchCount",topology.getCoreSwitchCount());t.addProperty("linkBandwidthBytesPerSecond",topology.getLinkBandwidthBytesPerSecond());JsonArray placements=new JsonArray();
             for(Map.Entry<Integer,int[]> entry:topology.getHostPlacements().entrySet()){JsonObject row=new JsonObject();row.addProperty("hostId",entry.getKey());row.addProperty("pod",entry.getValue()[0]);row.addProperty("edge",entry.getValue()[1]);placements.add(row);}t.add("hostPlacements",placements);o.add("topology",t);}
+        if(fabric.getSourceStorage()!=null){DataflowStorageSpec store=fabric.getSourceStorage();JsonObject value=new JsonObject();value.addProperty("attachmentHostId",store.getAttachmentHostId());value.addProperty("readBandwidthMbPerSecond",store.getReadBandwidthMbPerSecond());value.addProperty("writeBandwidthMbPerSecond",store.getWriteBandwidthMbPerSecond());value.addProperty("networkBandwidthMbPerSecond",store.getNetworkBandwidthMbPerSecond());o.add("sourceStorage",value);}
         return o;
     }
 }

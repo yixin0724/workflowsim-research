@@ -45,6 +45,7 @@ public final class SimulationReport {
     private final NetworkRunEvidence networkEvidence;
     private final transient org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence;
     private final transient com.google.gson.JsonObject dataflowPlan;
+    private final transient org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence;
     private final List<WorkflowOutcome> workflowOutcomes;
     private final List<TaskNode> workflowGraph;
 
@@ -54,7 +55,7 @@ public final class SimulationReport {
             Map<Integer, Integer> actualVmHostAssignments, int successfulJobs, int failedJobs,
             List<SimulationEvent> events, List<Task> sourceTasks,
             SharedStorageDagPlanTrace sharedStorageDagPlanTrace, NetworkRunEvidence networkEvidence,
-            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan) {
+            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan,org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence) {
         this.config = config;
         this.platform = platform;
         this.makespan = makespan;
@@ -70,7 +71,7 @@ public final class SimulationReport {
         this.events = Collections.unmodifiableList(new ArrayList<>(events));
         this.sharedStorageDagPlanTrace = sharedStorageDagPlanTrace;
         this.networkEvidence = networkEvidence;
-        this.fileLifecycleEvidence=fileLifecycleEvidence;this.dataflowPlan=dataflowPlan==null?null:dataflowPlan.deepCopy();
+        this.fileLifecycleEvidence=fileLifecycleEvidence;this.dataflowPlan=dataflowPlan==null?null:dataflowPlan.deepCopy();this.storageLifecycleEvidence=storageLifecycleEvidence;
         this.workflowProfile = WorkflowProfile.fromTasks(sourceTasks);
         Map<Integer, TaskNode> graph = new TreeMap<Integer, TaskNode>();
         for (Task task : sourceTasks) { graph.put(task.getCloudletId(), new TaskNode(task)); }
@@ -125,6 +126,11 @@ public final class SimulationReport {
     static SimulationReport capture(SimulationConfig config,PlatformProfile platform,double makespan,List<WorkflowInputReport> inputReports,List<Job> completedJobs,
             List<SimulationEvent> events,List<Task> sourceTasks,SharedStorageDagPlanTrace sharedStorageDagPlanTrace,Map<Integer,Integer> actualVmHostAssignments,
             NetworkRunEvidence networkEvidence,org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan)throws IOException{
+        return capture(config,platform,makespan,inputReports,completedJobs,events,sourceTasks,sharedStorageDagPlanTrace,actualVmHostAssignments,networkEvidence,fileLifecycleEvidence,dataflowPlan,null);
+    }
+    static SimulationReport capture(SimulationConfig config,PlatformProfile platform,double makespan,List<WorkflowInputReport> inputReports,List<Job> completedJobs,
+            List<SimulationEvent> events,List<Task> sourceTasks,SharedStorageDagPlanTrace sharedStorageDagPlanTrace,Map<Integer,Integer> actualVmHostAssignments,
+            NetworkRunEvidence networkEvidence,org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan,org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence)throws IOException{
         if (inputReports == null || inputReports.size() != config.getWorkflowPaths().size()) {
             throw new IllegalStateException("Completed simulation has "
                     + (inputReports == null ? 0 : inputReports.size())
@@ -177,7 +183,7 @@ public final class SimulationReport {
         return new SimulationReport(config, platform, makespan, inputs, inputReports,
                 jobs, tasks, vmSummaries, actualVmHostAssignments, successes, failures,
                 events == null ? Collections.<SimulationEvent>emptyList() : events, sourceTasks,
-                sharedStorageDagPlanTrace, networkEvidence,fileLifecycleEvidence,dataflowPlan);
+                sharedStorageDagPlanTrace, networkEvidence,fileLifecycleEvidence,dataflowPlan,storageLifecycleEvidence);
     }
 
     public SimulationConfig getConfig() { return config; }
@@ -278,6 +284,8 @@ public final class SimulationReport {
     public NetworkRunEvidence getNetworkEvidence() { return networkEvidence; }
     /** @return independent V2 lifecycle capture, null for OFF/V1 */
     public org.workflowsim.data.v2.FileLifecycleEvidence getFileLifecycleEvidence(){return fileLifecycleEvidence;}
+    /** @return independent storage-version capture, null for OFF/V1/V2 */
+    public org.workflowsim.data.v2.StorageLifecycleEvidence getStorageLifecycleEvidence(){return storageLifecycleEvidence;}
     /** @return defensive V2 resolved-plan snapshot, null for old models */
     public com.google.gson.JsonObject getDataflowPlan(){return dataflowPlan==null?null:dataflowPlan.deepCopy();}
     /**

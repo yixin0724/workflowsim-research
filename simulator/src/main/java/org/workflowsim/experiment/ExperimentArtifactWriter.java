@@ -59,6 +59,8 @@ public final class ExperimentArtifactWriter {
             throw new IllegalArgumentException("Report and output directory are required");
         }
         validateRunId(runId);
+        if(report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3())throw new UnsupportedOperationException("Storage V3 kernel capture is available, but its dedicated artifact codec/context is not enabled yet; no files were written");
+        if(report.getPlatform().getSourceStorage()!=null)throw new IOException("sourceStorage is not used by the declared legacy/V2 model");
         org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();
         boolean group=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,file=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2;
         if(group!=(report.getNetworkEvidence()!=null)||file!=(report.getFileLifecycleEvidence()!=null))throw new IOException("Network capture disagrees with recording configuration");

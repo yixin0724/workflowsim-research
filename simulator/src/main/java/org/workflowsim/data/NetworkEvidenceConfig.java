@@ -9,7 +9,9 @@ public final class NetworkEvidenceConfig {
         /** Observe the existing parent/external-group fluid models. */
         FLUID_GROUP_LEDGER_V1,
         /** Observe the dedicated per-file publication/request/settlement lifecycle, not V1 groups. */
-        FILE_LIFECYCLE_V2
+        FILE_LIFECYCLE_V2,
+        /** Bounded storage reads, successful-output materialization and input waits. */
+        FILE_STORAGE_LIFECYCLE_V3
     }
 
     private static final NetworkEvidenceConfig OFF = new NetworkEvidenceConfig(Mode.OFF, 0);
@@ -46,6 +48,9 @@ public final class NetworkEvidenceConfig {
      * @return immutable V2 recording policy
      */
     public static NetworkEvidenceConfig fileLifecycleV2(int maxTraceRecords){if(maxTraceRecords<=0)throw new IllegalArgumentException("File lifecycle record budget must be positive");return new NetworkEvidenceConfig(Mode.FILE_LIFECYCLE_V2,maxTraceRecords);}
+
+    /** @param budget positive record budget @return explicit storage-version capture option */
+    public static NetworkEvidenceConfig storageLifecycleV3(int budget){if(budget<=0)throw new IllegalArgumentException("Storage lifecycle record budget must be positive");return new NetworkEvidenceConfig(Mode.FILE_STORAGE_LIFECYCLE_V3,budget);}
 
     /** @return versioned recording mode */
     public Mode getMode() { return mode; }

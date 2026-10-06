@@ -87,10 +87,13 @@ public class WorkflowDatacenter extends Datacenter {
     private org.workflowsim.network.FatTreeTopology fatTreeTopology;
     private org.workflowsim.data.v2.CoherentDataflowRuntime coherentDataflow;
     private int coherentEngineId=-1;
+    private org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
+    /** @param storage explicit bounded storage for the dedicated storage version */
+    public void setSourceStorage(org.workflowsim.data.v2.DataflowStorageSpec storage){if(storage==null||sourceStorage!=null||!dataMovementModel.isCoherentStorageDataflowV3())throw new IllegalArgumentException("Storage spec requires one storage-V3 installation");sourceStorage=storage;}
 
     /** @param runtime same run-owned coordinator as the engine/planner @param engineId owning workflow engine */
     public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime runtime,int engineId){
-        if(runtime==null||engineId<0||coherentDataflow!=null||!dataMovementModel.isCoherentFileDataflowV2())throw new IllegalArgumentException("Invalid V2 runtime installation");coherentDataflow=runtime;coherentEngineId=engineId;
+        if(runtime==null||engineId<0||coherentDataflow!=null||!dataMovementModel.usesCoherentDataflowRuntime())throw new IllegalArgumentException("Invalid V2 runtime installation");coherentDataflow=runtime;coherentEngineId=engineId;
     }
     private org.workflowsim.data.v2.CoherentDataflowRuntime requireCoherentRuntime(){if(coherentDataflow==null)throw new IllegalStateException("Coherent V2 model requires its dedicated initialized run context");return coherentDataflow;}
     /** Bind routes to actual created VM placements, never the logical producer's planned host. */
@@ -99,10 +102,12 @@ public class WorkflowDatacenter extends Datacenter {
         Map<Integer,Double> capacities=new LinkedHashMap<Integer,Double>();Map<Integer,Integer> hosts=new LinkedHashMap<Integer,Integer>();
         for(Host host:getVmAllocationPolicy().getHostList())for(Vm vm:host.getVmList()){capacities.put(vm.getId(),vm.getBw()*(double)Consts.MILLION);hosts.put(vm.getId(),host.getId());}
         java.util.List<String> sources=Collections.singletonList("source");
-        runtime.bindFabric(fatTreeTopology==null?org.workflowsim.data.v2.DataTransferFabric.endpoints(capacities,sources):org.workflowsim.data.v2.DataTransferFabric.fatTree(capacities,hosts,fatTreeTopology,sources));
+        runtime.bindFabric(runtime.isStorageVersion()?org.workflowsim.data.v2.DataTransferFabric.withStorage(capacities,hosts,fatTreeTopology,sourceStorage):fatTreeTopology==null?org.workflowsim.data.v2.DataTransferFabric.endpoints(capacities,sources):org.workflowsim.data.v2.DataTransferFabric.fatTree(capacities,hosts,fatTreeTopology,sources));
     }
     /** @return independently versioned file lifecycle capture, null for OFF/V1 */
     public org.workflowsim.data.v2.FileLifecycleEvidence captureFileLifecycleEvidence(){return networkEvidenceConfig.getMode()==NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2?requireCoherentRuntime().captureEvidence():null;}
+    /** @return separately versioned storage capture, null for OFF/V1/V2 */
+    public org.workflowsim.data.v2.StorageLifecycleEvidence captureStorageLifecycleEvidence(){return networkEvidenceConfig.getMode()==NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3?requireCoherentRuntime().captureStorageEvidence():null;}
     private static java.util.List<Integer> coherentTaskIds(Job job){java.util.List<Integer> ids=new ArrayList<Integer>();for(Task task:job.getTaskList())ids.add(task.getCloudletId());return ids;}
 
     /**
@@ -316,7 +321,7 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws Exception 当所需副本或 VM 无法解析时抛出
      */
     public double estimateTransferSecondsForFiles(List<FileItem> files, Job job) throws Exception {
-        if(dataMovementModel.isCoherentFileDataflowV2())throw new UnsupportedOperationException("Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar estimator");
+        if(dataMovementModel.usesCoherentDataflowRuntime())throw new UnsupportedOperationException("Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar estimator");
         double time = 0.0;
         for (FileItem file : files) {
             if (!file.isRealInputFile(files)) {
@@ -582,7 +587,7 @@ public class WorkflowDatacenter extends Datacenter {
             /** 计算 Job 的输入数据移动时间作为 CloudletScheduler 的传输耗时参数。 */
             double fileTransferTime = 0.0;
             if (job.getClassType() == ClassType.COMPUTE.value) {
-                if (dataMovementModel.isCoherentFileDataflowV2()) {
+                if (dataMovementModel.usesCoherentDataflowRuntime()) {
                     requireCoherentRuntime();fileTransferTime=0.0;
                 } else if (dataMovementModel.isPreExecutionTransferDelayV1()
                         || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
@@ -615,7 +620,7 @@ public class WorkflowDatacenter extends Datacenter {
             TaskExecutionModel.requireRepresentableLength((long) envelopeMi, job.getNumberOfPes());
             CloudletScheduler scheduler = vm.getCloudletScheduler();
             long cloudletLengthBeforeStageIn = job.getCloudletLength();
-            if(job.getClassType()==ClassType.COMPUTE.value&&dataMovementModel.isCoherentFileDataflowV2()){
+            if(job.getClassType()==ClassType.COMPUTE.value&&dataMovementModel.usesCoherentDataflowRuntime()){
                 requireCoherentRuntime().cpuStarted(job.getCloudletId(),coherentTaskIds(job),vmId,CloudSim.clock());
                 sendNow(coherentEngineId,WorkflowSimTags.COHERENT_DATAFLOW_CHECK,null);
             }
@@ -799,7 +804,7 @@ public class WorkflowDatacenter extends Datacenter {
      */
     private DataTransferEstimate estimateDataStageInForComputeJob(List<FileItem> requiredFiles, Job job)
             throws Exception {
-        if(dataMovementModel.isCoherentFileDataflowV2())throw new IllegalStateException("Coherent V2 cannot fall through to execution-envelope transfer estimation");
+        if(dataMovementModel.usesCoherentDataflowRuntime())throw new IllegalStateException("Coherent V2 cannot fall through to execution-envelope transfer estimation");
         int requiredFileCount = realInputFileCount(requiredFiles);
         double requiredBytes = realInputBytes(requiredFiles);
         if (dataMovementModel.isLegacyWorkflowsimV1()) {
@@ -1070,7 +1075,7 @@ public class WorkflowDatacenter extends Datacenter {
         if (!(cl instanceof Task)) {
             throw new IllegalArgumentException("Completed workflow cloudlet is not a Task");
         }
-        if(cl instanceof Job&&((Job)cl).getClassType()==ClassType.COMPUTE.value&&dataMovementModel.isCoherentFileDataflowV2()){
+        if(cl instanceof Job&&((Job)cl).getClassType()==ClassType.COMPUTE.value&&dataMovementModel.usesCoherentDataflowRuntime()){
             Job job=(Job)cl;java.util.List<Boolean> successes=new ArrayList<Boolean>();for(Task task:job.getTaskList())successes.add(task.getCloudletStatus()==Cloudlet.SUCCESS);
             requireCoherentRuntime().jobFinished(job.getCloudletId(),coherentTaskIds(job),job.getVmId(),successes,CloudSim.clock());
             sendNow(coherentEngineId,WorkflowSimTags.COHERENT_DATAFLOW_CHECK,null);return;

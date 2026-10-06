@@ -18,9 +18,10 @@ public final class NetworkEvidenceConfigCodec {
         if(!object.keySet().equals(new HashSet<>(Arrays.asList("mode","maxTraceRecords")))||!object.get("mode").isJsonPrimitive()||!object.getAsJsonPrimitive("mode").isString())throw new IllegalArgumentException("Invalid networkEvidence fields or mode type");
         String mode=object.get("mode").getAsString();
         if(NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1.name().equals(mode))return NetworkLedgerCodec.decodeConfig(value);
-        if(!NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2.name().equals(mode))throw new IllegalArgumentException("Unsupported enabled networkEvidence mode: "+mode);
+        boolean storage=NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3.name().equals(mode);
+        if(!storage&&!NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2.name().equals(mode))throw new IllegalArgumentException("Unsupported enabled networkEvidence mode: "+mode);
         JsonElement budget=object.get("maxTraceRecords");if(!budget.isJsonPrimitive()||!budget.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("maxTraceRecords must be an exact integer number");
-        try{return NetworkEvidenceConfig.fileLifecycleV2(budget.getAsBigDecimal().intValueExact());}catch(ArithmeticException|NumberFormatException invalid){throw new IllegalArgumentException("maxTraceRecords must be a positive int32 number",invalid);}
+        try{return storage?NetworkEvidenceConfig.storageLifecycleV3(budget.getAsBigDecimal().intValueExact()):NetworkEvidenceConfig.fileLifecycleV2(budget.getAsBigDecimal().intValueExact());}catch(ArithmeticException|NumberFormatException invalid){throw new IllegalArgumentException("maxTraceRecords must be a positive int32 number",invalid);}
     }
     /**
      * @param model physical movement model
@@ -37,6 +38,7 @@ public final class NetworkEvidenceConfigCodec {
             case FILE_LIFECYCLE_V2:
                 if(model.isCoherentFileDataflowV2())return;
                 throw new IllegalArgumentException("FILE_LIFECYCLE_V2 requires a coherent file dataflow V2 model");
+            case FILE_STORAGE_LIFECYCLE_V3:if(model.isCoherentStorageDataflowV3())return;throw new IllegalArgumentException("FILE_STORAGE_LIFECYCLE_V3 requires a coherent storage V3 model");
             default:throw new IllegalArgumentException("Unsupported recording policy");
         }
     }
@@ -46,6 +48,7 @@ public final class NetworkEvidenceConfigCodec {
             case OFF:return null;
             case FLUID_GROUP_LEDGER_V1:return NetworkLedgerCodec.ARTIFACT_ROLE;
             case FILE_LIFECYCLE_V2:return "file-lifecycle";
+            case FILE_STORAGE_LIFECYCLE_V3:return "storage-lifecycle";
             default:throw new IllegalArgumentException("Unsupported recording policy");
         }
     }

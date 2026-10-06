@@ -31,6 +31,7 @@ public final class PlatformProfile {
     private final StorageSpec storage;
     private final CostSpec costs;
     private final org.workflowsim.network.NetworkTopologySpec networkTopology;
+    private final transient org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
 
     private PlatformProfile(Builder builder) {
         this.name = builder.name;
@@ -43,6 +44,7 @@ public final class PlatformProfile {
         this.storage = builder.storage;
         this.costs = builder.costs;
         this.networkTopology = builder.networkTopology;
+        this.sourceStorage = builder.sourceStorage;
     }
 
     public String getName() {
@@ -80,6 +82,9 @@ public final class PlatformProfile {
     public StorageSpec getStorage() {
         return storage;
     }
+
+    /** @return explicit bounded dataflow store, or null for original models */
+    public org.workflowsim.data.v2.DataflowStorageSpec getSourceStorage(){return sourceStorage;}
 
     public CostSpec getCosts() {
         return costs;
@@ -120,7 +125,10 @@ public final class PlatformProfile {
         private StorageSpec storage = new StorageSpec(1_000_000_000_000L, 15);
         private CostSpec costs = new CostSpec(3.0, 0.05, 0.1, 0.1);
         private org.workflowsim.network.NetworkTopologySpec networkTopology;
+        private org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
 
+        /** @param value explicit bounded source/storage resources @return this builder */
+        public Builder sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec value){sourceStorage=requireNonNull(value,"Dataflow source storage");return this;}
         private Builder(String name) {
             if (name == null || name.trim().isEmpty()) {
                 throw new IllegalArgumentException("Platform profile name cannot be empty");
@@ -226,6 +234,7 @@ public final class PlatformProfile {
             }
             validateUniqueHostIds(hosts);
             validateUniqueVmIds(vms);
+            if(sourceStorage!=null){boolean found=false;for(HostSpec host:hosts)if(host.getId()==sourceStorage.getAttachmentHostId())found=true;if(!found)throw new IllegalArgumentException("Dataflow storage attachment references an undeclared host");}
             validatePinnedVmHostIds(hosts, vms, pinnedVmHostIds);
             for (VmSpec vm : vms) {
                 if (!canFitOnAnyHost(vm, hosts)) {

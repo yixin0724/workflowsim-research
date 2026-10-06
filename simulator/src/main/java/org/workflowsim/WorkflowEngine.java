@@ -129,14 +129,18 @@ public final class WorkflowEngine extends SimEntity {
     private org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation prepareCoherentInput(Job job){
         if(job.getClassType()!=ClassType.COMPUTE.value||boundDatacenterId<0)return null;
         SimEntity entity=CloudSim.getEntity(boundDatacenterId);if(!(entity instanceof WorkflowDatacenter))return null;
-        WorkflowDatacenter datacenter=(WorkflowDatacenter)entity;if(!datacenter.getDataMovementModel().isCoherentFileDataflowV2())return null;
+        WorkflowDatacenter datacenter=(WorkflowDatacenter)entity;if(!datacenter.getDataMovementModel().usesCoherentDataflowRuntime())return null;
         if(coherentDataflow==null)throw new IllegalStateException("Coherent V2 has no dedicated workflow run context");
         datacenter.initializeCoherentFabric();List<Integer> tasks=new ArrayList<Integer>();for(Task task:job.getTaskList())tasks.add(task.getCloudletId());
         return coherentDataflow.requestJob(job.getCloudletId(),tasks,job.getVmId(),CloudSim.clock());
     }
     private void appendCoherentReady(Map<Integer,List> allocation){
         if(coherentDataflow==null)return;
-        for(Integer id:coherentDataflow.drainReadyJobIds()){Job ready=coherentPendingJobs.remove(id);if(ready==null)throw new IllegalStateException("Data-ready V2 Job has no engine waiter: "+id);allocation.get(ready.getUserId()).add(ready);}
+        for(Integer id:coherentDataflow.drainReadyJobIds()){Job ready=coherentPendingJobs.remove(id);if(ready==null)throw new IllegalStateException("Data-ready V2 Job has no engine waiter: "+id);if(coherentDataflow.isStorageVersion())recordStorageInputPreparation(ready);allocation.get(ready.getUserId()).add(ready);}
+    }
+    private void recordStorageInputPreparation(Job job){
+        org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation preparation=coherentDataflow.getPreparation(job.getCloudletId());
+        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED,CloudSim.clock(),job,SimulationEventRecorder.attributes("modeledTransferSeconds",preparation.getIsolatedSeconds(),"requiredFileBytes",preparation.getRequiredBytes(),"modeledTransferFileCount",preparation.getReferenceCount(),"dataMovementModel",((WorkflowDatacenter)CloudSim.getEntity(boundDatacenterId)).getDataMovementModel().getKind().name(),"newFileCopies",preparation.getNewCopies(),"joinedFileCopies",preparation.getJoinedCopies(),"transferUnit","LOGICAL_FILE_STORAGE_V3","observedInputPreparationSeconds",coherentDataflow.getObservedInputPreparationSeconds(job.getCloudletId())));
     }
     private void scheduleCoherentCheck(){
         if(coherentDataflow==null||!coherentDataflow.isFabricBound())return;Double next=coherentDataflow.getNextCompletionTime();if(next==null)return;
@@ -1156,7 +1160,7 @@ public final class WorkflowEngine extends SimEntity {
                     // 在全部传输组完成时释放；返回 true 表示争用路径已接管本 Job。
                     if(coherentPreparation!=null){
                         coherentPendingJobs.put(job.getCloudletId(),job);
-                        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED,CloudSim.clock(),job,
+                        if(!coherentDataflow.isStorageVersion())eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED,CloudSim.clock(),job,
                                 SimulationEventRecorder.attributes("modeledTransferSeconds",coherentPreparation.getIsolatedSeconds(),"requiredFileBytes",coherentPreparation.getRequiredBytes(),
                                         "modeledTransferFileCount",coherentPreparation.getReferenceCount(),"dataMovementModel",((WorkflowDatacenter)CloudSim.getEntity(boundDatacenterId)).getDataMovementModel().getKind().name(),
                                         "newFileCopies",coherentPreparation.getNewCopies(),"joinedFileCopies",coherentPreparation.getJoinedCopies(),"transferUnit","LOGICAL_FILE_V2"));

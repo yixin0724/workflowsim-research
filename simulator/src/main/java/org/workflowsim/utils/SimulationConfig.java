@@ -593,8 +593,8 @@ public final class SimulationConfig {
                             + " requires OverheadModelConfig.none()");
                 }
             }
-            if(dataMovementModel.isCoherentFileDataflowV2()){
-                if(planningAlgorithm!=PlanningAlgorithm.RANDOM||schedulingAlgorithm!=SchedulingAlgorithm.STATIC||fileSystem!=ReplicaCatalog.FileSystem.LOCAL
+            if(dataMovementModel.usesCoherentDataflowRuntime()){
+                if(planningAlgorithm!=PlanningAlgorithm.RANDOM||schedulingAlgorithm!=SchedulingAlgorithm.STATIC||(dataMovementModel.isCoherentFileDataflowV2()&&fileSystem!=ReplicaCatalog.FileSystem.LOCAL)
                         ||clusteringParameters.getClusteringMethod()!=ClusteringParameters.ClusteringMethod.NONE||!isNoOverhead(overheadModel))
                     throw new IllegalArgumentException("Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
             }

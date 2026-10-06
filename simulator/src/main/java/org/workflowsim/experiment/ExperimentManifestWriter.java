@@ -28,6 +28,8 @@ public final class ExperimentManifestWriter {
 
     /** Standalone manifests must not silently drop requested network evidence. */
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
+        if(report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3())throw new UnsupportedOperationException("Storage V3 needs its dedicated verified artifact contract; no files were written");
+        if(report.getPlatform().getSourceStorage()!=null)throw new IllegalArgumentException("sourceStorage is not used by the declared legacy/V2 model");
         org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(report.getConfig().getDataMovementModel(),option);
         String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);int groups=0,files=0;
         for(Map<String,Object> artifact:artifacts){if(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(artifact.get("role")))groups++;if(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(artifact.get("role")))files++;}

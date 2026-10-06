@@ -47,7 +47,11 @@ public final class DataMovementModel {
         /** Versioned per-file visible-source/actual-route lifecycle with shared capacities. */
         COHERENT_FILE_DATAFLOW_V2,
         /** Same V2 lifecycle and isolated path bottlenecks, without inter-flow sharing. */
-        COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2
+        COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2,
+        /** Bounded SOURCE/shared store with mandatory successful-output materialization. */
+        COHERENT_STORAGE_DATAFLOW_V3,
+        /** Same storage lifecycle with independent route bottlenecks. */
+        COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3
     }
 
     private static final DataMovementModel LEGACY = new DataMovementModel(
@@ -71,6 +75,13 @@ public final class DataMovementModel {
     public boolean isCoherentFileDataflowV2(){return kind==Kind.COHERENT_FILE_DATAFLOW_V2||kind==Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2;}
     /** @return whether V2 resources share capacity between active file copies */
     public boolean isCoherentShared(){return kind==Kind.COHERENT_FILE_DATAFLOW_V2;}
+
+    private static final DataMovementModel STORAGE_SHARED=new DataMovementModel(Kind.COHERENT_STORAGE_DATAFLOW_V3,0,0,0),STORAGE_ISOLATED=new DataMovementModel(Kind.COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3,0,0,0);
+    /** @return bounded storage and successful-output writeback model */ public static DataMovementModel coherentStorageDataflowV3(){return STORAGE_SHARED;}
+    /** @return same storage lifecycle without inter-flow sharing */ public static DataMovementModel coherentStorageDataflowNoContentionV3(){return STORAGE_ISOLATED;}
+    /** @return exact storage-version predicate */ public boolean isCoherentStorageDataflowV3(){return kind==Kind.COHERENT_STORAGE_DATAFLOW_V3||kind==Kind.COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3;}
+    /** @return dedicated per-file coordinator required, with its explicitly selected contract */ public boolean usesCoherentDataflowRuntime(){return isCoherentFileDataflowV2()||isCoherentStorageDataflowV3();}
+    /** @return active copies share capacity under their selected coherent contract */ public boolean usesSharedDataflowResources(){return isCoherentShared()||kind==Kind.COHERENT_STORAGE_DATAFLOW_V3;}
 
     private final Kind kind;
     private final double accessLinkBandwidthMbPerSecond;

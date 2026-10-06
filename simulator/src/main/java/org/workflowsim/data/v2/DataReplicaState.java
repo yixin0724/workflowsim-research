@@ -20,7 +20,7 @@ public final class DataReplicaState {
     /** Per-file observed settlement policy, separate from effective fluid completion time. */
     public static final String VISIBILITY_POLICY="PER_FILE_SETTLEMENT_OBSERVATION_V2";
     /** How a particular location first acquired this logical file. */
-    public enum Acquisition { EXTERNAL_SEED, TASK_OUTPUT, COPY_SETTLEMENT, ZERO_BYTE_REFERENCE }
+    public enum Acquisition { EXTERNAL_SEED, TASK_OUTPUT, COPY_SETTLEMENT, ZERO_BYTE_REFERENCE, ZERO_BYTE_OUTPUT }
 
     /** Immutable root origin; copies retain it rather than claiming to be the producing attempt. */
     public static final class Origin {
@@ -251,6 +251,12 @@ public final class DataReplicaState {
         Publication result=publish(new Replica(definition,destination,at,Acquisition.ZERO_BYTE_REFERENCE,replica.origin,source,null));observedThrough=at;return result;
     }
 
+    /** @param file produced zero-byte object @param source visible producing VM @param destination registered store @param now observation @return zero-output metadata publication */
+    public Publication commitZeroOutput(DataflowFilePlan.FileId file,DataLocation source,DataLocation destination,double now){
+        DataflowFilePlan.FileDefinition definition=plan.getFile(file);requireKnown(locations,source);requireKnown(locations,destination);double at=time(now);
+        if(definition.isExternal()||definition.getBytes()!=0||source.getKind()!=DataLocation.Kind.VM||destination.getKind()!=DataLocation.Kind.SOURCE)throw bad("Zero output needs a produced object, VM source and store destination");
+        Replica replica=requireVisible(file,source);Publication result=publish(new Replica(definition,destination,at,Acquisition.ZERO_BYTE_OUTPUT,replica.origin,source,null));observedThrough=at;return result;
+    }
     private Replica requireVisible(DataflowFilePlan.FileId file,DataLocation source){Replica replica=visible(file,source);if(replica==null)throw new IllegalStateException("Source does not hold a visible replica: "+file+" at "+source);return replica;}
     private Replica visible(DataflowFilePlan.FileId file,DataLocation location){Map<DataLocation,Replica> copies=replicas.get(file);return copies==null?null:copies.get(location);}
     private Publication publish(Replica proposal){

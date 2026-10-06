@@ -23,10 +23,12 @@ public final class ReplicaTransferSelector {
         private final DataReplicaState.Replica source;
         private final DataTransferFabric.Route route;
         private final Double isolatedSeconds,isolatedCompletionTime;
-        private Decision(DataflowFilePlan.FileDefinition file,DataLocation destination,double at,Outcome outcome,DataReplicaState.Replica source,DataTransferFabric.Route route,Double seconds,Double finish){
-            this.file=file;this.destination=destination;selectedAt=at;this.outcome=outcome;this.source=source;this.route=route;isolatedSeconds=seconds;isolatedCompletionTime=finish;
+        private final String policy;
+        private Decision(DataflowFilePlan.FileDefinition file,DataLocation destination,double at,Outcome outcome,DataReplicaState.Replica source,DataTransferFabric.Route route,Double seconds,Double finish){this(file,destination,at,outcome,source,route,seconds,finish,POLICY);}
+        private Decision(DataflowFilePlan.FileDefinition file,DataLocation destination,double at,Outcome outcome,DataReplicaState.Replica source,DataTransferFabric.Route route,Double seconds,Double finish,String policy){
+            this.file=file;this.destination=destination;selectedAt=at;this.outcome=outcome;this.source=source;this.route=route;isolatedSeconds=seconds;isolatedCompletionTime=finish;this.policy=policy;
         }
-        /** @return exact selector policy version */ public String getPolicy(){return POLICY;}
+        /** @return exact selector policy version */ public String getPolicy(){return policy;}
         /** @return scoped immutable file metadata from the visibility snapshot */ public DataflowFilePlan.FileDefinition getFile(){return file;}
         /** @return fixed destination */ public DataLocation getDestination(){return destination;}
         /** @return observation at which this decision was made */ public double getSelectedAt(){return selectedAt;}
@@ -73,6 +75,33 @@ public final class ReplicaTransferSelector {
         double seconds=file.getBytes()/selectedRoute.getStandaloneRateBytesPerSecond();double finish=now+seconds;
         if(!Double.isFinite(seconds)||seconds<=0||!Double.isFinite(finish)||finish<=now)throw bad("Selected positive transfer duration/absolute finish is not representable in the supported binary64 domain");
         return new Decision(file,destination,now,Outcome.NETWORK_COPY,selected,selectedRoute,seconds,finish);
+    }
+    /**
+     * V3 shared-store read-through: store commit precedes even a target-local cache hit.
+     * @param snapshot observed replicas
+     * @param fabric bounded store fabric
+     * @param fileId logical input
+     * @param destination target VM
+     * @return deferred, local, zero or SOURCE read decision
+     */
+    public static Decision selectStoreBacked(DataReplicaState.Snapshot snapshot,DataTransferFabric fabric,DataflowFilePlan.FileId fileId,DataLocation destination){
+        if(snapshot==null||fabric==null||fabric.getSourceStorage()==null)throw bad("Store-backed selection needs bounded storage");fabric.requireLocation(destination);if(destination.getKind()!=DataLocation.Kind.VM)throw bad("Input destination must be VM");
+        DataflowFilePlan.FileDefinition file=snapshot.getFile(fileId);double now=snapshot.getObservedThrough();DataReplicaState.Replica store=snapshot.getReplica(fileId,CoherentDataflowRuntime.SOURCE);String policy="COMMITTED_STORE_THEN_VM_READ_CACHE_V3";
+        if(store==null)return new Decision(file,destination,now,Outcome.WAITING_FOR_SOURCE,null,null,null,null,policy);
+        DataReplicaState.Replica local=snapshot.getReplica(fileId,destination);if(local!=null)return new Decision(file,destination,now,Outcome.LOCAL_PRESENT,local,null,0.0,now,policy);
+        return fixedSource(store,fabric,destination,now,policy);
+    }
+    /** @param source actual successful output copy @param fabric bounded store fabric @param now observation @return fixed-source materialization decision */
+    public static Decision materializeToStore(DataReplicaState.Replica source,DataTransferFabric fabric,double now){
+        if(source==null||source.getFile().isExternal()||source.getLocation().getKind()!=DataLocation.Kind.VM||fabric==null||fabric.getSourceStorage()==null)throw bad("Output materialization needs a produced VM replica and bounded store");
+        return fixedSource(source,fabric,CoherentDataflowRuntime.SOURCE,now,"SUCCESSFUL_OUTPUT_MATERIALIZATION_V3");
+    }
+    private static Decision fixedSource(DataReplicaState.Replica source,DataTransferFabric fabric,DataLocation destination,double now,String policy){
+        fabric.requireLocation(source.getLocation());fabric.requireLocation(destination);
+        if(!Double.isFinite(now)||now<source.getVisibleAt())throw bad("Source is not visible at the requested observation");DataflowFilePlan.FileDefinition file=source.getFile();
+        if(file.getBytes()==0)return new Decision(file,destination,now,Outcome.ZERO_BYTE_REFERENCE,source,null,0.0,now,policy);
+        DataTransferFabric.Route route=fabric.route(source.getLocation(),destination);double seconds=file.getBytes()/route.getStandaloneRateBytesPerSecond(),finish=now+seconds;
+        if(!Double.isFinite(seconds)||seconds<=0||!Double.isFinite(finish)||finish<=now)throw bad("Unrepresentable storage transfer time");return new Decision(file,destination,now,Outcome.NETWORK_COPY,source,route,seconds,finish,policy);
     }
     private static IllegalArgumentException bad(String message){return new IllegalArgumentException(message);}
 }
