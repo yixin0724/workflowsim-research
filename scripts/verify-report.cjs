@@ -10,6 +10,7 @@ const NETWORK_TABLES = { flows: '#network-flow-table', resources: '#network-reso
 const exact = value => value === null ? '—' : value;
 function networkState(run) {
   if (!run.manifest) return 'NO_RESULT';
+  if (storageLifecyclePanel(run)) return 'V3';
   if (fileLifecyclePanel(run)) return 'V2';
   if (!run.networkEvidence) return 'OFF';
   return run.networkEvidence.captureStatus === 'TRUNCATED' ? 'TRUNCATED'
@@ -35,7 +36,7 @@ async function checkNetwork(page, run, expected, hasPanel) {
   const required = !!expected || !!run.networkEvidence;
   if (!hasPanel) { assert.equal(required, false, 'Expected network evidence panel is missing'); return; }
   const state = networkState(run);
-  if (state === 'V2') { if (expected) assert.equal(expected.state, 'V2', 'Unexpected V2 replacement of a V1 fixture'); assert.equal(await page.locator('#network-section').isVisible(), false, 'V2 must not be mislabeled as V1/OFF'); assert.equal(await page.locator('#network-status').getAttribute('data-state'), 'V2'); for (const table of Object.values(NETWORK_TABLES)) assert.equal(await page.locator(`${table} tr`).count(), 0, 'V2 switch must clear stale V1 rows'); return; }
+  if (state === 'V2' || state === 'V3') { if (expected) assert.equal(expected.state, state, 'Unexpected version replacement of a V1 fixture'); assert.equal(await page.locator('#network-section').isVisible(), false, `${state} must not be mislabeled as V1/OFF`); assert.equal(await page.locator('#network-status').getAttribute('data-state'), state); for (const table of Object.values(NETWORK_TABLES)) assert.equal(await page.locator(`${table} tr`).count(), 0, 'Version switch must clear stale V1 rows'); return; }
   assert.equal(await page.locator('#network-section').isVisible(), true, 'Network evidence panel must remain visible');
   if (expected) assert.equal(state, expected.state, 'Network payload state differs from producer fixture expectation');
   assert.equal(await page.locator('#network-status').getAttribute('data-state'), state, 'Selected network state must match');
@@ -85,7 +86,7 @@ async function checkNetwork(page, run, expected, hasPanel) {
 }
 
 function fileLifecyclePanel(run) {
-  if (!run.manifest) return false;
+  if (!run.manifest || storageLifecyclePanel(run)) return false;
   const c = run.manifest.configuration || {}, kind = (c.dataMovementModel || {}).kind;
   return !!run.fileLifecycle || ['COHERENT_FILE_DATAFLOW_V2', 'COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2'].includes(kind) || (c.networkEvidence || {}).mode === 'FILE_LIFECYCLE_V2';
 }
@@ -148,6 +149,75 @@ async function checkFileLifecycle(page, run, expected, hasPanel) {
   assert.ok((await page.locator('#file-lifecycle-copy-note').textContent()).includes(`预览省略 ${view.copies.omitted} 项`));
 }
 
+function storageLifecyclePanel(run) {
+  if (!run.manifest) return false;
+  const c = run.manifest.configuration || {}, kind = (c.dataMovementModel || {}).kind;
+  return !!run.storageLifecycle || ['COHERENT_STORAGE_DATAFLOW_V3', 'COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3'].includes(kind) || (c.networkEvidence || {}).mode === 'FILE_STORAGE_LIFECYCLE_V3';
+}
+function storageLifecycleState(run) {
+  if (!run.manifest) return 'NO_RESULT';if (!storageLifecyclePanel(run)) return 'HIDDEN';
+  if (!run.storageLifecycle) return ((run.manifest.configuration || {}).networkEvidence || {}).mode === 'FILE_STORAGE_LIFECYCLE_V3' ? 'INVALID' : 'OFF';
+  return run.storageLifecycle.copyCount === '0' ? 'ZERO' : 'COMPLETE';
+}
+function storageLifecycleValues(v) {
+  const s = v.store, t = v.totals;
+  return { 'storage-lifecycle-host': s.attachmentHostId, 'storage-lifecycle-read-rate': s.readCapacityBytesPerSecond,
+    'storage-lifecycle-write-rate': s.writeCapacityBytesPerSecond, 'storage-lifecycle-nic-rate': s.networkCapacityBytesPerSecond,
+    'storage-lifecycle-plan-count': `${v.fileCount} / ${v.taskCount}`, 'storage-lifecycle-job-count': `${v.requestedJobCount} / ${v.completedJobCount}`,
+    'storage-lifecycle-copy-count': `${v.copyCount} / ${v.completedCopyCount} / ${v.activeCopyCount}`, 'storage-lifecycle-obligations': `${v.pendingOutputFileCount} / ${v.waitingStoreInputCount}`,
+    'storage-lifecycle-input-admitted': t.admittedInputPayloadBytes, 'storage-lifecycle-output-admitted': t.admittedOutputPayloadBytes,
+    'storage-lifecycle-input-settled': t.settledInputPayloadBytes, 'storage-lifecycle-output-settled': t.settledOutputPayloadBytes,
+    'storage-lifecycle-reference-count': `${t.referenceCount} / ${t.localReferenceCount} / ${t.joinedReferenceCount}`,
+    'storage-lifecycle-reference-bytes': t.requiredReferenceBytes, 'storage-lifecycle-local-bytes': t.localReferenceBytes, 'storage-lifecycle-residual': t.completionResidualBytes,
+    'storage-lifecycle-last-cpu': v.lastCpuFinishTime, 'storage-lifecycle-last-commit': v.lastStoreCommitTime,
+    'storage-lifecycle-tail': v.completedObservedOutputTailSeconds, 'storage-lifecycle-observed': v.observedThrough };
+}
+async function checkStorageLifecycle(page, run, expected, hasPanel) {
+  if (!hasPanel) { assert.equal(!!expected || storageLifecyclePanel(run), false, 'Expected V3 storage panel is missing'); return; }
+  const state = storageLifecycleState(run), visible = !['HIDDEN', 'NO_RESULT'].includes(state);
+  if (expected) assert.equal(state, expected.state, 'V3 payload state differs from producer expectation');
+  assert.equal(await page.locator('#storage-lifecycle-section').isVisible(), visible, 'V3 storage panel visibility differs');
+  assert.equal(await page.locator('#storage-lifecycle-status').getAttribute('data-state'), state === 'HIDDEN' ? 'OFF' : state);
+  const tables = { copies: '#storage-lifecycle-copy-table', resources: '#storage-lifecycle-resource-table', events: '#storage-lifecycle-event-table', jobs: '#storage-lifecycle-job-table' };
+  if (['HIDDEN', 'NO_RESULT', 'OFF'].includes(state)) {
+    for (const table of Object.values(tables)) assert.equal(await page.locator(`${table} tr`).count(), 0, 'Switch must clear stale storage rows');
+    assert.equal(await page.locator('#storage-lifecycle-output-admitted').textContent(), '—');
+    if (state === 'OFF') assert.ok((await page.locator('#storage-lifecycle-note').textContent()).includes('不等于零流量'));
+    return;
+  }
+  assert.notEqual(state, 'INVALID', 'Requested V3 evidence cannot silently disappear');const v = run.storageLifecycle;
+  assert.equal(v.schema, 'workflowsim-storage-lifecycle-display-v3');assert.equal(v.captureStatus, 'COMPLETE');assertNetworkTypes(v, 'storageLifecycle');
+  for (const field of ['filePlan', 'fabric', 'evidence', 'traceSnapshot']) assert.equal(Object.hasOwn(v, field), false, 'Do not embed unbounded storage evidence');
+  const note = await page.locator('#storage-lifecycle-note').textContent();assert.ok(note.includes('不是逐区间流体服务面积'), 'Storage scope must not claim fluid service accounting');
+  if (!v.contextValidated) assert.ok(note.includes('未声明与本页面CPU运行上下文绑定'));if (!v.quiescent) assert.ok(note.includes('完整捕获仍有未完成状态'));
+  for (const [kind, limit] of Object.entries({ copies: 64, resources: 64, events: 128, jobs: 64 })) {
+    const preview = v[kind];assert.equal(preview.limit, String(limit));assert.ok(preview.rows.length <= limit);assert.equal(preview.shown, String(preview.rows.length));assert.equal(BigInt(preview.total), BigInt(preview.shown) + BigInt(preview.omitted));assert.equal(await page.locator(`${tables[kind]} tr`).count(), preview.rows.length, `V3 ${kind} row count`);
+  }
+  assert.equal(v.copies.total, v.copyCount);assert.equal(v.jobs.total, v.requestedJobCount);
+  if (expected) {
+    assert.equal(v.contextValidated, expected.contextValidated);
+    for (const key of ['copyCount', 'completedCopyCount', 'activeCopyCount', 'fileCount', 'taskCount', 'pendingOutputFileCount', 'waitingStoreInputCount']) if (Object.hasOwn(expected, key)) assert.equal(v[key], expected[key]);
+    if (expected.copyPurposes) assert.deepEqual(v.copies.rows.map(c => c.purpose), expected.copyPurposes);
+    if (expected.copyOwners) assert.deepEqual(v.copies.rows.map(c => c.ownerJobId), expected.copyOwners);
+    if (expected.copySources) assert.deepEqual(v.copies.rows.map(c => c.source), expected.copySources);
+    if (expected.values) for (const [key, value] of Object.entries(expected.values)) assert.equal(storageLifecycleValues(v)[key], value, `V3 producer quantity ${key}`);
+  }
+  for (const [id, value] of Object.entries(storageLifecycleValues(v))) assert.equal(await page.locator(`#${id}`).textContent(), exact(value), `Exact V3 text differs at ${id}`);
+  const copies = v.copies.rows;assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:first-child').allTextContents(), copies.map(c => c.copyOrdinal));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(2)').allTextContents(), copies.map(c => c.purpose));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(3)').allTextContents(), copies.map(c => c.ownerJobId));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(4)').allTextContents(), copies.map(c => c.fileId));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(5)').allTextContents(), copies.map(c => `${c.source} → ${c.destination}`));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(6)').allTextContents(), copies.map(c => c.producerTaskId === null ? `外部来源 ${c.originLocation}` : `Task ${c.producerTaskId} / Job ${c.producerJobAttemptId} / ${c.originLocation}`));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(15)').allTextContents(), copies.map(c => exact(c.effectiveFctSeconds)));
+  assert.deepEqual(await page.locator('#storage-lifecycle-copy-table tr td:nth-child(16)').allTextContents(), copies.map(c => exact(c.observedFctSeconds)));
+  for (const [column, key] of [[1, 'jobId'], [4, 'requestedAt'], [5, 'dataReadyAt'], [6, 'cpuStartedAt'], [7, 'finishedAt'], [8, 'nominalInputSeconds'], [9, 'observedPreparationSeconds'], [10, 'storeGateWaitSeconds']]) assert.deepEqual(await page.locator(`#storage-lifecycle-job-table tr td:nth-child(${column})`).allTextContents(), v.jobs.rows.map(j => exact(j[key])));
+  assert.deepEqual(await page.locator('#storage-lifecycle-resource-table tr td:nth-child(2)').allTextContents(), v.resources.rows.map(r => r.capacityBytesPerSecond));
+  assert.deepEqual(await page.locator('#storage-lifecycle-event-table tr td:last-child').allTextContents(), v.events.rows.map(e => e.detail));
+  assert.ok((await page.locator('#storage-lifecycle-job-note').textContent()).includes('不是可与其他时长相加的分解'));
+  assert.ok((await page.locator('#storage-lifecycle-copy-note').textContent()).includes(`预览省略 ${v.copies.omitted} 项`));
+}
+
 async function checkReport(browser, specification, screenshot) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
@@ -171,8 +241,10 @@ async function checkReport(browser, specification, screenshot) {
     assert.equal(await page.locator('#run-table tr').count(), runCount);
     const hasNetworkPanel = await page.locator('#network-section').count() === 1;
     const hasFileLifecyclePanel = await page.locator('#file-lifecycle-section').count() === 1;
+    const hasStorageLifecyclePanel = await page.locator('#storage-lifecycle-section').count() === 1;
     if (specification.network) assert.equal(specification.network.length, runCount);
     if (specification.fileLifecycle) assert.equal(specification.fileLifecycle.length, runCount);
+    if (specification.storageLifecycle) assert.equal(specification.storageLifecycle.length, runCount);
     assert.equal(await page.locator('img').count(), 0, 'User text must not become executable HTML');
     if (specification.seeds) {
       assert.deepEqual(runs.map(run => run.seed), specification.seeds,
@@ -190,6 +262,7 @@ async function checkReport(browser, specification, screenshot) {
       const run = runs[index];
       await checkNetwork(page, run, specification.network && specification.network[index], hasNetworkPanel);
       await checkFileLifecycle(page, run, specification.fileLifecycle && specification.fileLifecycle[index], hasFileLifecyclePanel);
+      await checkStorageLifecycle(page, run, specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
       if (!run.manifest) {
         assert.equal(await page.locator('#failure').isVisible(), true);
         assert.ok((await page.locator('#failure').textContent()).length > 0);
@@ -244,6 +317,7 @@ async function checkReport(browser, specification, screenshot) {
       await page.locator('#run-select').selectOption(String(index));
       await checkNetwork(page, runs[index], specification.network && specification.network[index], hasNetworkPanel);
       await checkFileLifecycle(page, runs[index], specification.fileLifecycle && specification.fileLifecycle[index], hasFileLifecyclePanel);
+      await checkStorageLifecycle(page, runs[index], specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'Long network values must remain inside mobile layout');
     }
     assert.equal(await page.locator('img').count(), 0, 'Network labels must remain literal text after run switching');
@@ -251,7 +325,7 @@ async function checkReport(browser, specification, screenshot) {
     assert.deepEqual(requests, [], 'Offline reports must remain offline through the final viewport change');
     assert.deepEqual(secondaryFiles, [], 'Offline reports must not fetch secondary files');
     return { name: specification.name || path.basename(specification.path), runCount, successful,
-      allRows, vmRows, networkPanelChecked: hasNetworkPanel, fileLifecyclePanelChecked: hasFileLifecyclePanel, externalRequests: requests.length, secondaryFiles: secondaryFiles.length, browserErrors: errors.length };
+      allRows, vmRows, networkPanelChecked: hasNetworkPanel, fileLifecyclePanelChecked: hasFileLifecyclePanel, storageLifecyclePanelChecked: hasStorageLifecyclePanel, externalRequests: requests.length, secondaryFiles: secondaryFiles.length, browserErrors: errors.length };
   } finally {
     await page.close();
   }

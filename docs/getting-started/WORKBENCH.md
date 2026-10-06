@@ -86,9 +86,30 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 - 首次V2导出仅接受完整捕获。预算不足不改变模拟轨迹，但在创建/替换证据文件前拒绝导出；Workbench记录失败，不产生伪完整侧车。不要将此与V1可显示的截断前缀混淆。
 - V2模型即使记录OFF，也在manifest保存核心`dataflowPlan`；旧模型OFF的原字段集合不变。V2 ON侧车角色是`file-lifecycle`，不会出现在旧`network-ledger`路径或旧getter中。
 - 正常run与独立report使用相同验证快照。V2面板只以精确文本显示有限预览；与V1、OFF、失败运行切换时清空旧数据，不重新请求侧车。
-- Java和[独立Python检查器](<../../scripts/verify-network-ledger.py>)均能验证V2完整bundle，rerun把`/fileLifecycle/...`全部作为核心量比较。SOURCE仍显式无限汇聚/绕过fabric，输出上传与网络感知在线分配是后续阶段。
+- Java和[独立Python检查器](<../../scripts/verify-network-ledger.py>)均能验证V2完整bundle，rerun把`/fileLifecycle/...`全部作为核心量比较。V2的SOURCE仍显式无限汇聚/绕过fabric；有限存储与输出上传使用下述独立V3，网络感知在线分配仍属后续阶段。
 
 详细数据形状、数值支持域与证书边界见[生命周期格式](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)和[V2运行契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
+
+## V3受限SOURCE、共享存储和输出写回
+
+使用[受限存储示例](<../../experiments/configs/storage-dataflow-v3.json>)或[相同路径/容量的独立瓶颈对照](<../../experiments/configs/storage-dataflow-isolated-v3.json>)：
+
+```bash
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
+  -Dexec.args="run experiments/configs/storage-dataflow-v3.json output/workbench-storage"
+```
+
+`platform.sourceStorage`必须同时提供`attachmentHostId`、`readBandwidthMbPerSecond`、`writeBandwidthMbPerSecond`和`networkBandwidthMbPerSecond`。Workbench的Host从0起编号，与`vmMips`条目对应。参数按十进制MB/s换算到正normal有限B/s；不接受null、字符串数字、缺省猜测容量或未知Host。只有V3模型可声明该对象，省略对象不能退回无限SOURCE。
+
+模型为`COHERENT_STORAGE_DATAFLOW_V3`或`COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3`，记录为`{"mode":"FILE_STORAGE_LIFECYCLE_V3","maxTraceRecords":20000}`。继续要求RANDOM/STATIC/NONE/无开销，文件系统可显式选：
+
+- **LOCAL**：可读已可见VM副本，但全部成功输出仍异步写回SOURCE。
+- **SHARED**：先等SOURCE提交，再使用目标VM缓存或只从SOURCE读取；同VM缓存也不能绕过提交。
+
+成功输出包括unused sink和零字节，仿真结束需等写回义务完成；CPU返回不被推迟，VM可与写回重叠计算。报告独立展示输入/输出载荷、SOURCE等待、名义输入估时、观察准备延迟、CPU完成和输出尾部。以上不是未经记录的链路利用率或逐区间服务面积认证。
+
+完整工件使用独立`storage-lifecycle`角色，Java/Python验证配置/来源/路径/输出义务/CPU及故障重试因果；预算不足在任何工件I/O前拒绝。记录OFF仍保留核心文件计划和存储配置，不意味着零网络。rerun在`/storageLifecycle/...`逐字段比较，没有新增内容豁免。专用离线面板不读取额外文件，数值始终为精确文本，复制/资源/Job/事件预览上限为64/64/64/128。边界及schema见[存储V3契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)。
 
 ## 历史与证据
 
@@ -104,7 +125,8 @@ experiment-<UUID>/
     result.metrics.json
     result.events.jsonl
     result.network-ledger.json  # 仅FLUID_GROUP_LEDGER_V1模式
-    result.file-lifecycle.json  # 仅FILE_LIFECYCLE_V2模式；与上项互斥
+    result.file-lifecycle.json  # 仅FILE_LIFECYCLE_V2模式
+    result.storage-lifecycle.json  # 仅FILE_STORAGE_LIFECYCLE_V3；三个角色互斥
 ```
 
 逐运行证据写出后即调用核心验证器。运行失败会记录根因并继续其他方案，失败不进入完成时间排行榜；命令完成后若存在失败会以非零退出。进程被强制中断时，已完成运行保留，状态可能仍为RUNNING，可通过历史页面识别。文件采用同目录临时写入后原子替换；三件套不是跨文件事务，因此必须以最终校验通过为完整证据标准。

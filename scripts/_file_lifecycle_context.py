@@ -87,13 +87,15 @@ def _text_is(obj, key, expected):
     need(word(_field(obj, key)) == expected, "unsupported/mismatched " + key)
 
 
-def _core(root):
+def _core(root, *, models=(SHARED, ISOLATED), filesystems=("LOCAL",)):
+    """Private shared graph/scope contract; public V2 callers use fixed defaults."""
     _text_is(root, "schema", MANIFEST)
     config, result = _obj(_field(root, "configuration")), _obj(_field(root, "result"))
     model = word(_field(_field(config, "dataMovementModel"), "kind"))
-    need(model in (SHARED, ISOLATED), "dataflowPlan/file-lifecycle requires a coherent V2 model")
-    for key, value in (("planningAlgorithm", "RANDOM"), ("schedulingAlgorithm", "STATIC"), ("fileSystem", "LOCAL")):
+    need(model in models, "dataflowPlan/lifecycle requires its coherent model contract")
+    for key, value in (("planningAlgorithm", "RANDOM"), ("schedulingAlgorithm", "STATIC")):
         _text_is(config, key, value)
+    need(word(_field(config, "fileSystem")) in filesystems, "unsupported fileSystem")
     _text_is(_field(config, "clustering"), "method", "NONE")
     overhead = _obj(_field(config, "overheadModel"))
     keys(overhead, ("workflowEngineDelayInterval", "bandwidth", "workflowEngineDelays", "queueDelays", "postDelays", "clusteringDelays"), "overheadModel")
@@ -157,7 +159,8 @@ def _core(root):
     return config, result, model, plan, arrivals
 
 
-def _platform(root, fabric=None):
+def _platform(root, fabric=None, *, source_routing="BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY",
+              complete_host_map=False):
     config, platform, result = (_obj(_field(root, key)) for key in ("configuration", "platform", "result"))
     hosts, vms = _rows(_field(platform, "hosts"), "id"), _rows(_field(platform, "vms"), "id")
     need(hosts and vms, "V2 platform requires hosts and VMs")
@@ -190,7 +193,7 @@ def _platform(root, fabric=None):
         for key, expected in (("defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES"),
                               ("routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1"),
                               ("linkDirectionality", "INDEPENDENT_DIRECTED_LINKS"),
-                              ("externalSourceRouting", "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY")):
+                              ("externalSourceRouting", source_routing)):
             _text_is(topology, key, expected)
         explicit = _field(topology, "hostEdgePlacements")
         if explicit is not None:
@@ -226,6 +229,7 @@ def _platform(root, fabric=None):
                 item = observed[placement["hostId"]]
                 need(_id(item["pod"]) == placement["pod"] and _id(item["edge"]) == placement["edge"],
                      "lifecycle physical host placement differs")
+        if expected_topology is not None or complete_host_map:
             assignments = _rows(fabric["vmHostAssignments"], "vmId")
             need(set(assignments) == set(vms) and all(_id(assignments[vm]["hostId"]) == vm_hosts[vm] for vm in vms),
                  "lifecycle route is not using actual VM host assignment")
@@ -284,7 +288,27 @@ def _main_sequence(root, events, end):
         previous = time
 
 
-def _main_context(root, events, jobs, facts, plan, arrivals, model):
+def _v2_stage_quantities(attrs, fact, plan, copies, model):
+    # Recompute reference quantities, not V1 groups or served byte area.
+    count, size, seconds, created, joined = 0, 0.0, 0.0, 0, 0
+    for item in fact["inputs"]:
+        count += item["referenceCount"]
+        size += plan.files[_file_id(item["fileId"])].size * item["referenceCount"]
+        if item["resolution"] in ("NEW_COPY", "JOIN_EXISTING"):
+            seconds += copies[item["copyOrdinal"]]["isolatedSeconds"]
+            created += item["resolution"] == "NEW_COPY"
+            joined += item["resolution"] == "JOIN_EXISTING"
+    _text_is(attrs, "transferUnit", "LOGICAL_FILE_V2")
+    _text_is(attrs, "dataMovementModel", model)
+    need(whole(_field(attrs, "modeledTransferFileCount"), 0, LONG_MAX) == count and
+         _time(_field(attrs, "requiredFileBytes")) == size and
+         _time(_field(attrs, "modeledTransferSeconds")) == seconds and
+         _id(_field(attrs, "newFileCopies")) == created and _id(_field(attrs, "joinedFileCopies")) == joined and
+         "contentionTransferGroupCount" not in attrs, "V2 main input quantities differ from lifecycle references")
+
+
+def _main_context(root, events, jobs, facts, plan, arrivals, model, *, stage_at_ready=False,
+                  stage_check=_v2_stage_quantities):
     main = {kind: {} for kind in MAIN_TYPES}
     for event in events:
         kind = event["type"]
@@ -307,7 +331,9 @@ def _main_context(root, events, jobs, facts, plan, arrivals, model):
     for ident, job in jobs.items():
         fact = facts["jobs"][ident]
         ready, stage, decision, dispatch, execution, returned = (main[kind][ident] for kind in mandatory)
-        need(_time(ready["simulationTime"]) == _time(stage["simulationTime"]) == fact["requestedAt"] and
+        stage_time = fact["dataReadyAt"] if stage_at_ready else fact["requestedAt"]
+        need(_time(ready["simulationTime"]) == fact["requestedAt"] and
+             _time(stage["simulationTime"]) == stage_time and
              _time(execution["simulationTime"]) == fact["cpuStartedAt"] and
              _time(returned["simulationTime"]) == fact["finishedAt"], "main/lifecycle observation anchors differ")
         need(fact["requestedAt"] >= arrivals[plan.tasks[job["task"]].scope], "request precedes workflow arrival")
@@ -325,23 +351,7 @@ def _main_context(root, events, jobs, facts, plan, arrivals, model):
              _time(_field(attrs, "modeledStageInSecondsBeforeTask")) == 0 and
              _time(_field(attrs, "requestedDataStageInSecondsForJob")) == 0,
              "CPU envelope contains input transfer or disagrees with Task result")
-        # Recompute reference quantities, not V1 groups or served byte area.
-        count, size, seconds, created, joined = 0, 0.0, 0.0, 0, 0
-        for item in fact["inputs"]:
-            count += item["referenceCount"]
-            size += plan.files[_file_id(item["fileId"])].size * item["referenceCount"]
-            if item["resolution"] in ("NEW_COPY", "JOIN_EXISTING"):
-                seconds += copies[item["copyOrdinal"]]["isolatedSeconds"]
-                created += item["resolution"] == "NEW_COPY"
-                joined += item["resolution"] == "JOIN_EXISTING"
-        attrs = stage["attributes"]
-        _text_is(attrs, "transferUnit", "LOGICAL_FILE_V2")
-        _text_is(attrs, "dataMovementModel", model)
-        need(whole(_field(attrs, "modeledTransferFileCount"), 0, LONG_MAX) == count and
-             _time(_field(attrs, "requiredFileBytes")) == size and
-             _time(_field(attrs, "modeledTransferSeconds")) == seconds and
-             _id(_field(attrs, "newFileCopies")) == created and _id(_field(attrs, "joinedFileCopies")) == joined and
-             "contentionTransferGroupCount" not in attrs, "V2 main input quantities differ from lifecycle references")
+        stage_check(stage["attributes"], fact, plan, copies, model)
         need(_id(_field(returned["attributes"], "jobStatus")) == job["status"], "main return status differs")
         statuses = [_id(value) for value in array(_field(returned["attributes"], "taskStatuses"))]
         need(statuses == [job["status"]], "main return Task statuses differ")
@@ -412,7 +422,7 @@ def verify_context(manifest, document, main_events):
     return report
 
 
-def _references(path, manifest, enabled):
+def _references(path, manifest, enabled, *, lifecycle_role="file-lifecycle"):
     refs, names = {}, set()
     directory = path.parent.resolve()
     for row in array(_field(manifest, "artifacts")):
@@ -437,9 +447,24 @@ def _references(path, manifest, enabled):
         except UnicodeError as error:
             raise Invalid("artifact is not strict UTF-8: " + name) from error
         names.add(name)
-    expected = {"metrics", "events", "file-lifecycle"} if enabled else {"metrics", "events"}
-    need(set(refs) == expected, "V2 recording/known artifact roles disagree (no network-ledger role permitted)")
+    expected = {"metrics", "events", lifecycle_role} if enabled else {"metrics", "events"}
+    need(set(refs) == expected, "recording/known artifact roles disagree (no mixed lifecycle/network roles permitted)")
     return refs
+
+
+def _sidecars(path, root, enabled, *, lifecycle_role="file-lifecycle"):
+    """One byte snapshot per contained artifact, shared only by closed V2/V3 callers."""
+    refs = _references(path, root, enabled, lifecycle_role=lifecycle_role)
+    metrics = _obj(decode_json(refs["metrics"]))
+    keys(metrics, ("schema", "metrics"), "metrics sidecar")
+    _text_is(metrics, "schema", "workflowsim-simulation-metrics-v2")
+    need(METRIC_FIELDS <= set(_obj(metrics["metrics"])), "missing metrics-v2 fields")
+    _same(_obj(_field(root, "metrics")), metrics["metrics"], "manifest/sidecar metrics differ")
+    lines = refs["events"].split("\n")
+    if lines[-1] == "":
+        lines.pop()
+    need(all(line.strip() for line in lines), "blank main JSONL event")
+    return refs, [decode_json(line) for line in lines]
 
 
 def inspect_path(path, manifest=None):
@@ -453,17 +478,7 @@ def inspect_path(path, manifest=None):
         keys(option, ("mode", "maxTraceRecords"), "V2 recording")
         _text_is(option, "mode", MODE)
         whole(option["maxTraceRecords"], 1, INT_MAX)
-    refs = _references(path, root, enabled)
-    metrics = _obj(decode_json(refs["metrics"]))
-    keys(metrics, ("schema", "metrics"), "metrics sidecar")
-    _text_is(metrics, "schema", "workflowsim-simulation-metrics-v2")
-    need(METRIC_FIELDS <= set(_obj(metrics["metrics"])), "missing metrics-v2 fields")
-    _same(_obj(_field(root, "metrics")), metrics["metrics"], "manifest/sidecar metrics differ")
-    lines = refs["events"].split("\n")
-    if lines[-1] == "":
-        lines.pop()
-    need(all(line.strip() for line in lines), "blank main JSONL event")
-    events = [decode_json(line) for line in lines]
+    refs, events = _sidecars(path, root, enabled)
     if enabled:
         report = verify_context(root, decode_json(refs["file-lifecycle"]), events)
     else:

@@ -1,0 +1,23 @@
+{
+  "schema": "workflowsim-workbench-v1",
+  "name": "V3受限共享存储：独立路径瓶颈对照",
+  "workflowPaths": ["inputs/coherent-file-dataflow.dax"],
+  "platform": {
+    "vmMips": [1000, 1000, 1000, 1000],
+    "bandwidthMbPerSecond": 1,
+    "networkTopology": {"k": 4, "linkBandwidthMbPerSecond": 1},
+    "sourceStorage": {
+      "attachmentHostId": 0,
+      "readBandwidthMbPerSecond": 0.5,
+      "writeBandwidthMbPerSecond": 0.25,
+      "networkBandwidthMbPerSecond": 1
+    }
+  },
+  "simulation": {
+    "fileSystem": "SHARED",
+    "dataMovementModel": "COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3",
+    "networkEvidence": {"mode": "FILE_STORAGE_LIFECYCLE_V3", "maxTraceRecords": 20000}
+  },
+  "algorithms": [{"id": "random-static", "planner": "RANDOM", "scheduler": "STATIC"}],
+  "seeds": [1]
+}

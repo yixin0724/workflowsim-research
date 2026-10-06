@@ -70,19 +70,21 @@ public final class HtmlReports {
     static ValidatedReport validatedReport(ExperimentArtifactValidator.ValidationResult validated) {
         return new ValidatedReport(validated.getManifestSnapshot(),
                 NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(),true),
-                FileLifecycleReportView.fromDecoded(validated.getDecodedFileLifecycle(),true));
+                FileLifecycleReportView.fromDecoded(validated.getDecodedFileLifecycle(),true),
+                StorageLifecycleReportView.fromDecoded(validated.getDecodedStorageLifecycle(),true));
     }
 
     static final class ValidatedReport {
         private final JsonObject manifest;
         private final Map<String,Object> network;
-        private final Map<String,Object> fileLifecycle;
-        private ValidatedReport(JsonObject manifest,Map<String,Object> network,Map<String,Object> fileLifecycle){this.manifest=manifest;this.network=network;this.fileLifecycle=fileLifecycle;}
+        private final Map<String,Object> fileLifecycle,storageLifecycle;
+        private ValidatedReport(JsonObject manifest,Map<String,Object> network,Map<String,Object> fileLifecycle,Map<String,Object> storageLifecycle){this.manifest=manifest;this.network=network;this.fileLifecycle=fileLifecycle;this.storageLifecycle=storageLifecycle;}
         JsonObject getManifest(){return manifest;}
         void attachTo(Map<String,Object> row){
             row.put("manifest",manifest);
             if(network==null)row.remove("networkEvidence");else row.put("networkEvidence",network);
             if(fileLifecycle==null)row.remove("fileLifecycle");else row.put("fileLifecycle",fileLifecycle);
+            if(storageLifecycle==null)row.remove("storageLifecycle");else row.put("storageLifecycle",storageLifecycle);
         }
     }
 

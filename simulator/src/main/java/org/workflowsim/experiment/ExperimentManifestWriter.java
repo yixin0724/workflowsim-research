@@ -28,15 +28,13 @@ public final class ExperimentManifestWriter {
 
     /** Standalone manifests must not silently drop requested network evidence. */
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
-        if(report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3())throw new UnsupportedOperationException("Storage V3 needs its dedicated verified artifact contract; no files were written");
-        if(report.getPlatform().getSourceStorage()!=null)throw new IllegalArgumentException("sourceStorage is not used by the declared legacy/V2 model");
-        org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(report.getConfig().getDataMovementModel(),option);
-        String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);int groups=0,files=0;
-        for(Map<String,Object> artifact:artifacts){if(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(artifact.get("role")))groups++;if(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(artifact.get("role")))files++;}
-        int required=org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(expected)?groups:org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(expected)?files:0;
-        if(expected!=null&&required==0)throw new UnsupportedOperationException("Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
-        if(groups>1||files>1||(groups>0&&!org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(expected))||(files>0&&!org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(expected)))throw new IllegalArgumentException("Network evidence artifact roles disagree with recording configuration");
-        if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2()!=(report.getDataflowPlan()!=null))throw new IllegalArgumentException("V2 core file plan presence disagrees with model");
+        org.workflowsim.data.DataMovementModel model=report.getConfig().getDataMovementModel();if(model.isCoherentStorageDataflowV3()!=(report.getPlatform().getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage presence differs from its declared model");
+        org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model,option);
+        String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);Map<String,Integer> counts=new LinkedHashMap<>();for(String role:new String[]{"network-ledger","file-lifecycle","storage-lifecycle"})counts.put(role,0);
+        for(Map<String,Object> artifact:artifacts){Object role=artifact.get("role");if(counts.containsKey(role))counts.put((String)role,counts.get(role)+1);}
+        if(expected!=null&&counts.get(expected)==0)throw new UnsupportedOperationException("Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
+        for(Map.Entry<String,Integer> count:counts.entrySet())if(count.getValue()>1||(count.getValue()>0&&!count.getKey().equals(expected)))throw new IllegalArgumentException("Network evidence artifact roles disagree with recording configuration");
+        if(model.usesCoherentDataflowRuntime()!=(report.getDataflowPlan()!=null))throw new IllegalArgumentException("Coherent core file plan presence disagrees with model");
     }
 
     /** Minimal no-I/O context for the same preflight checks used by artifact readers. */
@@ -121,7 +119,7 @@ public final class ExperimentManifestWriter {
         manifest.put("inputs", inputs(report));
         manifest.put("workflowProfile", report.getWorkflowProfile());
         manifest.put("workflowGraph", report.getWorkflowGraph());
-        if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2())manifest.put("dataflowPlan",report.getDataflowPlan());
+        if(report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())manifest.put("dataflowPlan",report.getDataflowPlan());
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
         manifest.put("events", eventSummary(report));
@@ -234,12 +232,15 @@ public final class ExperimentManifestWriter {
                 return "COHERENT_FILES_CHECKED_SHARED_MAX_MIN_V2";
             case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:
                 return "COHERENT_FILES_ISOLATED_PATH_BOTTLENECK_V2";
+            case COHERENT_STORAGE_DATAFLOW_V3:return "STORAGE_FILES_CHECKED_SHARED_MAX_MIN_V3";
+            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:return "STORAGE_FILES_ISOLATED_PATH_BOTTLENECK_V3";
             default:
                 throw new IllegalArgumentException("Unknown data movement model " + model.getKind());
         }
     }
 
     static String transferStartSemantics(DataMovementModel model) {
+        if(model.isCoherentStorageDataflowV3())return "CONTROL_READY_REQUEST;STORE_COMMIT_GATE_IF_SHARED;ASYNC_ALL_SUCCESSFUL_OUTPUTS_V3";
         if(model.isCoherentFileDataflowV2())return "DEPENDENCY_READY_AT_OBSERVATION_V2;PER_FILE_SETTLEMENT_OBSERVATION_V2;COALESCED_FILE_DESTINATION";
         if (model.isPreExecutionTransferDelayV1()) {
             return "PARENT_FINISH_BASED_ARRIVAL_ESTIMATE;EXTERNAL_AT_JOB_READY";
@@ -388,11 +389,12 @@ public final class ExperimentManifestWriter {
         storage.put("maxTransferRateMbPerSecond", profile.getStorage().getMaxTransferRateMbPerSecond());
         values.put("storage", storage);
         values.put("costs", costs(profile.getCosts()));
-        values.put("networkTopology", networkTopology(profile.getNetworkTopology()));
+        values.put("networkTopology", networkTopology(profile.getNetworkTopology(),profile.getSourceStorage()!=null));
+        if(profile.getSourceStorage()!=null){org.workflowsim.data.v2.DataflowStorageSpec spec=profile.getSourceStorage();Map<String,Object> source=new LinkedHashMap<>();source.put("attachmentHostId",spec.getAttachmentHostId());source.put("readBandwidthMbPerSecond",spec.getReadBandwidthMbPerSecond());source.put("writeBandwidthMbPerSecond",spec.getWriteBandwidthMbPerSecond());source.put("networkBandwidthMbPerSecond",spec.getNetworkBandwidthMbPerSecond());values.put("sourceStorage",source);}
         return values;
     }
 
-    private static Map<String, Object> networkTopology(org.workflowsim.network.NetworkTopologySpec spec) {
+    private static Map<String, Object> networkTopology(org.workflowsim.network.NetworkTopologySpec spec,boolean boundedStore) {
         if (spec == null) {
             return null;
         }
@@ -406,7 +408,7 @@ public final class ExperimentManifestWriter {
         values.put("defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES");
         values.put("routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1");
         values.put("linkDirectionality", "INDEPENDENT_DIRECTED_LINKS");
-        values.put("externalSourceRouting", "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
+        values.put("externalSourceRouting", boundedStore?"BOUNDED_STORAGE_HOST_ATTACHMENT_V3":"BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
         return values;
     }
 

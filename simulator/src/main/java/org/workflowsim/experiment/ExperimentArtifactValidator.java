@@ -57,7 +57,7 @@ public final class ExperimentArtifactValidator {
                 && !MANIFEST_SCHEMA_V4.equals(schema)) {
             throw new IOException("Unsupported experiment manifest schema: " + schema);
         }
-        if((isCoherentManifest(root)||root.has("dataflowPlan"))&&!MANIFEST_SCHEMA_V4.equals(schema))throw new IOException("Coherent V2 dataflow requires manifest v4");
+        if((isCoherentManifest(root)||root.has("dataflowPlan")||(root.has("platform")&&root.get("platform").isJsonObject()&&root.getAsJsonObject("platform").has("sourceStorage")))&&!MANIFEST_SCHEMA_V4.equals(schema))throw new IOException("Coherent V2 dataflow requires manifest v4");
         validateManifestTopLevelShape(root);
         if (MANIFEST_SCHEMA_V3.equals(schema) || MANIFEST_SCHEMA_V4.equals(schema)) {
             validateV3Provenance(requireObject(root, "provenance", "experiment manifest"));
@@ -78,11 +78,11 @@ public final class ExperimentArtifactValidator {
         }
         org.workflowsim.data.NetworkEvidenceConfig recording=org.workflowsim.data.NetworkEvidenceConfig.off();
         if(root.getAsJsonObject("configuration").has("networkEvidence"))try{recording=org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(root.getAsJsonObject("configuration").get("networkEvidence"));}catch(IllegalArgumentException invalid){throw new IOException("Invalid network recording mode",invalid);}
-        boolean groupRequested=recording.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,fileRequested=recording.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2;
-        Path networkLedger=paths.get(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE),fileLifecycle=paths.get(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE);
-        if(groupRequested!=(networkLedger!=null)||fileRequested!=(fileLifecycle!=null))throw new IOException("Network recording configuration and versioned artifact roles disagree");
+        boolean groupRequested=recording.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,fileRequested=recording.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,storageRequested=recording.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;
+        Path networkLedger=paths.get(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE),fileLifecycle=paths.get(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE),storageLifecycle=paths.get(org.workflowsim.data.v2.StorageLifecycleCodec.ARTIFACT_ROLE);
+        if(groupRequested!=(networkLedger!=null)||fileRequested!=(fileLifecycle!=null)||storageRequested!=(storageLifecycle!=null))throw new IOException("Network recording configuration and versioned artifact roles disagree");
         if(recording.isEnabled()&&!MANIFEST_SCHEMA_V4.equals(schema))throw new IOException("Versioned network evidence requires manifest v4");
-        org.workflowsim.data.NetworkLedgerCodec.Decoded decoded=null;org.workflowsim.data.v2.FileLifecycleCodec.Decoded fileDecoded=null;
+        org.workflowsim.data.NetworkLedgerCodec.Decoded decoded=null;org.workflowsim.data.v2.FileLifecycleCodec.Decoded fileDecoded=null;org.workflowsim.data.v2.StorageLifecycleCodec.Decoded storageDecoded=null;
         NetworkLedgerContextValidator networkContext=null;FileLifecycleContextValidator fileContext=null;
         if(groupRequested){
             try { decoded=org.workflowsim.data.NetworkLedgerCodec.decode(strictUtf8(networkLedger)); }
@@ -93,6 +93,10 @@ public final class ExperimentArtifactValidator {
             try{fileDecoded=org.workflowsim.data.v2.FileLifecycleCodec.decode(strictUtf8(fileLifecycle));}catch(IllegalArgumentException invalid){throw new IOException("Invalid V2 file lifecycle content",invalid);}
             fileContext=new FileLifecycleContextValidator(root,fileDecoded);
         }
+        if(storageRequested){
+            try{storageDecoded=org.workflowsim.data.v2.StorageLifecycleCodec.decode(strictUtf8(storageLifecycle));}catch(IllegalArgumentException invalid){throw new IOException("Invalid V3 storage lifecycle content",invalid);}
+            fileContext=new FileLifecycleContextValidator(root,storageDecoded);
+        }
         int actualEvents = validateEvents(events,networkContext,fileContext);
         if (actualEvents != expectedEvents) {
             throw new IOException("Event count mismatch: manifest declares " + expectedEvents
@@ -100,7 +104,7 @@ public final class ExperimentArtifactValidator {
         }
         if(networkContext!=null)networkContext.finish();if(fileContext!=null)fileContext.finish();
         return new ValidationResult(manifest, metrics, events, actualEvents,networkLedger,
-                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus(),decoded,fileLifecycle,fileDecoded,root);
+                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus(),decoded,fileLifecycle,fileDecoded,storageLifecycle,storageDecoded,root);
     }
 
     private static void validateManifestTopLevelShape(JsonObject root) throws IOException {
@@ -258,7 +262,7 @@ public final class ExperimentArtifactValidator {
     private static String strictUtf8(byte[] bytes)throws IOException{return StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();}
     private static boolean isCoherentManifest(JsonObject root){
         JsonElement config=root.get("configuration");if(config==null||!config.isJsonObject())return false;JsonElement model=config.getAsJsonObject().get("dataMovementModel");if(model==null||!model.isJsonObject())return false;
-        JsonElement kind=model.getAsJsonObject().get("kind");if(kind==null||!kind.isJsonPrimitive()||!kind.getAsJsonPrimitive().isString())return false;return "COHERENT_FILE_DATAFLOW_V2".equals(kind.getAsString())||"COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2".equals(kind.getAsString());
+        JsonElement kind=model.getAsJsonObject().get("kind");if(kind==null||!kind.isJsonPrimitive()||!kind.getAsJsonPrimitive().isString())return false;return "COHERENT_FILE_DATAFLOW_V2".equals(kind.getAsString())||"COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2".equals(kind.getAsString())||"COHERENT_STORAGE_DATAFLOW_V3".equals(kind.getAsString())||"COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3".equals(kind.getAsString());
     }
 
     private static int validateEvents(Path path, NetworkLedgerContextValidator networkContext,FileLifecycleContextValidator fileContext) throws IOException {
@@ -419,16 +423,18 @@ public final class ExperimentArtifactValidator {
         private final JsonObject validatedManifest;
         private final Path fileLifecycle;
         private final org.workflowsim.data.v2.FileLifecycleCodec.Decoded decodedFileLifecycle;
+        private final Path storageLifecycle;
+        private final org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decodedStorageLifecycle;
 
         private ValidationResult(Path manifest, Path metrics, Path events, int eventCount,Path networkLedger,
                 org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
-                org.workflowsim.data.NetworkLedgerCodec.Decoded decodedNetworkLedger,Path fileLifecycle,org.workflowsim.data.v2.FileLifecycleCodec.Decoded decodedFileLifecycle,JsonObject validatedManifest) {
+                org.workflowsim.data.NetworkLedgerCodec.Decoded decodedNetworkLedger,Path fileLifecycle,org.workflowsim.data.v2.FileLifecycleCodec.Decoded decodedFileLifecycle,Path storageLifecycle,org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decodedStorageLifecycle,JsonObject validatedManifest) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
             this.eventCount = eventCount;
             this.networkLedger=networkLedger;this.networkCaptureStatus=networkCaptureStatus;this.decodedNetworkLedger=decodedNetworkLedger;
-            this.validatedManifest=validatedManifest;this.fileLifecycle=fileLifecycle;this.decodedFileLifecycle=decodedFileLifecycle;
+            this.validatedManifest=validatedManifest;this.fileLifecycle=fileLifecycle;this.decodedFileLifecycle=decodedFileLifecycle;this.storageLifecycle=storageLifecycle;this.decodedStorageLifecycle=decodedStorageLifecycle;
         }
 
         public Path getManifest() { return manifest; }
@@ -448,5 +454,8 @@ public final class ExperimentArtifactValidator {
         public org.workflowsim.data.v2.FileLifecycleCodec.Decoded getDecodedFileLifecycle(){return decodedFileLifecycle;}
         /** @return V2 capture status, null for OFF/V1 */
         public org.workflowsim.data.v2.FileLifecycleEvidence.Status getFileLifecycleCaptureStatus(){return decodedFileLifecycle==null?null:decodedFileLifecycle.getEvidence().getStatus();}
+        /** @return V3 storage lifecycle path, null for OFF/V1/V2 */ public Path getStorageLifecycle(){return storageLifecycle;}
+        /** @return independently verified V3 certificate, null for OFF/V1/V2 */ public org.workflowsim.data.v2.StorageLifecycleCodec.Decoded getDecodedStorageLifecycle(){return decodedStorageLifecycle;}
+        /** @return V3 capture status, null for OFF/V1/V2 */ public org.workflowsim.data.v2.FileLifecycleEvidence.Status getStorageLifecycleCaptureStatus(){return decodedStorageLifecycle==null?null:decodedStorageLifecycle.getEvidence().getCapture().getStatus();}
     }
 }

@@ -68,22 +68,32 @@ public final class FileLifecycleCodec {
      * @throws IllegalArgumentException for malformed, unsupported or unverifiable evidence
      */
     public static JsonObject document(FileLifecycleEvidence evidence) {
+        return document(evidence, LifecycleContract.FILE_V2, false);
+    }
+
+    /** Shared explicit encoding only; callers supply a closed contract, never a wire-selected grammar. */
+    static JsonObject document(FileLifecycleEvidence evidence, LifecycleContract contract, boolean storeBackedInputs) {
         if (evidence == null) throw new IllegalArgumentException("File lifecycle evidence is required");
+        if (contract == null || (!contract.storage && storeBackedInputs)) throw new IllegalArgumentException("Invalid lifecycle contract");
         JsonObject root = new JsonObject();
-        root.addProperty("schema", SCHEMA);
-        root.addProperty("modelKind", evidence.isShared() ? SHARED_KIND : ISOLATED_KIND);
+        root.addProperty("schema", contract.schema);
+        root.addProperty("modelKind", evidence.isShared() ? contract.sharedKind : contract.isolatedKind);
         JsonObject recording = new JsonObject();
-        recording.addProperty("mode", MODE);
+        recording.addProperty("mode", contract.mode);
         recording.addProperty("maxTraceRecords", evidence.getMaxRecords());
         root.add("recording", recording);
-        root.addProperty("certificateScope", SCOPE);
+        root.addProperty("certificateScope", contract.scope);
         JsonObject policies = new JsonObject();
         policies.addProperty("fileIdentity", IDENTITY);
         policies.addProperty("release", RELEASE);
         policies.addProperty("visibility", VISIBILITY);
-        policies.addProperty("selection", SELECTION);
-        policies.addProperty("sourceAccess", SOURCE_ACCESS);
+        policies.addProperty("selection", contract.selection(storeBackedInputs));
+        policies.addProperty("sourceAccess", contract.sourceAccess);
         policies.addProperty("sharing", evidence.isShared() ? "SHARED_MAX_MIN" : "ISOLATED_PATH_BOTTLENECK");
+        if (contract.storage) {
+            policies.addProperty("inputAccess", storeBackedInputs ? StorageLifecycleCodec.STORE_INPUT_ACCESS : StorageLifecycleCodec.LOCAL_INPUT_ACCESS);
+            policies.addProperty("outputCommit", StorageLifecycleCodec.OUTPUT_COMMIT);
+        }
         root.add("policies", policies);
         JsonObject capture = new JsonObject();
         capture.addProperty("status", evidence.getStatus().name());
@@ -103,7 +113,7 @@ public final class FileLifecycleCodec {
             events.add(row);
         }
         root.add("events", events);
-        FileLifecycleValidator.validate(root);
+        FileLifecycleValidator.validate(root, contract);
         return root;
     }
 

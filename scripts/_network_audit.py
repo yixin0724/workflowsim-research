@@ -745,7 +745,10 @@ def inspect_path(path):
     path = Path(path).absolute(); doc = read_document(path)
     need(isinstance(doc, dict), "root must be an object")
     if doc.get("schema") == SCHEMA: return verify_document(doc)
-    # Lazy V2 dispatch only: the V1 document/context contracts below are unchanged.
+    # Lazy closed V2/V3 dispatch: the V1 document/context checks stay unchanged.
+    if doc.get("schema") == "workflowsim-storage-lifecycle-v3":
+        from _storage_lifecycle_audit import verify_document as verify_storage_lifecycle
+        return verify_storage_lifecycle(doc)
     if doc.get("schema") == "workflowsim-file-lifecycle-v2":
         from _file_lifecycle_audit import verify_document as verify_file_lifecycle
         return verify_file_lifecycle(doc)
@@ -753,6 +756,17 @@ def inspect_path(path):
     model = config.get("dataMovementModel") if isinstance(config, dict) else None
     recording = config.get("networkEvidence") if isinstance(config, dict) else None
     artifacts = doc.get("artifacts")
+    platform = doc.get("platform")
+    storage_kinds = ("COHERENT_STORAGE_DATAFLOW_V3", "COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3")
+    storage_model = isinstance(model, dict) and model.get("kind") in storage_kinds
+    storage_mode = isinstance(recording, dict) and recording.get("mode") == "FILE_STORAGE_LIFECYCLE_V3"
+    storage_role = isinstance(artifacts, list) and any(
+        isinstance(item, dict) and item.get("role") == "storage-lifecycle" for item in artifacts)
+    storage_platform = isinstance(platform, dict) and "sourceStorage" in platform
+    standalone_mode = isinstance(doc.get("recording"), dict) and doc["recording"].get("mode") == "FILE_STORAGE_LIFECYCLE_V3"
+    if storage_model or storage_mode or storage_role or storage_platform or doc.get("modelKind") in storage_kinds or standalone_mode:
+        from _storage_lifecycle_context import inspect_path as inspect_storage_lifecycle_context
+        return inspect_storage_lifecycle_context(path, doc)
     coherent = isinstance(model, dict) and model.get("kind") in (
         "COHERENT_FILE_DATAFLOW_V2", "COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2")
     lifecycle_mode = isinstance(recording, dict) and recording.get("mode") == "FILE_LIFECYCLE_V2"
@@ -761,7 +775,7 @@ def inspect_path(path):
     if coherent or lifecycle_mode or lifecycle_role or "dataflowPlan" in doc:
         from _file_lifecycle_context import inspect_path as inspect_file_lifecycle_context
         return inspect_file_lifecycle_context(path, doc)
-    need(doc.get("schema") == "workflowsim-experiment-manifest-v4", "only network ledger-v1, file lifecycle-v2 or manifest-v4 is supported")
+    need(doc.get("schema") == "workflowsim-experiment-manifest-v4", "only network ledger-v1, file lifecycle-v2, storage lifecycle-v3 or manifest-v4 is supported")
     config, references = required(doc, "configuration"), {}
     for item in array(required(doc, "artifacts")):
         role, name = word(required(item, "role")), word(required(item, "path"))

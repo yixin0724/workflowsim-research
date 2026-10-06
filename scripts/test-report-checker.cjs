@@ -88,6 +88,27 @@ try {
       `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
       /Offline reports must not fetch secondary files/, lifecycle);
   }
+  const storage = fixtures && (fixtures.reports.find(r => r.name === 'storage-lifecycle-typed-stress')
+    || fixtures.reports.find(r => r.storageLifecycle && r.storageLifecycle.some(e => e.state === 'COMPLETE')));
+  if (storage) {
+    const content = fs.readFileSync(storage.path, 'utf8');
+    rejected('storage-lifecycle-exact-text', inject(content,
+      'function spoilStorageText(){document.getElementById("storage-lifecycle-output-admitted").textContent="CORRUPTED";}spoilStorageText();document.getElementById("run-select").addEventListener("change",spoilStorageText);'),
+      /Exact V3 text differs at storage-lifecycle-output-admitted/, storage);
+    const ordinal = '"copyOrdinal":"1"';assert.ok(content.includes(ordinal), 'V3 fixture must contain an exact copy ordinal');
+    rejected('storage-lifecycle-numeric-coercion', content.replace(ordinal, '"copyOrdinal":1'), /Network exact values must be strings/, storage);
+    rejected('storage-lifecycle-hidden-panel', inject(content, 'document.getElementById("storage-lifecycle-section").style.display="none";'), /V3 storage panel visibility differs/, storage);
+    for (const [kind, id] of [['copies', 'storage-lifecycle-copy-table'], ['jobs', 'storage-lifecycle-job-table']]) rejected('storage-lifecycle-over-'+kind+'-cap', inject(content,
+      `function spoilStorageRows(){const t=document.getElementById(${JSON.stringify(id)});if(t.firstElementChild)while(t.children.length<=64)t.appendChild(t.firstElementChild.cloneNode(true));}spoilStorageRows();document.getElementById("run-select").addEventListener("change",spoilStorageRows);`),
+      new RegExp('V3 '+kind+' row count'), storage);
+    rejected('storage-lifecycle-false-v1-off', inject(content,
+      'function spoilStorageMode(){document.getElementById("network-section").hidden=false;document.getElementById("network-status").dataset.state="OFF";}spoilStorageMode();document.getElementById("run-select").addEventListener("change",spoilStorageMode);'),
+      /V3 must not be mislabeled as V1\/OFF/, storage);
+    const local = path.join(temporary, 'forbidden-storage.json');fs.writeFileSync(local, '{}');
+    rejected('storage-lifecycle-secondary-fetch', inject(content,
+      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      /Offline reports must not fetch secondary files/, storage);
+  }
   console.log(JSON.stringify({ status: 'PASSED', checks: results }, null, 2));
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });

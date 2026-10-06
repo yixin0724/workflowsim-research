@@ -33,9 +33,9 @@ final class FileLifecycleValidator {
 
     static final class Result {
         final FileLifecycleEvidence evidence;
-        final int requestedJobs, completedJobs, activeCopies;
+        final int requestedJobs, completedJobs, activeCopies, pendingOutputFiles, waitingStoreInputs;
         final long copies, completedCopies;
-        final boolean quiescent;
+        final boolean quiescent, storeBackedInputs;
         final Set<Integer> successfulTasks;
 
         Result(FileLifecycleEvidence evidence, Replay replay) {
@@ -45,32 +45,46 @@ final class FileLifecycleValidator {
             copies = replay.copyCount;
             completedCopies = replay.completedCopies;
             activeCopies = replay.active.size();
-            quiescent = activeCopies == 0 && requestedJobs == completedJobs;
+            pendingOutputFiles = replay.pendingOutputs.size();
+            waitingStoreInputs = replay.waitingStoreInputs;
+            storeBackedInputs = replay.storeBackedInputs;
+            quiescent = activeCopies == 0 && requestedJobs == completedJobs && pendingOutputFiles == 0 && waitingStoreInputs == 0;
             successfulTasks = Collections.unmodifiableSet(new TreeSet<>(replay.successfulTasks));
         }
     }
 
     static void validatePlanDocument(JsonObject plan) { new Plan(object(plan, "filePlan")); }
 
-    static Result validate(JsonObject root) {
+    /** The original entry point remains pinned to V2, even though the event carrier is shared. */
+    static Result validate(JsonObject root) { return validate(root, LifecycleContract.FILE_V2); }
+
+    static Result validate(JsonObject root, LifecycleContract contract) {
+        require(contract != null, "A trusted lifecycle contract is required");
         keys(root, "schema", "modelKind", "recording", "certificateScope", "policies", "capture", "filePlan", "fabric", "events");
-        equal(root, "schema", FileLifecycleCodec.SCHEMA);
-        equal(root, "certificateScope", FileLifecycleCodec.SCOPE);
+        equal(root, "schema", contract.schema);
+        equal(root, "certificateScope", contract.scope);
         String kind = text(root.get("modelKind"), "modelKind");
-        boolean shared = FileLifecycleCodec.SHARED_KIND.equals(kind);
-        require(shared || FileLifecycleCodec.ISOLATED_KIND.equals(kind), "Unsupported modelKind");
+        boolean shared = contract.sharedKind.equals(kind);
+        require(shared || contract.isolatedKind.equals(kind), "Unsupported modelKind");
         JsonObject recording = object(root.get("recording"), "recording");
         keys(recording, "mode", "maxTraceRecords");
-        equal(recording, "mode", FileLifecycleCodec.MODE);
+        equal(recording, "mode", contract.mode);
         int budget = nonnegativeInt(recording.get("maxTraceRecords"), "maxTraceRecords");
         require(budget > 0, "maxTraceRecords must be positive");
         JsonObject policies = object(root.get("policies"), "policies");
-        keys(policies, "fileIdentity", "release", "visibility", "selection", "sourceAccess", "sharing");
+        keys(policies, contract.policyFields);
+        boolean storeBackedInputs = false;
+        if (contract.storage) {
+            String access = text(policies.get("inputAccess"), "inputAccess");
+            storeBackedInputs = StorageLifecycleCodec.STORE_INPUT_ACCESS.equals(access);
+            require(storeBackedInputs || StorageLifecycleCodec.LOCAL_INPUT_ACCESS.equals(access), "Unsupported inputAccess");
+            equal(policies, "outputCommit", StorageLifecycleCodec.OUTPUT_COMMIT);
+        }
         equal(policies, "fileIdentity", FileLifecycleCodec.IDENTITY);
         equal(policies, "release", FileLifecycleCodec.RELEASE);
         equal(policies, "visibility", FileLifecycleCodec.VISIBILITY);
-        equal(policies, "selection", FileLifecycleCodec.SELECTION);
-        equal(policies, "sourceAccess", FileLifecycleCodec.SOURCE_ACCESS);
+        equal(policies, "selection", contract.selection(storeBackedInputs));
+        equal(policies, "sourceAccess", contract.sourceAccess);
         equal(policies, "sharing", shared ? "SHARED_MAX_MIN" : "ISOLATED_PATH_BOTTLENECK");
         JsonObject capture = object(root.get("capture"), "capture");
         keys(capture, "status", "observedThrough", "retainedRecords", "droppedRecords");
@@ -82,7 +96,7 @@ final class FileLifecycleValidator {
                 "Retained event count or budget differs");
         JsonObject rawPlan = object(root.get("filePlan"), "filePlan");
         JsonObject rawFabric = object(root.get("fabric"), "fabric");
-        Replay replay = new Replay(new Plan(rawPlan), new Fabric(rawFabric));
+        Replay replay = new Replay(new Plan(rawPlan), new Fabric(rawFabric, contract), contract, storeBackedInputs);
         List<FileLifecycleEvent> events = new ArrayList<>();
         double previous = 0;
         for (int index = 0; index < rows.size(); index++) {
@@ -98,6 +112,7 @@ final class FileLifecycleValidator {
             } catch (IllegalArgumentException invalid) {
                 throw new IllegalArgumentException("Unsupported file lifecycle event type", invalid);
             }
+            require(contract.accepts(type), "Event type is not supported by this lifecycle version");
             JsonObject payload = object(row.get("payload"), "payload");
             replay.event(type, payload, at);
             events.add(FileLifecycleEvent.of(sequence, at, type, payload));
@@ -279,14 +294,18 @@ final class FileLifecycleValidator {
     }
 
     private static final class Fabric {
+        private static final String STORE_READ = "STORE:source:READ", STORE_WRITE = "STORE:source:WRITE", STORE_NIC = "STORE:source:NIC";
         final Set<Location> locations = new TreeSet<>();
         final Map<String, Double> capacities = new HashMap<>();
         final Map<Integer, Integer> vmHosts = new HashMap<>();
         final Map<Integer, Placement> placements = new HashMap<>();
+        final boolean storage;
+        final int attachmentHost;
         int k, half, cores;
 
-        Fabric(JsonObject raw) {
-            keys(raw, "locations", "resources", "vmHostAssignments", "topology");
+        Fabric(JsonObject raw, LifecycleContract contract) {
+            storage = contract.storage;
+            keys(raw, contract.fabricFields);
             Set<Integer> vms = new HashSet<>();
             for (JsonElement row : array(raw.get("locations"), "locations")) {
                 Location location = location(row);
@@ -301,11 +320,22 @@ final class FileLifecycleValidator {
                 double capacity = capacity(row.get("capacityBytesPerSecond"), "capacityBytesPerSecond");
                 require(capacities.put(key, capacity) == null, "Duplicate physical resource");
             }
-            JsonArray assignments = array(raw.get("vmHostAssignments"), "vmHostAssignments");
             Set<String> expected = new HashSet<>();
             for (int vm : vms) expected.add("VM:" + vm);
+            if (storage) {
+                JsonObject store = object(raw.get("sourceStorage"), "sourceStorage");
+                keys(store, "attachmentHostId", "readBandwidthMbPerSecond", "writeBandwidthMbPerSecond", "networkBandwidthMbPerSecond");
+                attachmentHost = nonnegativeInt(store.get("attachmentHostId"), "attachmentHostId");
+                storeResource(store, "readBandwidthMbPerSecond", STORE_READ);
+                storeResource(store, "writeBandwidthMbPerSecond", STORE_WRITE);
+                storeResource(store, "networkBandwidthMbPerSecond", STORE_NIC);
+                expected.add(STORE_READ); expected.add(STORE_WRITE); expected.add(STORE_NIC);
+            } else attachmentHost = -1;
+            JsonArray assignments = array(raw.get("vmHostAssignments"), "vmHostAssignments");
             if (isNull(raw.get("topology"))) {
-                require(assignments.size() == 0, "Endpoint-only fabric cannot carry host assignments");
+                require(storage || assignments.size() == 0, "V2 endpoint-only fabric cannot carry host assignments");
+                // V3 freezes actual hosts even without topology. Platform membership of this
+                // attachment and these hosts belongs to the caller's final platform join.
             } else {
                 JsonObject topology = object(raw.get("topology"), "topology");
                 keys(topology, "kind", "k", "coreSwitchCount", "linkBandwidthBytesPerSecond", "hostPlacements");
@@ -328,14 +358,7 @@ final class FileLifecycleValidator {
                     require(++perEdge[pod][edge] <= half, "FatTree edge host capacity exceeded");
                     require(placements.put(host, new Placement(pod, edge)) == null, "Duplicate host placement");
                 }
-                for (JsonElement value : assignments) {
-                    JsonObject row = object(value, "VM host assignment");
-                    keys(row, "vmId", "hostId");
-                    int vm = nonnegativeInt(row.get("vmId"), "vmId"), host = nonnegativeInt(row.get("hostId"), "hostId");
-                    require(vms.contains(vm) && placements.containsKey(host) && vmHosts.put(vm, host) == null,
-                            "Unknown or duplicate VM/host assignment");
-                }
-                require(vmHosts.keySet().equals(vms), "Actual host assignments must cover exactly the VMs");
+                require(!storage || placements.containsKey(attachmentHost), "Store attachment host is not placed in topology");
                 Set<String> links = new HashSet<>();
                 for (Map.Entry<Integer, Placement> host : placements.entrySet())
                     pair(links, "ACC:" + host.getKey(), host.getValue().edgeName());
@@ -348,7 +371,24 @@ final class FileLifecycleValidator {
                         "Missing or inconsistent directed physical link");
                 expected.addAll(links);
             }
-            require(capacities.keySet().equals(expected), "Physical resources must be exactly VM endpoints and topology links");
+            if (storage || k != 0) {
+                for (JsonElement value : assignments) {
+                    JsonObject row = object(value, "VM host assignment");
+                    keys(row, "vmId", "hostId");
+                    int vm = nonnegativeInt(row.get("vmId"), "vmId"), host = nonnegativeInt(row.get("hostId"), "hostId");
+                    require(vms.contains(vm) && (k == 0 || placements.containsKey(host)) && vmHosts.put(vm, host) == null,
+                            "Unknown or duplicate VM/host assignment");
+                }
+                require(vmHosts.keySet().equals(vms), "Actual host assignments must cover exactly the VMs");
+            }
+            require(capacities.keySet().equals(expected), "Physical resources must exactly match the versioned endpoint, link and store inventory");
+        }
+
+        private void storeResource(JsonObject store, String field, String resource) {
+            double mb = number(store.get(field), field);
+            double bytes = mb * 1_000_000.0; // Same specified binary64 conversion, never integer rounding.
+            require(mb > 0 && Double.isFinite(bytes) && bytes >= Double.MIN_NORMAL, "Storage bandwidth must convert to positive normal finite bytes/s");
+            require(capacities.containsKey(resource) && capacities.get(resource) == bytes, "Storage resource differs from its exact MB/s conversion");
         }
 
         Location vm(JsonElement value) {
@@ -364,33 +404,38 @@ final class FileLifecycleValidator {
         }
 
         Route route(Location source, Location destination) {
-            require(destination.isVm() && !source.equals(destination), "A positive route cannot be local");
+            require(!source.equals(destination) && (storage || destination.isVm()), "A positive route cannot be local or have an unsupported destination");
             List<String> resources = new ArrayList<>();
-            if (source.isVm()) {
-                resources.add(source.resource());
-                if (k != 0) {
-                    int srcHost = vmHosts.get(source.vm), dstHost = vmHosts.get(destination.vm);
-                    if (srcHost != dstHost) {
-                        Placement src = placements.get(srcHost), dst = placements.get(dstHost);
-                        resources.add(link("ACC:" + srcHost, src.edgeName()));
-                        if (src.pod != dst.pod || src.edge != dst.edge) {
-                            int availableAggregates = (cores + half - 1) / half;
-                            int agg = src.edge % availableAggregates;
-                            resources.add(link(src.edgeName(), "AGG:" + src.pod + ":" + agg));
-                            if (src.pod != dst.pod) {
-                                int uplinks = Math.min(half, cores - agg * half);
-                                int core = agg * half + (src.edge + dst.edge + src.pod + dst.pod) % uplinks;
-                                resources.add(link("AGG:" + src.pod + ":" + agg, "CORE:" + core));
-                                resources.add(link("CORE:" + core, "AGG:" + dst.pod + ":" + agg));
-                            }
-                            resources.add(link("AGG:" + dst.pod + ":" + agg, dst.edgeName()));
-                        }
-                        resources.add(link(dst.edgeName(), "ACC:" + dstHost));
-                    }
-                }
+            if (storage && !source.isVm()) { resources.add(STORE_READ); resources.add(STORE_NIC); }
+            else if (source.isVm()) resources.add(source.resource());
+            if (k != 0 && (storage || source.isVm())) {
+                int srcHost = source.isVm() ? vmHosts.get(source.vm) : attachmentHost;
+                int dstHost = destination.isVm() ? vmHosts.get(destination.vm) : attachmentHost;
+                appendLinks(resources, srcHost, dstHost);
             }
-            resources.add(destination.resource()); // SOURCE is deliberately off-fabric and unbounded.
+            if (destination.isVm()) resources.add(destination.resource());
+            else { resources.add(STORE_NIC); resources.add(STORE_WRITE); }
+            // Only the pinned V2 contract omits SOURCE service and attachment links.
             return new Route(resources, capacities);
+        }
+
+        private void appendLinks(List<String> resources, int srcHost, int dstHost) {
+            if (srcHost == dstHost) return;
+            Placement src = placements.get(srcHost), dst = placements.get(dstHost);
+            resources.add(link("ACC:" + srcHost, src.edgeName()));
+            if (src.pod != dst.pod || src.edge != dst.edge) {
+                int availableAggregates = (cores + half - 1) / half;
+                int agg = src.edge % availableAggregates;
+                resources.add(link(src.edgeName(), "AGG:" + src.pod + ":" + agg));
+                if (src.pod != dst.pod) {
+                    int uplinks = Math.min(half, cores - agg * half);
+                    int core = agg * half + (src.edge + dst.edge + src.pod + dst.pod) % uplinks;
+                    resources.add(link("AGG:" + src.pod + ":" + agg, "CORE:" + core));
+                    resources.add(link("CORE:" + core, "AGG:" + dst.pod + ":" + agg));
+                }
+                resources.add(link("AGG:" + dst.pod + ":" + agg, dst.edgeName()));
+            }
+            resources.add(link(dst.edgeName(), "ACC:" + dstHost));
         }
 
         private static String link(String from, String to) { return "LINK:" + from + "->" + to; }
@@ -441,9 +486,11 @@ final class FileLifecycleValidator {
         final Replica source;
         final Location destination;
         final double release, rate, seconds;
-        Copy(long ordinal, FileRow file, Replica source, Location destination, double release, double rate, double seconds) {
+        final Job owner;
+        final boolean output;
+        Copy(long ordinal, FileRow file, Replica source, Location destination, double release, double rate, double seconds, Job owner, boolean output) {
             this.ordinal = ordinal; this.file = file; this.source = source; this.destination = destination;
-            this.release = release; this.rate = rate; this.seconds = seconds;
+            this.release = release; this.rate = rate; this.seconds = seconds; this.owner = owner; this.output = output;
         }
         Target target() { return new Target(file.id, destination); }
     }
@@ -453,9 +500,11 @@ final class FileLifecycleValidator {
         final TaskRow task;
         final Location destination;
         final double requestedAt;
-        final Set<FileKey> unresolved, pending = new HashSet<>();
+        // Initial unclassified references, active target-copy waits, and uncommitted store
+        // waits are disjoint. SOURCE visibility alone never satisfies a remote VM input.
+        final Set<FileKey> unresolved, pending = new HashSet<>(), waitingStore = new HashSet<>();
         double isolatedTotal;
-        boolean ready, started, finished;
+        boolean ready, started, finished, success;
         Job(int id, TaskRow task, Location destination, double at) {
             this.id = id; this.task = task; this.destination = destination; requestedAt = at;
             unresolved = new HashSet<>(task.inputs.keySet());
@@ -468,9 +517,29 @@ final class FileLifecycleValidator {
         Choice(Replica replica, Route route) { this.replica = replica; this.route = route; }
     }
 
+    /** A successful completion publishes every VM output first, then resolves each store obligation. */
+    private static final class OutputOperation {
+        final Job job;
+        final double at;
+        final Deque<FileKey> remaining;
+        boolean visibleNotified;
+        OutputOperation(Job job, double at) {
+            this.job = job; this.at = at; remaining = new ArrayDeque<>(job.task.outputs);
+        }
+    }
+
+    /** Deferred inputs are per Job and file, separate from the same-target copy waiter index. */
+    private static final class DeferredInput {
+        final Job job;
+        final FileKey file;
+        DeferredInput(Job job, FileKey file) { this.job = job; this.file = file; }
+    }
+
     private static final class Replay {
         final Plan plan;
         final Fabric fabric;
+        final LifecycleContract contract;
+        final boolean storeBackedInputs;
         final Map<FileKey, Map<Location, Replica>> replicas = new HashMap<>();
         final Set<FileKey> unseeded = new HashSet<>();
         final Map<Integer, Job> jobs = new LinkedHashMap<>();
@@ -479,26 +548,44 @@ final class FileLifecycleValidator {
         final Map<Target, Copy> byTarget = new HashMap<>();
         final Map<Target, Set<Integer>> waiters = new HashMap<>();
         final Set<Integer> dueReady = new LinkedHashSet<>();
+        final Set<FileKey> pendingOutputs = new HashSet<>();
+        final Map<FileKey, Set<Integer>> storeWaiters = new HashMap<>();
+        final Deque<DeferredInput> resumes = new ArrayDeque<>();
         boolean runtimeEventSeen;
-        int completedJobs;
+        int completedJobs, waitingStoreInputs;
         long copyCount, completedCopies;
-        double dueAt;
+        double dueAt, resumeAt;
         Job request;
         Copy needsResolution;
+        OutputOperation outputOperation;
 
-        Replay(Plan plan, Fabric fabric) {
-            this.plan = plan; this.fabric = fabric;
+        Replay(Plan plan, Fabric fabric, LifecycleContract contract, boolean storeBackedInputs) {
+            this.plan = plan; this.fabric = fabric; this.contract = contract; this.storeBackedInputs = storeBackedInputs;
             for (FileRow file : plan.files.values()) if (file.producer == null) unseeded.add(file.id);
         }
 
         void event(FileLifecycleEvent.Type type, JsonObject p, double at) {
-            if (!dueReady.isEmpty()) require(type == FileLifecycleEvent.Type.JOB_DATA_READY && at == dueAt,
-                    "A now-due JOB_DATA_READY must immediately follow its visibility operation");
-            if (needsResolution != null) require(type == FileLifecycleEvent.Type.INPUT_RESOLVED,
-                    "COPY_ADMITTED must immediately precede its NEW_COPY input resolution");
-            if (request != null) require(at == request.requestedAt
-                            && (type == FileLifecycleEvent.Type.INPUT_RESOLVED || type == FileLifecycleEvent.Type.COPY_ADMITTED),
-                    "Input request resolutions must be contiguous at the request observation");
+            // These are atomic observed operations, not an attempt to infer missing service intervals.
+            // READY takes priority inside an output operation or between deferred resolvers.
+            if (!dueReady.isEmpty()) {
+                require(type == FileLifecycleEvent.Type.JOB_DATA_READY && at == dueAt,
+                        "A now-due JOB_DATA_READY must immediately follow its visibility operation");
+            } else if (needsResolution != null) {
+                require(type == (needsResolution.output ? FileLifecycleEvent.Type.OUTPUT_RESOLVED : FileLifecycleEvent.Type.INPUT_RESOLVED)
+                                && at == needsResolution.release,
+                        "COPY_ADMITTED must immediately precede its corresponding NEW_COPY resolution");
+            } else if (request != null) {
+                require(at == request.requestedAt && (type == FileLifecycleEvent.Type.INPUT_RESOLVED
+                                || type == FileLifecycleEvent.Type.COPY_ADMITTED
+                                || (contract.storage && type == FileLifecycleEvent.Type.INPUT_WAITING_FOR_STORE)),
+                        "Every initial input must be resolved or classified waiting at its request observation");
+            } else if (!resumes.isEmpty()) {
+                require(at == resumeAt && (type == FileLifecycleEvent.Type.INPUT_RESOLVED || type == FileLifecycleEvent.Type.COPY_ADMITTED),
+                        "SOURCE visibility must immediately resume its affected inputs at the same observation");
+            } else if (outputOperation != null) {
+                require(at == outputOperation.at && (type == FileLifecycleEvent.Type.OUTPUT_RESOLVED || type == FileLifecycleEvent.Type.COPY_ADMITTED),
+                        "Successful output obligations must resolve within their completion operation");
+            }
             if (type != FileLifecycleEvent.Type.EXTERNAL_SEEDED) {
                 require(unseeded.isEmpty(), "All external files must be seeded before runtime operations");
                 runtimeEventSeen = true;
@@ -508,6 +595,8 @@ final class FileLifecycleValidator {
                 case JOB_INPUT_REQUESTED: request(p, at); break;
                 case COPY_ADMITTED: admit(p, at); break;
                 case INPUT_RESOLVED: resolve(p, at); break;
+                case INPUT_WAITING_FOR_STORE: waitForStore(p, at); break;
+                case OUTPUT_RESOLVED: resolveOutput(p, at); break;
                 case COPY_SETTLED: settle(p, at); break;
                 case JOB_DATA_READY: ready(p, at); break;
                 case JOB_CPU_STARTED: start(p); break;
@@ -535,7 +624,7 @@ final class FileLifecycleValidator {
             require(task != null && !jobs.containsKey(id), "Unknown Task or reused Job attempt");
             for (int parent : task.parents) require(successfulTasks.contains(parent), "Control parent has no successful logical outcome");
             Location destination = fabric.vm(p.get("destinationVmId"));
-            // Never expand reference multiplicities. Match the runtime's bounded core-event aggregates.
+            // Canonical plan order, not deferred-resolution arrival order. Never expand multiplicity.
             long references = 0;
             double referenceBytes = 0;
             for (Map.Entry<FileKey, Long> input : task.inputs.entrySet()) {
@@ -549,19 +638,73 @@ final class FileLifecycleValidator {
             endRequestIfResolved(at);
         }
 
-        private void admit(JsonObject p, double at) {
-            keys(p, "copyOrdinal", "fileId", "bytes", "sourceReplica", "destinationVmId", "resources", "standaloneRate", "isolatedSeconds");
-            require(request != null && needsResolution == null, "Copy admission has no unresolved input request");
+        private void waitForStore(JsonObject p, double at) {
+            keys(p, "jobId", "fileId", "referenceCount");
+            require(contract.storage && storeBackedInputs && request != null && at == request.requestedAt
+                            && nonnegativeInt(p.get("jobId"), "jobId") == request.id,
+                    "Store waiting must classify an initial store-backed input request");
             FileRow file = plan.file(fileKey(p.get("fileId")));
-            require(request.unresolved.contains(file.id), "Copy admission is not an unresolved demand");
+            require(request.unresolved.contains(file.id) && visible(file.id, SOURCE) == null,
+                    "Store waiting requires an unresolved declared input without committed SOURCE visibility");
+            require(positiveLong(p.get("referenceCount"), "referenceCount") == request.task.inputs.get(file.id), "Input reference multiplicity differs");
+            request.unresolved.remove(file.id);
+            require(request.waitingStore.add(file.id), "Duplicate store waiter");
+            storeWaiters.computeIfAbsent(file.id, ignored -> new LinkedHashSet<>()).add(request.id);
+            waitingStoreInputs++;
+            endRequestIfResolved(at);
+        }
+
+        /** Locate the one input operation allowed now; no public runtime/selector is called. */
+        private Job inputOwner(FileKey file, double at) {
+            Job owner;
+            if (request != null) {
+                require(at == request.requestedAt && request.unresolved.contains(file), "Input operation is not an unresolved request demand");
+                owner = request;
+            } else {
+                require(contract.storage && !resumes.isEmpty() && at == resumeAt && resumes.peekFirst().file.equals(file),
+                        "Deferred input resolution must follow SOURCE visibility in affected-request order");
+                owner = resumes.peekFirst().job;
+                require(owner.waitingStore.contains(file), "Deferred input is not waiting for SOURCE");
+            }
+            require(!owner.ready && !owner.started && !owner.finished, "Input copy owner is not pending input preparation");
+            require(!storeBackedInputs || visible(file, SOURCE) != null, "SOURCE commitment gates even a target-local cache hit");
+            return owner;
+        }
+
+        private Job outputOwner(FileKey file, double at) {
+            require(contract.storage && outputOperation != null && at == outputOperation.at && outputOperation.visibleNotified
+                            && !outputOperation.remaining.isEmpty() && outputOperation.remaining.peekFirst().equals(file),
+                    "Output resolution must identify the next declared output of this successful completion");
+            Job owner = outputOperation.job;
+            require(owner.finished && owner.success && owner.task.outputs.contains(file), "Output owner is not a successful declared producer");
+            return owner;
+        }
+
+        private void admit(JsonObject p, double at) {
+            keys(p, contract.admissionFields);
+            require(needsResolution == null, "Admission has an unresolved preceding copy");
+            FileRow file = plan.file(fileKey(p.get("fileId")));
+            boolean output = false;
+            if (contract.storage) {
+                String purpose = text(p.get("purpose"), "purpose");
+                output = "OUTPUT".equals(purpose);
+                require(output || "INPUT".equals(purpose), "Unsupported copy purpose");
+            }
+            Job owner = output ? outputOwner(file.id, at) : inputOwner(file.id, at);
+            if (contract.storage) require(nonnegativeInt(p.get("ownerJobId"), "ownerJobId") == owner.id, "Copy has the wrong input/output owner");
             long ordinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
             require(ordinal == copyCount + 1, "Copy ordinals must be consecutive positive integers");
             require(file.bytes > 0 && number(p.get("bytes"), "copy bytes") == file.bytes, "Positive copy bytes differ from file plan");
-            Location destination = fabric.vm(p.get("destinationVmId"));
+            Location destination = contract.storage ? fabric.known(p.get("destination")) : fabric.vm(p.get("destinationVmId"));
             Target target = new Target(file.id, destination);
-            require(destination.equals(request.destination) && visible(file.id, destination) == null && !byTarget.containsKey(target),
+            require(destination.equals(output ? SOURCE : owner.destination) && visible(file.id, destination) == null && !byTarget.containsKey(target),
                     "Copy target differs, is local, or already has an active copy");
-            Choice best = choose(file, destination);
+            Choice best;
+            if (output) {
+                Replica producer = visible(file.id, owner.destination);
+                require(producer != null, "Output admission lacks the actual producing VM replica");
+                best = new Choice(producer, fabric.route(owner.destination, SOURCE));
+            } else best = chooseInput(file, destination);
             require(best.replica.same(replica(p.get("sourceReplica"))), "Selected source replica/provenance differs from independent catalog");
             require(best.replica.at <= at, "Copy source is not yet visible");
             List<String> resources = strings(p.get("resources"), "copy resources");
@@ -572,63 +715,120 @@ final class FileLifecycleValidator {
             require(Double.isFinite(seconds) && seconds > 0 && Double.isFinite(finish) && finish > at,
                     "Positive isolated duration/finish cannot advance the finite binary64 clock");
             require(number(p.get("isolatedSeconds"), "isolatedSeconds") == seconds, "Isolated duration differs from bytes/bottleneck");
-            Copy copy = new Copy(ordinal, file, best.replica, destination, at, rate, seconds);
+            Copy copy = new Copy(ordinal, file, best.replica, destination, at, rate, seconds, owner, output);
             active.put(ordinal, copy); byTarget.put(target, copy); copyCount++;
             needsResolution = copy;
         }
 
         private void resolve(JsonObject p, double at) {
             keys(p, "jobId", "fileId", "referenceCount", "resolution", "copyOrdinal", "source");
-            require(request != null && nonnegativeInt(p.get("jobId"), "jobId") == request.id, "Input resolution has no matching active request");
             FileRow file = plan.file(fileKey(p.get("fileId")));
-            require(request.unresolved.contains(file.id), "Unexpected or duplicate normalized input");
-            require(positiveLong(p.get("referenceCount"), "referenceCount") == request.task.inputs.get(file.id), "Input reference multiplicity differs");
+            Job owner = inputOwner(file.id, at);
+            require(nonnegativeInt(p.get("jobId"), "jobId") == owner.id, "Input resolution has the wrong request/resume owner");
+            require(positiveLong(p.get("referenceCount"), "referenceCount") == owner.task.inputs.get(file.id), "Input reference multiplicity differs");
             Location source = fabric.known(p.get("source"));
             String resolution = text(p.get("resolution"), "resolution");
-            Replica local = visible(file.id, request.destination);
+            Replica local = visible(file.id, owner.destination);
             Copy copy = null;
-            if (needsResolution != null) require("NEW_COPY".equals(resolution) && needsResolution.file.id.equals(file.id),
-                    "Admission must resolve its corresponding NEW_COPY demand immediately");
+            if (needsResolution != null) require(!needsResolution.output && "NEW_COPY".equals(resolution)
+                            && needsResolution.file.id.equals(file.id) && needsResolution.owner == owner,
+                    "Admission must resolve its corresponding NEW_COPY input demand immediately");
             switch (resolution) {
                 case "LOCAL":
-                    require(isNull(p.get("copyOrdinal")) && local != null && source.equals(request.destination), "LOCAL requires the visible target and no copy ordinal");
+                    require(isNull(p.get("copyOrdinal")) && local != null && source.equals(owner.destination), "LOCAL requires the visible target and no copy ordinal");
                     break;
                 case "ZERO":
                     require(isNull(p.get("copyOrdinal")) && file.bytes == 0 && local == null, "ZERO is only a nonlocal zero-byte acquisition");
-                    Replica selected = choose(file, request.destination).replica;
-                    require(source.equals(selected.location), "Zero-byte source must be the stable smallest visible location");
-                    publish(new Replica(file.id, request.destination, at, "ZERO_BYTE_REFERENCE", selected.origin, source, null));
+                    Replica selected = chooseInput(file, owner.destination).replica;
+                    require(source.equals(selected.location), "Zero-byte source differs from the versioned visible-source selection");
+                    publish(new Replica(file.id, owner.destination, at, "ZERO_BYTE_REFERENCE", selected.origin, source, null));
                     break;
                 case "NEW_COPY":
                     long newOrdinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
                     copy = needsResolution;
-                    require(copy != null && copy.ordinal == newOrdinal && copy.file.id.equals(file.id)
-                                    && copy.destination.equals(request.destination) && source.equals(copy.source.location) && local == null,
-                            "NEW_COPY must identify the immediately preceding frozen admission");
+                    require(copy != null && !copy.output && copy.ordinal == newOrdinal && copy.file.id.equals(file.id) && copy.owner == owner
+                                    && copy.destination.equals(owner.destination) && source.equals(copy.source.location) && local == null,
+                            "NEW_COPY must identify the immediately preceding frozen input admission");
                     needsResolution = null;
                     break;
                 case "JOIN_EXISTING":
                     long joinedOrdinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
                     copy = active.get(joinedOrdinal);
-                    require(file.bytes > 0 && local == null && copy != null && copy == byTarget.get(new Target(file.id, request.destination))
-                                    && source.equals(copy.source.location),
-                            "JOIN_EXISTING must reuse the active same-target ticket and its frozen source");
+                    require(file.bytes > 0 && local == null && copy != null && !copy.output
+                                    && copy == byTarget.get(new Target(file.id, owner.destination)) && source.equals(copy.source.location),
+                            "JOIN_EXISTING must reuse the active same-target input ticket and its frozen source");
                     break;
                 default: throw bad("Unsupported input resolution");
             }
             if (copy != null) {
-                request.pending.add(file.id);
-                request.isolatedTotal = finiteSum(request.isolatedTotal, copy.seconds);
-                waiters.computeIfAbsent(copy.target(), ignored -> new LinkedHashSet<>()).add(request.id);
+                owner.pending.add(file.id);
+                // Nominal input seconds follow actual resolution order, unlike reference-byte totals.
+                owner.isolatedTotal = finiteSum(owner.isolatedTotal, copy.seconds);
+                waiters.computeIfAbsent(copy.target(), ignored -> new LinkedHashSet<>()).add(owner.id);
             }
-            request.unresolved.remove(file.id);
-            endRequestIfResolved(at);
+            if (request == owner) {
+                owner.unresolved.remove(file.id);
+                endRequestIfResolved(at);
+            } else {
+                require(owner.waitingStore.remove(file.id), "Deferred input waiter is inconsistent");
+                resumes.removeFirst(); waitingStoreInputs--;
+                if (inputsSatisfied(owner)) makeReadyDue(owner, at);
+                continueOutputs();
+            }
         }
 
         private void endRequestIfResolved(double at) {
             if (!request.unresolved.isEmpty()) return;
             Job job = request; request = null;
-            if (job.pending.isEmpty()) makeReadyDue(job, at);
+            if (inputsSatisfied(job)) makeReadyDue(job, at);
+        }
+
+        private void resolveOutput(JsonObject p, double at) {
+            keys(p, "jobId", "taskId", "fileId", "resolution", "copyOrdinal", "source");
+            FileRow file = plan.file(fileKey(p.get("fileId")));
+            Job owner = outputOwner(file.id, at);
+            require(nonnegativeInt(p.get("jobId"), "jobId") == owner.id && nonnegativeInt(p.get("taskId"), "taskId") == owner.task.id,
+                    "Output resolution has the wrong successful Job/Task owner");
+            Location source = fabric.known(p.get("source"));
+            Replica producer = visible(file.id, owner.destination), stored = visible(file.id, SOURCE);
+            require(source.equals(owner.destination) && producer != null, "Output source must be the actual successful producing VM");
+            String resolution = text(p.get("resolution"), "resolution");
+            if (needsResolution != null) require(needsResolution.output && "NEW_COPY".equals(resolution)
+                            && needsResolution.file.id.equals(file.id) && needsResolution.owner == owner,
+                    "Output admission must immediately resolve its corresponding NEW_COPY obligation");
+            boolean published = false;
+            switch (resolution) {
+                case "ALREADY_STORED":
+                    require(isNull(p.get("copyOrdinal")) && stored != null, "ALREADY_STORED needs an actual committed SOURCE replica and no ordinal");
+                    pendingOutputs.remove(file.id);
+                    break;
+                case "ZERO":
+                    require(isNull(p.get("copyOrdinal")) && file.bytes == 0 && stored == null, "ZERO output must be an uncommitted zero-byte file");
+                    publish(new Replica(file.id, SOURCE, at, "ZERO_BYTE_OUTPUT", producer.origin, source, null));
+                    pendingOutputs.remove(file.id); published = true;
+                    break;
+                case "NEW_COPY":
+                    long ordinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
+                    Copy copy = needsResolution;
+                    require(stored == null && copy != null && copy.output && copy.ordinal == ordinal && copy.owner == owner
+                                    && copy.file.id.equals(file.id) && copy.destination.equals(SOURCE) && copy.source.location.equals(source),
+                            "Output NEW_COPY must identify its immediately preceding owned upload");
+                    needsResolution = null;
+                    break;
+                case "JOIN_EXISTING":
+                    long joined = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
+                    Copy existing = active.get(joined);
+                    require(file.bytes > 0 && stored == null && existing != null && existing.output
+                                    && existing == byTarget.get(new Target(file.id, SOURCE)),
+                            "Output JOIN_EXISTING must reuse the active same-file SOURCE upload");
+                    // The event's source is THIS completion's VM; the joined ticket retains its
+                    // original owner's VM and first source provenance, which may be different.
+                    break;
+                default: throw bad("Unsupported output resolution");
+            }
+            outputOperation.remaining.removeFirst(); outputOperation.visibleNotified = false;
+            if (published) resumeStoreInputs(file.id, at);
+            continueOutputs();
         }
 
         private void settle(JsonObject p, double at) {
@@ -640,8 +840,8 @@ final class FileLifecycleValidator {
             require(at > copy.release && effective > copy.release && effective <= at, "Settlement clocks must follow release and precede observation");
             double tolerance = Math.min(copy.file.bytes * .5, Math.max(copy.file.bytes * 1e-9, 4 * Math.ulp(copy.file.bytes)));
             require(residual <= tolerance, "Settlement residual exceeds the scalar numerical completion bound");
-            // This is a necessary isolated lower bound, NOT a replay of contended service area.
-            // In particular, standaloneRate * elapsed need not be finite for contended service.
+            // Necessary isolated lower bound, NOT a replay of contended service area. In
+            // particular, standaloneRate * elapsed need not be finite for contended service.
             double lower = copy.release + ((copy.file.bytes - residual) / copy.rate);
             double allowed = Math.min(8 * Math.max(Math.ulp(copy.release), Math.max(Math.ulp(effective), Math.ulp(lower))),
                     1e-12 * Math.max(copy.release, Math.max(effective, lower)));
@@ -649,14 +849,33 @@ final class FileLifecycleValidator {
             active.remove(copy.ordinal); byTarget.remove(copy.target()); completedCopies++;
             publish(new Replica(copy.file.id, copy.destination, at, "COPY_SETTLEMENT", copy.source.origin, copy.source.location, copy.ordinal));
             visibleToWaiters(copy.file.id, copy.destination, at);
+            if (contract.storage && copy.destination.equals(SOURCE)) {
+                require(copy.output && pendingOutputs.remove(copy.file.id), "SOURCE settlement must discharge an actual successful output obligation");
+                resumeStoreInputs(copy.file.id, at);
+            }
+        }
+
+        private void resumeStoreInputs(FileKey file, double at) {
+            require(resumes.isEmpty() && visible(file, SOURCE) != null, "Inconsistent SOURCE resume operation");
+            Set<Integer> ids = storeWaiters.remove(file);
+            if (ids == null) return;
+            resumeAt = at;
+            for (int id : ids) {
+                Job job = jobs.get(id);
+                require(storeBackedInputs && job.waitingStore.contains(file), "Inconsistent deferred file waiter");
+                resumes.addLast(new DeferredInput(job, file));
+            }
         }
 
         private void ready(JsonObject p, double at) {
             keys(p, "jobId");
             Job job = job(p.get("jobId"));
-            require(dueReady.remove(job.id) && at == dueAt && !job.ready && job.unresolved.isEmpty() && job.pending.isEmpty() && allVisible(job),
+            if (contract.storage) require(!dueReady.isEmpty() && dueReady.iterator().next() == job.id,
+                    "Storage readiness must retain deterministic affected-waiter order");
+            require(dueReady.remove(job.id) && at == dueAt && !job.ready && inputsSatisfied(job) && allVisible(job),
                     "JOB_DATA_READY must record exactly a now-due all-input visibility release");
             job.ready = true;
+            continueOutputs();
         }
 
         private void start(JsonObject p) {
@@ -675,12 +894,29 @@ final class FileLifecycleValidator {
             boolean success = bool(p.get("success"), "success");
             require(job.started && !job.finished && taskId == job.task.id && location.equals(job.destination),
                     "Task completion must match its submitted singleton Job attempt and actual VM");
-            job.finished = true; completedJobs++;
+            job.finished = true; job.success = success; completedJobs++;
             if (!success) return;
             successfulTasks.add(taskId);
             Origin origin = new Origin(taskId, (long) job.id, location, at);
             for (FileKey file : job.task.outputs) publish(new Replica(file, location, at, "TASK_OUTPUT", origin, null, null));
-            for (FileKey file : job.task.outputs) visibleToWaiters(file, location, at);
+            if (contract.storage) {
+                // Establish ALL obligations now, including zero and unused outputs. An omitted
+                // output operation is invalid even when it would have admitted no positive copy.
+                for (FileKey file : job.task.outputs) if (visible(file, SOURCE) == null) pendingOutputs.add(file);
+                outputOperation = new OutputOperation(job, at);
+                continueOutputs();
+            } else {
+                for (FileKey file : job.task.outputs) visibleToWaiters(file, location, at);
+            }
+        }
+
+        private void continueOutputs() {
+            if (outputOperation == null || !resumes.isEmpty() || !dueReady.isEmpty() || needsResolution != null) return;
+            if (outputOperation.remaining.isEmpty()) { outputOperation = null; return; }
+            if (!outputOperation.visibleNotified) {
+                outputOperation.visibleNotified = true;
+                visibleToWaiters(outputOperation.remaining.peekFirst(), outputOperation.job.destination, outputOperation.at);
+            }
         }
 
         private Job job(JsonElement value) {
@@ -706,9 +942,11 @@ final class FileLifecycleValidator {
             for (int id : ids) {
                 Job job = jobs.get(id);
                 require(job.pending.remove(file), "Inconsistent file waiter");
-                if (job.pending.isEmpty() && job.unresolved.isEmpty()) makeReadyDue(job, at);
+                if (inputsSatisfied(job)) makeReadyDue(job, at);
             }
         }
+
+        private boolean inputsSatisfied(Job job) { return job.pending.isEmpty() && job.unresolved.isEmpty() && job.waitingStore.isEmpty(); }
 
         private void makeReadyDue(Job job, double at) {
             require(!job.ready && !dueReady.contains(job.id) && allVisible(job), "Inconsistent all-input readiness");
@@ -717,11 +955,17 @@ final class FileLifecycleValidator {
         }
 
         private boolean allVisible(Job job) {
-            for (FileKey file : job.task.inputs.keySet()) if (visible(file, job.destination) == null) return false;
+            for (FileKey file : job.task.inputs.keySet())
+                if (visible(file, job.destination) == null || (storeBackedInputs && visible(file, SOURCE) == null)) return false;
             return true;
         }
 
-        private Choice choose(FileRow file, Location destination) {
+        private Choice chooseInput(FileRow file, Location destination) {
+            if (storeBackedInputs) {
+                Replica store = visible(file.id, SOURCE);
+                require(store != null, "Store-backed input has no committed SOURCE replica");
+                return new Choice(store, file.bytes == 0 ? null : fabric.route(SOURCE, destination));
+            }
             Map<Location, Replica> holders = replicas.get(file.id);
             require(holders != null && !holders.isEmpty(), "Input has no published source replica");
             Choice best = null;
@@ -741,7 +985,7 @@ final class FileLifecycleValidator {
             Location location = fabric.known(row.get("location"));
             double at = number(row.get("visibleAt"), "visibleAt");
             String acquisition = text(row.get("acquisition"), "acquisition");
-            require(Arrays.asList("EXTERNAL_SEED", "TASK_OUTPUT", "COPY_SETTLEMENT", "ZERO_BYTE_REFERENCE").contains(acquisition), "Unknown replica acquisition");
+            require(contract.acceptsAcquisition(acquisition), "Unknown replica acquisition for this lifecycle version");
             JsonObject root = object(row.get("origin"), "replica origin");
             keys(root, "producerTaskId", "jobAttemptId", "location", "observedAt");
             Integer task = nullableInt(root.get("producerTaskId"), "origin producerTaskId");
@@ -754,7 +998,9 @@ final class FileLifecycleValidator {
 
         void finish() {
             require(unseeded.isEmpty(), "Complete capture omits initial external seeding");
-            require(request == null && needsResolution == null, "Capture ends inside an atomic input request");
+            require(request == null && needsResolution == null, "Capture ends inside an atomic input request or copy admission");
+            require(outputOperation == null, "Capture ends inside a successful output operation");
+            require(resumes.isEmpty(), "Capture omits SOURCE-triggered deferred input resolutions");
             require(dueReady.isEmpty(), "Capture omits an immediately due JOB_DATA_READY");
         }
     }
@@ -853,6 +1099,9 @@ final class FileLifecycleValidator {
     }
     private static void keys(JsonObject object, String... names) {
         require(object != null && object.keySet().equals(new HashSet<>(Arrays.asList(names))), "Missing/unknown object fields; expected " + Arrays.toString(names));
+    }
+    private static void keys(JsonObject object, Set<String> names) {
+        require(object != null && object.keySet().equals(names), "Missing/unknown object fields; expected " + names);
     }
     private static void equal(JsonObject object, String field, String expected) {
         require(expected.equals(text(object.get(field), field)), "Unsupported " + field);

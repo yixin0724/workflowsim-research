@@ -80,7 +80,8 @@ public final class ManifestConfigRebuilder {
             PlatformProfile platform = rebuildPlatform(platformSection);
             SimulationConfig config = rebuildConfiguration(configSection, inputs);
             verifyPreflightAssignments(platformSection, platform);
-            if(config.getDataMovementModel().isCoherentFileDataflowV2()&&platform.getNetworkTopology()!=null){int k=platform.getNetworkTopology().getK();double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(k>32||!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("Unsupported V2 topology or converted capacity");}
+            if(config.getDataMovementModel().isCoherentStorageDataflowV3()!=(platform.getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage does not match reconstructed model");
+            if(config.getDataMovementModel().usesCoherentDataflowRuntime()&&platform.getNetworkTopology()!=null){int k=platform.getNetworkTopology().getK();double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(k>32||!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("Unsupported V2 topology or converted capacity");}
             return new RebuiltConfiguration(config, platform);
         } catch (IllegalArgumentException | IllegalStateException | ClassCastException
                 | UnsupportedOperationException | SimulationConfigurationException e) {
@@ -142,6 +143,7 @@ public final class ManifestConfigRebuilder {
                         "platform.storage.maxTransferRateMbPerSecond")));
         builder.costs(costSpec(requireObject(platform, "costs", "platform.costs"),
                 "platform.costs"));
+        if(platform.has("sourceStorage")){JsonObject source=requireObject(platform,"sourceStorage","platform.sourceStorage");builder.sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec.of(requireInt(source,"attachmentHostId","platform.sourceStorage.attachmentHostId"),requireDouble(source,"readBandwidthMbPerSecond","platform.sourceStorage.readBandwidthMbPerSecond"),requireDouble(source,"writeBandwidthMbPerSecond","platform.sourceStorage.writeBandwidthMbPerSecond"),requireDouble(source,"networkBandwidthMbPerSecond","platform.sourceStorage.networkBandwidthMbPerSecond")));}
         JsonElement topology = platform.get("networkTopology");
         if (topology != null && !topology.isJsonNull()) {
             builder.networkTopology(rebuildTopology(topology.getAsJsonObject()));
@@ -395,6 +397,8 @@ public final class ManifestConfigRebuilder {
                 break;
             case COHERENT_FILE_DATAFLOW_V2:model=DataMovementModel.coherentFileDataflowV2();break;
             case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:model=DataMovementModel.coherentFileDataflowNoContentionV2();break;
+            case COHERENT_STORAGE_DATAFLOW_V3:model=DataMovementModel.coherentStorageDataflowV3();break;
+            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:model=DataMovementModel.coherentStorageDataflowNoContentionV3();break;
             default:
                 throw new IllegalArgumentException(
                         "Unsupported configuration.dataMovementModel.kind: " + kindName);

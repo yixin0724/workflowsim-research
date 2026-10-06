@@ -218,8 +218,11 @@ class _Plan:
 
 class _Fabric:
     """Independent bounded Fat-tree arithmetic and exact resource-key closure."""
+    _fields = ("locations", "resources", "vmHostAssignments", "topology")
+    _requires_hosts = False
+
     def __init__(self, raw):
-        _object(raw, ("locations", "resources", "vmHostAssignments", "topology"), "fabric")
+        _object(raw, self._fields, "fabric")
         locations = [_location(item) for item in _array(raw["locations"])]
         _need(len(set(locations)) == len(locations) and SOURCE in locations,
               "duplicate locations or missing default SOURCE")
@@ -235,9 +238,7 @@ class _Fabric:
         assignments = _array(raw["vmHostAssignments"])
         expected = {"VM:" + str(vm) for vm in self.vms}
         self.has_topology = raw["topology"] is not None
-        if not self.has_topology:
-            _need(not assignments, "host assignments require a topology")
-        else:
+        if self.has_topology:
             topology = raw["topology"]
             _object(topology, ("kind", "k", "coreSwitchCount", "linkBandwidthBytesPerSecond",
                                "hostPlacements"), "topology")
@@ -259,13 +260,6 @@ class _Fabric:
                 self.placements[host] = pod, edge
                 per_edge[pod, edge] += 1
                 _need(per_edge[pod, edge] <= self.half, "too many hosts at one edge")
-            for item in assignments:
-                _object(item, ("vmId", "hostId"), "VM host assignment")
-                vm, host = _id(item["vmId"]), _id(item["hostId"])
-                _need(vm in self.vms and vm not in self.hosts and host in self.placements,
-                      "unknown/duplicate VM or unplaced host")
-                self.hosts[vm] = host
-            _need(set(self.hosts) == self.vms, "VM host assignments must cover all endpoints")
             # k was bounded BEFORE these loops. Include even currently unused
             # physical links, both directions, and access links for placed hosts.
             links = set()
@@ -280,7 +274,22 @@ class _Fabric:
             _need(all(self.capacities.get(key) == bandwidth for key in links),
                   "missing link or inconsistent link bandwidth")
             expected.update(links)
+        if self.has_topology or self._requires_hosts:
+            for item in assignments:
+                _object(item, ("vmId", "hostId"), "VM host assignment")
+                vm, host = _id(item["vmId"]), _id(item["hostId"])
+                _need(vm in self.vms and vm not in self.hosts and
+                      (not self.has_topology or host in self.placements),
+                      "unknown/duplicate VM or unplaced host")
+                self.hosts[vm] = host
+            _need(set(self.hosts) == self.vms, "VM host assignments must cover all endpoints")
+        else:
+            _need(not assignments, "host assignments require a topology")
+        expected.update(self._extra_resources(raw))
         _need(set(self.capacities) == expected, "missing/extra fabric capacity key")
+
+    def _extra_resources(self, raw):
+        return ()
 
     @staticmethod
     def _duplex(keys, a, b):
@@ -303,29 +312,33 @@ class _Fabric:
         path = []
         if source[0] == 0:
             path.append("VM:" + str(source[1]))
-            if self.has_topology:
-                sh, dh = self.hosts[source[1]], self.hosts[destination[1]]
-                if sh != dh:
-                    sp, se = self.placements[sh]
-                    dp, de = self.placements[dh]
-                    source_edge, destination_edge = f"EDGE:{sp}:{se}", f"EDGE:{dp}:{de}"
-                    path.append(f"LINK:ACC:{sh}->{source_edge}")
-                    if (sp, se) != (dp, de):
-                        available = (self.cores + self.half - 1) // self.half
-                        agg = se % available
-                        path.append(f"LINK:{source_edge}->AGG:{sp}:{agg}")
-                        if sp != dp:
-                            choices = min(self.half, self.cores - agg * self.half)
-                            core = agg * self.half + (se + de + sp + dp) % choices
-                            path.extend((f"LINK:AGG:{sp}:{agg}->CORE:{core}",
-                                         f"LINK:CORE:{core}->AGG:{dp}:{agg}"))
-                        path.append(f"LINK:AGG:{dp}:{agg}->{destination_edge}")
-                    path.append(f"LINK:{destination_edge}->ACC:{dh}")
+            path.extend(self._links(self.hosts.get(source[1]), self.hosts.get(destination[1])))
         # SOURCE deliberately has no endpoint/access/link charge. A VM source
         # shares its one VM resource between sending and receiving.
         path.append("VM:" + str(destination[1]))
         rate = min(self.capacities[key] / count for key, count in Counter(path).items())
         return tuple(path), rate
+
+    def _links(self, sh, dh):
+        """Literal host-to-host routing shared by the two closed wire contracts."""
+        if not self.has_topology or sh == dh:
+            return ()
+        sp, se = self.placements[sh]
+        dp, de = self.placements[dh]
+        source_edge, destination_edge = f"EDGE:{sp}:{se}", f"EDGE:{dp}:{de}"
+        path = [f"LINK:ACC:{sh}->{source_edge}"]
+        if (sp, se) != (dp, de):
+            available = (self.cores + self.half - 1) // self.half
+            agg = se % available
+            path.append(f"LINK:{source_edge}->AGG:{sp}:{agg}")
+            if sp != dp:
+                choices = min(self.half, self.cores - agg * self.half)
+                core = agg * self.half + (se + de + sp + dp) % choices
+                path.extend((f"LINK:AGG:{sp}:{agg}->CORE:{core}",
+                             f"LINK:CORE:{core}->AGG:{dp}:{agg}"))
+            path.append(f"LINK:AGG:{dp}:{agg}->{destination_edge}")
+        path.append(f"LINK:{destination_edge}->ACC:{dh}")
+        return tuple(path)
 
 
 @dataclass(frozen=True)
@@ -411,8 +424,10 @@ def _settlement_bound(copy, effective, residual):
 
 
 class _Replay:
-    def __init__(self, plan, fabric, observed_through):
+    def __init__(self, plan, fabric, observed_through, contract, policies):
         self.plan, self.fabric, self.through = plan, fabric, observed_through
+        self.payload_keys = dict(contract.payload_keys)
+        self.acquisitions = contract.acquisitions
         self.replicas, self.jobs, self.copies, self.active = {}, {}, {}, {}
         self.waiters, self.successful = {}, set()
         self.seed_queue = deque(sorted((fid for fid, f in plan.files.items() if f.producer is None),
@@ -432,8 +447,13 @@ class _Replay:
         _need(self.previous_time <= now <= self.through, "event observation order/watermark")
         self.previous_time = now
         kind = _text(raw["type"])
-        _need(kind in PAYLOAD_KEYS, "unknown lifecycle event type")
-        payload = _object(raw["payload"], PAYLOAD_KEYS[kind], kind + " payload")
+        _need(kind in self.payload_keys, "unknown lifecycle event type")
+        payload = _object(raw["payload"], self.payload_keys[kind], kind + " payload")
+        self._operation_event(kind, now)
+        getattr(self, "_" + kind.lower())(payload, now, sequence)
+        self._after_event(now)
+
+    def _operation_event(self, kind, now):
         if self.seed_queue:
             _need(kind == "EXTERNAL_SEEDED" and now == 0, "missing initial external seed")
         elif kind == "EXTERNAL_SEEDED":
@@ -445,7 +465,9 @@ class _Replay:
             _need(now == self.jobs[self.current_request].requested, "input request observation changed")
         else:
             _need(kind not in ("COPY_ADMITTED", "INPUT_RESOLVED"), "orphan copy/input resolution")
-        getattr(self, "_" + kind.lower())(payload, now, sequence)
+
+    def _after_event(self, now):
+        pass
 
     def _job(self, raw):
         ident = _id(raw)
@@ -460,7 +482,7 @@ class _Replay:
         job = None if origin["jobAttemptId"] is None else _id(origin["jobAttemptId"])
         root = _Origin(task, job, self.fabric.location(origin["location"]), _time(origin["observedAt"]))
         acquisition = _text(raw["acquisition"])
-        _need(acquisition in ACQUISITIONS, "unknown replica acquisition")
+        _need(acquisition in self.acquisitions, "unknown replica acquisition")
         copied = None if raw["copiedFrom"] is None else self.fabric.location(raw["copiedFrom"])
         ordinal = None if raw["copyOrdinal"] is None else _count(raw["copyOrdinal"], positive=True)
         return _Replica(self.plan.file(raw["fileId"]), self.fabric.location(raw["location"]),
@@ -488,16 +510,22 @@ class _Replay:
         job.ready_queued = True
         self.ready_due.append((ident, now))
 
-    def _publish(self, replica, now):
+    def _put_replica(self, replica):
         holders = self.replicas.setdefault(replica.file, {})
         # First visibility/provenance wins, including an output appearing while
         # an older copy to that destination is still active.
         holders.setdefault(replica.location, replica)
-        target = replica.file, replica.location
+
+    def _publish(self, replica, now):
+        self._put_replica(replica)
+        self._visible(replica.file, replica.location, now)
+
+    def _visible(self, fid, location, now):
+        target = fid, location
         for ident in self.waiters.pop(target, ()):
             job = self.jobs[ident]
-            _need(replica.file in job.pending, "inconsistent file waiter")
-            job.pending.remove(replica.file)
+            _need(fid in job.pending, "inconsistent file waiter")
+            job.pending.remove(fid)
             if not job.pending:
                 self._queue_ready(ident, now)
 
@@ -536,6 +564,11 @@ class _Replay:
         job = self.jobs[self.current_request]
         destination = 0, self.fabric.vm(p["destinationVmId"])
         _need(fid == self.inputs_left[0] and destination == (0, job.vm), "orphan/wrong-target admission")
+        expected, path, rate = self._select(fid, destination, now)
+        self._admit_copy(p, now, sequence, fid, self.current_request, destination, expected, path, rate)
+
+    def _admit_copy(self, p, now, sequence, fid, owner, destination, expected, path, rate):
+        """Validate one independently selected ticket; callers enforce operation ownership."""
         size = _number(p["bytes"], positive=True)
         _need(size == self.plan.files[fid].size, "admission bytes differ from file declaration")
         target = fid, destination
@@ -543,7 +576,6 @@ class _Replay:
               "copy admitted to local/already-active target")
         ordinal = _count(p["copyOrdinal"], positive=True)
         _need(ordinal == len(self.copies) + 1, "copy ordinals must be consecutive from one")
-        expected, path, rate = self._select(fid, destination, now)
         source = self._source_replica(p["sourceReplica"])
         _need(source == expected, "sourceReplica differs from selected first-visible holder/provenance")
         declared_path = tuple(_text(key) for key in _array(p["resources"]))
@@ -553,15 +585,19 @@ class _Replay:
         _need(math.isfinite(isolated) and isolated > 0 and math.isfinite(now + isolated) and now + isolated > now,
               "unrepresentable positive isolated duration/absolute finish")
         _need(_number(p["isolatedSeconds"], positive=True) == isolated, "incorrect isolated seconds")
-        copy = _Copy(ordinal, self.current_request, source, destination, now, size, path, rate, isolated, sequence)
+        copy = _Copy(ordinal, owner, source, destination, now, size, path, rate, isolated, sequence)
         self.copies[ordinal], self.active[target] = copy, ordinal
         self.unlinked_copy = ordinal
 
-    def _input_resolved(self, p, now, sequence):
+    def _input_context(self, p, now):
         ident, job = self._job(p["jobId"])
         fid = self.plan.file(p["fileId"])
         _need(ident == self.current_request and self.inputs_left and fid == self.inputs_left[0],
               "duplicate/extra/out-of-order input resolution")
+        return ident, job, fid
+
+    def _input_resolved(self, p, now, sequence):
+        ident, job, fid = self._input_context(p, now)
         count = _count(p["referenceCount"], positive=True)
         _need(count == self.plan.tasks[job.task].inputs[fid], "input reference multiplicity mismatch")
         resolution = _text(p["resolution"])
@@ -593,11 +629,14 @@ class _Replay:
             job.isolated_seconds += copy.isolated
             _need(math.isfinite(job.isolated_seconds), "unrepresentable summed isolated input estimate")
         job.resolutions[fid] = (count, resolution, ordinal, source)
+        self._input_done(ident, fid, now, sequence)
+
+    def _input_done(self, ident, fid, now, sequence):
         self.inputs_left.popleft()
         if not self.inputs_left:
             _need(self.unlinked_copy is None, "unlinked admission at end of request")
             self.current_request = None
-            if not job.pending:
+            if not self.jobs[ident].pending:
                 self._queue_ready(ident, now)
 
     def _copy_settled(self, p, now, sequence):
@@ -645,9 +684,18 @@ class _Replay:
         job.finished, job.finished_sequence, job.success = now, sequence, success
         if success:
             self.successful.add(task)
-            origin = _Origin(task, ident, (0, vm), now)
-            for fid in self.plan.tasks[task].outputs:
-                self._publish(_Replica(fid, (0, vm), now, "TASK_OUTPUT", origin), now)
+            self._publish_outputs(ident, job, now)
+
+    def _publish_outputs(self, ident, job, now):
+        origin = _Origin(job.task, ident, (0, job.vm), now)
+        for fid in self.plan.tasks[job.task].outputs:
+            self._publish(_Replica(fid, (0, job.vm), now, "TASK_OUTPUT", origin), now)
+
+    def _quiescent(self):
+        return not self.active and all(job.finished is not None for job in self.jobs.values())
+
+    def _summary(self):
+        return {}
 
     def finish(self):
         _need(not self.seed_queue, "COMPLETE capture omits initial external seeds")
@@ -682,36 +730,51 @@ class _Replay:
         return dict(jobs=jobs, copies=copies, replicas=replicas, successfulTaskIds=sorted(self.successful))
 
 
-def verify_document(document):
-    """Validate a strict-decoded V2 document; return detached facts or Invalid.
+@dataclass(frozen=True)
+class _Contract:
+    """Private closed grammar, selected by an entrypoint, never by untrusted input."""
+    schema: str
+    mode: str
+    scope: str
+    shared: str
+    isolated: str
+    policy_variants: tuple
+    payload_keys: tuple
+    acquisitions: frozenset
+    fabric: type
+    replay: type
 
-    IDs/counters are exact integers in their declared Java ranges. Byte/time/
-    rate tokens model binary64 values. Declaration arrays are keyed collections;
-    canonical request/seed/output order is derived independently, never from
-    caller array order. No active-copy or unfinished-job tail is called DISABLED.
-    """
+
+_V2 = _Contract(SCHEMA, MODE, CERTIFICATE_SCOPE, SHARED, ISOLATED,
+                (tuple(POLICIES.items()),), tuple(PAYLOAD_KEYS.items()),
+                frozenset(ACQUISITIONS), _Fabric, _Replay)
+
+
+def _verify_document(document, contract):
+    """Common strict lexical/plan/replay envelope; contracts are private constants."""
     _object(document, ("schema", "modelKind", "recording", "certificateScope", "policies", "capture",
                        "filePlan", "fabric", "events"), "root")
-    _need(_text(document["schema"]) == SCHEMA, "unsupported file-lifecycle schema")
+    _need(_text(document["schema"]) == contract.schema, "unsupported lifecycle schema")
     model = _text(document["modelKind"])
-    _need(model in (SHARED, ISOLATED), "unsupported V2 model kind")
-    _need(_text(document["certificateScope"]) == CERTIFICATE_SCOPE, "incorrect certificate scope")
+    _need(model in (contract.shared, contract.isolated), "unsupported lifecycle model kind")
+    _need(_text(document["certificateScope"]) == contract.scope, "incorrect certificate scope")
     recording = _object(document["recording"], ("mode", "maxTraceRecords"), "recording")
-    _need(_text(recording["mode"]) == MODE, "unsupported recording mode")
+    _need(_text(recording["mode"]) == contract.mode, "unsupported recording mode")
     budget = _integer(recording["maxTraceRecords"], 1, INT_MAX)
-    policies = _object(document["policies"], (*POLICIES, "sharing"), "policies")
-    for key, value in POLICIES.items():
-        _need(_text(policies[key]) == value, "unsupported policy: " + key)
-    sharing = "SHARED_MAX_MIN" if model == SHARED else "ISOLATED_PATH_BOTTLENECK"
+    policy_keys = tuple(key for key, _ in contract.policy_variants[0])
+    policies = _object(document["policies"], (*policy_keys, "sharing"), "policies")
+    actual = {key: _text(policies[key]) for key in policy_keys}
+    _need(any(actual == dict(variant) for variant in contract.policy_variants), "unsupported lifecycle policies")
+    sharing = "SHARED_MAX_MIN" if model == contract.shared else "ISOLATED_PATH_BOTTLENECK"
     _need(_text(policies["sharing"]) == sharing, "sharing policy/model mismatch")
     capture = _object(document["capture"], ("status", "observedThrough", "retainedRecords", "droppedRecords"), "capture")
-    _need(_text(capture["status"]) == "COMPLETE", "only COMPLETE V2 captures are supported (not TRUNCATED/DISABLED)")
+    _need(_text(capture["status"]) == "COMPLETE", "only COMPLETE captures are supported (not TRUNCATED/DISABLED)")
     through = _time(capture["observedThrough"])
     events = _array(document["events"])
     _need(_count(capture["retainedRecords"]) == len(events) <= budget and
           _count(capture["droppedRecords"]) == 0, "capture counters/budget mismatch")
-    plan, fabric = _Plan(document["filePlan"]), _Fabric(document["fabric"])
-    replay = _Replay(plan, fabric, through)
+    plan, fabric = _Plan(document["filePlan"]), contract.fabric(document["fabric"])
+    replay = contract.replay(plan, fabric, through, contract, actual)
     for index, event in enumerate(events):
         try:
             replay.accept(event, index)
@@ -721,8 +784,8 @@ def verify_document(document):
     jobs = list(replay.jobs.values())
     active = len(replay.active)
     finished = sum(job.finished is not None for job in jobs)
-    return dict(status="VALID_COMPLETE", completeCaptureCertified=True, captureStatus="COMPLETE",
-                certificateScope=CERTIFICATE_SCOPE, scope=CERTIFICATE_SCOPE,
+    result = dict(status="VALID_COMPLETE", completeCaptureCertified=True, captureStatus="COMPLETE",
+                certificateScope=contract.scope, scope=contract.scope,
                 contextualRunChecked=False, fluidServiceAccountingCertified=False,
                 modelKind=model, observedThrough=through, retainedRecords=len(events), droppedRecords=0,
                 certifiedThroughSequence=len(events), tailPhase="OPERATION_BOUNDARY",
@@ -737,7 +800,21 @@ def verify_document(document):
                 readyNotStartedJobCount=sum(job.ready is not None and job.started is None for job in jobs),
                 runningJobCount=sum(job.started is not None and job.finished is None for job in jobs),
                 unfinishedJobCount=len(jobs) - finished, successfulTaskCount=len(replay.successful),
-                lifecycleQuiescent=active == 0 and finished == len(jobs), facts=replay.facts())
+                lifecycleQuiescent=replay._quiescent(), facts=replay.facts())
+    result.update(replay._summary())
+    return result
+
+
+def verify_document(document):
+    """Validate a strict-decoded V2 document; return detached facts or Invalid.
+
+    IDs/counters are exact integers in their declared Java ranges. Byte/time/
+    rate tokens model binary64 values. Declaration arrays are keyed collections;
+    canonical request/seed/output order is derived independently, never from
+    caller array order. No active-copy or unfinished-job tail is called DISABLED.
+    This public entrypoint is fixed to V2, including its original return shape.
+    """
+    return _verify_document(document, _V2)
 
 
 def inspect_path(path):

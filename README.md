@@ -60,12 +60,15 @@ CloudSim 事件循环 → SimulationReport → v4证据 → 校验/报告
 | LOCAL通信规划 | LOCAL_HEFT/CPOP/PEFT；STATIC派发，LOCAL存储，preExecution家族模型，无故障/开销；带副本可用时刻的无争用规划估计，不是完整事件重放 |
 | 随机与搜索基线 | RANDOM、PSO。PSO采用顺序负载目标，不含DAG/网络优化；无矩阵的raw MI模型下其简化成本项与映射无关，显式矩阵下按有效执行秒数计价 |
 | 网络 | 保留原五类模型；新增逐文件`COHERENT_FILE_DATAFLOW_V2`及同生命周期无共享对照。来源/实际路径/副本可见/CPU门控统一；端点与可选Fat-tree，流级模型仍不含包/丢包/ECN/自适应路由 |
+| 存储数据流 | `COHERENT_STORAGE_DATAFLOW_V3`及独立瓶颈对照；显式SOURCE接入Host、有限读/写/共享NIC、成功输出异步落库和结束排空；SHARED提交后读穿透缓存与LOCAL来源策略分开 |
 | 多工作流/异常 | 可预先声明错峰到达；支持受控开销、失败尝试和重试预算；deadline仅事后观察，功能不能任意交叉组合 |
 | RL策略适配 | RlEnvironment + RlPolicy状态/动作/终局奖励契约，外部策略接入；没有训练器、神经网络或模型权重 |
 
 所有preExecution/争用模型要求静态映射，因此当前在线调度/RL_POLICY不能直接与Fat-tree争用组合。统一入口拒绝在线、独立任务和DAG轨道混排。DAG轨道内部还需区分执行纪律：LOCAL规划器给出每VM顺序，RANDOM/PSO仅给映射、由运行时选择已就绪作业；R10是完整策略流水线比较，不能把差异仅归因于映射优化，也不能忽略固定顺序带来的队头等待。
 
-新V2模型初始仅支持RANDOM映射、STATIC派发、LOCAL、NONE聚类（每Job一个Task）、无开销和受控NOOP重试。SOURCE输入仍采用显式无限汇聚/绕过fabric抽象，存储瓶颈与输出上传尚待NF004；不能直接接入在线/RL或把LOCAL规划器旧估计当成V2估计。可运行[共享示例](<experiments/configs/coherent-file-dataflow-v2.json>)与[独立路径瓶颈对照](<experiments/configs/coherent-file-dataflow-isolated-v2.json>)；完整支持矩阵见[V2契约](<docs/advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
+新V2模型初始仅支持RANDOM映射、STATIC派发、LOCAL、NONE聚类（每Job一个Task）、无开销和受控NOOP重试。V2的SOURCE输入仍采用显式无限汇聚/绕过fabric抽象，不因新存储版本而改义；不能直接接入在线/RL或把LOCAL规划器旧估计当成V2估计。可运行[共享示例](<experiments/configs/coherent-file-dataflow-v2.json>)与[独立路径瓶颈对照](<experiments/configs/coherent-file-dataflow-isolated-v2.json>)；完整支持矩阵见[V2契约](<docs/advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
+
+V3存储模型继续使用RANDOM/STATIC/NONE/无开销，额外支持LOCAL或SHARED提交后缓存读取；所有成功输出（包括unused/零字节）必须到SOURCE，CPU返回可早于输出写回结束。已接通Java/Python独立证据、rerun和专用报告，见[存储V3契约](<docs/advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)、[共享存储示例](<experiments/configs/storage-dataflow-v3.json>)与[独立瓶颈对照](<experiments/configs/storage-dataflow-isolated-v3.json>)。在线网络感知VM分配仍待NF005，不把现有规划器自动视为V3估计器。
 
 算法细节：[算法目录](docs/algorithms/CATALOG.md)、[测试契约](docs/algorithms/CONTRACTS.md)。历史HEFT/DHEFT枚举及实现已经删除；旧MINMIN/MAXMIN/MCT/ROUNDROBIN兼容标签仍被标准运行器拒绝。
 
@@ -77,7 +80,7 @@ R10纠正了LOCAL_CPOP向下秩方向和关键路径选择。HEFT来源的十任
 
 当前标准输出为 manifest v4、metrics v2、events v1；provenance仍为v3。v4完整保存输入顺序、工作流到达时刻、原始任务×VM执行秒数矩阵、拓扑声明及数据移动语义。验证器继续读取历史manifest v2/v3，但不会补造旧版遗漏的条件。
 
-网络记录显式opt-in：V1流体模型的`FLUID_GROUP_LEDGER_V1`提供组级服务/速率指标；新模型的`FILE_LIFECYCLE_V2`提供独立逐文件来源、请求、复制、可见性和CPU因果证书，**不是逐区间流体服务会计证书**。V2首次导出只接受完整捕获，预算不足在写工件之前拒绝，运行物理不受记录开关影响。V2记录OFF仍保留核心`dataflowPlan`，旧模型OFF形状不变。两种侧车分别有Java/Python校验、完整rerun比较与专用离线面板；详见[文件生命周期格式](<docs/advanced/FILE_LIFECYCLE_V2_FORMAT.md>)。
+网络记录显式opt-in：V1流体模型的`FLUID_GROUP_LEDGER_V1`提供组级服务/速率指标；新模型的`FILE_LIFECYCLE_V2`提供独立逐文件来源、请求、复制、可见性和CPU因果证书，**不是逐区间流体服务会计证书**。V2首次导出只接受完整捕获，预算不足在写工件之前拒绝，运行物理不受记录开关影响。V2记录OFF仍保留核心`dataflowPlan`，旧模型OFF形状不变。存储V3另用`FILE_STORAGE_LIFECYCLE_V3`及`storage-lifecycle`角色，独立证明输出落库与输入等待/CPU的因果关系，仍不是流体服务面积证书。三类侧车分别有Java/Python校验、完整rerun比较与专用离线面板；详见[文件生命周期格式](<docs/advanced/FILE_LIFECYCLE_V2_FORMAT.md>)。
 
 主要指标包括：仿真结束时间、全部逻辑任务完成时间、成功/失败尝试与重试、平均/中位/P95等待、VM忙碌区间利用率、吞吐、deadline观察和抽象成本。文件需求量不等于网络流量；成本不等于云账单；本机算法决策耗时不等于模拟执行时间。
 

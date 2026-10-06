@@ -26,7 +26,7 @@ import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
-/** Storage V3 is executed by the real Kernel; export stays explicitly closed until its codec is wired. */
+/** Storage V3 runs in the real Kernel and exports only through its dedicated verified contract. */
 class StorageDataflowKernelIntegrationTest {
     @TempDir Path directory;
     private boolean logging;
@@ -56,7 +56,7 @@ class StorageDataflowKernelIntegrationTest {
         for(SimulationReport report:Arrays.asList(on,prefix)){assertEquals(off.getMakespan(),report.getMakespan(),0);assertEquals(json.toJsonTree(off.getJobs()),json.toJsonTree(report.getJobs()));assertEquals(json.toJsonTree(off.getTasks()),json.toJsonTree(report.getTasks()));}
     }
     @Test void modelModeAndStoragePresenceAreExplicitAndExportDoesNotMislabelIt()throws Exception{
-        Path input=input("guard","<job id=\"p\" runtime=\"1\"/>");SimulationReport report=run(input,true,1,false,1000);Path target=directory.resolve("must-not-exist");assertThrows(UnsupportedOperationException.class,()->ExperimentArtifactWriter.write(report,target,"run"));assertFalse(Files.exists(target));assertThrows(UnsupportedOperationException.class,()->ExperimentManifestWriter.writeJson(report,target.resolve("run.manifest.json")));assertFalse(Files.exists(target));
+        Path input=input("guard","<job id=\"p\" runtime=\"1\"/>");SimulationReport report=run(input,true,1,false,1000);Path target=directory.resolve("storage-bundle");ExperimentArtifactWriter.ExperimentArtifacts out=ExperimentArtifactWriter.write(report,target,"run");assertNotNull(out.getStorageLifecycle());assertNull(out.getFileLifecycle());assertTrue(ExperimentArtifactValidator.validate(out.getManifest()).getDecodedStorageLifecycle().isQuiescent());Path missing=directory.resolve("standalone-missing-bundle");assertThrows(UnsupportedOperationException.class,()->ExperimentManifestWriter.writeJson(report,missing.resolve("run.manifest.json")));assertFalse(Files.exists(missing));
         assertThrows(IllegalArgumentException.class,()->configuration(input,true,1,1000).toBuilder().networkEvidence(NetworkEvidenceConfig.fileLifecycleV2(1000)).build());
         assertThrows(SimulationConfigurationException.class,()->new SimulationRunner().run(configuration(input,true,1,0),platform(1,false,false)));
         assertThrows(SimulationConfigurationException.class,()->new SimulationRunner().run(configuration(input,true,1,0).toBuilder().dataMovementModel(DataMovementModel.legacyWorkflowsimV1()).build(),platform(1,false,true)));

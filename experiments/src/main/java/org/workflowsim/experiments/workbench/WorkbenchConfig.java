@@ -85,8 +85,9 @@ public final class WorkbenchConfig {
         DataMovementModel movement = movement(sim);
         NetworkEvidenceConfig networkEvidence = sim.has("networkEvidence")
                 ? org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(sim.get("networkEvidence")) : NetworkEvidenceConfig.off();
-        if (!movement.isCoherentFileDataflowV2()&&movement.isFatTreeContentionV1() != (platform.getNetworkTopology() != null)) { throw new IllegalArgumentException("Fat-tree data movement and networkTopology must be selected together"); }
-        if(movement.isCoherentFileDataflowV2()&&platform.getNetworkTopology()!=null){double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("V2 topology capacity conversion is unsupported");}
+        if (!movement.usesCoherentDataflowRuntime()&&movement.isFatTreeContentionV1() != (platform.getNetworkTopology() != null)) { throw new IllegalArgumentException("Fat-tree data movement and networkTopology must be selected together"); }
+        if(movement.usesCoherentDataflowRuntime()&&platform.getNetworkTopology()!=null){double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("V2 topology capacity conversion is unsupported");}
+        if(movement.isCoherentStorageDataflowV3()!=(platform.getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage must be declared exactly for storage V3 models");
         List<Long> seeds = new ArrayList<Long>();
         if (root.has("seeds")) {
             for (JsonElement value : array(root, "seeds")) { seeds.add(longValue(value, "seeds")); }
@@ -164,7 +165,7 @@ public final class WorkbenchConfig {
     }
 
     private static PlatformProfile platform(JsonObject value) {
-        fields(value, "platform", "vmMips", "bandwidthMbPerSecond", "cpuCostPerSecond", "storageTransferMbPerSecond", "networkTopology");
+        fields(value, "platform", "vmMips", "bandwidthMbPerSecond", "cpuCostPerSecond", "storageTransferMbPerSecond", "networkTopology", "sourceStorage");
         JsonArray mips = array(value, "vmMips");
         if (mips.size() < 1 || mips.size() > 64) { throw new IllegalArgumentException("vmMips requires 1..64 VMs"); }
         int bandwidth = integer(value, "bandwidthMbPerSecond", 1000, 1, 1000000000);
@@ -178,6 +179,7 @@ public final class WorkbenchConfig {
             result.addVm(new PlatformProfile.VmSpec(id, speed, 1, 512, bandwidth, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             result.pinVmToHost(id, id);
         }
+        if(value.has("sourceStorage")){JsonObject source=object(value,"sourceStorage");fields(source,"sourceStorage","attachmentHostId","readBandwidthMbPerSecond","writeBandwidthMbPerSecond","networkBandwidthMbPerSecond");if(source.size()!=4)throw new IllegalArgumentException("sourceStorage requires all four explicit fields");result.sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec.of(integer(source,"attachmentHostId",-1,0,mips.size()-1),number(source.get("readBandwidthMbPerSecond"),"sourceStorage.readBandwidthMbPerSecond",true),number(source.get("writeBandwidthMbPerSecond"),"sourceStorage.writeBandwidthMbPerSecond",true),number(source.get("networkBandwidthMbPerSecond"),"sourceStorage.networkBandwidthMbPerSecond",true)));}
         if (value.has("networkTopology") && !value.get("networkTopology").isJsonNull()) {
             JsonObject topology = object(value, "networkTopology");
             fields(topology, "networkTopology", "k", "linkBandwidthMbPerSecond", "coreSwitchCount", "hostEdgePlacements");
@@ -212,6 +214,8 @@ public final class WorkbenchConfig {
             case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1: return DataMovementModel.fatTreeContentionV1();
             case COHERENT_FILE_DATAFLOW_V2:return DataMovementModel.coherentFileDataflowV2();
             case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:return DataMovementModel.coherentFileDataflowNoContentionV2();
+            case COHERENT_STORAGE_DATAFLOW_V3:return DataMovementModel.coherentStorageDataflowV3();
+            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:return DataMovementModel.coherentStorageDataflowNoContentionV3();
             case FIXED_ENDPOINT_NO_CONTENTION_V1:
                 JsonObject fixed = object(sim, "fixedEndpoint"); fields(fixed, "fixedEndpoint", "accessBandwidth", "latencySeconds", "sourceBandwidth");
                 return DataMovementModel.fixedEndpointNoContention(decimal(fixed, "accessBandwidth", -1, true), decimal(fixed, "latencySeconds", 0, false), decimal(fixed, "sourceBandwidth", -1, true));

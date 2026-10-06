@@ -59,20 +59,21 @@ public final class ExperimentArtifactWriter {
             throw new IllegalArgumentException("Report and output directory are required");
         }
         validateRunId(runId);
-        if(report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3())throw new UnsupportedOperationException("Storage V3 kernel capture is available, but its dedicated artifact codec/context is not enabled yet; no files were written");
-        if(report.getPlatform().getSourceStorage()!=null)throw new IOException("sourceStorage is not used by the declared legacy/V2 model");
+        if(report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3()!=(report.getPlatform().getSourceStorage()!=null))throw new IOException("sourceStorage presence differs from model");
         org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();
-        boolean group=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,file=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2;
-        if(group!=(report.getNetworkEvidence()!=null)||file!=(report.getFileLifecycleEvidence()!=null))throw new IOException("Network capture disagrees with recording configuration");
-        if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2()!=(report.getDataflowPlan()!=null))throw new IOException("V2 core file plan disagrees with model");
-        com.google.gson.JsonObject networkDocument=null,fileDocument=null;
+        boolean group=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,file=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,storage=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;
+        if(group!=(report.getNetworkEvidence()!=null)||file!=(report.getFileLifecycleEvidence()!=null)||storage!=(report.getStorageLifecycleEvidence()!=null))throw new IOException("Network capture disagrees with recording configuration");
+        if(report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime()!=(report.getDataflowPlan()!=null))throw new IOException("Coherent core file plan disagrees with model");
+        com.google.gson.JsonObject networkDocument=null,fileDocument=null,storageDocument=null;
         try{org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(report.getConfig().getDataMovementModel(),option);
             if(group)networkDocument=org.workflowsim.data.NetworkLedgerCodec.document(report.getNetworkEvidence());
             if(file)fileDocument=org.workflowsim.data.v2.FileLifecycleCodec.document(report.getFileLifecycleEvidence());
+            if(storage)storageDocument=org.workflowsim.data.v2.StorageLifecycleCodec.document(report.getStorageLifecycleEvidence());
         }catch(IllegalArgumentException|IllegalStateException invalid){throw new IOException("Invalid versioned network evidence before export",invalid);}
         if(group)NetworkLedgerContextValidator.validateReport(report);
         if(file)FileLifecycleContextValidator.validateReport(report,org.workflowsim.data.v2.FileLifecycleCodec.decodeDocument(fileDocument));
-        else if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2())FileLifecycleContextValidator.validatePlanContext(GSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report)).getAsJsonObject());
+        else if(storage)FileLifecycleContextValidator.validateReport(report,org.workflowsim.data.v2.StorageLifecycleCodec.decodeDocument(storageDocument));
+        else if(report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())FileLifecycleContextValidator.validatePlanContext(GSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report)).getAsJsonObject());
         Path directory = outputDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);
 
@@ -93,8 +94,10 @@ public final class ExperimentArtifactWriter {
         }
         Path fileLifecycle=null;
         if(fileDocument!=null){fileLifecycle=directory.resolve(runId+".file-lifecycle.json");writeJson(fileLifecycle,fileDocument);artifacts.add(artifact(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE,fileLifecycle));}
+        Path storageLifecycle=null;
+        if(storageDocument!=null){storageLifecycle=directory.resolve(runId+".storage-lifecycle.json");writeJson(storageLifecycle,storageDocument);artifacts.add(artifact(org.workflowsim.data.v2.StorageLifecycleCodec.ARTIFACT_ROLE,storageLifecycle));}
         ExperimentManifestWriter.writeJson(report, manifest, artifacts, evidenceContext);
-        return new ExperimentArtifacts(manifest, metrics, events, networkLedger,fileLifecycle);
+        return new ExperimentArtifacts(manifest, metrics, events, networkLedger,fileLifecycle,storageLifecycle);
     }
 
     /**
@@ -193,13 +196,13 @@ public final class ExperimentArtifactWriter {
         private final Path metrics;
         private final Path events;
         private final Path networkLedger;
-        private final Path fileLifecycle;
+        private final Path fileLifecycle,storageLifecycle;
 
-        private ExperimentArtifacts(Path manifest, Path metrics, Path events, Path networkLedger,Path fileLifecycle) {
+        private ExperimentArtifacts(Path manifest, Path metrics, Path events, Path networkLedger,Path fileLifecycle,Path storageLifecycle) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
-            this.networkLedger = networkLedger;this.fileLifecycle=fileLifecycle;
+            this.networkLedger = networkLedger;this.fileLifecycle=fileLifecycle;this.storageLifecycle=storageLifecycle;
         }
 
         public Path getManifest() { return manifest; }
@@ -209,5 +212,6 @@ public final class ExperimentArtifactWriter {
         public Path getNetworkLedger() { return networkLedger; }
         /** @return V2 file lifecycle sidecar, null for OFF/V1 */
         public Path getFileLifecycle(){return fileLifecycle;}
+        /** @return storage V3 sidecar, null for OFF/V1/V2 */ public Path getStorageLifecycle(){return storageLifecycle;}
     }
 }

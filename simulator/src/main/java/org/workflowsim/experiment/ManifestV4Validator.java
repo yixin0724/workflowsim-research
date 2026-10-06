@@ -68,8 +68,9 @@ final class ManifestV4Validator {
         }
         validateTopology(required(platform, "networkTopology"), model, hostIds);
         if (root.has("workflowGraph")) { validateGraph(root); }
-        if(model.isCoherentFileDataflowV2())FileLifecycleContextValidator.validatePlanContext(root);
-        else if(root.has("dataflowPlan"))throw new IOException("Only coherent V2 models may declare a dataflowPlan");
+        if(model.isCoherentStorageDataflowV3()!=platform.has("sourceStorage"))throw new IOException("sourceStorage declaration differs from model");
+        if(model.usesCoherentDataflowRuntime())FileLifecycleContextValidator.validatePlanContext(root);
+        else if(root.has("dataflowPlan"))throw new IOException("Only coherent dataflow models may declare a dataflowPlan");
     }
 
     private static void validateGraph(JsonObject root) throws IOException {
@@ -184,12 +185,14 @@ final class ManifestV4Validator {
                     model = DataMovementModel.fatTreeContentionV1(); break;
                 case COHERENT_FILE_DATAFLOW_V2:model=DataMovementModel.coherentFileDataflowV2();break;
                 case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:model=DataMovementModel.coherentFileDataflowNoContentionV2();break;
+                case COHERENT_STORAGE_DATAFLOW_V3:model=DataMovementModel.coherentStorageDataflowV3();break;
+                case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:model=DataMovementModel.coherentStorageDataflowNoContentionV3();break;
                 default: throw new IllegalArgumentException(kind);
             }
         } catch (IllegalArgumentException exception) {
             throw new IOException("Invalid dataMovementModel.kind/parameters: " + kind, exception);
         }
-        if(model.isCoherentFileDataflowV2())for(String parameter:new String[]{"accessLinkBandwidthMbPerSecond","accessLinkLatencySeconds","sourceEndpointBandwidthMbPerSecond"})if(number(required(value,parameter),parameter,false)!=0)throw new IOException("V2 model does not use fixed-endpoint parameters");
+        if(model.usesCoherentDataflowRuntime())for(String parameter:new String[]{"accessLinkBandwidthMbPerSecond","accessLinkLatencySeconds","sourceEndpointBandwidthMbPerSecond"})if(number(required(value,parameter),parameter,false)!=0)throw new IOException("V2 model does not use fixed-endpoint parameters");
         equalText(value, "contentionSemantics", ExperimentManifestWriter.contentionSemantics(model));
         equalText(value, "transferStartSemantics", ExperimentManifestWriter.transferStartSemantics(model));
         equalText(value, "bandwidthUnit", "DECIMAL_MB_PER_SECOND");
@@ -204,14 +207,14 @@ final class ManifestV4Validator {
             }
             return;
         }
-        if ((!model.isFatTreeContentionV1()&&!model.isCoherentFileDataflowV2()) || !element.isJsonObject()) {
+        if ((!model.isFatTreeContentionV1()&&!model.usesCoherentDataflowRuntime()) || !element.isJsonObject()) {
             throw new IOException("platform.networkTopology requires Fat-tree data movement");
         }
         JsonObject value = element.getAsJsonObject();
         equalText(value, "kind", "FAT_TREE");
         int k = integer(required(value, "k"), "networkTopology.k");
         double declaredBandwidth=number(required(value, "linkBandwidthMbPerSecond"), "networkTopology.linkBandwidthMbPerSecond", true);
-        if(model.isCoherentFileDataflowV2()&&(k>32||!Double.isFinite(declaredBandwidth*1_000_000.0)||declaredBandwidth*1_000_000.0<Double.MIN_NORMAL))throw new IOException("Unsupported V2 topology size or converted capacity");
+        if(model.usesCoherentDataflowRuntime()&&(k>32||!Double.isFinite(declaredBandwidth*1_000_000.0)||declaredBandwidth*1_000_000.0<Double.MIN_NORMAL))throw new IOException("Unsupported V2 topology size or converted capacity");
         JsonElement core = required(value, "coreSwitchCount");
         Integer cores = core.isJsonNull() ? null
                 : Integer.valueOf(integer(core, "networkTopology.coreSwitchCount"));
@@ -238,7 +241,7 @@ final class ManifestV4Validator {
         equalText(value, "defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES");
         equalText(value, "routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1");
         equalText(value, "linkDirectionality", "INDEPENDENT_DIRECTED_LINKS");
-        equalText(value, "externalSourceRouting", "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
+        equalText(value, "externalSourceRouting", model.isCoherentStorageDataflowV3()?"BOUNDED_STORAGE_HOST_ATTACHMENT_V3":"BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
         // Check capacities arithmetically: validation must not allocate an untrusted topology.
         if (k < 2 || k % 2 != 0) {
             throw new IOException("networkTopology.k must be even and >= 2");
