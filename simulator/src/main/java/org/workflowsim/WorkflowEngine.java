@@ -118,6 +118,10 @@ public final class WorkflowEngine extends SimEntity {
     /** 引擎分配的下一个争用传输 ID（确定性递增）。 */
     private long nextContentionTransferId = 1L;
     private org.workflowsim.data.v2.CoherentDataflowRuntime coherentDataflow;
+    private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignment=org.workflowsim.data.v2.DataflowAssignmentConfig.off();
+    private org.workflowsim.data.v2.DataflowVmAssigner dataflowVmAssigner;
+    /** @param value explicit run-owned destination binding contract, independent of CPU dispatch */
+    public void setDataflowAssignmentConfig(org.workflowsim.data.v2.DataflowAssignmentConfig value){if(value==null||dataflowVmAssigner!=null)throw new IllegalArgumentException("Assignment configuration must precede binding");dataflowAssignment=value;}
     private final Map<Integer,Job> coherentPendingJobs=new LinkedHashMap<Integer,Job>();
     private Double coherentCheckTime;
     private long coherentCheckGeneration;
@@ -131,8 +135,12 @@ public final class WorkflowEngine extends SimEntity {
         SimEntity entity=CloudSim.getEntity(boundDatacenterId);if(!(entity instanceof WorkflowDatacenter))return null;
         WorkflowDatacenter datacenter=(WorkflowDatacenter)entity;if(!datacenter.getDataMovementModel().usesCoherentDataflowRuntime())return null;
         if(coherentDataflow==null)throw new IllegalStateException("Coherent V2 has no dedicated workflow run context");
-        datacenter.initializeCoherentFabric();List<Integer> tasks=new ArrayList<Integer>();for(Task task:job.getTaskList())tasks.add(task.getCloudletId());
-        return coherentDataflow.requestJob(job.getCloudletId(),tasks,job.getVmId(),CloudSim.clock());
+        datacenter.initializeCoherentFabric();
+        if(dataflowAssignment.isEnabled()){
+            if(dataflowVmAssigner==null)dataflowVmAssigner=new org.workflowsim.data.v2.DataflowVmAssigner(coherentDataflow,datacenter.actualDataflowVmOptions());
+            org.workflowsim.data.v2.DataflowVmAssigner.Prepared prepared=dataflowVmAssigner.prepare(job,CloudSim.clock());eventRecorder.record(SimulationEventType.DATAFLOW_VM_ASSIGNED,CloudSim.clock(),job,prepared.getDecision().getAttributes());return prepared.getPreparation();
+        }
+        List<Integer> tasks=new ArrayList<Integer>();for(Task task:job.getTaskList())tasks.add(task.getCloudletId());return coherentDataflow.requestJob(job.getCloudletId(),tasks,job.getVmId(),CloudSim.clock());
     }
     private void appendCoherentReady(Map<Integer,List> allocation){
         if(coherentDataflow==null)return;

@@ -59,6 +59,7 @@ public final class ExperimentArtifactWriter {
             throw new IllegalArgumentException("Report and output directory are required");
         }
         validateRunId(runId);
+        if(report.getConfig().getDataflowAssignmentConfig().isEnabled())throw new UnsupportedOperationException("Online dataflow assignment requires its dedicated verified action context; export is not enabled yet and no files were written");
         if(report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3()!=(report.getPlatform().getSourceStorage()!=null))throw new IOException("sourceStorage presence differs from model");
         org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();
         boolean group=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,file=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,storage=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;

@@ -71,6 +71,9 @@ public class WorkflowScheduler extends DatacenterBroker {
     private SchedulingAlgorithm activeSchedulingPolicyType;
     private SimulationEventRecorder eventRecorder = SimulationEventRecorder.disabled();
     private StaticSchedulePlan staticSchedulePlan = StaticSchedulePlan.empty();
+    private boolean strictDataflowBindings;
+    /** Require an intact input-prepared compute binding, without changing stage-in fallback. */
+    public void enableDataflowBindingGuard(){strictDataflowBindings=true;}
     /**
      * VM 创建成功时冻结的 VM 到 Host 映射。
      *
@@ -370,6 +373,7 @@ public class WorkflowScheduler extends DatacenterBroker {
         BaseSchedulingAlgorithm scheduler = getSchedulingPolicy();
         if (scheduler instanceof StaticSchedulingAlgorithm) {
             ((StaticSchedulingAlgorithm) scheduler).setStaticSchedulePlan(staticSchedulePlan);
+            if(strictDataflowBindings)((StaticSchedulingAlgorithm)scheduler).requireDataflowBindings();
         }
         scheduler.getScheduledList().clear();
         scheduler.setCloudletList(getCloudletList());

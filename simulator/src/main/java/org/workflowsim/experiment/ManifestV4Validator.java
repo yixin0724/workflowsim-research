@@ -16,6 +16,7 @@ final class ManifestV4Validator {
 
     static void validate(JsonObject root) throws IOException {
         JsonObject config = object(root, "configuration");
+        if(config.has("dataflowAssignment"))throw new IOException("Online dataflow assignment evidence context is not enabled yet");
         JsonObject platform = object(root, "platform");
         JsonArray inputs = array(root, "inputs");
         JsonArray paths = array(config, "workflowPaths");

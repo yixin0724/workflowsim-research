@@ -32,5 +32,7 @@ public enum SimulationEventType {
     TASK_EXECUTION_MODELED,
     JOB_RETURNED,
     JOB_FAILED,
-    RETRY_JOB_CREATED
+    RETRY_JOB_CREATED,
+    /** Explicit control-ready destination binding/reuse before input preparation; not CPU dispatch. */
+    DATAFLOW_VM_ASSIGNED
 }

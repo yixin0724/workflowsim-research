@@ -104,6 +104,10 @@ public class WorkflowDatacenter extends Datacenter {
         java.util.List<String> sources=Collections.singletonList("source");
         runtime.bindFabric(runtime.isStorageVersion()?org.workflowsim.data.v2.DataTransferFabric.withStorage(capacities,hosts,fatTreeTopology,sourceStorage):fatTreeTopology==null?org.workflowsim.data.v2.DataTransferFabric.endpoints(capacities,sources):org.workflowsim.data.v2.DataTransferFabric.fatTree(capacities,hosts,fatTreeTopology,sources));
     }
+    /** Actual-created immutable compute options for the engine's opt-in destination binding. */
+    java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> actualDataflowVmOptions(){
+        java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> result=new ArrayList<>();for(Host host:getVmAllocationPolicy().getHostList())for(Vm vm:host.getVmList())result.add(new org.workflowsim.data.v2.DataflowVmAssigner.VmOption(vm.getId(),vm.getMips(),vm.getNumberOfPes()));return Collections.unmodifiableList(result);
+    }
     /** @return independently versioned file lifecycle capture, null for OFF/V1 */
     public org.workflowsim.data.v2.FileLifecycleEvidence captureFileLifecycleEvidence(){return networkEvidenceConfig.getMode()==NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2?requireCoherentRuntime().captureEvidence():null;}
     /** @return separately versioned storage capture, null for OFF/V1/V2 */

@@ -210,6 +210,31 @@ public final class TransferContentionEngine {
     /** @return current committed service clock without advancing it */
     public double getCurrentTime(){return lastAdvanceTime;}
 
+    /**
+     * Observe only the checked coherent V2 engine's committed current service state.
+     * This passive read copies active balances, rates, paths, and declared capacities;
+     * it does not advance, reallocate, fork, or touch capture state or admission ordinals.
+     * No observation history is retained, and trace capture is not required.
+     *
+     * @return deeply immutable current state at the actual last advance time
+     * @throws IllegalStateException for original unchecked constructors, even if their
+     *         currently active paths happen to use only declared resources
+     */
+    public TransferServiceSnapshot snapshotState() {
+        if (!coherentChecked) {
+            throw new IllegalStateException("Service snapshots require a checked coherentV2 engine");
+        }
+        Map<Long, TransferServiceSnapshot.Flow> flows = new LinkedHashMap<Long, TransferServiceSnapshot.Flow>();
+        for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
+            Transfer transfer = entry.getValue();
+            flows.put(entry.getKey(), new TransferServiceSnapshot.Flow(entry.getKey(), transfer.bytes,
+                    transfer.remainingBytes, transfer.rateBytesPerSecond, transfer.nominalRateBytesPerSecond,
+                    transfer.coherentAdmissionTime, transfer.occupiedResources));
+        }
+        return new TransferServiceSnapshot(lastAdvanceTime, shareResources,
+                endpointCapacitiesBytesPerSecond, flows);
+    }
+
     /** @return deep independent service-state copy; immutable retained trace DTOs may be shared */
     public TransferContentionEngine fork(){
         TransferContentionEngine copy=new TransferContentionEngine(traceState==null?0:traceState.maxEvents,coherentChecked,shareResources);

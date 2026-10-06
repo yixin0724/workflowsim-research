@@ -28,6 +28,7 @@ public final class ExperimentManifestWriter {
 
     /** Standalone manifests must not silently drop requested network evidence. */
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
+        if(report.getConfig().getDataflowAssignmentConfig().isEnabled())throw new UnsupportedOperationException("Online dataflow assignment needs its verified action context before manifest export");
         org.workflowsim.data.DataMovementModel model=report.getConfig().getDataMovementModel();if(model.isCoherentStorageDataflowV3()!=(report.getPlatform().getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage presence differs from its declared model");
         org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model,option);
         String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);Map<String,Integer> counts=new LinkedHashMap<>();for(String role:new String[]{"network-ledger","file-lifecycle","storage-lifecycle"})counts.put(role,0);

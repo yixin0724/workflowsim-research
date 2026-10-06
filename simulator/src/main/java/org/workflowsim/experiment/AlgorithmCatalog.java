@@ -104,7 +104,12 @@ public final class AlgorithmCatalog {
             throw new IllegalArgumentException("Simulation configuration is required");
         }
         Map<String, Object> contract = new LinkedHashMap<String, Object>();
-        contract.put("scheduler", scheduler(config.getSchedulingAlgorithm()));
+        Map<String,Object> dispatch=scheduler(config.getSchedulingAlgorithm());
+        if(config.getDataflowAssignmentConfig().isEnabled()){
+            dispatch.put("decisionLayer","BOUND_DATAFLOW_CPU_DISPATCH");dispatch.put("decisionRule","Dispatch data-ready Jobs to their previously committed VM only when idle");dispatch.put("limitations",limitations("Control-ready destination assignment is a separate explicit phase; STATIC cannot remap compute inputs already transferred."));
+            Map<String,Object> assignment=new LinkedHashMap<>();assignment.put("mode",config.getDataflowAssignmentConfig().getMode().name());assignment.put("policy",config.getDataflowAssignmentConfig().getPolicy());assignment.put("decisionLayer","CONTROL_READY_VM_BINDING_BEFORE_INPUT_TRANSFER");assignment.put("limitations",limitations("Nominal remaining-input and CPU-reservation estimates are myopic, not contention-exact completion forecasts; NOOP retries reuse the logical Task binding."));contract.put("dataflowAssignment",assignment);
+        }
+        contract.put("scheduler", dispatch);
         contract.put("planner", planner(config.getPlanningAlgorithm()));
         contract.put("scopeStatement", "Algorithm labels describe this WorkflowSim implementation "
                 + "and its declared abstract-model scope; standard SimulationRunner evidence uses "

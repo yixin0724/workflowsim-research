@@ -77,6 +77,7 @@ public final class SimulationRunner {
                 coherent=config.getDataMovementModel().isCoherentStorageDataflowV3()?org.workflowsim.data.v2.CoherentDataflowRuntime.withStorage(config.getDataMovementModel().usesSharedDataflowResources(),budget,config.getFileSystem()==org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED):new org.workflowsim.data.v2.CoherentDataflowRuntime(config.getDataMovementModel().isCoherentShared(),budget);
                 if(platform.getSourceStorage()!=null)datacenter.setSourceStorage(platform.getSourceStorage());
                 planner.setCoherentDataflowRuntime(coherent);engine.setCoherentDataflowRuntime(coherent);datacenter.setCoherentDataflowRuntime(coherent,engine.getId());
+                engine.setDataflowAssignmentConfig(config.getDataflowAssignmentConfig());if(config.getDataflowAssignmentConfig().isEnabled())engine.getScheduler(0).enableDataflowBindingGuard();
             }
             List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
             engine.submitVmList(vms, 0);

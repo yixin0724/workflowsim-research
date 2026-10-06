@@ -41,6 +41,9 @@ import org.workflowsim.utils.Parameters.ClassType;
 public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
 
     private StaticSchedulePlan staticSchedulePlan = StaticSchedulePlan.empty();
+    private boolean strictDataflowBindings;
+    /** Enable fail-fast bound-compute validation for the explicit online-assignment contract. */
+    public void requireDataflowBindings(){strictDataflowBindings=true;}
 
     public StaticSchedulingAlgorithm() {
         super();
@@ -77,6 +80,7 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
         List<Integer> fallbackRewrittenJobIds = new ArrayList<Integer>();
         for (Object item : getCloudletList()) {
             Cloudlet cloudlet = (Cloudlet) item;
+            if(strictDataflowBindings){if(!(cloudlet instanceof Job))throw new IllegalStateException("Dataflow dispatch requires Job identity");Job job=(Job)cloudlet;if(job.getClassType()==ClassType.COMPUTE.value){CondorVM assigned=mId2Vm.get(job.getVmId());if(assigned==null||job.getTaskList().size()!=1||job.getNumberOfPes()>assigned.getNumberOfPes()||job.getTaskList().get(0).getNumberOfPes()>assigned.getNumberOfPes()||job.getTaskList().get(0).getVmId()!=job.getVmId())throw new IllegalStateException("Online dataflow compute binding is invalid; STATIC must not remap after transfer");}}
             if (cloudlet.getVmId() < 0 || !mId2Vm.containsKey(cloudlet.getVmId())) {
                 Log.printLine("Cloudlet " + cloudlet.getCloudletId() + " is not matched."
                         + " It is possible a model-generated stage-in job.");

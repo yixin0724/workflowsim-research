@@ -37,6 +37,7 @@ public final class SimulationConfig {
     private final FailureModelConfig failureModel;
     private final DataMovementModel dataMovementModel;
     private final NetworkEvidenceConfig networkEvidenceConfig;
+    private final transient org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignmentConfig;
     private final TaskCostMatrix taskCostMatrix;
 
     private SimulationConfig(Builder builder) {
@@ -59,6 +60,7 @@ public final class SimulationConfig {
         this.failureModel = builder.failureModel;
         this.dataMovementModel = builder.dataMovementModel;
         this.networkEvidenceConfig = builder.networkEvidenceConfig;
+        this.dataflowAssignmentConfig=builder.dataflowAssignmentConfig;
         this.taskCostMatrix = builder.taskCostMatrix;
     }
 
@@ -169,6 +171,8 @@ public final class SimulationConfig {
     public NetworkEvidenceConfig getNetworkEvidenceConfig() {
         return networkEvidenceConfig;
     }
+    /** @return explicit control-ready destination-binding policy, OFF by default */
+    public org.workflowsim.data.v2.DataflowAssignmentConfig getDataflowAssignmentConfig(){return dataflowAssignmentConfig;}
 
     /** @return 可选的任务×VM 异构执行成本矩阵；未配置时为 {@code null} */
     public TaskCostMatrix getTaskCostMatrix() {
@@ -201,6 +205,7 @@ public final class SimulationConfig {
                 .failureModel(failureModel)
                 .dataMovementModel(dataMovementModel)
                 .networkEvidence(networkEvidenceConfig)
+                .dataflowAssignment(dataflowAssignmentConfig)
                 .taskCostMatrix(taskCostMatrix);
     }
 
@@ -244,6 +249,10 @@ public final class SimulationConfig {
         private FailureModelConfig failureModel = FailureModelConfig.disabled();
         private DataMovementModel dataMovementModel = DataMovementModel.legacyWorkflowsimV1();
         private NetworkEvidenceConfig networkEvidenceConfig = NetworkEvidenceConfig.off();
+        private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignmentConfig=org.workflowsim.data.v2.DataflowAssignmentConfig.off();
+
+        /** @param value explicit online destination-binding option, independent of network recording @return this builder */
+        public Builder dataflowAssignment(org.workflowsim.data.v2.DataflowAssignmentConfig value){dataflowAssignmentConfig=value;return this;}
         private TaskCostMatrix taskCostMatrix;
 
         private Builder(List<String> workflowPaths, int vmCount) {
@@ -407,7 +416,7 @@ public final class SimulationConfig {
             if (overheadModel == null || clusteringParameters == null
                     || schedulingAlgorithm == null || planningAlgorithm == null
                     || fileSystem == null || costModel == null || failureModel == null
-                    || dataMovementModel == null || networkEvidenceConfig == null) {
+                    || dataMovementModel == null || networkEvidenceConfig == null || dataflowAssignmentConfig==null) {
                 throw new IllegalArgumentException("Simulation configuration contains a required null value");
             }
             org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(dataMovementModel,networkEvidenceConfig);
@@ -456,7 +465,7 @@ public final class SimulationConfig {
                         + "SchedulingAlgorithm.STATIC dispatch");
             }
             if (planningAlgorithm == PlanningAlgorithm.INVALID
-                    && schedulingAlgorithm == SchedulingAlgorithm.STATIC) {
+                    && schedulingAlgorithm == SchedulingAlgorithm.STATIC && !dataflowAssignmentConfig.isEnabled()) {
                 throw new IllegalArgumentException("SchedulingAlgorithm.STATIC requires a planning algorithm "
                         + "that assigns VM mappings");
             }
@@ -593,8 +602,9 @@ public final class SimulationConfig {
                             + " requires OverheadModelConfig.none()");
                 }
             }
+            if(dataflowAssignmentConfig.isEnabled()&&(!dataMovementModel.usesCoherentDataflowRuntime()||planningAlgorithm!=PlanningAlgorithm.INVALID||schedulingAlgorithm!=SchedulingAlgorithm.STATIC))throw new IllegalArgumentException("Online dataflow binding requires coherent V2/V3, INVALID preplanning and STATIC bound-VM dispatch");
             if(dataMovementModel.usesCoherentDataflowRuntime()){
-                if(planningAlgorithm!=PlanningAlgorithm.RANDOM||schedulingAlgorithm!=SchedulingAlgorithm.STATIC||(dataMovementModel.isCoherentFileDataflowV2()&&fileSystem!=ReplicaCatalog.FileSystem.LOCAL)
+                if(planningAlgorithm!=(dataflowAssignmentConfig.isEnabled()?PlanningAlgorithm.INVALID:PlanningAlgorithm.RANDOM)||schedulingAlgorithm!=SchedulingAlgorithm.STATIC||(dataMovementModel.isCoherentFileDataflowV2()&&fileSystem!=ReplicaCatalog.FileSystem.LOCAL)
                         ||clusteringParameters.getClusteringMethod()!=ClusteringParameters.ClusteringMethod.NONE||!isNoOverhead(overheadModel))
                     throw new IllegalArgumentException("Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
             }
