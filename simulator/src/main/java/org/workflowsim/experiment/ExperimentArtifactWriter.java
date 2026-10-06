@@ -59,14 +59,18 @@ public final class ExperimentArtifactWriter {
             throw new IllegalArgumentException("Report and output directory are required");
         }
         validateRunId(runId);
-        boolean networkEnabled=report.getConfig().getNetworkEvidenceConfig().isEnabled();
-        if(networkEnabled!=(report.getNetworkEvidence()!=null))throw new IOException("Network capture disagrees with recording configuration");
-        com.google.gson.JsonObject networkDocument=null;
-        if(networkEnabled){
-            try { networkDocument=org.workflowsim.data.NetworkLedgerCodec.document(report.getNetworkEvidence()); }
-            catch(IllegalArgumentException|IllegalStateException invalid){throw new IOException("Invalid network evidence before export",invalid);}
-            NetworkLedgerContextValidator.validateReport(report);
-        }
+        org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();
+        boolean group=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,file=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2;
+        if(group!=(report.getNetworkEvidence()!=null)||file!=(report.getFileLifecycleEvidence()!=null))throw new IOException("Network capture disagrees with recording configuration");
+        if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2()!=(report.getDataflowPlan()!=null))throw new IOException("V2 core file plan disagrees with model");
+        com.google.gson.JsonObject networkDocument=null,fileDocument=null;
+        try{org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(report.getConfig().getDataMovementModel(),option);
+            if(group)networkDocument=org.workflowsim.data.NetworkLedgerCodec.document(report.getNetworkEvidence());
+            if(file)fileDocument=org.workflowsim.data.v2.FileLifecycleCodec.document(report.getFileLifecycleEvidence());
+        }catch(IllegalArgumentException|IllegalStateException invalid){throw new IOException("Invalid versioned network evidence before export",invalid);}
+        if(group)NetworkLedgerContextValidator.validateReport(report);
+        if(file)FileLifecycleContextValidator.validateReport(report,org.workflowsim.data.v2.FileLifecycleCodec.decodeDocument(fileDocument));
+        else if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2())FileLifecycleContextValidator.validatePlanContext(GSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report)).getAsJsonObject());
         Path directory = outputDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);
 
@@ -85,8 +89,10 @@ public final class ExperimentArtifactWriter {
             writeJson(networkLedger,networkDocument);
             artifacts.add(artifact(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE,networkLedger));
         }
+        Path fileLifecycle=null;
+        if(fileDocument!=null){fileLifecycle=directory.resolve(runId+".file-lifecycle.json");writeJson(fileLifecycle,fileDocument);artifacts.add(artifact(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE,fileLifecycle));}
         ExperimentManifestWriter.writeJson(report, manifest, artifacts, evidenceContext);
-        return new ExperimentArtifacts(manifest, metrics, events, networkLedger);
+        return new ExperimentArtifacts(manifest, metrics, events, networkLedger,fileLifecycle);
     }
 
     /**
@@ -185,12 +191,13 @@ public final class ExperimentArtifactWriter {
         private final Path metrics;
         private final Path events;
         private final Path networkLedger;
+        private final Path fileLifecycle;
 
-        private ExperimentArtifacts(Path manifest, Path metrics, Path events, Path networkLedger) {
+        private ExperimentArtifacts(Path manifest, Path metrics, Path events, Path networkLedger,Path fileLifecycle) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
-            this.networkLedger = networkLedger;
+            this.networkLedger = networkLedger;this.fileLifecycle=fileLifecycle;
         }
 
         public Path getManifest() { return manifest; }
@@ -198,5 +205,7 @@ public final class ExperimentArtifactWriter {
         public Path getEvents() { return events; }
         /** @return network sidecar path, or null when recording was OFF */
         public Path getNetworkLedger() { return networkLedger; }
+        /** @return V2 file lifecycle sidecar, null for OFF/V1 */
+        public Path getFileLifecycle(){return fileLifecycle;}
     }
 }

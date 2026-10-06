@@ -28,7 +28,7 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
   -Dexec.args="<run-dir> <output-dir>"
 ```
 
-- `<run-dir>`：单个 run 的证据目录，必须包含 `result.manifest.json`（schema 为 `workflowsim-experiment-manifest-v4`）、`result.metrics.json`、`result.events.jsonl` 三件套；ON时还必须包含manifest登记的`result.network-ledger.json`。
+- `<run-dir>`：单个 run 的证据目录，必须包含 `result.manifest.json`（schema 为 `workflowsim-experiment-manifest-v4`）、`result.metrics.json`、`result.events.jsonl` 三件套；ON时还必须包含manifest按模式登记的`result.network-ledger.json`（V1）或`result.file-lifecycle.json`（V2）。
 - v1 只接受**单个 run 目录**。study 级批量（遍历 `runs/` 下全部目录并汇总）是后续独立任务，不在本轮验收内。
 - v1 只接受 manifest v4。历史 v2/v3 证据可读不可 rerun，遇到时明确拒绝并说明原因，不静默降级。
 - `<output-dir>`：必须不存在或为空。rerun 产出写入该目录，沿用现有"证据文件逐个原子替换"的写盘纪律。不覆盖任何已有文件。
@@ -75,6 +75,14 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 
 见[账本格式](<../advanced/NETWORK_LEDGER_FORMAT.md>)和[独立Python检查](<../advanced/NETWORK_LEDGER_PYTHON.md>)。Workbench另提供[安全离线网络显示](<../advanced/NETWORK_REPORT_DISPLAY.md>)，显示适配不改写原始证据，也不改变本节核心比较规则。
 
+## V2文件生命周期（NF-003B）
+
+- 新模型`COHERENT_FILE_DATAFLOW_V2`和`COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2`使用同样的v4重建流程，但记录模式必须为`FILE_LIFECYCLE_V2`或缺省OFF；不能映射到旧V1组账本。
+- V2 ON的独立`file-lifecycle`角色由Java/Python生命周期与本次运行上下文校验。首次版本只接受完整捕获；损坏、丢失、截断或与Job/VM/主事件不符的证书属于`EVIDENCE_INVALID`，不能补造缺失历史。
+- 侧车**全部内容**在`/fileLifecycle/...`独立核心命名空间比较，没有根级runtime/provenance豁免。必要时间下界以内可自洽的有效完成时刻微小改动，仍会在实际rerun中报告`DIVERGED`，不因artifact哈希/大小豁免而漏检。
+- V2核心`dataflowPlan`在记录OFF时也保留并参与比较；只省略可选生命周期侧车，不改变物理语义。旧五模型和V1 OFF工件形状不变。
+- 当前证书是来源/路径/请求/复制/可见性/CPU因果证书，**不是逐区间流体服务面积会计证书**。`IDENTICAL_CORE`只对声明契约内的数据作结论。格式见[文件生命周期V2](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)。
+
 ## 比对规则：三类字段
 
 ### 核心量（必须逐位一致）
@@ -89,7 +97,9 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 | manifest `result` | 全部字段（makespan、jobs、tasks、vmSummaries、actualVmHostAssignments、workflowOutcomes），其中 `workflowOutcomes[].path` 除外 |
 | metrics | 全部字段，**除** `totalSchedulingDecisionWallClockNanos`、`totalPlanningDecisionWallClockNanos` |
 | events | 事件总数、每条事件的 `sequence`/`simulationTime`/`type`/`taskIds`/业务 attributes；**除** 各事件 attributes 中的本机耗时字段（如 `planningDecisionElapsedNanos`，REPRODUCIBILITY 契约已声明其排除在确定性 fingerprint 外） |
-| network-ledger（ON） | 全部字段；使用`/networkLedger/...`独立核心命名空间，不新增任何内容豁免 |
+| network-ledger（V1 ON） | 全部字段；使用`/networkLedger/...`独立核心命名空间，不新增任何内容豁免 |
+| file-lifecycle（V2 ON） | 全部字段；使用`/fileLifecycle/...`独立核心命名空间，不新增任何内容豁免 |
+| manifest `dataflowPlan`（V2） | 全部文件身份、生产者、控制依赖与输入引用；记录OFF也不豁免 |
 
 比对方式为**JSON 值的精确相等**，不是文本字节相等：对象键顺序无关，数组顺序保留；数值按十进制精确值比较，`1000`、`1000.0`、`1e3` 等值，但不先转换成 double，不设 epsilon 容差。因而大于 2^53 的相邻 long 种子仍不同，浮点相邻值也不能靠容差通过。输入 SHA、大小、格式、顺序和路径数组长度始终参与核心比较。
 
@@ -117,7 +127,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 
 输出目录内生成：
 
-- `rerun/`：新三件套（`result.manifest.json`、`result.metrics.json`、`result.events.jsonl`），ON时另含`result.network-ledger.json`；
+- `rerun/`：新三件套（`result.manifest.json`、`result.metrics.json`、`result.events.jsonl`），ON时按模式另含`result.network-ledger.json`或`result.file-lifecycle.json`；
 - `rerun-report.json`：机器可读结论，字段包括 `verdict`、`inputResolution`（每个输入的命中路径与哈希核对结果）、`coreDivergences`（分歧字段的 JSON 指针、旧值、新值；单字段值过长时截断并记录截断标记）、`volatileFieldsNoted`、`codeIdentityNote`、两侧 `sourceTreeSha256`；
 - `rerun-report.md`：人类可读摘要。
 

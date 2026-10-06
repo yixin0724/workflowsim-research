@@ -69,17 +69,20 @@ public final class HtmlReports {
 
     static ValidatedReport validatedReport(ExperimentArtifactValidator.ValidationResult validated) {
         return new ValidatedReport(validated.getManifestSnapshot(),
-                NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(),true));
+                NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(),true),
+                FileLifecycleReportView.fromDecoded(validated.getDecodedFileLifecycle(),true));
     }
 
     static final class ValidatedReport {
         private final JsonObject manifest;
         private final Map<String,Object> network;
-        private ValidatedReport(JsonObject manifest,Map<String,Object> network){this.manifest=manifest;this.network=network;}
+        private final Map<String,Object> fileLifecycle;
+        private ValidatedReport(JsonObject manifest,Map<String,Object> network,Map<String,Object> fileLifecycle){this.manifest=manifest;this.network=network;this.fileLifecycle=fileLifecycle;}
         JsonObject getManifest(){return manifest;}
         void attachTo(Map<String,Object> row){
             row.put("manifest",manifest);
             if(network==null)row.remove("networkEvidence");else row.put("networkEvidence",network);
+            if(fileLifecycle==null)row.remove("fileLifecycle");else row.put("fileLifecycle",fileLifecycle);
         }
     }
 

@@ -67,6 +67,27 @@ try {
       `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
       /Offline reports must not fetch secondary files/, network);
   }
+  const lifecycle = fixtures && (fixtures.reports.find(r => r.name === 'file-lifecycle-typed-stress')
+    || fixtures.reports.find(r => r.fileLifecycle && r.fileLifecycle.some(e => e.state === 'COMPLETE')));
+  if (lifecycle) {
+    const content = fs.readFileSync(lifecycle.path, 'utf8');
+    rejected('file-lifecycle-exact-text', inject(content,
+      'function spoilFileText(){document.getElementById("file-lifecycle-admitted").textContent="CORRUPTED";}spoilFileText();document.getElementById("run-select").addEventListener("change",spoilFileText);'),
+      /Exact V2 text differs at file-lifecycle-admitted/, lifecycle);
+    const ordinal = '"copyOrdinal":"1"';assert.ok(content.includes(ordinal), 'V2 fixture must include an exact copy ordinal');
+    rejected('file-lifecycle-numeric-coercion', content.replace(ordinal, '"copyOrdinal":1'), /Network exact values must be strings/, lifecycle);
+    rejected('file-lifecycle-hidden-panel', inject(content, 'document.getElementById("file-lifecycle-section").style.display="none";'), /V2 panel visibility differs/, lifecycle);
+    rejected('file-lifecycle-over-preview-cap', inject(content,
+      'function spoilFileRows(){const t=document.getElementById("file-lifecycle-copy-table");if(t.firstElementChild)while(t.children.length<=64)t.appendChild(t.firstElementChild.cloneNode(true));}spoilFileRows();document.getElementById("run-select").addEventListener("change",spoilFileRows);'),
+      /V2 copies row count/, lifecycle);
+    rejected('file-lifecycle-false-v1-off', inject(content,
+      'function spoilFileMode(){document.getElementById("network-section").hidden=false;document.getElementById("network-status").dataset.state="OFF";}spoilFileMode();document.getElementById("run-select").addEventListener("change",spoilFileMode);'),
+      /V2 must not be mislabeled as V1\/OFF/, lifecycle);
+    const local = path.join(temporary, 'forbidden-lifecycle.json');fs.writeFileSync(local, '{}');
+    rejected('file-lifecycle-secondary-fetch', inject(content,
+      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      /Offline reports must not fetch secondary files/, lifecycle);
+  }
   console.log(JSON.stringify({ status: 'PASSED', checks: results }, null, 2));
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });

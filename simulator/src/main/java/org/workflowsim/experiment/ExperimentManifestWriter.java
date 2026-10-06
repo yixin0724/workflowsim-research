@@ -28,11 +28,13 @@ public final class ExperimentManifestWriter {
 
     /** Standalone manifests must not silently drop requested network evidence. */
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
-        int ledgers=0;
-        for(Map<String,Object> artifact:artifacts)if(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(artifact.get("role")))ledgers++;
-        boolean enabled=report.getConfig().getNetworkEvidenceConfig().isEnabled();
-        if(enabled&&ledgers==0)throw new UnsupportedOperationException("Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
-        if(ledgers>1||(!enabled&&ledgers!=0))throw new IllegalArgumentException("Network ledger artifact role disagrees with recording configuration");
+        org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(report.getConfig().getDataMovementModel(),option);
+        String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);int groups=0,files=0;
+        for(Map<String,Object> artifact:artifacts){if(org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(artifact.get("role")))groups++;if(org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(artifact.get("role")))files++;}
+        int required=org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(expected)?groups:org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(expected)?files:0;
+        if(expected!=null&&required==0)throw new UnsupportedOperationException("Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
+        if(groups>1||files>1||(groups>0&&!org.workflowsim.data.NetworkLedgerCodec.ARTIFACT_ROLE.equals(expected))||(files>0&&!org.workflowsim.data.v2.FileLifecycleCodec.ARTIFACT_ROLE.equals(expected)))throw new IllegalArgumentException("Network evidence artifact roles disagree with recording configuration");
+        if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2()!=(report.getDataflowPlan()!=null))throw new IllegalArgumentException("V2 core file plan presence disagrees with model");
     }
 
     /** Minimal no-I/O context for the same preflight checks used by artifact readers. */
@@ -42,6 +44,12 @@ public final class ExperimentManifestWriter {
         Map<String,Object> result=new LinkedHashMap<String,Object>();
         result.put("simulationEndSeconds",report.getSimulationEndSeconds());result.put("jobs",report.getJobs());
         result.put("actualVmHostAssignments",report.getActualVmHostAssignments());root.put("result",result);return root;
+    }
+
+    /** No-I/O V2 context; uses the same frozen report rather than rereading a manifest path. */
+    static Map<String,Object> fileLifecycleContextSnapshot(SimulationReport report){
+        Map<String,Object> root=new LinkedHashMap<String,Object>();root.put("configuration",configuration(report.getConfig()));root.put("platform",platform(report.getPlatform()));
+        root.put("workflowGraph",report.getWorkflowGraph());root.put("dataflowPlan",report.getDataflowPlan());root.put("result",result(report));return root;
     }
 
     /**
@@ -111,6 +119,7 @@ public final class ExperimentManifestWriter {
         manifest.put("inputs", inputs(report));
         manifest.put("workflowProfile", report.getWorkflowProfile());
         manifest.put("workflowGraph", report.getWorkflowGraph());
+        if(report.getConfig().getDataMovementModel().isCoherentFileDataflowV2())manifest.put("dataflowPlan",report.getDataflowPlan());
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
         manifest.put("events", eventSummary(report));
@@ -219,12 +228,17 @@ public final class ExperimentManifestWriter {
                 return "FLUID_MAX_MIN_PROGRESSIVE_FILLING_VM_ENDPOINTS_V2";
             case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1:
                 return "FLUID_MAX_MIN_PROGRESSIVE_FILLING_VM_ENDPOINTS_AND_FAT_TREE_LINKS_V2";
+            case COHERENT_FILE_DATAFLOW_V2:
+                return "COHERENT_FILES_CHECKED_SHARED_MAX_MIN_V2";
+            case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:
+                return "COHERENT_FILES_ISOLATED_PATH_BOTTLENECK_V2";
             default:
                 throw new IllegalArgumentException("Unknown data movement model " + model.getKind());
         }
     }
 
     static String transferStartSemantics(DataMovementModel model) {
+        if(model.isCoherentFileDataflowV2())return "DEPENDENCY_READY_AT_OBSERVATION_V2;PER_FILE_SETTLEMENT_OBSERVATION_V2;COALESCED_FILE_DESTINATION";
         if (model.isPreExecutionTransferDelayV1()) {
             return "PARENT_FINISH_BASED_ARRIVAL_ESTIMATE;EXTERNAL_AT_JOB_READY";
         }

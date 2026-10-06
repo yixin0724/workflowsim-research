@@ -81,6 +81,8 @@ public final class DataTransferFabric {
     }
     /** @return immutable typed known locations */ public Set<DataLocation> getLocations(){return locations;}
     /** @return immutable normal finite capacities in bytes/s; SOURCE is explicitly absent */ public Map<String,Double> getResourceCapacities(){return capacities;}
+    /** @return frozen actual VM host mapping, empty in endpoint-only mode */ public Map<Integer,Integer> getActualVmHosts(){return hosts;}
+    /** @return immutable physical routing view, or null for endpoint-only mode */ public FatTreeTopology getTopology(){return topology;}
 
     /**
      * Compute the path once from the actual selected source and actual VM placements.

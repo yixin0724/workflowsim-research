@@ -2,9 +2,11 @@
 
 ## 当前实现边界
 
-NF003从独立纯组件开始，不向现有`DataMovementModel.Kind`提前加入可运行但未接线的枚举。旧五个模型、`is*V1`判定、V1组级账本、旧研究参数和黄金结果保持原义。
+NF003先独立验证A1/A2/A3组件，再由NF003B接入真实Kernel与独立证据闭环。当前已开放`COHERENT_FILE_DATAFLOW_V2`和`COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2`两个新Kind。旧五个模型、`is*V1`判定、V1组级账本、旧研究参数和黄金结果保持原义。
 
-A1新增[逻辑文件计划](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowFilePlan.java>)，A2新增时间化副本状态与复制票据，A3新增冻结的实际来源/路径选择。它们不是仿真模型开关，不会自动改变当前运行的来源、传输或副本目录。后续组件必须先独立通过验收，最后才开放完整的新模型/证据版本。
+[逻辑文件计划](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowFilePlan.java>)、时间化副本状态和冻结来源/路径由[运行协调器](<../../simulator/src/main/java/org/workflowsim/data/v2/CoherentDataflowRuntime.java>)统一管理。新模型通过SimulationRunner及Workbench运行、独立文件生命周期侧车导出、Java/Python校验、rerun和专用离线报告连接起来；不是给旧执行路径换标签。
+
+初始支持矩阵是RANDOM静态映射、STATIC派发、LOCAL、NONE聚类（每Job一个逻辑Task）、无开销和受控NOOP重试。平台可无拓扑或使用Fat-tree；Java运行器在构建前限定偶数k为2..32，Workbench保留原2..16限额。容量与时间在V2检查路径上要求可表示，违反数值支持域会原子拒绝。共享与独立服务保留相同的单流路径约束及生命周期规则。
 
 ## A1：深冻结的逻辑文件与生产者索引
 
@@ -24,7 +26,7 @@ A1允许纯空计划/空Task选择；这不放宽现有仿真入口对合法工�
 
 ## A2：带出处与观察时刻的副本状态
 
-[副本状态组件](<../../simulator/src/main/java/org/workflowsim/data/v2/DataReplicaState.java>)和[类型化位置](<../../simulator/src/main/java/org/workflowsim/data/v2/DataLocation.java>)独立于旧ReplicaCatalog；当前仍未接入运行模型。
+[副本状态组件](<../../simulator/src/main/java/org/workflowsim/data/v2/DataReplicaState.java>)和[类型化位置](<../../simulator/src/main/java/org/workflowsim/data/v2/DataLocation.java>)独立于旧ReplicaCatalog；由V2运行协调器调用，不改变旧模型目录行为。
 
 - VM与SOURCE是不同类型的身份，SOURCE标签不能伪装成VM ID。初始化已知位置集合后，未知位置不能默认为有效持有者。
 - 每个副本保存最早可见时刻、当前获取方式、根生产Task/Job尝试/实际位置/发布观察，以及直接复制来源与票据编号。重复成功尝试不覆盖已有副本的最早出处。
@@ -42,10 +44,10 @@ A1允许纯空计划/空Task选择；这不放宽现有仿真入口对合法工�
 - 端点容量输入单位为B/s；Fat-tree适配器使用已构造的不可变拓扑和实际VM→Host映射，资源次序为源VM、拓扑链路、目标VM。不同VM即使同Host，也包含两个端点约束。
 - SOURCE输入在NF003明确不设汇聚容量且不经过fabric；未知来源或物理资源拒绝。到SOURCE的输出路径未在A3开放，属于NF004。
 - 当前纯视图支持正normal有限binary64容量；所选正传输独立秒数与绝对完成预测必须有限且推进时钟。不将下溢当零传输、不为数值问题改选更慢来源。
-- **这些检查不是共享求解器的数值有效性证书**。后续驱动仍须验证活动共享、实际服务及完成；调用者也必须在构造原FatTreeTopology前完成新模型所需的安全尺寸/参数预检。
-- 无共享机理测试用不同逻辑文件，在同一个共享引擎与各自独立单流引擎中使用相同冻结路径和容量；尚未作为新的SimulationConfig无共享运行选项开放。
+- **这些单流检查本身不是共享求解器证书**。V2驱动另行检查每次活动共享分配、有限速率面积、结算残余与未来时刻，并用事务化暂存处理失败；在构建原FatTreeTopology前也有新模型安全尺寸/容量预检。
+- 无共享机理测试先用不同逻辑文件和相同路径/容量验证；现已通过独立Kind接入同一个Kernel生命周期，只在跨流共享开关上不同，不移除单流瓶颈。
 
-运行接线将使用这些显式状态和决策，而不是给旧站点字符串增加猜测含义。
+运行接线使用这些显式状态和决策，而不是给旧站点字符串增加猜测含义。
 
 1. 区分逻辑生产者与发布副本的Job尝试；只在实际完成后的成功Task输出发布点登记，位置来自实际Job VM，不读提交时预测的Task.finishTime。
 2. 每个文件副本都有可见时刻。目标副本必须在该文件实际结算时才可见，不能等整个Job所有输入完成后一起冒充同时到达。
@@ -86,8 +88,10 @@ A1当前验收：13项纯组件测试（含12000节点深链）与6项真实解�
 
 A2当前验收：18项状态/出处/复制/零字节/快照测试，与A1和旧记录配置合计49项定向通过；完整Java/Javadoc1205项通过，旧五模型OFF仍全部IDENTICAL_CORE。最大有限时钟无法承载未来正复制、同Job不同Task矛盾发布位置两个反例先实际失败，再补上原子拒绝及Job级位置/观察时刻绑定。
 
-A3当前验收：13项实际来源/路径/孤立估计/机理对照测试，连同A1/A2及锁定V1反例共58项定向通过；干净Java/Javadoc1218项、Python30＋11项通过，旧五模型OFF仍全部IDENTICAL_CORE。5 MB文件选择VM42的10 MB/s副本后按VM42路径计费；加入2 MB/s链路的独立时间为2.5秒。完整运行模型与新证据仍待下一步接线。
+A3当前验收：13项实际来源/路径/孤立估计/机理对照测试，连同A1/A2及锁定V1反例共58项定向通过；干净Java/Javadoc1218项、Python30＋11项通过，旧五模型OFF仍全部IDENTICAL_CORE。5 MB文件选择VM42的10 MB/s副本后按VM42路径计费；加入2 MB/s链路的独立时间为2.5秒。该阶段仅验证纯组件；后续NF003B已完成运行与新证据接线。
 
 A1–A3的独立检出c78a06f也完成Java/Javadoc与P0回归门禁：共收集1218个Java用例，1216个执行通过，仅2项依赖未提供历史归档的可选兼容测试明确跳过；所有必跑测试通过。Python30＋11项、18个新网络输入、21组原离线报告和6组验证器反例也通过。这里验证的是新纯组件及旧能力不回归，不是尚未开放的新运行模型。
+
+NF003B已完成最小端到端：标准Runner/Workbench、共享与独立路径瓶颈、逐文件状态/重试/CPU屏障、独立文件生命周期侧车和主事件交叉校验、Python、重建重放及专用安全报告。首版证书只证明生命周期，不提供没有记录的逐区间服务面积；不足预算必须在I/O前拒绝导出。最近完整Java/Javadoc1307项、Python95项、28个V2跨语言入口和42组浏览器/12组反例通过；真实Kernel缓存来源与同目标合并另有新增定向验证。格式与当前事务复制性能后续见[生命周期证据](<FILE_LIFECYCLE_V2_FORMAT.md>)。
 
 每项先有测试，立即运行定向/集成门禁后再继续。旧[V1来源不一致测试](<../../simulator/src/test/java/org/workflowsim/NetworkEvidenceDatacenterTest.java>)应继续通过，不把更正新语义作为覆盖旧科学结果的理由。

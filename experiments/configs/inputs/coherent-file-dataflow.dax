@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag version="3.3" name="synthetic-coherent-file-dataflow">
+  <!-- Synthetic lifecycle example, not a calibrated scientific workflow. -->
+  <job id="produce" name="produce" runtime="1">
+    <uses file="external" link="input" size="0.5"/>
+    <uses file="fast" link="output" size="2000000"/>
+    <uses file="slow" link="output" size="8000000"/>
+  </job>
+  <job id="fanin" name="fanin" runtime="1">
+    <uses file="fast" link="input" size="2000000"/>
+    <uses file="slow" link="input" size="8000000"/>
+  </job>
+  <job id="gate" name="control-delay" runtime="15"/>
+  <job id="reuse" name="later-file-demand" runtime="1">
+    <uses file="fast" link="input" size="2000000"/>
+  </job>
+  <child ref="fanin"><parent ref="produce"/></child>
+  <child ref="gate"><parent ref="produce"/></child>
+  <child ref="reuse"><parent ref="produce"/><parent ref="gate"/></child>
+</adag>

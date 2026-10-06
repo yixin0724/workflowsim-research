@@ -82,14 +82,15 @@ public final class DataflowFilePlan {
     private final Map<Integer,Integer> workflowIndices;
     private final Map<Integer,Map<FileId,Long>> inputs;
     private final Map<Integer,List<FileId>> outputs;
+    private final Map<Integer,List<Integer>> parents;
     private final Map<FileId,FileDefinition> byId;
     private final List<FileDefinition> files;
     private DataflowFilePlan(Map<Integer,Node> nodes,Map<FileId,FileBuilder> declarations){
-        taskIds=immutableList(nodes.keySet());Map<Integer,Integer> scopes=new TreeMap<>();Map<Integer,Map<FileId,Long>> inputRows=new TreeMap<>();Map<Integer,List<FileId>> outputRows=new TreeMap<>();
+        taskIds=immutableList(nodes.keySet());Map<Integer,Integer> scopes=new TreeMap<>();Map<Integer,Map<FileId,Long>> inputRows=new TreeMap<>();Map<Integer,List<FileId>> outputRows=new TreeMap<>();Map<Integer,List<Integer>> parentRows=new TreeMap<>();
         for(Node node:nodes.values()){
-            scopes.put(node.id,node.workflow);inputRows.put(node.id,Collections.unmodifiableMap(new TreeMap<>(node.inputs)));outputRows.put(node.id,immutableList(node.outputs));
+            scopes.put(node.id,node.workflow);inputRows.put(node.id,Collections.unmodifiableMap(new TreeMap<>(node.inputs)));outputRows.put(node.id,immutableList(node.outputs));parentRows.put(node.id,immutableList(node.parents));
         }
-        workflowIndices=Collections.unmodifiableMap(scopes);inputs=Collections.unmodifiableMap(inputRows);outputs=Collections.unmodifiableMap(outputRows);
+        workflowIndices=Collections.unmodifiableMap(scopes);inputs=Collections.unmodifiableMap(inputRows);outputs=Collections.unmodifiableMap(outputRows);parents=Collections.unmodifiableMap(parentRows);
         Map<FileId,FileDefinition> resolved=new TreeMap<>();for(FileBuilder file:declarations.values())resolved.put(file.id,new FileDefinition(file));
         byId=Collections.unmodifiableMap(resolved);files=immutableList(resolved.values());
     }
@@ -138,6 +139,8 @@ public final class DataflowFilePlan {
     /** @return sorted logical IDs; no Job attempt IDs are stored */ public List<Integer> getTaskIds(){return taskIds;}
     /** @return immutable Task to workflow-input index map */ public Map<Integer,Integer> getTaskWorkflowIndices(){return workflowIndices;}
     /** @return immutable scoped-key-ordered logical objects */ public List<FileDefinition> getFiles(){return files;}
+    /** @param taskId logical Task ID @return immutable direct control parents */
+    public List<Integer> getParentTaskIds(int taskId){List<Integer> row=parents.get(taskId);if(row==null)throw bad("Unknown logical Task ID "+taskId);return row;}
     /**
      * @param id scoped identity
      * @return its definition

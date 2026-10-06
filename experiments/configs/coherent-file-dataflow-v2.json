@@ -1,0 +1,17 @@
+{
+  "schema": "workflowsim-workbench-v1",
+  "name": "V2逐文件生命周期：共享资源",
+  "workflowPaths": ["inputs/coherent-file-dataflow.dax"],
+  "platform": {
+    "vmMips": [1000, 1000, 1000, 1000],
+    "bandwidthMbPerSecond": 1,
+    "networkTopology": {"k": 4, "linkBandwidthMbPerSecond": 0.5}
+  },
+  "simulation": {
+    "fileSystem": "LOCAL",
+    "dataMovementModel": "COHERENT_FILE_DATAFLOW_V2",
+    "networkEvidence": {"mode": "FILE_LIFECYCLE_V2", "maxTraceRecords": 20000}
+  },
+  "algorithms": [{"id": "random-static", "planner": "RANDOM", "scheduler": "STATIC"}],
+  "seeds": [1]
+}

@@ -1,5 +1,6 @@
 package org.workflowsim.data;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -31,15 +32,33 @@ import java.util.Map;
  */
 public final class TransferContentionEngine {
 
+    /** Always-available completion clocks for the explicitly checked V2 service path, not a trace record. */
+    public static final class CompletionObservation {
+        private final long transferId;
+        private final double effectiveTime,observedTime,remainingAfterService;
+        private CompletionObservation(long id,double effective,double observed,double remaining){transferId=id;effectiveTime=effective;observedTime=observed;remainingAfterService=remaining;}
+        /** @return completed caller identity */ public long getTransferId(){return transferId;}
+        /** @return internal fluid settlement time */ public double getEffectiveTime(){return effectiveTime;}
+        /** @return outer advance observation */ public double getObservedTime(){return observedTime;}
+        /** @return pre-settlement numerical balance residual, not traffic */ public double getRemainingAfterService(){return remainingAfterService;}
+    }
+
     /** 一次 {@link #advance} 调用的结算结果。 */
     public static final class AdvanceResult {
         private final List<Long> completedTransferIds;
         private final Double nextCompletionTime;
+        private final List<CompletionObservation> completionObservations;
 
         private AdvanceResult(List<Long> completedTransferIds, Double nextCompletionTime) {
+            this(completedTransferIds,nextCompletionTime,Collections.<CompletionObservation>emptyList());
+        }
+        private AdvanceResult(List<Long> completedTransferIds, Double nextCompletionTime,List<CompletionObservation> observations) {
             this.completedTransferIds = completedTransferIds;
             this.nextCompletionTime = nextCompletionTime;
+            this.completionObservations=Collections.unmodifiableList(observations);
         }
+        /** @return immutable checked-V2 completion clocks; empty for original constructors */
+        public List<CompletionObservation> getCompletionObservations(){return completionObservations;}
 
         /** 本次推进中完成的传输 ID：按完成时点排列，同刻按插入顺序排列。 */
         public List<Long> getCompletedTransferIds() {
@@ -62,6 +81,7 @@ public final class TransferContentionEngine {
         private final double nominalRateBytesPerSecond;
         private double remainingBytes;
         private double rateBytesPerSecond;
+        private double coherentAdmissionTime;
 
         // Enabled-only primitive bookkeeping; OFF allocates no per-flow trace object.
         private long traceAdmissionOrdinal;
@@ -155,6 +175,8 @@ public final class TransferContentionEngine {
     private final Map<Long, Transfer> activeTransfers = new LinkedHashMap<Long, Transfer>();
     private double lastAdvanceTime = 0.0;
     private final TraceState traceState;
+    private final boolean coherentChecked;
+    private final boolean shareResources;
 
     /** Construct the original, history-free engine with capture disabled. */
     public TransferContentionEngine() { this(0); }
@@ -170,11 +192,41 @@ public final class TransferContentionEngine {
      * @param maxTraceEvents zero disables capture; positive values bound retained events
      * @throws IllegalArgumentException if the budget is negative
      */
-    public TransferContentionEngine(int maxTraceEvents) {
-        if (maxTraceEvents < 0) {
-            throw new IllegalArgumentException("Trace event budget cannot be negative: " + maxTraceEvents);
+    public TransferContentionEngine(int maxTraceEvents) { this(maxTraceEvents,false,true); }
+
+    private TransferContentionEngine(int budget,boolean checked,boolean sharing){
+        if(budget<0)throw new IllegalArgumentException("Trace event budget cannot be negative: "+budget);
+        traceState=budget==0?null:new TraceState(budget);coherentChecked=checked;shareResources=sharing;
+    }
+
+    /**
+     * Checked transactional V2 service, without optional history. Only inter-flow sharing differs
+     * between modes; isolated service still enforces each route's single-flow bottlenecks.
+     * @param sharing whether physical resources are shared between flows
+     * @return independent checked service engine
+     */
+    public static TransferContentionEngine coherentV2(boolean sharing){return new TransferContentionEngine(0,true,sharing);}
+
+    /** @return current committed service clock without advancing it */
+    public double getCurrentTime(){return lastAdvanceTime;}
+
+    /** @return deep independent service-state copy; immutable retained trace DTOs may be shared */
+    public TransferContentionEngine fork(){
+        TransferContentionEngine copy=new TransferContentionEngine(traceState==null?0:traceState.maxEvents,coherentChecked,shareResources);
+        copy.endpointCapacitiesBytesPerSecond.putAll(endpointCapacitiesBytesPerSecond);copy.lastAdvanceTime=lastAdvanceTime;
+        for(Map.Entry<Long,Transfer> entry:activeTransfers.entrySet()){
+            Transfer old=entry.getValue(),fresh=new Transfer(old.bytes,new ArrayList<String>(old.occupiedResources),old.nominalRateBytesPerSecond);
+            fresh.remainingBytes=old.remainingBytes;fresh.rateBytesPerSecond=old.rateBytesPerSecond;fresh.coherentAdmissionTime=old.coherentAdmissionTime;fresh.traceAdmissionOrdinal=old.traceAdmissionOrdinal;
+            fresh.tracePreviousRate=old.tracePreviousRate;fresh.traceRemainingBefore=old.traceRemainingBefore;fresh.traceRemainingAfterService=old.traceRemainingAfterService;
+            copy.activeTransfers.put(entry.getKey(),fresh);
         }
-        traceState = maxTraceEvents == 0 ? null : new TraceState(maxTraceEvents);
+        if(traceState!=null){copy.traceState.events.addAll(traceState.events);copy.traceState.droppedCount=traceState.droppedCount;copy.traceState.nextAdmissionOrdinal=traceState.nextAdmissionOrdinal;copy.traceState.intervalStart=traceState.intervalStart;}
+        return copy;
+    }
+
+    private void commitChecked(TransferContentionEngine staged){
+        // Only the new history-free checked path commits staged transitions. V1 never enters here.
+        activeTransfers.clear();activeTransfers.putAll(staged.activeTransfers);lastAdvanceTime=staged.lastAdvanceTime;
     }
 
     /**
@@ -229,6 +281,7 @@ public final class TransferContentionEngine {
         if (!activeTransfers.isEmpty()) {
             throw new IllegalStateException("Cannot change capacity while transfers are active");
         }
+        if(coherentChecked&&capacityBytesPerSecond<Double.MIN_NORMAL)throw unsupported("Subnormal physical capacity");
         endpointCapacitiesBytesPerSecond.put(endpoint, capacityBytesPerSecond);
         if (traceState != null) {
             traceState.capacity(endpoint, capacityBytesPerSecond, lastAdvanceTime);
@@ -303,6 +356,11 @@ public final class TransferContentionEngine {
      */
     public AdvanceResult addTransfer(long transferId, double bytes, List<String> occupiedResources,
             double nominalRateBytesPerSecond, double now) {
+        if(coherentChecked){TransferContentionEngine staged=fork();AdvanceResult result=staged.addInternal(transferId,bytes,occupiedResources,nominalRateBytesPerSecond,now);commitChecked(staged);return result;}
+        return addInternal(transferId,bytes,occupiedResources,nominalRateBytesPerSecond,now);
+    }
+
+    private AdvanceResult addInternal(long transferId,double bytes,List<String> occupiedResources,double nominalRateBytesPerSecond,double now){
         if (activeTransfers.containsKey(transferId)) {
             throw new IllegalArgumentException("Duplicate transfer id: " + transferId);
         }
@@ -325,9 +383,15 @@ public final class TransferContentionEngine {
                 throw new IllegalArgumentException("Occupied resource keys cannot contain null");
             }
         }
-        AdvanceResult result = advance(now);
+        if(coherentChecked){
+            if(nominalRateBytesPerSecond<Double.MIN_NORMAL||occupiedResources.isEmpty())throw unsupported("Positive service requires a normal nominal rate and physical path");
+            for(String resource:occupiedResources)if(!endpointCapacitiesBytesPerSecond.containsKey(resource))throw unsupported("Unknown physical resource: "+resource);
+            double finish=now+nominalDuration;if(!Double.isFinite(finish)||finish<=now)throw unsupported("Unrepresentable absolute isolated finish");
+        }
+        AdvanceResult result = advanceInternal(now);
         activeTransfers.put(transferId, new Transfer(bytes,
                 new ArrayList<String>(occupiedResources), nominalRateBytesPerSecond));
+        if(coherentChecked)activeTransfers.get(transferId).coherentAdmissionTime=now;
         if (traceState != null) {
             activeTransfers.get(transferId).traceAdmissionOrdinal = traceState.nextAdmissionOrdinal++;
             captureCurrentRates();
@@ -338,7 +402,7 @@ public final class TransferContentionEngine {
             traceState.start(transferId, admitted, now);
             recordRateChanges(now, admitted);
         }
-        return new AdvanceResult(result.getCompletedTransferIds(), earliestCompletion(now));
+        return new AdvanceResult(result.getCompletedTransferIds(), earliestCompletion(now),result.getCompletionObservations());
     }
 
     /**
@@ -348,11 +412,18 @@ public final class TransferContentionEngine {
      * @return 完成的传输 ID 列表与剩余传输的最早预测完成时刻
      */
     public AdvanceResult advance(double now) {
+        if(coherentChecked){TransferContentionEngine staged=fork();AdvanceResult result=staged.advanceInternal(now);commitChecked(staged);return result;}
+        return advanceInternal(now);
+    }
+
+    private AdvanceResult advanceInternal(double now){
         if (!Double.isFinite(now) || now < lastAdvanceTime) {
             throw new IllegalArgumentException("Time must be finite and not move backwards: " + now
                     + " < " + lastAdvanceTime);
         }
         List<Long> completed = new ArrayList<Long>();
+        List<CompletionObservation> observations=coherentChecked?new ArrayList<CompletionObservation>():Collections.<CompletionObservation>emptyList();
+        if(coherentChecked)checkCoherentState();
         while (!activeTransfers.isEmpty() && lastAdvanceTime < now) {
             double nextDuration = Double.POSITIVE_INFINITY;
             Transfer earliest = null;
@@ -364,12 +435,14 @@ public final class TransferContentionEngine {
                 }
             }
             double elapsed = Math.min(now - lastAdvanceTime, nextDuration);
+            if(coherentChecked&&(!(elapsed>0)||!Double.isFinite(elapsed)||lastAdvanceTime+elapsed<=lastAdvanceTime))throw unsupported("Service step cannot advance the finite binary64 clock");
             if (traceState != null) { traceState.intervalStart = lastAdvanceTime; }
             for (Transfer transfer : activeTransfers.values()) {
                 if (traceState != null) { transfer.traceRemainingBefore = transfer.remainingBytes; }
+                if(coherentChecked&&!Double.isFinite(transfer.rateBytesPerSecond*elapsed))throw unsupported("Service rate-area multiplication overflow");
                 transfer.remainingBytes = Math.max(0.0,
                         transfer.remainingBytes - transfer.rateBytesPerSecond * elapsed);
-                if (traceState != null) { transfer.traceRemainingAfterService = transfer.remainingBytes; }
+                if (traceState != null||coherentChecked) { transfer.traceRemainingAfterService = transfer.remainingBytes; }
             }
             if (earliest != null && elapsed >= nextDuration) {
                 // Round-off in subtraction must not leave the actual earliest flow alive.
@@ -391,6 +464,7 @@ public final class TransferContentionEngine {
                     traceState.complete(id, activeTransfers.get(id), lastAdvanceTime, now);
                 }
             }
+            if(coherentChecked)for(Long id:settled){Transfer transfer=activeTransfers.get(id);checkCoherentCompletion(transfer,lastAdvanceTime);observations.add(new CompletionObservation(id,lastAdvanceTime,now,transfer.traceRemainingAfterService));}
             for (Long id : settled) { activeTransfers.remove(id); }
             completed.addAll(settled);
             if (!settled.isEmpty()) {
@@ -403,7 +477,8 @@ public final class TransferContentionEngine {
             }
         }
         lastAdvanceTime = now;
-        return new AdvanceResult(completed, earliestCompletion(now));
+        if(coherentChecked)checkCoherentState();
+        return new AdvanceResult(completed, earliestCompletion(now),observations);
     }
 
     /** 当前活动传输数量。 */
@@ -452,6 +527,15 @@ public final class TransferContentionEngine {
 
     /** Progressive filling：回收已受其他瓶颈限制的流所留下的容量。 */
     private void recomputeRates() {
+        if(coherentChecked&&!shareResources){
+            for(Transfer transfer:activeTransfers.values()){
+                double rate=transfer.nominalRateBytesPerSecond;Map<String,Integer> weights=new LinkedHashMap<String,Integer>();
+                for(String key:transfer.occupiedResources){Integer count=weights.get(key);weights.put(key,count==null?1:count+1);}
+                for(Map.Entry<String,Integer> entry:weights.entrySet())rate=Math.min(rate,endpointCapacitiesBytesPerSecond.get(entry.getKey())/entry.getValue());
+                transfer.rateBytesPerSecond=rate;
+            }
+            checkCoherentState();return;
+        }
         List<Transfer> growing = new ArrayList<Transfer>(activeTransfers.values());
         Map<String, FillResource> resources = new LinkedHashMap<String, FillResource>();
         for (Transfer transfer : growing) {
@@ -510,7 +594,42 @@ public final class TransferContentionEngine {
                 throw new IllegalStateException("Effective transfer rate must remain positive and finite");
             }
         }
+        if(coherentChecked)checkCoherentState();
     }
+
+    /** Checked V2 invariants use active state, never the optional history buffer. */
+    private void checkCoherentState(){
+        Map<String,BigDecimal> totals=new LinkedHashMap<String,BigDecimal>();Map<String,Long> terms=new LinkedHashMap<String,Long>();
+        for(Transfer transfer:activeTransfers.values()){
+            double rate=transfer.rateBytesPerSecond,remaining=transfer.remainingBytes;
+            if(!Double.isFinite(rate)||rate<Double.MIN_NORMAL||rate>transfer.nominalRateBytesPerSecond||!Double.isFinite(remaining)||remaining<=0||remaining>transfer.bytes)throw unsupported("Invalid active flow balance or normal allocation");
+            double duration=remaining/rate,finish=lastAdvanceTime+duration;
+            if(!Double.isFinite(duration)||duration<=0||!Double.isFinite(finish)||finish<=lastAdvanceTime)throw unsupported("Active completion prediction is not representable");
+            Map<String,BigDecimal> single=new LinkedHashMap<String,BigDecimal>();Map<String,Long> singleTerms=new LinkedHashMap<String,Long>();
+            for(String key:transfer.occupiedResources){
+                Double cap=endpointCapacitiesBytesPerSecond.get(key);if(cap==null||!Double.isFinite(cap)||cap<Double.MIN_NORMAL)throw unsupported("Unregistered or unsupported physical capacity");
+                addRate(single,singleTerms,key,rate);if(shareResources)addRate(totals,terms,key,rate);
+            }
+            for(String key:single.keySet())checkCapacity(single.get(key),endpointCapacitiesBytesPerSecond.get(key),singleTerms.get(key));
+        }
+        if(shareResources)for(String key:totals.keySet())checkCapacity(totals.get(key),endpointCapacitiesBytesPerSecond.get(key),terms.get(key));
+    }
+    private static void checkCoherentCompletion(Transfer transfer,double effective){
+        double residual=transfer.traceRemainingAfterService,tolerance=Math.min(transfer.bytes*.5,Math.max(transfer.bytes*1e-9,4*Math.ulp(transfer.bytes)));
+        if(!Double.isFinite(residual)||residual<0||residual>tolerance||effective<=transfer.coherentAdmissionTime)throw unsupported("Invalid numerical completion settlement");
+        double lower=transfer.coherentAdmissionTime+(transfer.bytes-residual)/transfer.nominalRateBytesPerSecond;
+        double allowed=Math.min(8*Math.max(Math.ulp(transfer.coherentAdmissionTime),Math.max(Math.ulp(effective),Math.ulp(lower))),1e-12*Math.max(transfer.coherentAdmissionTime,Math.max(effective,lower)));
+        if(!Double.isFinite(lower)||(lower>effective&&lower-effective>allowed))throw unsupported("Completion violates isolated-rate scalar lower bound");
+    }
+    private static void addRate(Map<String,BigDecimal> totals,Map<String,Long> terms,String key,double rate){
+        BigDecimal previous=totals.get(key);totals.put(key,(previous==null?BigDecimal.ZERO:previous).add(new BigDecimal(rate)));
+        Long count=terms.get(key);terms.put(key,count==null?1:Math.addExact(count,1));
+    }
+    private static void checkCapacity(BigDecimal sum,double capacity,long count){
+        BigDecimal cap=new BigDecimal(capacity);BigDecimal tolerance=new BigDecimal(Math.ulp(capacity)).multiply(BigDecimal.valueOf(8)).multiply(BigDecimal.valueOf(count+1)).min(cap.multiply(new BigDecimal("1e-12")));
+        if(sum.compareTo(cap.add(tolerance))>0)throw unsupported("Allocation exceeds the declared scalar capacity profile");
+    }
+    private static IllegalArgumentException unsupported(String message){return new IllegalArgumentException("Unsupported coherent V2 service state: "+message);}
 
     /** 剩余活动传输的最早预测完成时刻；无活动传输返回 null。 */
     private Double earliestCompletion(double now) {

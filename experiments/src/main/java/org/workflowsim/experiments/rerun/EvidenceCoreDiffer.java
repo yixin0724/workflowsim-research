@@ -105,6 +105,11 @@ public final class EvidenceCoreDiffer {
                     rerun.getNetworkLedgerPath()==null?null:readNetworkJson(rerun.getNetworkLedgerPath()),false,core,volatileNoted);
         }
 
+        if(original.getFileLifecyclePath()!=null||rerun.getFileLifecyclePath()!=null){
+            compareJson("/fileLifecycle",original.getFileLifecyclePath()==null?null:readNetworkJson(original.getFileLifecyclePath()),
+                    rerun.getFileLifecyclePath()==null?null:readNetworkJson(rerun.getFileLifecyclePath()),false,core,volatileNoted);
+        }
+
         // manifest 内嵌 metrics 与 sidecar 是同一份核心量（工件校验器强制相等），
         // 两处比对会对同一分歧各记一条；按（指针, 旧值, 新值）精确去重。
         return new DiffResult(deduplicate(core), volatileNoted,

@@ -745,7 +745,23 @@ def inspect_path(path):
     path = Path(path).absolute(); doc = read_document(path)
     need(isinstance(doc, dict), "root must be an object")
     if doc.get("schema") == SCHEMA: return verify_document(doc)
-    need(doc.get("schema") == "workflowsim-experiment-manifest-v4", "only network ledger-v1 or manifest-v4 is supported")
+    # Lazy V2 dispatch only: the V1 document/context contracts below are unchanged.
+    if doc.get("schema") == "workflowsim-file-lifecycle-v2":
+        from _file_lifecycle_audit import verify_document as verify_file_lifecycle
+        return verify_file_lifecycle(doc)
+    config = doc.get("configuration")
+    model = config.get("dataMovementModel") if isinstance(config, dict) else None
+    recording = config.get("networkEvidence") if isinstance(config, dict) else None
+    artifacts = doc.get("artifacts")
+    coherent = isinstance(model, dict) and model.get("kind") in (
+        "COHERENT_FILE_DATAFLOW_V2", "COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2")
+    lifecycle_mode = isinstance(recording, dict) and recording.get("mode") == "FILE_LIFECYCLE_V2"
+    lifecycle_role = isinstance(artifacts, list) and any(
+        isinstance(item, dict) and item.get("role") == "file-lifecycle" for item in artifacts)
+    if coherent or lifecycle_mode or lifecycle_role or "dataflowPlan" in doc:
+        from _file_lifecycle_context import inspect_path as inspect_file_lifecycle_context
+        return inspect_file_lifecycle_context(path, doc)
+    need(doc.get("schema") == "workflowsim-experiment-manifest-v4", "only network ledger-v1, file lifecycle-v2 or manifest-v4 is supported")
     config, references = required(doc, "configuration"), {}
     for item in array(required(doc, "artifacts")):
         role, name = word(required(item, "role")), word(required(item, "path"))

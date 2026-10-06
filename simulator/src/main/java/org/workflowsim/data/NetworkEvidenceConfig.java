@@ -7,7 +7,9 @@ public final class NetworkEvidenceConfig {
         /** Preserve legacy wire output with no network evidence member or history. */
         OFF,
         /** Observe the existing parent/external-group fluid models. */
-        FLUID_GROUP_LEDGER_V1
+        FLUID_GROUP_LEDGER_V1,
+        /** Observe the dedicated per-file publication/request/settlement lifecycle, not V1 groups. */
+        FILE_LIFECYCLE_V2
     }
 
     private static final NetworkEvidenceConfig OFF = new NetworkEvidenceConfig(Mode.OFF, 0);
@@ -36,6 +38,14 @@ public final class NetworkEvidenceConfig {
         }
         return new NetworkEvidenceConfig(Mode.FLUID_GROUP_LEDGER_V1, maxTraceRecords);
     }
+
+    /**
+     * Enable bounded V2 lifecycle capture. The first export contract requires a complete capture;
+     * this is not a fluid service/rate accounting certificate.
+     * @param maxTraceRecords positive lifecycle-record budget
+     * @return immutable V2 recording policy
+     */
+    public static NetworkEvidenceConfig fileLifecycleV2(int maxTraceRecords){if(maxTraceRecords<=0)throw new IllegalArgumentException("File lifecycle record budget must be positive");return new NetworkEvidenceConfig(Mode.FILE_LIFECYCLE_V2,maxTraceRecords);}
 
     /** @return versioned recording mode */
     public Mode getMode() { return mode; }

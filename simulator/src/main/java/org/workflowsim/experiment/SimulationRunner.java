@@ -70,6 +70,12 @@ public final class SimulationRunner {
             planner.setPlanningContext(new PlanningContext(config, platform));
             planner.setTaskCostMatrix(config.getTaskCostMatrix());
             WorkflowEngine engine = planner.getWorkflowEngine();
+            org.workflowsim.data.v2.CoherentDataflowRuntime coherent=null;
+            if(config.getDataMovementModel().isCoherentFileDataflowV2()){
+                coherent=new org.workflowsim.data.v2.CoherentDataflowRuntime(config.getDataMovementModel().isCoherentShared(),
+                        config.getNetworkEvidenceConfig().getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2?config.getNetworkEvidenceConfig().getMaxTraceRecords():0);
+                planner.setCoherentDataflowRuntime(coherent);engine.setCoherentDataflowRuntime(coherent);datacenter.setCoherentDataflowRuntime(coherent,engine.getId());
+            }
             List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
             engine.submitVmList(vms, 0);
             engine.bindSchedulerDatacenter(datacenter.getId(), 0);
@@ -85,6 +91,7 @@ public final class SimulationRunner {
                         + engine.getInFlightJobCount() + " in-flight job(s): the event chain stalled "
                         + "silently and the run would produce incomplete evidence");
             }
+            if(coherent!=null&&!coherent.isQuiescent())throw new SimulationExecutionException("Simulation stopped before V2 file service and requested Jobs became quiescent");
             List<Job> completedJobs = engine.getJobsReceivedList();
             Map<Integer, Integer> actualVmHostAssignments = engine.getScheduler(0)
                     .getCreatedVmHostAssignments();
@@ -97,7 +104,8 @@ public final class SimulationRunner {
                 return SimulationReport.capture(config, platform, makespan,
                         planner.getWorkflowParser().getInputReports(), completedJobs, events.snapshot(),
                         planner.getParsedTaskSnapshot(), planner.getSharedStorageDagPlanTrace(),
-                        actualVmHostAssignments, datacenter.captureNetworkEvidence());
+                        actualVmHostAssignments, datacenter.captureNetworkEvidence(),datacenter.captureFileLifecycleEvidence(),
+                        coherent==null?null:coherent.getFilePlanDocument());
             } catch (IOException exception) {
                 throw new SimulationExecutionException(
                         "Simulation completed but its evidence record could not be created", exception);
@@ -174,12 +182,17 @@ public final class SimulationRunner {
      */
     private static org.workflowsim.network.FatTreeTopology prepareFatTreeTopology(
             SimulationConfig config, PlatformProfile platform) {
-        if (config.getDataMovementModel().isFatTreeContentionV1()) {
+        boolean coherent=config.getDataMovementModel().isCoherentFileDataflowV2();
+        if (config.getDataMovementModel().isFatTreeContentionV1()||(coherent&&platform.getNetworkTopology()!=null)) {
             if (platform.getNetworkTopology() == null) {
                 throw new SimulationConfigurationException(config.getDataMovementModel().getKind()
                         + " requires PlatformProfile.builder(...).networkTopology("
                         + "NetworkTopologySpec.fatTree(...)) so VM-to-VM transfers can be "
                         + "routed along deterministic fat-tree paths");
+            }
+            if(coherent){
+                int k=platform.getNetworkTopology().getK();double bytes=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;
+                if(k<2||k>32||k%2!=0||!Double.isFinite(bytes)||bytes<Double.MIN_NORMAL)throw new SimulationConfigurationException("Coherent V2 supports even Fat-tree k in [2,32] and normal finite converted B/s capacities");
             }
             List<Integer> hostIds = new java.util.ArrayList<Integer>();
             for (PlatformProfile.HostSpec host : platform.getHosts()) {

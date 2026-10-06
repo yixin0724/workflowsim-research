@@ -410,13 +410,7 @@ public final class SimulationConfig {
                     || dataMovementModel == null || networkEvidenceConfig == null) {
                 throw new IllegalArgumentException("Simulation configuration contains a required null value");
             }
-            if (networkEvidenceConfig.isEnabled()
-                    && !dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
-                    && !dataMovementModel.isFatTreeContentionV1()) {
-                throw new IllegalArgumentException("Enabled network evidence requires "
-                        + "preExecutionTransferDelayWithContentionV1() or fatTreeContentionV1(); "
-                        + "unsupported data movement model " + dataMovementModel.getKind());
-            }
+            org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(dataMovementModel,networkEvidenceConfig);
             if (workflowArrivalSeconds == null
                     || workflowArrivalSeconds.size() != workflowPaths.size()) {
                 throw new IllegalArgumentException("Workflow arrival seconds must cover every "
@@ -598,6 +592,11 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException(dataMovementModel.getKind()
                             + " requires OverheadModelConfig.none()");
                 }
+            }
+            if(dataMovementModel.isCoherentFileDataflowV2()){
+                if(planningAlgorithm!=PlanningAlgorithm.RANDOM||schedulingAlgorithm!=SchedulingAlgorithm.STATIC||fileSystem!=ReplicaCatalog.FileSystem.LOCAL
+                        ||clusteringParameters.getClusteringMethod()!=ClusteringParameters.ClusteringMethod.NONE||!isNoOverhead(overheadModel))
+                    throw new IllegalArgumentException("Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
             }
             return new SimulationConfig(this);
         }

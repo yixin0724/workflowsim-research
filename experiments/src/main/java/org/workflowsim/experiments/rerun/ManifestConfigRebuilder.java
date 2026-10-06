@@ -80,6 +80,7 @@ public final class ManifestConfigRebuilder {
             PlatformProfile platform = rebuildPlatform(platformSection);
             SimulationConfig config = rebuildConfiguration(configSection, inputs);
             verifyPreflightAssignments(platformSection, platform);
+            if(config.getDataMovementModel().isCoherentFileDataflowV2()&&platform.getNetworkTopology()!=null){int k=platform.getNetworkTopology().getK();double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(k>32||!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("Unsupported V2 topology or converted capacity");}
             return new RebuiltConfiguration(config, platform);
         } catch (IllegalArgumentException | IllegalStateException | ClassCastException
                 | UnsupportedOperationException | SimulationConfigurationException e) {
@@ -243,7 +244,7 @@ public final class ManifestConfigRebuilder {
                         "dataMovementModel", "configuration.dataMovementModel")));
         // Historical v4 absence is explicitly OFF; a present extension must never be ignored.
         if(config.has("networkEvidence")){
-            builder.networkEvidence(org.workflowsim.data.NetworkLedgerCodec.decodeConfig(config.get("networkEvidence")));
+            builder.networkEvidence(org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
         }
         JsonElement taskCostMatrix = config.get("taskCostMatrix");
         if (taskCostMatrix != null && !taskCostMatrix.isJsonNull()) {
@@ -392,6 +393,8 @@ public final class ManifestConfigRebuilder {
             case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1:
                 model = DataMovementModel.fatTreeContentionV1();
                 break;
+            case COHERENT_FILE_DATAFLOW_V2:model=DataMovementModel.coherentFileDataflowV2();break;
+            case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:model=DataMovementModel.coherentFileDataflowNoContentionV2();break;
             default:
                 throw new IllegalArgumentException(
                         "Unsupported configuration.dataMovementModel.kind: " + kindName);

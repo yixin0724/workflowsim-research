@@ -43,6 +43,8 @@ public final class SimulationReport {
     private final SimulationMetrics metrics;
     private final SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
     private final NetworkRunEvidence networkEvidence;
+    private final transient org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence;
+    private final transient com.google.gson.JsonObject dataflowPlan;
     private final List<WorkflowOutcome> workflowOutcomes;
     private final List<TaskNode> workflowGraph;
 
@@ -51,7 +53,8 @@ public final class SimulationReport {
             List<JobOutcome> jobs, List<TaskOutcome> tasks, Map<Integer, VmSummary> vmSummaries,
             Map<Integer, Integer> actualVmHostAssignments, int successfulJobs, int failedJobs,
             List<SimulationEvent> events, List<Task> sourceTasks,
-            SharedStorageDagPlanTrace sharedStorageDagPlanTrace, NetworkRunEvidence networkEvidence) {
+            SharedStorageDagPlanTrace sharedStorageDagPlanTrace, NetworkRunEvidence networkEvidence,
+            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan) {
         this.config = config;
         this.platform = platform;
         this.makespan = makespan;
@@ -67,6 +70,7 @@ public final class SimulationReport {
         this.events = Collections.unmodifiableList(new ArrayList<>(events));
         this.sharedStorageDagPlanTrace = sharedStorageDagPlanTrace;
         this.networkEvidence = networkEvidence;
+        this.fileLifecycleEvidence=fileLifecycleEvidence;this.dataflowPlan=dataflowPlan==null?null:dataflowPlan.deepCopy();
         this.workflowProfile = WorkflowProfile.fromTasks(sourceTasks);
         Map<Integer, TaskNode> graph = new TreeMap<Integer, TaskNode>();
         for (Task task : sourceTasks) { graph.put(task.getCloudletId(), new TaskNode(task)); }
@@ -115,6 +119,12 @@ public final class SimulationReport {
             SharedStorageDagPlanTrace sharedStorageDagPlanTrace,
             Map<Integer, Integer> actualVmHostAssignments, NetworkRunEvidence networkEvidence)
             throws IOException {
+        return capture(config,platform,makespan,inputReports,completedJobs,events,sourceTasks,sharedStorageDagPlanTrace,actualVmHostAssignments,networkEvidence,null,null);
+    }
+
+    static SimulationReport capture(SimulationConfig config,PlatformProfile platform,double makespan,List<WorkflowInputReport> inputReports,List<Job> completedJobs,
+            List<SimulationEvent> events,List<Task> sourceTasks,SharedStorageDagPlanTrace sharedStorageDagPlanTrace,Map<Integer,Integer> actualVmHostAssignments,
+            NetworkRunEvidence networkEvidence,org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan)throws IOException{
         if (inputReports == null || inputReports.size() != config.getWorkflowPaths().size()) {
             throw new IllegalStateException("Completed simulation has "
                     + (inputReports == null ? 0 : inputReports.size())
@@ -167,7 +177,7 @@ public final class SimulationReport {
         return new SimulationReport(config, platform, makespan, inputs, inputReports,
                 jobs, tasks, vmSummaries, actualVmHostAssignments, successes, failures,
                 events == null ? Collections.<SimulationEvent>emptyList() : events, sourceTasks,
-                sharedStorageDagPlanTrace, networkEvidence);
+                sharedStorageDagPlanTrace, networkEvidence,fileLifecycleEvidence,dataflowPlan);
     }
 
     public SimulationConfig getConfig() { return config; }
@@ -266,6 +276,10 @@ public final class SimulationReport {
      * @return captured network evidence, or null when OFF
      */
     public NetworkRunEvidence getNetworkEvidence() { return networkEvidence; }
+    /** @return independent V2 lifecycle capture, null for OFF/V1 */
+    public org.workflowsim.data.v2.FileLifecycleEvidence getFileLifecycleEvidence(){return fileLifecycleEvidence;}
+    /** @return defensive V2 resolved-plan snapshot, null for old models */
+    public com.google.gson.JsonObject getDataflowPlan(){return dataflowPlan==null?null:dataflowPlan.deepCopy();}
     /**
      * 返回共享存储静态 DAG 规划的追踪记录。
      *

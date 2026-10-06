@@ -77,6 +77,10 @@ public final class WorkflowPlanner extends SimEntity {
     private SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
     /** 可选的任务×VM 异构执行成本矩阵；为 null 时平台保持 MI/mips 缩放。 */
     private org.workflowsim.utils.TaskCostMatrix taskCostMatrix;
+    private org.workflowsim.data.v2.CoherentDataflowRuntime coherentDataflow;
+
+    /** @param value run-owned V2 coordinator; installed before parsing */
+    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value){if(value==null||coherentDataflow!=null)throw new IllegalArgumentException("V2 runtime must be installed once");coherentDataflow=value;}
 
     /**
      * 创建一个使用单个运行时调度器的工作流规划实体。
@@ -181,6 +185,11 @@ public final class WorkflowPlanner extends SimEntity {
                 setTaskList(getWorkflowParser().getTaskList());
                 applyTaskCostMatrix();
                 validateFailureModelCoverage();
+                if(coherentDataflow!=null){
+                    java.util.Set<org.workflowsim.data.v2.DataLocation> locations=new java.util.TreeSet<>();locations.add(org.workflowsim.data.v2.CoherentDataflowRuntime.SOURCE);
+                    for(org.cloudbus.cloudsim.Vm vm:getWorkflowEngine().getAllVmList())locations.add(org.workflowsim.data.v2.DataLocation.vm(vm.getId()));
+                    coherentDataflow.initializePlan(org.workflowsim.data.v2.DataflowFilePlan.capture(getTaskList(),getWorkflowParser().getTaskWorkflowIndices()),locations);
+                }
                 parsedTaskSnapshot = Collections.unmodifiableList(new ArrayList<Task>(getTaskList()));
                 eventRecorder.record(SimulationEventType.WORKFLOW_PARSED, CloudSim.clock(), null,
                         SimulationEventRecorder.attributes("taskCount", getTaskList().size(),

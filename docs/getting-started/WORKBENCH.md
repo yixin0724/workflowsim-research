@@ -45,7 +45,7 @@ HTML 内部显示行的 `seed` 使用精确十进制字符串，避免浏览器 
 
 未知字段、字符串冒充数字、小数整数、重复算法ID、跨决策层混比、无效模型组合、缺失输入、独立任务算法输入含边等会被拒绝。该入口当前针对无故障、无额外开销实验；故障/开销研究继续使用完整 Java API，不能用未知JSON字段悄然开启。RL_POLICY 也继续通过 Java `RlEnvironment` 接入外部策略；平台不训练模型。
 
-## 可选网络账本
+## 可选V1组级网络账本
 
 使用[启用记录的独立示例](<../../experiments/configs/network-ledger-comparison.json>)，或在已有配置的`simulation`中加入：
 
@@ -70,6 +70,26 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
   -Dexec.args="run experiments/configs/network-ledger-comparison.json output/workbench"
 ```
 
+## V2逐文件运行与生命周期证据
+
+使用新的[共享资源配置](<../../experiments/configs/coherent-file-dataflow-v2.json>)或[独立路径瓶颈配置](<../../experiments/configs/coherent-file-dataflow-isolated-v2.json>)。它们使用同一[合成输入](<../../experiments/configs/inputs/coherent-file-dataflow.dax>)、相同资源/映射种子/释放与可见性规则，仅改变跨流共享；不替换任何旧研究输入或黄金结果。
+
+```bash
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
+  -Dexec.args="run experiments/configs/coherent-file-dataflow-v2.json output/workbench-v2"
+```
+
+- 模型标签为`COHERENT_FILE_DATAFLOW_V2`或`COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2`。初始支持RANDOM＋STATIC、LOCAL、NONE聚类和无开销；现有LOCAL规划器不被自动认定为V2估计器。
+- 记录选项为`{"mode":"FILE_LIFECYCLE_V2","maxTraceRecords":20000}`。省略是OFF，预算是精确正int32；模型与模式必须匹配，不能搭配V1组账本。
+- V2记录实际源副本、原生产Task/Job尝试、所计路径、同目标合并、有效完成与观察可见，以及CPU输入屏障。它是**生命周期证书，不是逐区间服务面积/链路利用率证书**。
+- 首次V2导出仅接受完整捕获。预算不足不改变模拟轨迹，但在创建/替换证据文件前拒绝导出；Workbench记录失败，不产生伪完整侧车。不要将此与V1可显示的截断前缀混淆。
+- V2模型即使记录OFF，也在manifest保存核心`dataflowPlan`；旧模型OFF的原字段集合不变。V2 ON侧车角色是`file-lifecycle`，不会出现在旧`network-ledger`路径或旧getter中。
+- 正常run与独立report使用相同验证快照。V2面板只以精确文本显示有限预览；与V1、OFF、失败运行切换时清空旧数据，不重新请求侧车。
+- Java和[独立Python检查器](<../../scripts/verify-network-ledger.py>)均能验证V2完整bundle，rerun把`/fileLifecycle/...`全部作为核心量比较。SOURCE仍显式无限汇聚/绕过fabric，输出上传与网络感知在线分配是后续阶段。
+
+详细数据形状、数值支持域与证书边界见[生命周期格式](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)和[V2运行契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
+
 ## 历史与证据
 
 每次实验包含：
@@ -83,7 +103,8 @@ experiment-<UUID>/
     result.manifest.json   # v4完整条件与结果
     result.metrics.json
     result.events.jsonl
-    result.network-ledger.json  # 仅显式开启networkEvidence时存在
+    result.network-ledger.json  # 仅FLUID_GROUP_LEDGER_V1模式
+    result.file-lifecycle.json  # 仅FILE_LIFECYCLE_V2模式；与上项互斥
 ```
 
 逐运行证据写出后即调用核心验证器。运行失败会记录根因并继续其他方案，失败不进入完成时间排行榜；命令完成后若存在失败会以非零退出。进程被强制中断时，已完成运行保留，状态可能仍为RUNNING，可通过历史页面识别。文件采用同目录临时写入后原子替换；三件套不是跨文件事务，因此必须以最终校验通过为完整证据标准。

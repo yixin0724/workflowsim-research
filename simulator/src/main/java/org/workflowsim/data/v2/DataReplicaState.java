@@ -117,7 +117,7 @@ public final class DataReplicaState {
 
     private final DataflowFilePlan plan;
     private final Set<DataLocation> locations;
-    private final Object ticketOwner=new Object();
+    private final Object ticketOwner;
     private final Map<DataflowFilePlan.FileId,Map<DataLocation,Replica>> replicas=new TreeMap<>();
     private final Map<Long,CopyTicket> active=new TreeMap<>();
     private final Map<Target,CopyTicket> byTarget=new HashMap<>();
@@ -131,9 +131,16 @@ public final class DataReplicaState {
      * @param knownLocations distinct immutable typed locations; no capacity is implied
      */
     public DataReplicaState(DataflowFilePlan plan,Collection<DataLocation> knownLocations){
-        if(plan==null||knownLocations==null)throw bad("File plan and known locations are required");this.plan=plan;Set<DataLocation> copied=new TreeSet<>();
+        if(plan==null||knownLocations==null)throw bad("File plan and known locations are required");this.plan=plan;ticketOwner=new Object();Set<DataLocation> copied=new TreeSet<>();
         for(DataLocation location:knownLocations)if(location==null||!copied.add(location))throw bad("Locations must be nonnull and distinct");locations=Collections.unmodifiableSet(copied);
     }
+    private DataReplicaState(DataReplicaState previous){
+        plan=previous.plan;locations=previous.locations;ticketOwner=previous.ticketOwner;nextOrdinal=previous.nextOrdinal;observedThrough=previous.observedThrough;
+        for(Map.Entry<DataflowFilePlan.FileId,Map<DataLocation,Replica>> row:previous.replicas.entrySet())replicas.put(row.getKey(),new TreeMap<>(row.getValue()));
+        active.putAll(previous.active);byTarget.putAll(previous.byTarget);completions.putAll(previous.completions);jobObservations.putAll(previous.jobObservations);
+    }
+    /** Internal same-run speculative state; no copy is published until the runtime commits it. */
+    DataReplicaState fork(){return new DataReplicaState(this);}
     /** @return last accepted observation */ public double getObservedThrough(){return observedThrough;}
     /** @return accepted positive-copy count, not input-reference count */ public long getAdmittedCopyCount(){return nextOrdinal-1;}
     /** @return unique observed logical Task/Job-attempt pairs */ public long getCompletedTaskAttemptCount(){return completions.size();}

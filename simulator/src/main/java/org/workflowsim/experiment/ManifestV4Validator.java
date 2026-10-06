@@ -63,13 +63,13 @@ final class ManifestV4Validator {
         DataMovementModel model = readMovement(object(config, "dataMovementModel"));
         if(config.has("networkEvidence")){
             try {
-                org.workflowsim.data.NetworkLedgerCodec.decodeConfig(config.get("networkEvidence"));
-                if(!model.isPreExecutionTransferDelayWithContentionV1()&&!model.isFatTreeContentionV1())
-                    throw new IllegalArgumentException("Network recording requires a supported fluid model");
+                org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model,org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
             } catch(IllegalArgumentException invalid){throw new IOException("Invalid networkEvidence configuration",invalid);}
         }
         validateTopology(required(platform, "networkTopology"), model, hostIds);
         if (root.has("workflowGraph")) { validateGraph(root); }
+        if(model.isCoherentFileDataflowV2())FileLifecycleContextValidator.validatePlanContext(root);
+        else if(root.has("dataflowPlan"))throw new IOException("Only coherent V2 models may declare a dataflowPlan");
     }
 
     private static void validateGraph(JsonObject root) throws IOException {
@@ -182,11 +182,14 @@ final class ManifestV4Validator {
                     model = DataMovementModel.preExecutionTransferDelayWithContentionV1(); break;
                 case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1:
                     model = DataMovementModel.fatTreeContentionV1(); break;
+                case COHERENT_FILE_DATAFLOW_V2:model=DataMovementModel.coherentFileDataflowV2();break;
+                case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:model=DataMovementModel.coherentFileDataflowNoContentionV2();break;
                 default: throw new IllegalArgumentException(kind);
             }
         } catch (IllegalArgumentException exception) {
             throw new IOException("Invalid dataMovementModel.kind/parameters: " + kind, exception);
         }
+        if(model.isCoherentFileDataflowV2())for(String parameter:new String[]{"accessLinkBandwidthMbPerSecond","accessLinkLatencySeconds","sourceEndpointBandwidthMbPerSecond"})if(number(required(value,parameter),parameter,false)!=0)throw new IOException("V2 model does not use fixed-endpoint parameters");
         equalText(value, "contentionSemantics", ExperimentManifestWriter.contentionSemantics(model));
         equalText(value, "transferStartSemantics", ExperimentManifestWriter.transferStartSemantics(model));
         equalText(value, "bandwidthUnit", "DECIMAL_MB_PER_SECOND");
@@ -201,13 +204,14 @@ final class ManifestV4Validator {
             }
             return;
         }
-        if (!model.isFatTreeContentionV1() || !element.isJsonObject()) {
+        if ((!model.isFatTreeContentionV1()&&!model.isCoherentFileDataflowV2()) || !element.isJsonObject()) {
             throw new IOException("platform.networkTopology requires Fat-tree data movement");
         }
         JsonObject value = element.getAsJsonObject();
         equalText(value, "kind", "FAT_TREE");
         int k = integer(required(value, "k"), "networkTopology.k");
-        number(required(value, "linkBandwidthMbPerSecond"), "networkTopology.linkBandwidthMbPerSecond", true);
+        double declaredBandwidth=number(required(value, "linkBandwidthMbPerSecond"), "networkTopology.linkBandwidthMbPerSecond", true);
+        if(model.isCoherentFileDataflowV2()&&(k>32||!Double.isFinite(declaredBandwidth*1_000_000.0)||declaredBandwidth*1_000_000.0<Double.MIN_NORMAL))throw new IOException("Unsupported V2 topology size or converted capacity");
         JsonElement core = required(value, "coreSwitchCount");
         Integer cores = core.isJsonNull() ? null
                 : Integer.valueOf(integer(core, "networkTopology.coreSwitchCount"));

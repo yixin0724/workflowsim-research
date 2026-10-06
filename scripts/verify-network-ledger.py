@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only independent network-ledger checking. Uses no JVM or production allocation solver."""
+"""Read-only V1 fluid-ledger / V2 file-lifecycle checking; no JVM or production solver."""
 import argparse
 import json
 import sys
@@ -9,7 +9,7 @@ from _network_audit import CheckError, inspect_path
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("path", type=Path, help="network-ledger-v1 JSON or manifest-v4 bundle")
+    parser.add_argument("path", type=Path, help="network-ledger-v1, file-lifecycle-v2 JSON, or manifest-v4 bundle")
     parser.add_argument("--json", action="store_true", help="emit structured status, including incomplete-prefix coverage")
     args = parser.parse_args(argv)
     try:
@@ -23,8 +23,15 @@ def main(argv=None):
     if args.json:
         print(json.dumps(report, indent=2, allow_nan=False))
     else:
-        print("NETWORK_LEDGER_CHECK " + report["status"] + " completeCaptureCertified=" + str(report["completeCaptureCertified"]).lower())
+        v2 = report.get("modelKind") in ("COHERENT_FILE_DATAFLOW_V2", "COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2")
+        label = "FILE_LIFECYCLE_CHECK" if v2 else "NETWORK_LEDGER_CHECK"
+        print(label + " " + report["status"] + " completeCaptureCertified=" + str(report["completeCaptureCertified"]).lower())
         print("scope=" + report["scope"])
+        if v2:
+            print("fluidServiceAccountingCertified=false contextualRunChecked=" + str(report["contextualRunChecked"]).lower())
+            if report["completeCaptureCertified"]:
+                print("copies=" + str(report["admissionCount"]) + " activeCopies=" + str(report["activeCopyCount"])
+                      + " waitingJobs=" + str(report["waitingJobCount"]))
     return 0
 
 

@@ -84,8 +84,9 @@ public final class WorkbenchConfig {
         ReplicaCatalog.FileSystem fs = ReplicaCatalog.FileSystem.valueOf(text(sim, "fileSystem", "SHARED"));
         DataMovementModel movement = movement(sim);
         NetworkEvidenceConfig networkEvidence = sim.has("networkEvidence")
-                ? NetworkLedgerCodec.decodeConfig(sim.get("networkEvidence")) : NetworkEvidenceConfig.off();
-        if (movement.isFatTreeContentionV1() != (platform.getNetworkTopology() != null)) { throw new IllegalArgumentException("Fat-tree data movement and networkTopology must be selected together"); }
+                ? org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(sim.get("networkEvidence")) : NetworkEvidenceConfig.off();
+        if (!movement.isCoherentFileDataflowV2()&&movement.isFatTreeContentionV1() != (platform.getNetworkTopology() != null)) { throw new IllegalArgumentException("Fat-tree data movement and networkTopology must be selected together"); }
+        if(movement.isCoherentFileDataflowV2()&&platform.getNetworkTopology()!=null){double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("V2 topology capacity conversion is unsupported");}
         List<Long> seeds = new ArrayList<Long>();
         if (root.has("seeds")) {
             for (JsonElement value : array(root, "seeds")) { seeds.add(longValue(value, "seeds")); }
@@ -209,6 +210,8 @@ public final class WorkbenchConfig {
             case PRE_EXECUTION_TRANSFER_DELAY_V1: return DataMovementModel.preExecutionTransferDelayV1();
             case PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1: return DataMovementModel.preExecutionTransferDelayWithContentionV1();
             case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1: return DataMovementModel.fatTreeContentionV1();
+            case COHERENT_FILE_DATAFLOW_V2:return DataMovementModel.coherentFileDataflowV2();
+            case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:return DataMovementModel.coherentFileDataflowNoContentionV2();
             case FIXED_ENDPOINT_NO_CONTENTION_V1:
                 JsonObject fixed = object(sim, "fixedEndpoint"); fields(fixed, "fixedEndpoint", "accessBandwidth", "latencySeconds", "sourceBandwidth");
                 return DataMovementModel.fixedEndpointNoContention(decimal(fixed, "accessBandwidth", -1, true), decimal(fixed, "latencySeconds", 0, false), decimal(fixed, "sourceBandwidth", -1, true));

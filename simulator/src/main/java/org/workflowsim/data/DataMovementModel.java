@@ -43,7 +43,11 @@ public final class DataMovementModel {
          * {@code docs/research/FAT_TREE_PRINCIPLES.md} 与
          * {@code docs/research/FAT_TREE_DESIGN.md}。
          */
-        PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1
+        PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1,
+        /** Versioned per-file visible-source/actual-route lifecycle with shared capacities. */
+        COHERENT_FILE_DATAFLOW_V2,
+        /** Same V2 lifecycle and isolated path bottlenecks, without inter-flow sharing. */
+        COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2
     }
 
     private static final DataMovementModel LEGACY = new DataMovementModel(
@@ -55,6 +59,18 @@ public final class DataMovementModel {
                     Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1, 0.0, 0.0, 0.0);
     private static final DataMovementModel FAT_TREE_CONTENTION = new DataMovementModel(
             Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1, 0.0, 0.0, 0.0);
+
+    private static final DataMovementModel COHERENT_SHARED=new DataMovementModel(Kind.COHERENT_FILE_DATAFLOW_V2,0,0,0);
+    private static final DataMovementModel COHERENT_ISOLATED=new DataMovementModel(Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2,0,0,0);
+
+    /** @return per-file V2 lifecycle with checked shared resource service */
+    public static DataMovementModel coherentFileDataflowV2(){return COHERENT_SHARED;}
+    /** @return the same V2 lifecycle with isolated single-flow route bottlenecks */
+    public static DataMovementModel coherentFileDataflowNoContentionV2(){return COHERENT_ISOLATED;}
+    /** @return whether the dedicated V2 run coordinator is required */
+    public boolean isCoherentFileDataflowV2(){return kind==Kind.COHERENT_FILE_DATAFLOW_V2||kind==Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2;}
+    /** @return whether V2 resources share capacity between active file copies */
+    public boolean isCoherentShared(){return kind==Kind.COHERENT_FILE_DATAFLOW_V2;}
 
     private final Kind kind;
     private final double accessLinkBandwidthMbPerSecond;

@@ -59,6 +59,9 @@ public class WorkflowSimTags {
      */
     public static final int WORKFLOW_ARRIVAL_SCAN = BASE + 9;
 
+    /** Dedicated V2 per-file service/visibility observation; never the V1 group-check protocol. */
+    public static final int COHERENT_DATAFLOW_CHECK = BASE + 10;
+
     /** 禁止实例化常量类。 */
     private WorkflowSimTags() {
         throw new UnsupportedOperationException("WorkflowSim Tags cannot be instantiated");
