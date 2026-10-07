@@ -31,6 +31,31 @@ final class FileLifecycleValidator {
 
     private FileLifecycleValidator() { }
 
+    /** Read-only route adapter for independent action audits; never uses the runtime router. */
+    static final class ReadFabric {
+        private final Fabric fabric;
+
+        ReadFabric(JsonObject document, boolean storage) {
+            fabric = new Fabric(document, storage ? LifecycleContract.STORAGE_V3 : LifecycleContract.FILE_V2);
+        }
+
+        double rate(DataLocation source, DataLocation destination) {
+            return fabric.route(known(source), known(destination)).rate;
+        }
+
+        private Location known(DataLocation value) {
+            require(value != null, "A typed route endpoint is required");
+            Location location;
+            if (value.getKind() == DataLocation.Kind.VM) location = new Location(value.getVmId());
+            else {
+                require("source".equals(value.getSourceId()), "Unsupported SOURCE route endpoint");
+                location = SOURCE;
+            }
+            require(fabric.locations.contains(location), "Unknown typed route endpoint");
+            return location;
+        }
+    }
+
     static final class Result {
         final FileLifecycleEvidence evidence;
         final int requestedJobs, completedJobs, activeCopies, pendingOutputFiles, waitingStoreInputs;

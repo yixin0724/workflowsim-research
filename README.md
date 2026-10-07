@@ -61,14 +61,15 @@ CloudSim 事件循环 → SimulationReport → v4证据 → 校验/报告
 | 随机与搜索基线 | RANDOM、PSO。PSO采用顺序负载目标，不含DAG/网络优化；无矩阵的raw MI模型下其简化成本项与映射无关，显式矩阵下按有效执行秒数计价 |
 | 网络 | 保留原五类模型；新增逐文件`COHERENT_FILE_DATAFLOW_V2`及同生命周期无共享对照。来源/实际路径/副本可见/CPU门控统一；端点与可选Fat-tree，流级模型仍不含包/丢包/ECN/自适应路由 |
 | 存储数据流 | `COHERENT_STORAGE_DATAFLOW_V3`及独立瓶颈对照；显式SOURCE接入Host、有限读/写/共享NIC、成功输出异步落库和结束排空；SHARED提交后读穿透缓存与LOCAL来源策略分开 |
+| 在线目标绑定 | 显式`CONTROL_READY_ONLINE_ASSIGNMENT_V1`；控制就绪时依据已提交网络观测/预计CPU预留选VM，再传输输入；STATIC只派发固定目标，NOOP重试不换VM；不是全局最优或完整争用预测 |
 | 多工作流/异常 | 可预先声明错峰到达；支持受控开销、失败尝试和重试预算；deadline仅事后观察，功能不能任意交叉组合 |
 | RL策略适配 | RlEnvironment + RlPolicy状态/动作/终局奖励契约，外部策略接入；没有训练器、神经网络或模型权重 |
 
-所有preExecution/争用模型要求静态映射，因此当前在线调度/RL_POLICY不能直接与Fat-tree争用组合。统一入口拒绝在线、独立任务和DAG轨道混排。DAG轨道内部还需区分执行纪律：LOCAL规划器给出每VM顺序，RANDOM/PSO仅给映射、由运行时选择已就绪作业；R10是完整策略流水线比较，不能把差异仅归因于映射优化，也不能忽略固定顺序带来的队头等待。
+原preExecution/争用模型要求预先静态映射，因此普通在线CPU调度/RL_POLICY仍不能直接与Fat-tree争用组合。新目标绑定是仅对一致V2/V3开放的独立决策阶段，CPU仍用STATIC派发。统一入口拒绝在线、独立任务和DAG轨道混排。DAG轨道内部还需区分执行纪律：LOCAL规划器给出每VM顺序，RANDOM/PSO仅给映射、由运行时选择已就绪作业；R10是完整策略流水线比较，不能把差异仅归因于映射优化，也不能忽略固定顺序带来的队头等待。
 
-新V2模型初始仅支持RANDOM映射、STATIC派发、LOCAL、NONE聚类（每Job一个Task）、无开销和受控NOOP重试。V2的SOURCE输入仍采用显式无限汇聚/绕过fabric抽象，不因新存储版本而改义；不能直接接入在线/RL或把LOCAL规划器旧估计当成V2估计。可运行[共享示例](<experiments/configs/coherent-file-dataflow-v2.json>)与[独立路径瓶颈对照](<experiments/configs/coherent-file-dataflow-isolated-v2.json>)；完整支持矩阵见[V2契约](<docs/advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
+V2默认分支支持RANDOM映射、STATIC派发、LOCAL、NONE聚类（每Job一个Task）、无开销和受控NOOP重试；显式在线目标绑定是另行声明的可选分支。V2的SOURCE输入仍采用显式无限汇聚/绕过fabric抽象，不因新存储版本而改义；不能直接改用原CPU在线/RL调度器，或把LOCAL规划器旧估计当成V2估计。可运行[共享示例](<experiments/configs/coherent-file-dataflow-v2.json>)与[独立路径瓶颈对照](<experiments/configs/coherent-file-dataflow-isolated-v2.json>)；完整支持矩阵见[V2契约](<docs/advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
 
-V3存储模型继续使用RANDOM/STATIC/NONE/无开销，额外支持LOCAL或SHARED提交后缓存读取；所有成功输出（包括unused/零字节）必须到SOURCE，CPU返回可早于输出写回结束。已接通Java/Python独立证据、rerun和专用报告，见[存储V3契约](<docs/advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)、[共享存储示例](<experiments/configs/storage-dataflow-v3.json>)与[独立瓶颈对照](<experiments/configs/storage-dataflow-isolated-v3.json>)。在线网络感知VM分配仍待NF005，不把现有规划器自动视为V3估计器。
+V3存储模型继续使用RANDOM/STATIC/NONE/无开销，额外支持LOCAL或SHARED提交后缓存读取；所有成功输出（包括unused/零字节）必须到SOURCE，CPU返回可早于输出写回结束。已接通Java/Python独立证据、rerun和专用报告，见[存储V3契约](<docs/advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)、[共享存储示例](<experiments/configs/storage-dataflow-v3.json>)与[独立瓶颈对照](<experiments/configs/storage-dataflow-isolated-v3.json>)。不把现有规划器自动视为V3估计器。显式在线绑定已接通Java/Python动作校验、完整重放和独立报告面板；见[在线绑定契约](<docs/advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)、[在线V2示例](<experiments/configs/online-file-dataflow-v1.json>)与[在线V3示例](<experiments/configs/online-storage-dataflow-v1.json>)。其动作认证要求完整生命周期捕获，证明绑定/名义边界/已记录分数，不认证精确实时余额或未来争用过程。
 
 算法细节：[算法目录](docs/algorithms/CATALOG.md)、[测试契约](docs/algorithms/CONTRACTS.md)。历史HEFT/DHEFT枚举及实现已经删除；旧MINMIN/MAXMIN/MCT/ROUNDROBIN兼容标签仍被标准运行器拒绝。
 

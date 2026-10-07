@@ -1,0 +1,31 @@
+{
+  "schema": "workflowsim-workbench-v1",
+  "name": "Online destination binding · bounded storage V3",
+  "workflowPaths": ["inputs/coherent-file-dataflow.dax"],
+  "platform": {
+    "vmMips": [1000, 1500, 2000, 2500],
+    "bandwidthMbPerSecond": 1,
+    "sourceStorage": {
+      "attachmentHostId": 0,
+      "readBandwidthMbPerSecond": 0.5,
+      "writeBandwidthMbPerSecond": 0.25,
+      "networkBandwidthMbPerSecond": 1
+    },
+    "networkTopology": {"k": 4, "linkBandwidthMbPerSecond": 1}
+  },
+  "simulation": {
+    "fileSystem": "SHARED",
+    "dataMovementModel": "COHERENT_STORAGE_DATAFLOW_V3",
+    "networkEvidence": {"mode": "FILE_STORAGE_LIFECYCLE_V3", "maxTraceRecords": 20000}
+  },
+  "algorithms": [{
+    "id": "online-dataflow-v1",
+    "scheduler": "STATIC",
+    "planner": "INVALID",
+    "dataflowAssignment": {
+      "mode": "CONTROL_READY_ONLINE_ASSIGNMENT_V1",
+      "policy": "NOMINAL_INPUT_EARLIEST_RESERVATION_V1"
+    }
+  }],
+  "seeds": [1]
+}

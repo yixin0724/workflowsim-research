@@ -71,20 +71,22 @@ public final class HtmlReports {
         return new ValidatedReport(validated.getManifestSnapshot(),
                 NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(),true),
                 FileLifecycleReportView.fromDecoded(validated.getDecodedFileLifecycle(),true),
-                StorageLifecycleReportView.fromDecoded(validated.getDecodedStorageLifecycle(),true));
+                StorageLifecycleReportView.fromDecoded(validated.getDecodedStorageLifecycle(),true),
+                DataflowAssignmentReportView.fromValidated(validated.getDataflowAssignment()));
     }
 
     static final class ValidatedReport {
         private final JsonObject manifest;
         private final Map<String,Object> network;
-        private final Map<String,Object> fileLifecycle,storageLifecycle;
-        private ValidatedReport(JsonObject manifest,Map<String,Object> network,Map<String,Object> fileLifecycle,Map<String,Object> storageLifecycle){this.manifest=manifest;this.network=network;this.fileLifecycle=fileLifecycle;this.storageLifecycle=storageLifecycle;}
+        private final Map<String,Object> fileLifecycle,storageLifecycle,dataflowAssignment;
+        private ValidatedReport(JsonObject manifest,Map<String,Object> network,Map<String,Object> fileLifecycle,Map<String,Object> storageLifecycle,Map<String,Object> dataflowAssignment){this.manifest=manifest;this.network=network;this.fileLifecycle=fileLifecycle;this.storageLifecycle=storageLifecycle;this.dataflowAssignment=dataflowAssignment;}
         JsonObject getManifest(){return manifest;}
         void attachTo(Map<String,Object> row){
             row.put("manifest",manifest);
             if(network==null)row.remove("networkEvidence");else row.put("networkEvidence",network);
             if(fileLifecycle==null)row.remove("fileLifecycle");else row.put("fileLifecycle",fileLifecycle);
             if(storageLifecycle==null)row.remove("storageLifecycle");else row.put("storageLifecycle",storageLifecycle);
+            if(dataflowAssignment==null)row.remove("dataflowAssignment");else row.put("dataflowAssignment",dataflowAssignment);
         }
     }
 

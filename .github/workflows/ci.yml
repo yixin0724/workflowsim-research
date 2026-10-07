@@ -109,6 +109,30 @@ jobs:
               print(json.dumps(dict(input=name, **result), allow_nan=False))
           PY
 
+      - name: Verify independent online assignment audit
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-assignment.py
+
+      - name: Generate actual online assignment bundles
+        run: >-
+          mvn -B -Pcore-exec -pl :workflowsim -am test-compile exec:java
+          -Dexec.mainClass=org.workflowsim.data.v2.DataflowAssignmentPythonFixtures
+          -Dexec.classpathScope=test
+          -Dexec.args="\"$PWD/output/dataflow-assignment-ci\""
+
+      - name: Check online assignment bundles independently
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from _network_audit import inspect_path
+          root = Path('output/dataflow-assignment-ci')
+          index = json.loads((root / 'fixtures.json').read_text(encoding='utf-8'))
+          for name in index['manifests']:
+              result = inspect_path(root / name)
+              print(json.dumps(dict(input=name, **result), allow_nan=False))
+          PY
+
       - name: Set up Node for offline report checks
         uses: actions/setup-node@v4
         with:
@@ -148,6 +172,7 @@ jobs:
             output/network-ci/
             output/file-lifecycle-ci/
             output/storage-lifecycle-ci/
+            output/dataflow-assignment-ci/
 
       # 质量门禁引用的 5 个 WfFormat/WfInstances 小型输入已纳入版本库（见 .gitignore 白名单）。
       # 标准检出会执行相关测试；缺失必需输入会失败，不会自动跳过。

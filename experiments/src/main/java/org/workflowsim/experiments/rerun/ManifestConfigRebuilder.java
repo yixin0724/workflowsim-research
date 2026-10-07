@@ -248,6 +248,7 @@ public final class ManifestConfigRebuilder {
         if(config.has("networkEvidence")){
             builder.networkEvidence(org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
         }
+        if(config.has("dataflowAssignment"))builder.dataflowAssignment(org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(config.get("dataflowAssignment")));
         JsonElement taskCostMatrix = config.get("taskCostMatrix");
         if (taskCostMatrix != null && !taskCostMatrix.isJsonNull()) {
             builder.taskCostMatrix(rebuildTaskCostMatrix(taskCostMatrix.getAsJsonObject()));

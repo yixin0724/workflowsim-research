@@ -48,6 +48,7 @@ public final class SimulationReport {
     private final transient org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence;
     private final List<WorkflowOutcome> workflowOutcomes;
     private final List<TaskNode> workflowGraph;
+    private final transient List<DataflowComputeRequest> dataflowComputeRequests;
 
     private SimulationReport(SimulationConfig config, PlatformProfile platform,
             double makespan, List<InputArtifact> inputs, List<WorkflowInputReport> inputReports,
@@ -55,7 +56,7 @@ public final class SimulationReport {
             Map<Integer, Integer> actualVmHostAssignments, int successfulJobs, int failedJobs,
             List<SimulationEvent> events, List<Task> sourceTasks,
             SharedStorageDagPlanTrace sharedStorageDagPlanTrace, NetworkRunEvidence networkEvidence,
-            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan,org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence) {
+            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan,org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence,List<DataflowComputeRequest> computeRequests) {
         this.config = config;
         this.platform = platform;
         this.makespan = makespan;
@@ -76,6 +77,7 @@ public final class SimulationReport {
         Map<Integer, TaskNode> graph = new TreeMap<Integer, TaskNode>();
         for (Task task : sourceTasks) { graph.put(task.getCloudletId(), new TaskNode(task)); }
         this.workflowGraph = Collections.unmodifiableList(new ArrayList<TaskNode>(graph.values()));
+        this.dataflowComputeRequests=computeRequests==null?null:Collections.unmodifiableList(new ArrayList<>(computeRequests));
         this.metrics = SimulationMetrics.calculate(makespan, this.jobs, this.vmSummaries, this.events,
                 this.tasks, sourceTasks, config, platform);
         this.workflowOutcomes = computeWorkflowOutcomes();
@@ -180,10 +182,12 @@ public final class SimulationReport {
         for (Map.Entry<Integer, MutableVmSummary> entry : mutableVmSummaries.entrySet()) {
             vmSummaries.put(entry.getKey(), entry.getValue().freeze());
         }
+        List<DataflowComputeRequest> computeRequests=null;
+        if(config.getDataflowAssignmentConfig().isEnabled()){Map<Integer,DataflowComputeRequest> ordered=new TreeMap<>();for(Job job:completedJobs)if(job.getClassType()==org.workflowsim.utils.Parameters.ClassType.COMPUTE.value){if(job.getTaskList().size()!=1)throw new IllegalStateException("Online compute request must remain singleton");DataflowComputeRequest request=new DataflowComputeRequest(job,job.getTaskList().get(0));if(ordered.put(job.getCloudletId(),request)!=null)throw new IllegalStateException("Duplicate online compute attempt");}computeRequests=new ArrayList<>(ordered.values());}
         return new SimulationReport(config, platform, makespan, inputs, inputReports,
                 jobs, tasks, vmSummaries, actualVmHostAssignments, successes, failures,
                 events == null ? Collections.<SimulationEvent>emptyList() : events, sourceTasks,
-                sharedStorageDagPlanTrace, networkEvidence,fileLifecycleEvidence,dataflowPlan,storageLifecycleEvidence);
+                sharedStorageDagPlanTrace, networkEvidence,fileLifecycleEvidence,dataflowPlan,storageLifecycleEvidence,computeRequests);
     }
 
     public SimulationConfig getConfig() { return config; }
@@ -302,6 +306,15 @@ public final class SimulationReport {
 
     /** @return 按任务ID排序的原始逻辑任务依赖快照，不含stage-in或retry节点 */
     public List<TaskNode> getWorkflowGraph() { return workflowGraph; }
+
+    /** @return actual online compute request metadata, null for preplanned/default runs */
+    public List<DataflowComputeRequest> getDataflowComputeRequests(){return dataflowComputeRequests;}
+    /** Immutable per-attempt compute declarations; not a forecast of CPU completion. */
+    public static final class DataflowComputeRequest {
+        private final int jobId,taskId,taskPes,jobPes;private final long lengthMi;
+        private DataflowComputeRequest(Job job,Task task){jobId=job.getCloudletId();taskId=task.getCloudletId();taskPes=task.getNumberOfPes();jobPes=job.getNumberOfPes();lengthMi=task.getCloudletLength();}
+        public int getJobId(){return jobId;}public int getTaskId(){return taskId;}public int getTaskPes(){return taskPes;}public int getJobPes(){return jobPes;}public long getLengthMi(){return lengthMi;}
+    }
 
     /** 供报告和复核使用的原始任务节点。 */
     public static final class TaskNode {

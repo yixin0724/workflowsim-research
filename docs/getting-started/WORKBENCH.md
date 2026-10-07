@@ -86,7 +86,7 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 - 首次V2导出仅接受完整捕获。预算不足不改变模拟轨迹，但在创建/替换证据文件前拒绝导出；Workbench记录失败，不产生伪完整侧车。不要将此与V1可显示的截断前缀混淆。
 - V2模型即使记录OFF，也在manifest保存核心`dataflowPlan`；旧模型OFF的原字段集合不变。V2 ON侧车角色是`file-lifecycle`，不会出现在旧`network-ledger`路径或旧getter中。
 - 正常run与独立report使用相同验证快照。V2面板只以精确文本显示有限预览；与V1、OFF、失败运行切换时清空旧数据，不重新请求侧车。
-- Java和[独立Python检查器](<../../scripts/verify-network-ledger.py>)均能验证V2完整bundle，rerun把`/fileLifecycle/...`全部作为核心量比较。V2的SOURCE仍显式无限汇聚/绕过fabric；有限存储与输出上传使用下述独立V3，网络感知在线分配仍属后续阶段。
+- Java和[独立Python检查器](<../../scripts/verify-network-ledger.py>)均能验证V2完整bundle，rerun把`/fileLifecycle/...`全部作为核心量比较。V2的SOURCE仍显式无限汇聚/绕过fabric；有限存储与输出上传使用下述独立V3，在线目标绑定则使用后述显式动作策略。
 
 详细数据形状、数值支持域与证书边界见[生命周期格式](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)和[V2运行契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)。
 
@@ -110,6 +110,36 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 成功输出包括unused sink和零字节，仿真结束需等写回义务完成；CPU返回不被推迟，VM可与写回重叠计算。报告独立展示输入/输出载荷、SOURCE等待、名义输入估时、观察准备延迟、CPU完成和输出尾部。以上不是未经记录的链路利用率或逐区间服务面积认证。
 
 完整工件使用独立`storage-lifecycle`角色，Java/Python验证配置/来源/路径/输出义务/CPU及故障重试因果；预算不足在任何工件I/O前拒绝。记录OFF仍保留核心文件计划和存储配置，不意味着零网络。rerun在`/storageLifecycle/...`逐字段比较，没有新增内容豁免。专用离线面板不读取额外文件，数值始终为精确文本，复制/资源/Job/事件预览上限为64/64/64/128。边界及schema见[存储V3契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)。
+
+## 在线目标绑定：控制就绪后选VM，随后准备输入
+
+使用[在线V2示例](<../../experiments/configs/online-file-dataflow-v1.json>)或[在线受限存储V3示例](<../../experiments/configs/online-storage-dataflow-v1.json>)。在每个算法对象上显式声明，而不是修改物理模型：
+
+```json
+{
+  "id": "online-dataflow-v1",
+  "planner": "INVALID",
+  "scheduler": "STATIC",
+  "dataflowAssignment": {
+    "mode": "CONTROL_READY_ONLINE_ASSIGNMENT_V1",
+    "policy": "NOMINAL_INPUT_EARLIEST_RESERVATION_V1"
+  }
+}
+```
+
+```bash
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
+  -Dexec.args="run experiments/configs/online-storage-dataflow-v1.json output/workbench-online"
+```
+
+- 对V2仍要求LOCAL，对V3可LOCAL/SHARED；NONE聚类、SPACE_SHARED及无开销不变。该阶段绑定实际兼容VM，STATIC只派发已绑定、数据就绪的Job；NOOP重试不得换VM。
+- Workbench在线工件要求显式、匹配的完整生命周期记录。缺少记录选项、错误模式、未知策略或与RANDOM规划并用会提前拒绝。原始Java运行仍能关闭捕获，且动作/物理不变，但OFF不导出动作认证。
+- 此决策层不能与普通CPU在线调度或离线映射混排。独立报告标记`DATAFLOW_BINDING_V1`；条件行同时显示策略版本。
+- 动作面板与物理V2/V3面板并存。它验证绑定、PE、MI、CPU预留、名义输入边界和已记录分数，不认证精确在途余额或未来争用；界面明确显示`liveProgressReplayed=false`。边界内估计变化仍会被实际rerun判为核心分歧。
+- 动作预览最多64条，每条候选最多12条，选择来自完整候选集。所有数值是精确字符串，切换失败/普通运行时清理旧数据，不读取额外侧车。
+
+详细状态、公式、认证范围和数值边界见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
 
 ## 历史与证据
 

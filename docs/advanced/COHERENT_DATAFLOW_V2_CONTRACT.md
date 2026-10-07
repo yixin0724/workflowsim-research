@@ -8,6 +8,8 @@ NF003先独立验证A1/A2/A3组件，再由NF003B接入真实Kernel与独立证�
 
 初始支持矩阵是RANDOM静态映射、STATIC派发、LOCAL、NONE聚类（每Job一个逻辑Task）、无开销和受控NOOP重试。平台可无拓扑或使用Fat-tree；Java运行器在构建前限定偶数k为2..32，Workbench保留原2..16限额。容量与时间在V2检查路径上要求可表示，违反数值支持域会原子拒绝。共享与独立服务保留相同的单流路径约束及生命周期规则。
 
+后续NF005为相同物理V2增加显式`CONTROL_READY_ONLINE_ASSIGNMENT_V1`配置分支：INVALID预规划、控制就绪时绑定VM、随后输入准备，CPU仍用STATIC。它不改变上述默认RANDOM分支、逐文件来源/路径或V2侧车语法；额外动作认证要求完整生命周期，参见[在线绑定契约](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+
 ## A1：深冻结的逻辑文件与生产者索引
 
 契约标记：`SCOPED_RESOLVED_WRITE_ONCE_FILES_V2`。

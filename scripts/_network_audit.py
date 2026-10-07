@@ -753,6 +753,11 @@ def inspect_path(path):
         from _file_lifecycle_audit import verify_document as verify_file_lifecycle
         return verify_file_lifecycle(doc)
     config = doc.get("configuration")
+    if (isinstance(config, dict) and "dataflowAssignment" in config) or "dataflowComputeRequests" in doc:
+        # Fail closed before legacy OFF dispatch; online is an explicit, known
+        # coherent configuration, never an algorithmContract-only declaration.
+        from _dataflow_assignment_audit import _configuration
+        _configuration(doc)
     model = config.get("dataMovementModel") if isinstance(config, dict) else None
     recording = config.get("networkEvidence") if isinstance(config, dict) else None
     artifacts = doc.get("artifacts")

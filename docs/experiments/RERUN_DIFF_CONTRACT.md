@@ -91,6 +91,13 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 - V3必要故障/重试约束也会校验：关闭故障不能产生失败/重试，声明预算须覆盖实际/必要重试数，STATIC/NOOP不允许尝试迁移VM。此校验不重放随机数，不冒称概率失败过程已认证。原V2接受契约不因此改义。
 - V3首版仍只接受完整捕获，不认证未记录的逐区间流体会计；参见[存储V3契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)。
 
+## 控制就绪在线目标绑定（NF005）
+
+- 显式`configuration.dataflowAssignment`完整重建，包含`CONTROL_READY_ONLINE_ASSIGNMENT_V1`模式和名义输入/CPU预留策略。它是普通核心配置，不在`algorithmContract`身份豁免内。`dataflowComputeRequests`的Task/Job PE、原始MI和身份也全部是核心量。
+- 在线动作认证要求完整V2/V3生命周期捕获。Java/Python共同检查`DATAFLOW_VM_ASSIGNED`与输入请求、VM/Task、重试、CPU声明及名义候选边界；不会以OFF或缺失投影代替认证。实际物理Kind不被改成另一个版本。
+- 动作全部字段在现有`/events/.../attributes/...`命名空间精确比较，不新增豁免。独立边界校验允许的在途进度范围内改写，也必须在实际重放中报告`DIVERGED`，不能被artifact哈希易变量掩盖。
+- 范围固定`BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1`，不认证精确活动流余额/未来争用或全局最优。详见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+
 ## 比对规则：三类字段
 
 ### 核心量（必须逐位一致）
@@ -109,6 +116,7 @@ manifest 中 `inputs[].path` 是**原机器的绝对路径**，跨环境不可�
 | file-lifecycle（V2 ON） | 全部字段；使用`/fileLifecycle/...`独立核心命名空间，不新增任何内容豁免 |
 | storage-lifecycle（V3 ON） | 全部字段；使用`/storageLifecycle/...`独立核心命名空间，不新增任何内容豁免 |
 | manifest `dataflowPlan`（V2/V3） | 全部文件身份、生产者、控制依赖与输入引用；记录OFF也不豁免 |
+| manifest `dataflowComputeRequests`（在线绑定） | 所有尝试的Job/Task身份、PE与原始MI；与动作/CPU结果共同校验且不豁免 |
 
 比对方式为**JSON 值的精确相等**，不是文本字节相等：对象键顺序无关，数组顺序保留；数值按十进制精确值比较，`1000`、`1000.0`、`1e3` 等值，但不先转换成 double，不设 epsilon 容差。因而大于 2^53 的相邻 long 种子仍不同，浮点相邻值也不能靠容差通过。输入 SHA、大小、格式、顺序和路径数组长度始终参与核心比较。
 

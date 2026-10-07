@@ -19,6 +19,7 @@ import org.workflowsim.utils.TaskExecutionModel;
  * reservations commit only after the real input request succeeds. No candidate admits traffic.
  */
 public final class DataflowVmAssigner {
+    public static final String AUDIT_SCOPE="BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1";
     public static final String INPUT_ESTIMATE="MAX_FILE_NOMINAL_REMAINING_CONDITIONAL_STORE_V1";
     public static final String CPU_ESTIMATE="ACTIVE_COMPUTE_RESERVATION_FROM_OBSERVED_START_V1";
     /** Frozen actual-created VM identity and compute capability, never a mutable VM handle. */
@@ -34,7 +35,7 @@ public final class DataflowVmAssigner {
         Decision(long sequence,int taskId,int jobId,int vmId,boolean reused,double time,List<Map<String,Object>> scores,DataflowObservation observation){
             this.sequence=sequence;this.taskId=taskId;this.jobId=jobId;this.vmId=vmId;this.reused=reused;observedThrough=time;
             Map<String,Object> summary=map();summary.put("contract",observation.getContract());summary.put("status",observation.getStatus().name());summary.put("storageVersion",observation.isStorageVersion());summary.put("storeBackedInputs",observation.isStoreBackedInputs());summary.put("interFlowSharing",observation.isShared());summary.put("observedThrough",time);summary.put("serviceThrough",observation.getService().getObservedThrough());summary.put("activeCopyCount",observation.getActiveCopies().size());summary.put("activeJobCount",observation.getActiveJobs().size());summary.put("pendingOutputFileCount",observation.getPendingOutputFiles().size());summary.put("scopedFileCount",observation.getFiles().size());
-            Map<String,Object> values=map();values.put("assignmentMode",DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1.name());values.put("assignmentPolicy",DataflowAssignmentConfig.POLICY);values.put("inputEstimateSemantics",INPUT_ESTIMATE);values.put("cpuReservationSemantics",CPU_ESTIMATE);values.put("assignmentSequence",sequence);values.put("binding",reused?"RETRY_REUSE":"INITIAL");values.put("selectedVmId",vmId);values.put("observation",freeze(summary));values.put("candidates",Collections.unmodifiableList(new ArrayList<>(scores)));attributes=freeze(values);
+            Map<String,Object> values=map();values.put("auditScope",AUDIT_SCOPE);values.put("assignmentMode",DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1.name());values.put("assignmentPolicy",DataflowAssignmentConfig.POLICY);values.put("inputEstimateSemantics",INPUT_ESTIMATE);values.put("cpuReservationSemantics",CPU_ESTIMATE);values.put("assignmentSequence",sequence);values.put("binding",reused?"RETRY_REUSE":"INITIAL");values.put("selectedVmId",vmId);values.put("observation",freeze(summary));values.put("candidates",Collections.unmodifiableList(new ArrayList<>(scores)));attributes=freeze(values);
         }
         public long getSequence(){return sequence;}public int getTaskId(){return taskId;}public int getJobId(){return jobId;}public int getVmId(){return vmId;}public boolean isReusedBinding(){return reused;}public double getObservedThrough(){return observedThrough;}public Map<String,Object> getAttributes(){return attributes;}
     }

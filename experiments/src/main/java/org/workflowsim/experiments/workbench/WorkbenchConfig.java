@@ -99,22 +99,24 @@ public final class WorkbenchConfig {
         for (JsonElement item : array(root, "algorithms")) {
             if (!item.isJsonObject()) { throw new IllegalArgumentException("algorithms must contain objects"); }
             JsonObject algorithm = item.getAsJsonObject();
-            fields(algorithm, "algorithm", "id", "scheduler", "planner");
+            fields(algorithm, "algorithm", "id", "scheduler", "planner", "dataflowAssignment");
+            org.workflowsim.data.v2.DataflowAssignmentConfig assignment=algorithm.has("dataflowAssignment")?org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(algorithm.get("dataflowAssignment")):org.workflowsim.data.v2.DataflowAssignmentConfig.off();
+            if(assignment.isEnabled()&&(!movement.usesCoherentDataflowRuntime()||!networkEvidence.isEnabled()))throw new IllegalArgumentException("Online destination binding in Workbench requires a coherent model and complete lifecycle recording");
             String id = text(algorithm, "id", null);
             if (!id.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}") || !ids.add(id)) { throw new IllegalArgumentException("Algorithm IDs must be unique safe identifiers"); }
             Parameters.PlanningAlgorithm planner = Parameters.PlanningAlgorithm.valueOf(text(algorithm, "planner", "INVALID"));
-            Parameters.SchedulingAlgorithm scheduler = Parameters.SchedulingAlgorithm.valueOf(text(algorithm, "scheduler", planner == Parameters.PlanningAlgorithm.INVALID ? "FCFS" : "STATIC"));
+            Parameters.SchedulingAlgorithm scheduler = Parameters.SchedulingAlgorithm.valueOf(text(algorithm, "scheduler", assignment.isEnabled()?"STATIC":planner == Parameters.PlanningAlgorithm.INVALID ? "FCFS" : "STATIC"));
             if (!AlgorithmCatalog.isSupportedBySimulationRunner(planner) || !AlgorithmCatalog.isSupportedBySimulationRunner(scheduler)
                     || scheduler == Parameters.SchedulingAlgorithm.RL_POLICY) {
                 throw new IllegalArgumentException("Workbench requires maintained built-in algorithms; external RL policies use the Java RlEnvironment adapter");
             }
-            String candidateTrack = planner == Parameters.PlanningAlgorithm.INVALID ? "ONLINE"
+            String candidateTrack = assignment.isEnabled()?"DATAFLOW_BINDING":planner == Parameters.PlanningAlgorithm.INVALID ? "ONLINE"
                     : planner.name().startsWith("STATIC_") ? "INDEPENDENT" : "DAG_STATIC";
             if (track != null && !track.equals(candidateTrack)) { throw new IllegalArgumentException("Cannot compare different decision layers in one experiment"); }
             track = candidateTrack;
             SimulationConfig config = SimulationConfig.builder(paths, platform.getVms().size())
                     .workflowArrivalSeconds(arrivals).fileSystem(fs).dataMovementModel(movement)
-                    .networkEvidence(networkEvidence)
+                    .networkEvidence(networkEvidence).dataflowAssignment(assignment)
                     .schedulingAlgorithm(scheduler).planningAlgorithm(planner)
                     .randomSeed(seeds.get(0)).runtimeScale(decimal(sim, "runtimeScale", 1, true))
                     .runtimeReferenceMips(decimal(sim, "runtimeReferenceMips", 1000, true))

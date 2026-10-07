@@ -28,6 +28,9 @@ def main(argv=None):
         label = "STORAGE_LIFECYCLE_CHECK" if v3 else "FILE_LIFECYCLE_CHECK" if v2 else "NETWORK_LEDGER_CHECK"
         print(label + " " + report["status"] + " completeCaptureCertified=" + str(report["completeCaptureCertified"]).lower())
         print("scope=" + report["scope"])
+        if report.get("dataflowAssignmentContextChecked"):
+            print("dataflowAssignmentContextChecked=true liveProgressReplayed=false")
+            print("dataflowAssignmentScope=" + report["dataflowAssignmentScope"])
         if v2 or v3:
             print("fluidServiceAccountingCertified=false contextualRunChecked=" + str(report["contextualRunChecked"]).lower())
             if report["completeCaptureCertified"]:

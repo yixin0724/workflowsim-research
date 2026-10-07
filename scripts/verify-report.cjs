@@ -218,6 +218,51 @@ async function checkStorageLifecycle(page, run, expected, hasPanel) {
   assert.ok((await page.locator('#storage-lifecycle-copy-note').textContent()).includes(`预览省略 ${v.copies.omitted} 项`));
 }
 
+function assignmentState(run) {
+  if (!run.manifest) return 'NO_RESULT';
+  if (!(run.manifest.configuration || {}).dataflowAssignment) return 'HIDDEN';
+  const v = run.dataflowAssignment;
+  return v && v.schema === 'workflowsim-dataflow-assignment-display-v1' && v.contextValidated === true && v.auditScope === 'BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1' && v.liveProgressReplayed === false ? 'VALIDATED' : 'INVALID';
+}
+const ASSIGNMENT_SUMMARY_IDS = ['dataflow-assignment-total', 'dataflow-assignment-initial', 'dataflow-assignment-retries', 'dataflow-assignment-conditional', 'dataflow-assignment-joined'];
+const assignmentYes = value => value === true ? '是' : value === false ? '否' : '—';
+const assignmentValues = v => [v.summary.assignmentCount, v.summary.initialBindingCount, v.summary.retryReuseCount, v.summary.conditionalStoreCount, v.summary.joinedInputCopyCount];
+function checkAssignmentPreview(preview, limit) {
+  assert.ok(Array.isArray(preview.rows));assert.equal(preview.limit, String(limit));assert.ok(preview.rows.length <= limit, 'Assignment preview exceeds cap');assert.equal(preview.shown, String(preview.rows.length));assert.equal(BigInt(preview.total), BigInt(preview.shown) + BigInt(preview.omitted));
+}
+async function checkDataflowAssignment(page, run, expected, hasPanel) {
+  const state = assignmentState(run), visible = state === 'VALIDATED' || state === 'INVALID';
+  if (!hasPanel) { assert.equal(!!expected || visible, false, 'Expected online assignment panel is missing');return; }
+  if (expected) assert.equal(state, expected.state, 'Assignment state differs from independent producer expectation');
+  assert.equal(await page.locator('#dataflow-assignment-section').isVisible(), visible, 'Assignment panel visibility differs');assert.equal(await page.locator('#dataflow-assignment-status').getAttribute('data-state'), state, 'Assignment state marker differs');
+  if (state !== 'VALIDATED') {
+    assert.equal(await page.locator('#dataflow-assignment-table tr').count(), 0, 'Unavailable assignment must clear actions');assert.equal(await page.locator('#dataflow-assignment-candidate-table tr').count(), 0, 'Unavailable assignment must clear candidates');assert.equal(await page.locator('#dataflow-assignment-select option').count(), 0, 'Unavailable assignment must clear selection');
+    for (const id of ASSIGNMENT_SUMMARY_IDS) assert.equal(await page.locator('#'+id).textContent(), '—');
+    if (state === 'INVALID') assert.ok((await page.locator('#dataflow-assignment-note').textContent()).includes('不能显示成OFF'));
+    return;
+  }
+  const v = run.dataflowAssignment;assertNetworkTypes(v, 'dataflowAssignment');assert.equal(v.contextValidated, true);assert.equal(v.liveProgressReplayed, false);assert.equal(v.auditScope, 'BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1');
+  assert.equal(run.manifest.configuration.planningAlgorithm, 'INVALID');assert.equal(run.manifest.configuration.schedulingAlgorithm, 'STATIC');assert.equal(v.assignmentMode, 'CONTROL_READY_ONLINE_ASSIGNMENT_V1');assert.equal(v.assignmentPolicy, 'NOMINAL_INPUT_EARLIEST_RESERVATION_V1');
+  for (const key of ['rawEvents','events','snapshotHistory','lifecycle','manifest']) assert.equal(Object.hasOwn(v, key), false, 'No unbounded raw history in assignment view');
+  checkAssignmentPreview(v.actions, 64);assert.equal(await page.locator('#dataflow-assignment-table tr').count(), v.actions.rows.length, 'Assignment actions row count');assert.equal(await page.locator('#dataflow-assignment-select option').count(), v.actions.rows.length);
+  const values = assignmentValues(v);if (expected) { assert.deepEqual(values, expected.values);assert.equal(v.actions.total, expected.actionCount);assert.deepEqual(v.actions.rows.map(row=>row.vmId), expected.selectedVms);assert.equal(v.assignmentPolicy, expected.policy);assert.equal(v.auditScope, expected.auditScope); }
+  for (let i=0;i<values.length;i++) assert.equal(await page.locator('#'+ASSIGNMENT_SUMMARY_IDS[i]).textContent(), exact(values[i]), 'Exact assignment text differs at '+ASSIGNMENT_SUMMARY_IDS[i]);
+  const note = await page.locator('#dataflow-assignment-note').textContent();assert.ok(note.includes('精确实时余额') && note.includes('没有重放') && note.includes('不等于全局最优'), 'Assignment scope must not imply a fluid replay');assert.ok((await page.locator('#dataflow-assignment-scope').textContent()).includes(v.auditScope));
+  assert.ok((await page.locator('#dataflow-assignment-actions-note').textContent()).includes(`预览省略 ${v.actions.omitted} 项`));
+  const rendered = await page.locator('#dataflow-assignment-table tr').evaluateAll(rows=>rows.map(row=>Array.from(row.cells,cell=>cell.textContent)));
+  for (let i=0;i<v.actions.rows.length;i++) {
+    const row=v.actions.rows[i],s=row.selected,o=row.observation,c=row.candidates;checkAssignmentPreview(c,12);
+    assert.deepEqual(rendered[i], [row.sequence,row.mainSequence,row.jobId,row.taskId,row.vmId,row.time,row.binding,s.inputSeconds,s.cpuAvailableAt,s.computeSeconds,s.scoreFinishSeconds,assignmentYes(s.conditionalStoreWait),s.joinedInputCopies].map(exact));
+    if (expected && expected.rows) { const e=expected.rows[i];for(const key of ['sequence','mainSequence','jobId','taskId','vmId','time','binding']) assert.equal(row[key],e[key],`Assignment producer row ${i}/${key}`);for(const [key,oracle] of [['inputSeconds','selectedInputSeconds'],['cpuAvailableAt','selectedCpuAvailableAt'],['computeSeconds','selectedComputeSeconds'],['scoreFinishSeconds','selectedScoreFinishSeconds']]) assert.equal(s[key],e[oracle]);assert.equal(s.conditionalStoreWait,e.conditionalStoreWait);assert.equal(s.joinedInputCopies,e.joinedInputCopies);assert.equal(c.total,e.candidateCount); }
+    await page.locator('#dataflow-assignment-select').selectOption(String(i));
+    assert.equal(await page.locator('#dataflow-assignment-candidate-table tr').count(), c.rows.length, 'Assignment candidates row count');
+    const candidates=await page.locator('#dataflow-assignment-candidate-table tr').evaluateAll(rows=>rows.map(row=>Array.from(row.cells,cell=>cell.textContent)));
+    assert.deepEqual(candidates,c.rows.map(x=>[x.vmId,assignmentYes(x.compatible),x.inputSeconds,x.cpuAvailableAt,x.computeSeconds,x.scoreFinishSeconds,assignmentYes(x.conditionalStoreWait),x.joinedInputCopies].map(exact)));
+    const info=await page.locator('#dataflow-assignment-candidate-note').textContent();assert.ok(info.includes('已选 VM '+row.vmId));assert.ok(info.includes(`预览省略 ${c.omitted} 项`));
+    const observed=await page.locator('#dataflow-assignment-observation').textContent();for(const value of [o.observedThrough,o.serviceThrough,o.activeCopyCount,o.activeJobCount,o.pendingOutputFileCount,o.scopedFileCount]) assert.ok(observed.includes(value), 'Assignment observation exact text missing');
+  }
+}
+
 async function checkReport(browser, specification, screenshot) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
@@ -242,9 +287,11 @@ async function checkReport(browser, specification, screenshot) {
     const hasNetworkPanel = await page.locator('#network-section').count() === 1;
     const hasFileLifecyclePanel = await page.locator('#file-lifecycle-section').count() === 1;
     const hasStorageLifecyclePanel = await page.locator('#storage-lifecycle-section').count() === 1;
+    const hasAssignmentPanel = await page.locator('#dataflow-assignment-section').count() === 1;
     if (specification.network) assert.equal(specification.network.length, runCount);
     if (specification.fileLifecycle) assert.equal(specification.fileLifecycle.length, runCount);
     if (specification.storageLifecycle) assert.equal(specification.storageLifecycle.length, runCount);
+    if (specification.dataflowAssignment) assert.equal(specification.dataflowAssignment.length, runCount);
     assert.equal(await page.locator('img').count(), 0, 'User text must not become executable HTML');
     if (specification.seeds) {
       assert.deepEqual(runs.map(run => run.seed), specification.seeds,
@@ -263,6 +310,7 @@ async function checkReport(browser, specification, screenshot) {
       await checkNetwork(page, run, specification.network && specification.network[index], hasNetworkPanel);
       await checkFileLifecycle(page, run, specification.fileLifecycle && specification.fileLifecycle[index], hasFileLifecyclePanel);
       await checkStorageLifecycle(page, run, specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
+      await checkDataflowAssignment(page, run, specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
       if (!run.manifest) {
         assert.equal(await page.locator('#failure').isVisible(), true);
         assert.ok((await page.locator('#failure').textContent()).length > 0);
@@ -318,6 +366,7 @@ async function checkReport(browser, specification, screenshot) {
       await checkNetwork(page, runs[index], specification.network && specification.network[index], hasNetworkPanel);
       await checkFileLifecycle(page, runs[index], specification.fileLifecycle && specification.fileLifecycle[index], hasFileLifecyclePanel);
       await checkStorageLifecycle(page, runs[index], specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
+      await checkDataflowAssignment(page, runs[index], specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'Long network values must remain inside mobile layout');
     }
     assert.equal(await page.locator('img').count(), 0, 'Network labels must remain literal text after run switching');
@@ -325,7 +374,7 @@ async function checkReport(browser, specification, screenshot) {
     assert.deepEqual(requests, [], 'Offline reports must remain offline through the final viewport change');
     assert.deepEqual(secondaryFiles, [], 'Offline reports must not fetch secondary files');
     return { name: specification.name || path.basename(specification.path), runCount, successful,
-      allRows, vmRows, networkPanelChecked: hasNetworkPanel, fileLifecyclePanelChecked: hasFileLifecyclePanel, storageLifecyclePanelChecked: hasStorageLifecyclePanel, externalRequests: requests.length, secondaryFiles: secondaryFiles.length, browserErrors: errors.length };
+      allRows, vmRows, networkPanelChecked: hasNetworkPanel, fileLifecyclePanelChecked: hasFileLifecyclePanel, storageLifecyclePanelChecked: hasStorageLifecyclePanel, dataflowAssignmentPanelChecked: hasAssignmentPanel, externalRequests: requests.length, secondaryFiles: secondaryFiles.length, browserErrors: errors.length };
   } finally {
     await page.close();
   }

@@ -2,7 +2,9 @@
 
 ## 当前交付边界
 
-NF005A已实现并测试只读结构化网络观测、版本化配置、受控绑定策略和真实Kernel的绑定→输入准备→CPU闭环。**专用动作上下文校验、manifest/重放及Workbench接线属于NF005B**；在这些环节完成前，开启在线绑定的工件与独立manifest导出均在I/O前明确拒绝，读取器也不忽略未解释的绑定配置。原V1/V2/V3默认运行和已完成证据闭环不变。
+NF005A的只读结构化观测和真实Kernel闭环，现已接通NF005B的**Java/Python动作上下文、manifest、精确重放与Workbench报告**。在线动作认证要求匹配的完整V2/V3生命周期捕获；OFF仍可用于原始Java运行，且不改变物理/动作，但不能导出未经生命周期支持的在线认证工件。截断、缺失或上下文不一致在I/O前拒绝。原V1/V2/V3默认运行和证据闭环不变。
+
+可运行[在线V2示例](<../../experiments/configs/online-file-dataflow-v1.json>)及[在线受限存储V3示例](<../../experiments/configs/online-storage-dataflow-v1.json>)。Workbench把目标绑定划为独立决策层，不能与普通在线CPU调度或离线映射在同一实验中混排；独立报告标为`DATAFLOW_BINDING_V1`，不只显示含糊的STATIC标签。
 
 在线绑定不是另一个物理网络版本：它复用一致数据流V2或存储V3，在每个逻辑Task控制依赖和工作流到达门控解除后，选择固定目标VM，随后由既有逐文件协议准备输入。STATIC只派发已绑定且数据就绪的Job，不重新选择VM。
 
@@ -16,7 +18,7 @@ NF005A已实现并测试只读结构化网络观测、版本化配置、受控�
 
 启用时要求`planningAlgorithm=INVALID`、`schedulingAlgorithm=STATIC`、一致V2/V3物理模型、NONE聚类（每Job一个Task）、SPACE_SHARED和无开销。V2仍限LOCAL，V3可LOCAL或SHARED；NOOP故障重试规则保留。未启用时仍按原RANDOM预映射规则运行；旧执行前传输、LOCAL规划器或CPU在线调度约束没有被简单删除。
 
-该配置独立于网络记录，未来在普通`configuration.dataflowAssignment`字段保存，而不只放在被rerun视作身份易变量的`algorithmContract`中。严格解码只接受上述两个已知字符串字段；缺省由调用者表示OFF，显式null/false/OFF对象、缺字段或未知策略都拒绝。
+该配置独立于网络记录，在普通`configuration.dataflowAssignment`字段保存，而不只放在被rerun视作身份易变量的`algorithmContract`中。严格解码只接受上述两个已知字符串字段；缺省由调用者表示OFF，显式null/false/OFF对象、缺字段或未知策略都拒绝。在线工件另保存核心`dataflowComputeRequests`数组，每项为`jobId,taskId,taskPes,jobPes,lengthMi`，与实际Job/Task结果联结；原默认模式不添加该字段。
 
 ## 被观察的是已提交状态
 
@@ -60,6 +62,21 @@ scoreFinish = max(now + inputDelay, cpuAvailable) + executableComputeSeconds
 
 仅保存有界于VM候选数的决策摘要，不把每次全活动网络快照塞入历史；不新增墙钟耗时字段或rerun豁免。
 
+## 动作证据的明确认证范围
+
+[Java动作校验器](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowAssignmentValidator.java>)和[独立Python审计](<../../scripts/_dataflow_assignment_audit.py>)采用范围`BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1`，每条动作包含相同`auditScope`。外层仍先完成原V2/V3完整生命周期及运行上下文校验，然后把动作与**每次JOB_INPUT_REQUESTED之前的状态**联结：
+
+- 主事件从0编号；动作策略序号从1连续编号。每个compute尝试恰有一次动作，早于同观察时刻的JOB_READY。首次逻辑绑定和NOOP重试复用分开，失败来源、Task、VM、到达和CPU门控保持一致。
+- 当前副本位置、活动复制、尚未提交输出和活动Job由已验证生命周期单遍重放得到；`scopedFileCount`只数本次Task的不同输入文件，其他计数是全局活动状态，不把重复引用、local或零字节输入混用。
+- 验证完整有序候选、SPACE_SHARED模式和Task/Job PE兼容性；矩阵带完整`unit/runtimeConversion/entries`格式，允许合法额外坐标但必需坐标不能缺失。整数MI舍入使用binary64乘积的精确值处理，不能先以double加0.5造成大数错误。
+- 当前CPU预留按已观察开始、活动尝试及前次已校验计算量重建。主CPU事件的原始MI、有效MI和`MODEL_DERIVED_COMPUTE_WINDOW`必须与Task结果/动作计算声明一致；不能仅修复哈希后保留矛盾字段。
+- 未在途的新读取、本地和零字节的名义输入量能精确重算。在途输入只认证`(0, fullBytes/nominalRate]`范围；未提交SOURCE的上界为完整写回名义秒数加提交后读取，下界为提交后读取。若该读取为0，等待必须严格为正；若读取为正，则允许很小的正写回被binary64加法吸收。不同文件以max聚合边界。
+- 对已记录输入分数、重建CPU预留及计算秒数验证严格binary64公式、有限/可推进时钟、最小分数和VM ID并列规则。原始配置、计算请求和主动作所有科学字段进入精确rerun比较，没有新增易变量豁免。
+
+**不认证精确活动流余额或完整未来争用过程。** 当前动作不记录全部服务epoch，因此名义边界内的进度改写可能仍满足此有限认证；实际rerun仍会逐字段发现变化并给出DIVERGED。测试包含该正控制，避免把边界检查宣传为流体重放。输出/CPU实际因果仍由底层生命周期证书检查。
+
+报告只接收同一个已验证工件快照；动作最多64条，每条候选预览最多12条，选中项即使在预览之外也从完整候选集中正确取出。数值始终是精确文本，缺失投影、未配置和无有效结果明确分开；物理V2/V3面板同时保留，不重新请求任何侧车。
+
 ## CPU门控与后续验收
 
 在线模式下STATIC对compute启用fail-fast：实际VM必须存在、Task与Job绑定相同、PE兼容，否则禁止在数据已传输后fallback到其他VM。stage-in的历史fallback仍保留。运行器的cpuStarted另行验证原请求VM与输入可见，形成第二道约束。
@@ -68,4 +85,6 @@ scoreFinish = max(now + inputDelay, cpuAvailable) + executableComputeSeconds
 
 NF005A新增67项Java测试：15项服务快照、12项数据流观测、13项配置、16项策略、7项真实Kernel及4项STATIC保护。完整Java/Javadoc **1515项、0失败/错误/跳过**通过，原覆盖率门槛不变；既有Python162项通过。冻结的13个V2及19个V3 bundle共32次重放均IDENTICAL_CORE，原五模型也再次与冻结基线比对一致。无输入重试夹具初始固定四个种子未覆盖故障，因此改用固定有限种子域直到实际触发一次重试；未修改生产故障参数或比较规则。
 
-NF005B还需接通独立动作校验、重放和报告，不能把当前运行内核等同于完整新研究工件交付。
+NF005B新增93项Java测试（57动作校验、9工件、5重放、14投影、8Workbench）；完整Java/Javadoc **1608项、0失败/错误/跳过**通过。Python原162＋新74共 **236项**通过；V1/V2/V3与在线共 **109个跨语言入口**通过。冻结默认V2/V3加21个在线bundle共 **53次实际重放全部IDENTICAL_CORE**，原五模型另行保持一致。**99组桌面/390px报告与26个检查器反例**通过，原覆盖率及精确比较规则不变。
+
+额外复核先以Java6个重哈希子例和Python56个拒绝子例复现了主CPU事件MI/计时范围及Python VM调度模式漏检，再加入仅作用于在线新契约的确定性字段联结。所有实际运行工件继续通过，有限输入进度范围的明确例外不被混成字段自相矛盾的豁免。独立检出与最终保护记录按阶段继续更新；性能复制范围优化不改变本契约。

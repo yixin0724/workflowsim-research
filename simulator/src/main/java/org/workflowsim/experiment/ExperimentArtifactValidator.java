@@ -104,7 +104,7 @@ public final class ExperimentArtifactValidator {
         }
         if(networkContext!=null)networkContext.finish();if(fileContext!=null)fileContext.finish();
         return new ValidationResult(manifest, metrics, events, actualEvents,networkLedger,
-                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus(),decoded,fileLifecycle,fileDecoded,storageLifecycle,storageDecoded,root);
+                decoded==null?null:decoded.getEvidence().getTraceSnapshot().getStatus(),decoded,fileLifecycle,fileDecoded,storageLifecycle,storageDecoded,root,fileContext==null?null:fileContext.getDataflowAssignmentResult());
     }
 
     private static void validateManifestTopLevelShape(JsonObject root) throws IOException {
@@ -261,7 +261,7 @@ public final class ExperimentArtifactValidator {
     private static String strictUtf8(Path path)throws IOException{return strictUtf8(Files.readAllBytes(path));}
     private static String strictUtf8(byte[] bytes)throws IOException{return StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();}
     private static boolean isCoherentManifest(JsonObject root){
-        JsonElement config=root.get("configuration");if(config==null||!config.isJsonObject())return false;JsonElement model=config.getAsJsonObject().get("dataMovementModel");if(model==null||!model.isJsonObject())return false;
+        if(root.has("dataflowComputeRequests"))return true;JsonElement config=root.get("configuration");if(config==null||!config.isJsonObject())return false;if(config.getAsJsonObject().has("dataflowAssignment"))return true;JsonElement model=config.getAsJsonObject().get("dataMovementModel");if(model==null||!model.isJsonObject())return false;
         JsonElement kind=model.getAsJsonObject().get("kind");if(kind==null||!kind.isJsonPrimitive()||!kind.getAsJsonPrimitive().isString())return false;return "COHERENT_FILE_DATAFLOW_V2".equals(kind.getAsString())||"COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2".equals(kind.getAsString())||"COHERENT_STORAGE_DATAFLOW_V3".equals(kind.getAsString())||"COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3".equals(kind.getAsString());
     }
 
@@ -284,6 +284,7 @@ public final class ExperimentArtifactValidator {
                     throw new IOException("JSONL event sequence mismatch at line " + (count + 1)
                             + ": expected " + count + " but found " + sequence);
                 }
+                if(fileContext==null&&event.has("type")&&event.get("type").isJsonPrimitive()&&"DATAFLOW_VM_ASSIGNED".equals(event.get("type").getAsString()))throw new IOException("Online assignment events require their full lifecycle context");
                 if(networkContext!=null)networkContext.acceptEvent(event);if(fileContext!=null)fileContext.acceptEvent(event);
                 count++;
             }
@@ -425,18 +426,21 @@ public final class ExperimentArtifactValidator {
         private final org.workflowsim.data.v2.FileLifecycleCodec.Decoded decodedFileLifecycle;
         private final Path storageLifecycle;
         private final org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decodedStorageLifecycle;
+        private final org.workflowsim.data.v2.DataflowAssignmentValidator.Result dataflowAssignment;
 
         private ValidationResult(Path manifest, Path metrics, Path events, int eventCount,Path networkLedger,
                 org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
-                org.workflowsim.data.NetworkLedgerCodec.Decoded decodedNetworkLedger,Path fileLifecycle,org.workflowsim.data.v2.FileLifecycleCodec.Decoded decodedFileLifecycle,Path storageLifecycle,org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decodedStorageLifecycle,JsonObject validatedManifest) {
+                org.workflowsim.data.NetworkLedgerCodec.Decoded decodedNetworkLedger,Path fileLifecycle,org.workflowsim.data.v2.FileLifecycleCodec.Decoded decodedFileLifecycle,Path storageLifecycle,org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decodedStorageLifecycle,JsonObject validatedManifest,org.workflowsim.data.v2.DataflowAssignmentValidator.Result dataflowAssignment) {
             this.manifest = manifest;
             this.metrics = metrics;
             this.events = events;
             this.eventCount = eventCount;
             this.networkLedger=networkLedger;this.networkCaptureStatus=networkCaptureStatus;this.decodedNetworkLedger=decodedNetworkLedger;
-            this.validatedManifest=validatedManifest;this.fileLifecycle=fileLifecycle;this.decodedFileLifecycle=decodedFileLifecycle;this.storageLifecycle=storageLifecycle;this.decodedStorageLifecycle=decodedStorageLifecycle;
+            this.validatedManifest=validatedManifest;this.fileLifecycle=fileLifecycle;this.decodedFileLifecycle=decodedFileLifecycle;this.storageLifecycle=storageLifecycle;this.decodedStorageLifecycle=decodedStorageLifecycle;this.dataflowAssignment=dataflowAssignment;
         }
 
+        /** @return independently checked online action context, null when destination assignment is OFF */
+        public org.workflowsim.data.v2.DataflowAssignmentValidator.Result getDataflowAssignment(){return dataflowAssignment;}
         public Path getManifest() { return manifest; }
         /** @return defensive copy of the manifest actually validated with this result; performs no further I/O */
         public JsonObject getManifestSnapshot() { return validatedManifest.deepCopy(); }

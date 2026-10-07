@@ -109,6 +109,30 @@ try {
       `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
       /Offline reports must not fetch secondary files/, storage);
   }
+  const assignment = fixtures && (fixtures.reports.find(r => r.name === 'dataflow-assignment-typed-stress')
+    || fixtures.reports.find(r => r.dataflowAssignment && r.dataflowAssignment.some(e => e.state === 'VALIDATED')));
+  if (assignment) {
+    const content = fs.readFileSync(assignment.path, 'utf8');
+    rejected('assignment-exact-summary', inject(content,
+      'function spoilAssignmentSummary(){document.getElementById("dataflow-assignment-total").textContent="CORRUPTED";}spoilAssignmentSummary();document.getElementById("run-select").addEventListener("change",spoilAssignmentSummary);'),
+      /Exact assignment text differs at dataflow-assignment-total/, assignment);
+    const count = '"assignmentCount":"1"';assert.ok(content.includes(count), 'Assignment fixture must include an exact count');
+    rejected('assignment-numeric-coercion', content.replace(count, '"assignmentCount":1'), /Network exact values must be strings/, assignment);
+    rejected('assignment-hidden-panel', inject(content, 'document.getElementById("dataflow-assignment-section").style.display="none";'), /Assignment panel visibility differs/, assignment);
+    rejected('assignment-over-actions-cap', inject(content,
+      'function spoilAssignmentActions(){const t=document.getElementById("dataflow-assignment-table");if(t.firstElementChild)while(t.children.length<=64)t.appendChild(t.firstElementChild.cloneNode(true));}spoilAssignmentActions();document.getElementById("run-select").addEventListener("change",spoilAssignmentActions);'),
+      /Assignment actions row count/, assignment);
+    rejected('assignment-over-candidates-cap', inject(content,
+      'function spoilAssignmentCandidates(){const t=document.getElementById("dataflow-assignment-candidate-table");if(t.firstElementChild)while(t.children.length<=12)t.appendChild(t.firstElementChild.cloneNode(true));}spoilAssignmentCandidates();document.getElementById("run-select").addEventListener("change",spoilAssignmentCandidates);document.getElementById("dataflow-assignment-select").addEventListener("change",spoilAssignmentCandidates);'),
+      /Assignment candidates row count/, assignment);
+    rejected('assignment-false-complete-progress-proof', inject(content,
+      'function spoilAssignmentScope(){document.getElementById("dataflow-assignment-note").textContent="全部实时进度与全局最优结果均已证明";}spoilAssignmentScope();document.getElementById("run-select").addEventListener("change",spoilAssignmentScope);'),
+      /Assignment scope must not imply a fluid replay/, assignment);
+    const local = path.join(temporary, 'forbidden-assignment.json');fs.writeFileSync(local, '{}');
+    rejected('assignment-secondary-fetch', inject(content,
+      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      /Offline reports must not fetch secondary files/, assignment);
+  }
   console.log(JSON.stringify({ status: 'PASSED', checks: results }, null, 2));
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });

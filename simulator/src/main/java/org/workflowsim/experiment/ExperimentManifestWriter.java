@@ -28,7 +28,7 @@ public final class ExperimentManifestWriter {
 
     /** Standalone manifests must not silently drop requested network evidence. */
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
-        if(report.getConfig().getDataflowAssignmentConfig().isEnabled())throw new UnsupportedOperationException("Online dataflow assignment needs its verified action context before manifest export");
+        if(report.getConfig().getDataflowAssignmentConfig().isEnabled()&&(!report.getConfig().getNetworkEvidenceConfig().isEnabled()||report.getDataflowComputeRequests()==null))throw new UnsupportedOperationException("Online assignment certification requires complete lifecycle capture and frozen compute requests; use an enabled lifecycle mode");
         org.workflowsim.data.DataMovementModel model=report.getConfig().getDataMovementModel();if(model.isCoherentStorageDataflowV3()!=(report.getPlatform().getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage presence differs from its declared model");
         org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model,option);
         String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);Map<String,Integer> counts=new LinkedHashMap<>();for(String role:new String[]{"network-ledger","file-lifecycle","storage-lifecycle"})counts.put(role,0);
@@ -50,7 +50,7 @@ public final class ExperimentManifestWriter {
     /** No-I/O V2 context; uses the same frozen report rather than rereading a manifest path. */
     static Map<String,Object> fileLifecycleContextSnapshot(SimulationReport report){
         Map<String,Object> root=new LinkedHashMap<String,Object>();root.put("configuration",configuration(report.getConfig()));root.put("platform",platform(report.getPlatform()));
-        root.put("workflowGraph",report.getWorkflowGraph());root.put("dataflowPlan",report.getDataflowPlan());root.put("result",result(report));return root;
+        root.put("workflowGraph",report.getWorkflowGraph());root.put("dataflowPlan",report.getDataflowPlan());if(report.getConfig().getDataflowAssignmentConfig().isEnabled())root.put("dataflowComputeRequests",report.getDataflowComputeRequests());root.put("result",result(report));return root;
     }
 
     /**
@@ -121,6 +121,7 @@ public final class ExperimentManifestWriter {
         manifest.put("workflowProfile", report.getWorkflowProfile());
         manifest.put("workflowGraph", report.getWorkflowGraph());
         if(report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())manifest.put("dataflowPlan",report.getDataflowPlan());
+        if(report.getConfig().getDataflowAssignmentConfig().isEnabled())manifest.put("dataflowComputeRequests",report.getDataflowComputeRequests());
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
         manifest.put("events", eventSummary(report));
@@ -192,6 +193,7 @@ public final class ExperimentManifestWriter {
                 + "NO_INTERNAL_BILLING_ROUNDING;"
                 + "MEMORY_AND_STORAGE_PRICES_ARE_DECLARED_BUT_NOT_CHARGED_BY_THIS_MODEL");
         values.put("dataMovementModel", dataMovementModel(config.getDataMovementModel()));
+        if(config.getDataflowAssignmentConfig().isEnabled()){Map<String,Object> assignment=new LinkedHashMap<>();assignment.put("mode",config.getDataflowAssignmentConfig().getMode().name());assignment.put("policy",config.getDataflowAssignmentConfig().getPolicy());values.put("dataflowAssignment",assignment);}
         if (config.getNetworkEvidenceConfig().isEnabled()) {
             Map<String, Object> networkEvidence = new LinkedHashMap<String, Object>();
             networkEvidence.put("mode", config.getNetworkEvidenceConfig().getMode().name());

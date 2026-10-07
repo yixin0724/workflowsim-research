@@ -215,7 +215,7 @@ def _stage_checker(totals):
     return check
 
 
-def verify_context(manifest, document, main_events):
+def _verify_context(manifest, document, main_events, *, check_assignment=True):
     """Join strict-decoded V3 manifest/lifecycle/main snapshots without modifying them.
 
     Artifact hash/size/UTF-8/metrics verification belongs to ``inspect_path``.
@@ -256,7 +256,15 @@ def verify_context(manifest, document, main_events):
     _failure_history(config, jobs, events)
     report.update(contextualRunChecked=True, corePlanContextChecked=True, scope=FULL_SCOPE,
                   mainEventCount=len(events), validatedComputeAttemptCount=len(jobs))
+    if check_assignment and "dataflowAssignment" in config:
+        from _dataflow_assignment_audit import _verify_validated
+        report.update(_verify_validated(manifest, document, events, report))
     return report
+
+
+def verify_context(manifest, document, main_events):
+    """Validate the V3 run context and, only on explicit opt-in, its actions."""
+    return _verify_context(manifest, document, main_events)
 
 
 def inspect_path(path, manifest=None):

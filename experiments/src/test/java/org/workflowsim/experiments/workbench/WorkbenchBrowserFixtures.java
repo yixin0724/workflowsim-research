@@ -83,6 +83,7 @@ public final class WorkbenchBrowserFixtures {
         NetworkBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
         FileLifecycleBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
         StorageLifecycleBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
+        DataflowAssignmentBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
 
         Map<String, Object> index = new LinkedHashMap<>();
         index.put("schema", "workflowsim-browser-fixtures-v1"); index.put("reports", reports);

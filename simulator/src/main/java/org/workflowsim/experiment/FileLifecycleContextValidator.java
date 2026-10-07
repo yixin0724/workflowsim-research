@@ -44,6 +44,9 @@ final class FileLifecycleContextValidator {
     private double previousMainTime;
     private boolean storageFailureEnabled;
     private int storageRetryBudget;
+    private org.workflowsim.data.v2.DataflowAssignmentValidator assignmentAudit;
+    private org.workflowsim.data.v2.DataflowAssignmentValidator.Result assignmentResult;
+    org.workflowsim.data.v2.DataflowAssignmentValidator.Result getDataflowAssignmentResult(){return assignmentResult;}
 
     static void validateReport(SimulationReport report,FileLifecycleCodec.Decoded decoded)throws IOException{
         JsonObject root=JSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report)).getAsJsonObject();
@@ -54,11 +57,19 @@ final class FileLifecycleContextValidator {
         JsonObject root=JSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report)).getAsJsonObject();FileLifecycleContextValidator check=new FileLifecycleContextValidator(root,decoded);for(SimulationEvent event:report.getEvents())check.acceptEvent(JSON.toJsonTree(event).getAsJsonObject());check.finish();
     }
 
+    /** Known online extensions require the explicit policy and complete matching lifecycle capture. */
+    static boolean requiresOnlineAssignmentAudit(JsonObject root)throws IOException{
+        JsonObject config=obj(root,"configuration");if(!config.has("dataflowAssignment")){if(root.has("dataflowComputeRequests"))throw fail("Compute request metadata requires online assignment configuration");return false;}
+        try{org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(need(config,"dataflowAssignment"));}catch(IllegalArgumentException invalid){throw new IOException("Invalid online destination-binding configuration",invalid);}
+        String kind=text(obj(config,"dataMovementModel"),"kind");if(!isV2(kind)&&!isStorage(kind))throw fail("Online assignment requires coherent V2/V3");requireText(config,"planningAlgorithm","INVALID");requireText(config,"schedulingAlgorithm","STATIC");arr(root,"dataflowComputeRequests");
+        NetworkEvidenceConfig option;try{option=NetworkEvidenceConfigCodec.decodeConfig(need(config,"networkEvidence"));}catch(IllegalArgumentException invalid){throw new IOException("Online action certification requires lifecycle recording",invalid);}if(option.getMode()!=(isStorage(kind)?NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3:NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2))throw fail("Online action certification requires the matching complete lifecycle");return true;
+    }
+
     /** Shared coherent OFF/ON core-plan validation; no external input files are reopened. */
     static void validatePlanContext(JsonObject root)throws IOException{
         JsonObject config=obj(root,"configuration"),plan=obj(root,"dataflowPlan");String kind=text(obj(config,"dataMovementModel"),"kind");
         boolean storage=isStorage(kind);if(!isV2(kind)&&!storage)throw fail("dataflowPlan requires an explicitly supported coherent model");
-        requireText(config,"planningAlgorithm","RANDOM");requireText(config,"schedulingAlgorithm","STATIC");String fileSystem=text(config,"fileSystem");if(!fileSystem.equals("LOCAL")&&!(storage&&fileSystem.equals("SHARED")))throw fail("Unsupported coherent input-access configuration");requireText(obj(config,"clustering"),"method","NONE");
+        requireText(config,"planningAlgorithm",requiresOnlineAssignmentAudit(root)?"INVALID":"RANDOM");requireText(config,"schedulingAlgorithm","STATIC");String fileSystem=text(config,"fileSystem");if(!fileSystem.equals("LOCAL")&&!(storage&&fileSystem.equals("SHARED")))throw fail("Unsupported coherent input-access configuration");requireText(obj(config,"clustering"),"method","NONE");
         if(storage)validateStorageSpec(obj(root,"platform"));else if(obj(root,"platform").has("sourceStorage"))throw fail("V2 cannot declare bounded sourceStorage");
         JsonObject overhead=obj(config,"overheadModel");if(whole(need(overhead,"workflowEngineDelayInterval"))!=0||number(need(overhead,"bandwidth"))!=0)throw fail("V2 runtime overhead is unsupported");
         for(String key:Arrays.asList("workflowEngineDelays","queueDelays","postDelays","clusteringDelays"))if(obj(overhead,key).size()!=0)throw fail("V2 runtime overhead maps must be empty");
@@ -77,8 +88,8 @@ final class FileLifecycleContextValidator {
         if(!covered.equals(tasks.keySet()))throw fail("V2 input ranges do not cover the file plan");
     }
 
-    FileLifecycleContextValidator(JsonObject root,FileLifecycleCodec.Decoded decoded)throws IOException{this(root,new Checked(decoded));}
-    FileLifecycleContextValidator(JsonObject root,org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decoded)throws IOException{this(root,new Checked(decoded));}
+    FileLifecycleContextValidator(JsonObject root,FileLifecycleCodec.Decoded decoded)throws IOException{this(root,new Checked(decoded));if(requiresOnlineAssignmentAudit(root))try{assignmentAudit=new org.workflowsim.data.v2.DataflowAssignmentValidator(root,decoded);}catch(IllegalArgumentException invalid){throw new IOException("Invalid online assignment context",invalid);}}
+    FileLifecycleContextValidator(JsonObject root,org.workflowsim.data.v2.StorageLifecycleCodec.Decoded decoded)throws IOException{this(root,new Checked(decoded));if(requiresOnlineAssignmentAudit(root))try{assignmentAudit=new org.workflowsim.data.v2.DataflowAssignmentValidator(root,decoded);}catch(IllegalArgumentException invalid){throw new IOException("Invalid online assignment context",invalid);}}
     private FileLifecycleContextValidator(JsonObject root,Checked decoded)throws IOException{
         this.decoded=decoded;validatePlanContext(root);
         JsonObject config=obj(root,"configuration"),result=obj(root,"result"),document=decoded.getDocument();String model=text(obj(config,"dataMovementModel"),"kind");
@@ -132,6 +143,7 @@ final class FileLifecycleContextValidator {
     }
 
     void acceptEvent(JsonObject event)throws IOException{
+        if(assignmentAudit!=null)try{assignmentAudit.acceptEvent(event);}catch(IllegalArgumentException invalid){throw new IOException("Invalid online assignment event",invalid);}else if("DATAFLOW_VM_ASSIGNED".equals(text(event,"type")))throw fail("Assignment event requires the explicit online configuration");
         double time=number(need(event,"simulationTime"));if(time<previousMainTime||time>simulationEnd)throw fail("V2 main event time is not monotonic within run");previousMainTime=time;
         String type=text(event,"type");if(!Arrays.asList("JOB_READY","DATA_STAGE_IN_MODELED","TASK_EXECUTION_MODELED","JOB_RETURNED","JOB_FAILED","SCHEDULING_DECISION","JOB_DISPATCHED","RETRY_JOB_CREATED").contains(type))return;
         if(integer(need(event,"classType"))!=Parameters.ClassType.COMPUTE.value)return;int id=integer(need(event,"jobId"));Job job=requireJob(id);
@@ -149,6 +161,7 @@ final class FileLifecycleContextValidator {
             requireText(obj(decision,"attributes"),"schedulingAlgorithm","STATIC");
             if(number(need(obj(decision,"attributes"),"queueDelaySeconds"))!=0||number(need(obj(dispatch,"attributes"),"queueDelaySeconds"))!=0||number(need(obj(returned,"attributes"),"postDelaySeconds"))!=0)throw fail("Unsupported V2 dispatch/post overhead");
             JsonObject attrs=obj(execution,"attributes");if(integer(need(attrs,"taskId"))!=job.task||number(need(attrs,"taskStartTime"))!=job.start||number(need(attrs,"taskFinishTime"))!=number(need(taskOutcomes.get(id),"finishTime"))||number(need(attrs,"modeledStageInSecondsBeforeTask"))!=0||number(need(attrs,"requestedDataStageInSecondsForJob"))!=0)throw fail("V2 CPU envelope contains input transfer or mismatched Task timing");
+            if(assignmentAudit!=null){JsonObject outcome=taskOutcomes.get(id);if(whole(need(attrs,"taskLengthMi"))!=whole(need(outcome,"lengthMi"))||whole(need(attrs,"effectiveExecutionLengthMi"))!=whole(need(outcome,"effectiveExecutionLengthMi")))throw fail("Online execution MI differs from its certified Task/action request");requireText(attrs,"taskTimingScope","MODEL_DERIVED_COMPUTE_WINDOW");}
             JsonObject stageAttrs=obj(stage,"attributes");requireText(stageAttrs,"transferUnit",decoded.storage?"LOGICAL_FILE_STORAGE_V3":"LOGICAL_FILE_V2");if(decoded.storage&&number(need(stageAttrs,"observedInputPreparationSeconds"))!=readyTime.get(id)-requestTime.get(id))throw fail("V3 observed preparation latency differs");requireText(stageAttrs,"dataMovementModel",text(decoded.getDocument(),"modelKind"));ReferenceTotals totals=referenceTotals.get(id);
             if(totals==null||whole(need(stageAttrs,"modeledTransferFileCount"))!=totals.references||number(need(stageAttrs,"requiredFileBytes"))!=totals.bytes||number(need(stageAttrs,"modeledTransferSeconds"))!=totals.seconds||integer(need(stageAttrs,"newFileCopies"))!=totals.created||integer(need(stageAttrs,"joinedFileCopies"))!=totals.joined||stageAttrs.has("contentionTransferGroupCount"))throw fail("V2 stage-in main quantities disagree with file lifecycle references");
             JsonObject readyAttrs=obj(ready,"attributes");if(retries.containsKey(id)){if(integer(need(readyAttrs,"retryOfFailedJobId"))!=retries.get(id))throw fail("V2 readiness retry origin differs");}else if(readyAttrs.has("retryOfFailedJobId"))throw fail("Initial V2 request falsely claims retry origin");
@@ -163,6 +176,7 @@ final class FileLifecycleContextValidator {
             if(whole(need(returned,"sequence"))>=whole(need(failed,"sequence"))||whole(need(returned,"sequence"))>=creation||whole(need(failed,"sequence"))>=creation||creation>=whole(need(ready,"sequence"))||number(need(returned,"simulationTime"))>time||number(need(failed,"simulationTime"))>time||time>number(need(ready,"simulationTime")))throw fail("Retry creation must follow failed return and precede retry readiness");
         }
         if(!initialTasks.equals(taskScopes.keySet()))throw fail("V2 initial attempts do not cover logical Tasks");
+        if(assignmentAudit!=null)try{assignmentResult=assignmentAudit.finish();}catch(IllegalArgumentException invalid){throw new IOException("Online assignment and lifecycle context disagree",invalid);}
     }
 
     private static void validateFabric(JsonObject platform,JsonObject actual,JsonObject fabric,boolean storage)throws IOException{

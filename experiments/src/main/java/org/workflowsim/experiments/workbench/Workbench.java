@@ -47,7 +47,7 @@ public final class Workbench {
                 Map<String, Object> row = new LinkedHashMap<String, Object>();
                 JsonObject configuration = manifest.getAsJsonObject("configuration");
                 String planner = configuration.get("planningAlgorithm").getAsString();
-                row.put("candidate", "INVALID".equals(planner)
+                row.put("candidate", configuration.has("dataflowAssignment")?"DATAFLOW_BINDING_V1":"INVALID".equals(planner)
                         ? configuration.get("schedulingAlgorithm").getAsString() : planner);
                 row.put("seed", configuration.get("rootSeed").getAsBigDecimal().longValueExact());
                 row.put("status", manifest.getAsJsonObject("result").get("logicalTaskCompletionStatus").getAsString());

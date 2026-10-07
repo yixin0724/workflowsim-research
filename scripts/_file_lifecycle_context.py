@@ -93,7 +93,9 @@ def _core(root, *, models=(SHARED, ISOLATED), filesystems=("LOCAL",)):
     config, result = _obj(_field(root, "configuration")), _obj(_field(root, "result"))
     model = word(_field(_field(config, "dataMovementModel"), "kind"))
     need(model in models, "dataflowPlan/lifecycle requires its coherent model contract")
-    for key, value in (("planningAlgorithm", "RANDOM"), ("schedulingAlgorithm", "STATIC")):
+    from _dataflow_assignment_audit import _configuration
+    online = _configuration(root)
+    for key, value in (("planningAlgorithm", "INVALID" if online else "RANDOM"), ("schedulingAlgorithm", "STATIC")):
         _text_is(config, key, value)
     need(word(_field(config, "fileSystem")) in filesystems, "unsupported fileSystem")
     _text_is(_field(config, "clustering"), "method", "NONE")
@@ -284,7 +286,9 @@ def _main_sequence(root, events, end):
         need(whole(_field(row, "sequence"), 0, LONG_MAX) == index, "nonconsecutive main event sequence")
         time = _time(_field(row, "simulationTime"))
         need(previous <= time <= end, "main event time is not monotonic within simulation bounds")
-        word(_field(row, "type"))
+        kind = word(_field(row, "type"))
+        need(kind != "DATAFLOW_VM_ASSIGNED" or "dataflowAssignment" in root["configuration"],
+             "assignment action requires explicit configuration.dataflowAssignment")
         previous = time
 
 
@@ -383,7 +387,7 @@ def _main_context(root, events, jobs, facts, plan, arrivals, model, *, stage_at_
     need(retried == {ident for ident, job in jobs.items() if job["status"] == FAILED}, "unrecovered failed attempt")
 
 
-def verify_context(manifest, document, main_events):
+def _verify_context(manifest, document, main_events, *, check_assignment=True):
     """Verify one already strict-decoded V2 manifest/lifecycle/main-event triple.
 
     Artifact bytes/hash/metrics joins are performed by inspect_path, not this
@@ -419,7 +423,15 @@ def verify_context(manifest, document, main_events):
     report.update(contextualRunChecked=True, corePlanContextChecked=True,
                   scope="FILE_LIFECYCLE_AND_RUN_CONTEXT_NOT_FLUID_SERVICE_ACCOUNTING",
                   mainEventCount=len(events), validatedComputeAttemptCount=len(jobs))
+    if check_assignment and "dataflowAssignment" in config:
+        from _dataflow_assignment_audit import _verify_validated
+        report.update(_verify_validated(manifest, document, events, report))
     return report
+
+
+def verify_context(manifest, document, main_events):
+    """Validate the V2 run context and, only on explicit opt-in, its actions."""
+    return _verify_context(manifest, document, main_events)
 
 
 def _references(path, manifest, enabled, *, lifecycle_role="file-lifecycle"):
