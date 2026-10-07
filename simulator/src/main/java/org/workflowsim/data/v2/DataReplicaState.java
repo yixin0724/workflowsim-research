@@ -85,14 +85,12 @@ public final class DataReplicaState {
         private final DataflowFilePlan plan;
         private final Set<DataLocation> known;
         private final List<DataLocation> locations;
-        private final Map<DataflowFilePlan.FileId,Map<DataLocation,Replica>> replicas;
+        private final PersistentHistoryMap<DataflowFilePlan.FileId,Map<DataLocation,Replica>> replicas;
         private final List<CopyTicket> active;
         private final double observedThrough;
         private Snapshot(DataReplicaState state){
-            plan=state.plan;known=state.locations;locations=immutableList(known);observedThrough=state.observedThrough;
-            Map<DataflowFilePlan.FileId,Map<DataLocation,Replica>> copy=new TreeMap<>();
-            for(Map.Entry<DataflowFilePlan.FileId,Map<DataLocation,Replica>> entry:state.replicas.entrySet())copy.put(entry.getKey(),Collections.unmodifiableMap(new TreeMap<>(entry.getValue())));
-            replicas=Collections.unmodifiableMap(copy);active=immutableList(state.active.values());
+            plan=state.plan;known=state.locations;locations=state.locationList;observedThrough=state.observedThrough;
+            replicas=state.replicas;active=immutableList(state.active.values());
         }
         /** @return observed-state watermark */ public double getObservedThrough(){return observedThrough;}
         /** @return typed known locations in stable order */ public List<DataLocation> getLocations(){return locations;}
@@ -117,12 +115,14 @@ public final class DataReplicaState {
 
     private final DataflowFilePlan plan;
     private final Set<DataLocation> locations;
+    private final List<DataLocation> locationList;
     private final Object ticketOwner;
-    private final Map<DataflowFilePlan.FileId,Map<DataLocation,Replica>> replicas=new TreeMap<>();
+    // Immutable roots and location rows can be retained by snapshots and speculative branches.
+    private PersistentHistoryMap<DataflowFilePlan.FileId,Map<DataLocation,Replica>> replicas=PersistentHistoryMap.empty();
     private final Map<Long,CopyTicket> active=new TreeMap<>();
     private final Map<Target,CopyTicket> byTarget=new HashMap<>();
-    private final Map<Attempt,Completion> completions=new HashMap<>();
-    private final Map<Long,JobObservation> jobObservations=new HashMap<>();
+    private PersistentHistoryMap<Attempt,Completion> completions=PersistentHistoryMap.empty();
+    private PersistentHistoryMap<Long,JobObservation> jobObservations=PersistentHistoryMap.empty();
     private long nextOrdinal=1;
     private double observedThrough;
 
@@ -132,12 +132,12 @@ public final class DataReplicaState {
      */
     public DataReplicaState(DataflowFilePlan plan,Collection<DataLocation> knownLocations){
         if(plan==null||knownLocations==null)throw bad("File plan and known locations are required");this.plan=plan;ticketOwner=new Object();Set<DataLocation> copied=new TreeSet<>();
-        for(DataLocation location:knownLocations)if(location==null||!copied.add(location))throw bad("Locations must be nonnull and distinct");locations=Collections.unmodifiableSet(copied);
+        for(DataLocation location:knownLocations)if(location==null||!copied.add(location))throw bad("Locations must be nonnull and distinct");locations=Collections.unmodifiableSet(copied);locationList=immutableList(locations);
     }
     private DataReplicaState(DataReplicaState previous){
-        plan=previous.plan;locations=previous.locations;ticketOwner=previous.ticketOwner;nextOrdinal=previous.nextOrdinal;observedThrough=previous.observedThrough;
-        for(Map.Entry<DataflowFilePlan.FileId,Map<DataLocation,Replica>> row:previous.replicas.entrySet())replicas.put(row.getKey(),new TreeMap<>(row.getValue()));
-        active.putAll(previous.active);byTarget.putAll(previous.byTarget);completions.putAll(previous.completions);jobObservations.putAll(previous.jobObservations);
+        plan=previous.plan;locations=previous.locations;locationList=previous.locationList;ticketOwner=previous.ticketOwner;nextOrdinal=previous.nextOrdinal;observedThrough=previous.observedThrough;
+        replicas=previous.replicas;completions=previous.completions;jobObservations=previous.jobObservations;
+        active.putAll(previous.active);byTarget.putAll(previous.byTarget);
     }
     /** Internal same-run speculative state; no copy is published until the runtime commits it. */
     DataReplicaState fork(){return new DataReplicaState(this);}
@@ -197,8 +197,8 @@ public final class DataReplicaState {
         List<Replica> proposals=new ArrayList<>();
         if(succeeded){Origin origin=new Origin(taskId,jobAttemptId,actualVm,at);for(DataflowFilePlan.FileId file:outputIds)proposals.add(new Replica(plan.getFile(file),actualVm,at,Acquisition.TASK_OUTPUT,origin,null,null));}
         List<Publication> published=new ArrayList<>();for(Replica proposal:proposals)published.add(publish(proposal));
-        if(job==null)jobObservations.put(jobAttemptId,new JobObservation(actualVm,at));
-        completions.put(key,new Completion(actualVm,succeeded,at));observedThrough=at;return Collections.unmodifiableList(published);
+        if(job==null)jobObservations=jobObservations.with(jobAttemptId,new JobObservation(actualVm,at));
+        completions=completions.with(key,new Completion(actualVm,succeeded,at));observedThrough=at;return Collections.unmodifiableList(published);
     }
 
     /**
@@ -260,8 +260,11 @@ public final class DataReplicaState {
     private Replica requireVisible(DataflowFilePlan.FileId file,DataLocation source){Replica replica=visible(file,source);if(replica==null)throw new IllegalStateException("Source does not hold a visible replica: "+file+" at "+source);return replica;}
     private Replica visible(DataflowFilePlan.FileId file,DataLocation location){Map<DataLocation,Replica> copies=replicas.get(file);return copies==null?null:copies.get(location);}
     private Publication publish(Replica proposal){
-        Map<DataLocation,Replica> copies=replicas.get(proposal.file.getId());if(copies==null){copies=new TreeMap<>();replicas.put(proposal.file.getId(),copies);}
-        Replica existing=copies.get(proposal.location);if(existing!=null)return new Publication(existing,false);copies.put(proposal.location,proposal);return new Publication(proposal,true);
+        Map<DataLocation,Replica> previous=replicas.get(proposal.file.getId());
+        Replica existing=previous==null?null:previous.get(proposal.location);if(existing!=null)return new Publication(existing,false);
+        // Copy only the changed file's ordered row; published rows are never mutated again.
+        Map<DataLocation,Replica> copies=previous==null?new TreeMap<>():new TreeMap<>(previous);copies.put(proposal.location,proposal);
+        replicas=replicas.with(proposal.file.getId(),Collections.unmodifiableMap(copies));return new Publication(proposal,true);
     }
     private double time(double now){if(!Double.isFinite(now)||now<0||now<observedThrough)throw bad("Observation time must be finite, nonnegative and monotonic");return now==0?0:now;}
     private static void requireKnown(Set<DataLocation> locations,DataLocation location){if(location==null||!locations.contains(location))throw bad("Unknown data location: "+location);}
