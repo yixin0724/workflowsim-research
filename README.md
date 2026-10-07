@@ -109,6 +109,12 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 
 旧360次Fat-tree研究保留为历史。R10当时按原参数复跑，将R8的3/10换冠结论改为1/10；这仍是本次执行语义修订前的历史记录。请勿把[R8历史结果](docs/experiments/FATTREE_SCHEDULING_RESULTS.md)或[R10验收记录](docs/advanced/PLATFORM_UPGRADE_R10.md)当作当前代码的数值认证，新的排名须按新模型重新评估。
 
+## 事务状态复制性能
+
+NF006用不可变结构共享保存副本/完成历史，事务只复制活动Job和变化的副本行；不改物理模型、浮点计算、来源/路径、事件顺序或在线绑定。固定512MiB堆的2000任务在线V3链式探针，协调器中位耗时由约8.90秒降至0.082秒，累计线程分配由约13.5GiB降至196MiB，102对采样的状态/捕获/动作指纹保持一致。该加速仅覆盖协调器测量区间，不代表解析、报告或全部宽并发输入的加速；宽活动工作集仍有近二次成本。
+
+复现方法、分场景数字及内存口径见[状态复制性能报告](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)；当前已实现能力和未实现研究范围见[数据流能力矩阵](<docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md>)。
+
 ## 其他入口
 
 - [快速上手](docs/getting-started/QUICK_START.md)、[构建指南](docs/getting-started/BUILD.md)

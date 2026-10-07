@@ -112,6 +112,9 @@ jobs:
       - name: Verify independent online assignment audit
         run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-assignment.py
 
+      - name: Verify strict performance comparison tooling
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-profile.py
+
       - name: Generate actual online assignment bundles
         run: >-
           mvn -B -Pcore-exec -pl :workflowsim -am test-compile exec:java
