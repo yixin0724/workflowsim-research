@@ -94,14 +94,14 @@ public final class CoherentDataflowRuntime {
         Collection<DataLocation> locations=fabric==null?frame.replicas.snapshot().getLocations():fabric.getLocations();for(DataflowFilePlan.FileId id:selected){DataflowFilePlan.FileDefinition file=plan.getFile(id);List<DataReplicaState.Replica> holders=new ArrayList<>();for(DataLocation location:locations){DataReplicaState.Replica replica=frame.replicas.getReplica(id,location);if(replica!=null)holders.add(replica);}files.put(id,new DataflowObservation.FileView(file,holders));}
         org.workflowsim.data.TransferServiceSnapshot service=frame.service==null?null:frame.service.snapshotState();
         if(service!=null){if(service.getObservedThrough()!=frame.replicas.getObservedThrough()||service.getTransfers().size()!=frame.copies.size())throw new IllegalStateException("Committed service and replica observations disagree");for(Map.Entry<Long,ActiveCopy> entry:frame.copies.entrySet()){ActiveCopy copy=entry.getValue();org.workflowsim.data.TransferServiceSnapshot.Flow flow=service.getTransfers().get(entry.getKey());if(flow==null)throw new IllegalStateException("Observed copy has no active service flow");copies.put(entry.getKey(),new DataflowObservation.CopyView(entry.getKey(),copy.ownerJobId,copy.purpose,copy.ticket.getFile(),copy.ticket.getSourceReplica(),copy.ticket.getDestination(),flow));}}
-        for(Map.Entry<Integer,JobState> entry:frame.jobs.entrySet()){JobState job=entry.getValue();if(job.finishedAt!=null)continue;DataflowObservation.JobPhase phase=job.startedAt!=null?DataflowObservation.JobPhase.RUNNING:!job.unresolvedStore.isEmpty()?DataflowObservation.JobPhase.WAITING_FOR_STORE:job.readyAt!=null?DataflowObservation.JobPhase.READY_FOR_CPU:DataflowObservation.JobPhase.WAITING_FOR_INPUTS;
+        for(Map.Entry<Integer,JobState> entry:frame.jobs.entrySet()){JobState job=entry.getValue();DataflowObservation.JobPhase phase=job.startedAt!=null?DataflowObservation.JobPhase.RUNNING:!job.unresolvedStore.isEmpty()?DataflowObservation.JobPhase.WAITING_FOR_STORE:job.readyAt!=null?DataflowObservation.JobPhase.READY_FOR_CPU:DataflowObservation.JobPhase.WAITING_FOR_INPUTS;
             jobs.put(entry.getKey(),new DataflowObservation.JobView(entry.getKey(),job.tasks.get(0),job.vm,phase,job.requestedAt,job.readyAt,job.startedAt,job.pending,job.unresolvedStore.keySet()));}
         return new DataflowObservation(fabric==null?DataflowObservation.Status.PLAN_ONLY:DataflowObservation.Status.BOUND,shared,storageVersion,storeBackedInputs,scope==null,frame.replicas.getObservedThrough(),service,fabric,files,copies,jobs,frame.outputObligations);
     }
     /** @return newly data-ready Job IDs exactly once */
     public List<Integer> drainReadyJobIds(){if(current==null)return Collections.emptyList();List<Integer> result=Collections.unmodifiableList(new ArrayList<>(current.ready));current.ready.clear();return result;}
     /** @return true after all requested Job attempts and positive copies have finished */
-    public boolean isQuiescent(){if(current==null)return false;if(!current.copies.isEmpty()||!current.ready.isEmpty()||!current.outputObligations.isEmpty()||!current.storeWaiters.isEmpty())return false;for(JobState job:current.jobs.values())if(job.finishedAt==null)return false;return true;}
+    public boolean isQuiescent(){if(current==null)return false;if(!current.copies.isEmpty()||!current.ready.isEmpty()||!current.outputObligations.isEmpty()||!current.storeWaiters.isEmpty())return false;return current.jobs.isEmpty();}
 
     /**
      * Request a fixed destination only after control dependencies and workflow arrival are released.
@@ -115,9 +115,9 @@ public final class CoherentDataflowRuntime {
     public Preparation requestJob(int jobId,List<Integer> taskIds,int vmId,double now){
         if(storageVersion)return requestStorageJob(jobId,taskIds,vmId,now);
         requireBound();List<Integer> members=members(taskIds);DataLocation destination=DataLocation.vm(vmId);fabric.requireLocation(destination);
-        if(jobId<0||current.jobs.containsKey(jobId))throw new IllegalStateException("Job input request identity is invalid or already used");
+        if(jobId<0||current.jobs.containsKey(jobId)||current.completedJobs.containsKey(jobId))throw new IllegalStateException("Job input request identity is invalid or already used");
         Stage staged=step(now);Frame frame=staged.frame;
-        for(int task:members)for(int parent:plan.getParentTaskIds(task))if(!frame.successfulTasks.contains(parent))throw new IllegalStateException("Logical control dependency has not successfully completed: "+parent);
+        for(int task:members)for(int parent:plan.getParentTaskIds(task))if(!frame.successfulTasks.containsKey(parent))throw new IllegalStateException("Logical control dependency has not successfully completed: "+parent);
         JobState job=new JobState(members,vmId);job.requestedAt=now;frame.jobs.put(jobId,job);
         JsonObject requested=staged.event(FileLifecycleEvent.Type.JOB_INPUT_REQUESTED,now);if(requested!=null){requested.addProperty("jobId",jobId);JsonArray ids=new JsonArray();for(int id:members)ids.add(id);requested.add("taskIds",ids);requested.addProperty("destinationVmId",vmId);}
         double bytes=0,seconds=0;long references=0;int copies=0,joins=0;DataReplicaState.Snapshot snapshot=frame.replicas.snapshot();
@@ -150,8 +150,8 @@ public final class CoherentDataflowRuntime {
     }
     private Preparation requestStorageJob(int jobId,List<Integer> taskIds,int vmId,double now){
         requireBound();List<Integer> members=members(taskIds);DataLocation destination=DataLocation.vm(vmId);fabric.requireLocation(destination);
-        if(jobId<0||current.jobs.containsKey(jobId))throw new IllegalStateException("Job input request identity is invalid or already used");Stage staged=step(now);Frame frame=staged.frame;
-        for(int task:members)for(int parent:plan.getParentTaskIds(task))if(!frame.successfulTasks.contains(parent))throw new IllegalStateException("Logical control dependency has not successfully completed: "+parent);
+        if(jobId<0||current.jobs.containsKey(jobId)||current.completedJobs.containsKey(jobId))throw new IllegalStateException("Job input request identity is invalid or already used");Stage staged=step(now);Frame frame=staged.frame;
+        for(int task:members)for(int parent:plan.getParentTaskIds(task))if(!frame.successfulTasks.containsKey(parent))throw new IllegalStateException("Logical control dependency has not successfully completed: "+parent);
         JobState job=new JobState(members,vmId);job.requestedAt=now;frame.jobs.put(jobId,job);JsonObject requested=staged.event(FileLifecycleEvent.Type.JOB_INPUT_REQUESTED,now);
         if(requested!=null){requested.addProperty("jobId",jobId);JsonArray ids=new JsonArray();for(int id:members)ids.add(id);requested.add("taskIds",ids);requested.addProperty("destinationVmId",vmId);}
         for(DataflowFilePlan.InputDemand demand:plan.demandsFor(members)){
@@ -227,9 +227,9 @@ public final class CoherentDataflowRuntime {
         for(int i=0;i<job.tasks.size();i++){
             int task=job.tasks.get(i);boolean success=successes.get(i);List<DataReplicaState.Publication> publications=staged.frame.replicas.recordTaskCompletion(task,jobId,DataLocation.vm(vmId),success,now);
             JsonObject p=staged.event(FileLifecycleEvent.Type.TASK_FINISHED,now);if(p!=null){p.addProperty("taskId",task);p.addProperty("jobId",jobId);p.addProperty("vmId",vmId);p.addProperty("success",success);}
-            if(success)staged.frame.successfulTasks.add(task);for(DataReplicaState.Publication publication:publications){visible(staged,publication.getReplica().getFile().getId(),publication.getReplica().getLocation(),now);if(storageVersion)materializeOutput(staged,jobId,task,publication.getReplica(),now);}
+            if(success)staged.frame.successfulTasks=staged.frame.successfulTasks.with(task,Boolean.TRUE);for(DataReplicaState.Publication publication:publications){visible(staged,publication.getReplica().getFile().getId(),publication.getReplica().getLocation(),now);if(storageVersion)materializeOutput(staged,jobId,task,publication.getReplica(),now);}
         }
-        job.finishedAt=now;commit(staged);
+        job.finishedAt=now;staged.frame.completedJobs=staged.frame.completedJobs.with(jobId,new CompletedJob(job));staged.frame.jobs.remove(jobId);commit(staged);
     }
     /** @return frozen bounded capture, null when OFF; no service advancement occurs */
     public FileLifecycleEvidence captureEvidence(){return storageVersion?null:captureCommon();}
@@ -237,9 +237,9 @@ public final class CoherentDataflowRuntime {
     public StorageLifecycleEvidence captureStorageEvidence(){return !storageVersion||budget==0?null:StorageLifecycleEvidence.capture(captureCommon(),storeBackedInputs);}
     private FileLifecycleEvidence captureCommon(){if(budget==0)return null;requireBound();return FileLifecycleEvidence.capture(budget,dropped,getCurrentTime(),shared,planDocument,fabricDocument,events);}
     /** @param jobId input-ready attempt @return final nominal input quantities (may be deferred under storage policy) */
-    public Preparation getPreparation(int jobId){JobState job=current.jobs.get(jobId);if(job==null||job.readyAt==null)throw new IllegalStateException("Input preparation is not final");return job.preparation;}
+    public Preparation getPreparation(int jobId){JobState job=current.jobs.get(jobId);if(job!=null){if(job.readyAt==null)throw new IllegalStateException("Input preparation is not final");return job.preparation;}CompletedJob completed=current.completedJobs.get(jobId);if(completed==null)throw new IllegalStateException("Input preparation is not final");return completed.preparation;}
     /** @param jobId input-ready attempt @return observed preparation latency, not a sum of overlapping waits */
-    public double getObservedInputPreparationSeconds(int jobId){JobState job=current.jobs.get(jobId);if(job==null||job.readyAt==null)throw new IllegalStateException("Input preparation is not final");return job.readyAt-job.requestedAt;}
+    public double getObservedInputPreparationSeconds(int jobId){JobState job=current.jobs.get(jobId);if(job!=null){if(job.readyAt==null)throw new IllegalStateException("Input preparation is not final");return job.readyAt-job.requestedAt;}CompletedJob completed=current.completedJobs.get(jobId);if(completed==null)throw new IllegalStateException("Input preparation is not final");return completed.readyAt-completed.requestedAt;}
 
     private Stage step(double now){
         requireBound();Stage staged=new Stage(new Frame(current));TransferContentionEngine.AdvanceResult result=staged.frame.service.advance(now);staged.frame.nextTime=result.getNextCompletionTime();staged.frame.replicas.advanceTo(now);
@@ -262,7 +262,7 @@ public final class CoherentDataflowRuntime {
         long lost=Math.addExact(dropped,staged.dropped);events.addAll(additions);dropped=lost;current=staged.frame;
     }
     private List<Integer> members(List<Integer> ids){if(ids==null||ids.size()!=1||ids.get(0)==null)throw new IllegalArgumentException("V2 runtime initially requires one logical Task per Job");plan.getInputReferences(ids.get(0));return Collections.unmodifiableList(new ArrayList<>(ids));}
-    private JobState job(int id,List<Integer> tasks,int vm,Frame frame){JobState job=frame.jobs.get(id);if(job==null||job.vm!=vm||!job.tasks.equals(tasks))throw new IllegalStateException("Job membership or fixed VM changed after input request");return job;}
+    private JobState job(int id,List<Integer> tasks,int vm,Frame frame){JobState job=frame.jobs.get(id);if(job==null){CompletedJob completed=frame.completedJobs.get(id);if(completed!=null&&completed.vm==vm&&completed.tasks.equals(tasks))throw new IllegalStateException("Job attempt has already completed");}if(job==null||job.vm!=vm||!job.tasks.equals(tasks))throw new IllegalStateException("Job membership or fixed VM changed after input request");return job;}
     private static void requireSource(ReplicaTransferSelector.Decision decision){if(decision.getSourceReplica()==null)throw new IllegalStateException("Dependency-ready input has no published source replica");}
     private static double finiteSum(double a,double b){double sum=a+b;if(!Double.isFinite(b)||b<0||!Double.isFinite(sum))throw new IllegalArgumentException("V2 core-event aggregate is not representable");return sum;}
     private void requireBound(){if(current==null||fabric==null||current.service==null)throw new IllegalStateException("V2 runtime plan and actual fabric are not initialized");}
@@ -278,6 +278,11 @@ public final class CoherentDataflowRuntime {
         JobState(List<Integer> tasks,int vm){this.tasks=tasks;this.vm=vm;}
         JobState(JobState from){tasks=from.tasks;vm=from.vm;pending.addAll(from.pending);readyAt=from.readyAt;startedAt=from.startedAt;finishedAt=from.finishedAt;preparation=from.preparation;requestedAt=from.requestedAt;referenceBytes=from.referenceBytes;referenceCount=from.referenceCount;isolatedInputSeconds=from.isolatedInputSeconds;newCopies=from.newCopies;joinedCopies=from.joinedCopies;unresolvedStore.putAll(from.unresolvedStore);}
     }
+    /** Closed attempts never reenter mutable waiter/service state; only lookup metadata remains. */
+    private static final class CompletedJob {
+        final List<Integer> tasks;final int vm;final Preparation preparation;final double requestedAt,readyAt;
+        CompletedJob(JobState job){if(job.readyAt==null||job.startedAt==null||job.finishedAt==null||job.preparation==null||!job.pending.isEmpty()||!job.unresolvedStore.isEmpty())throw new IllegalStateException("Terminal job still has unfinished preparation");tasks=job.tasks;vm=job.vm;preparation=job.preparation;requestedAt=job.requestedAt;readyAt=job.readyAt;}
+    }
     private static final class Target {
         final DataflowFilePlan.FileId file;final DataLocation location;Target(DataflowFilePlan.FileId file,DataLocation location){this.file=file;this.location=location;}
         @Override public int hashCode(){return 31*file.hashCode()+location.hashCode();}
@@ -286,8 +291,9 @@ public final class CoherentDataflowRuntime {
     private static final class Frame {
         final DataReplicaState replicas;TransferContentionEngine service;Double nextTime;
         final Map<DataflowFilePlan.FileId,LinkedHashSet<Integer>> storeWaiters=new LinkedHashMap<>();final Set<DataflowFilePlan.FileId> outputObligations=new TreeSet<>();
-        final Map<Integer,JobState> jobs=new LinkedHashMap<>();final Map<Target,LinkedHashSet<Integer>> waiters=new HashMap<>();final Map<Long,ActiveCopy> copies=new LinkedHashMap<>();final Set<Integer> successfulTasks=new TreeSet<>();final List<Integer> ready=new ArrayList<>();
+        // Mutable copies contain active work only; closed lookup histories share immutable roots.
+        final Map<Integer,JobState> jobs=new LinkedHashMap<>();PersistentHistoryMap<Integer,CompletedJob> completedJobs=PersistentHistoryMap.empty();PersistentHistoryMap<Integer,Boolean> successfulTasks=PersistentHistoryMap.empty();final Map<Target,LinkedHashSet<Integer>> waiters=new HashMap<>();final Map<Long,ActiveCopy> copies=new LinkedHashMap<>();final List<Integer> ready=new ArrayList<>();
         Frame(DataReplicaState replicas,TransferContentionEngine service){this.replicas=replicas;this.service=service;}
-        Frame(Frame from){replicas=from.replicas.fork();service=from.service==null?null:from.service.fork();nextTime=from.nextTime;for(Map.Entry<Integer,JobState> entry:from.jobs.entrySet())jobs.put(entry.getKey(),new JobState(entry.getValue()));for(Map.Entry<Target,LinkedHashSet<Integer>> entry:from.waiters.entrySet())waiters.put(entry.getKey(),new LinkedHashSet<>(entry.getValue()));copies.putAll(from.copies);successfulTasks.addAll(from.successfulTasks);ready.addAll(from.ready);outputObligations.addAll(from.outputObligations);for(Map.Entry<DataflowFilePlan.FileId,LinkedHashSet<Integer>> entry:from.storeWaiters.entrySet())storeWaiters.put(entry.getKey(),new LinkedHashSet<>(entry.getValue()));}
+        Frame(Frame from){replicas=from.replicas.fork();service=from.service==null?null:from.service.fork();nextTime=from.nextTime;for(Map.Entry<Integer,JobState> entry:from.jobs.entrySet())jobs.put(entry.getKey(),new JobState(entry.getValue()));for(Map.Entry<Target,LinkedHashSet<Integer>> entry:from.waiters.entrySet())waiters.put(entry.getKey(),new LinkedHashSet<>(entry.getValue()));copies.putAll(from.copies);completedJobs=from.completedJobs;successfulTasks=from.successfulTasks;ready.addAll(from.ready);outputObligations.addAll(from.outputObligations);for(Map.Entry<DataflowFilePlan.FileId,LinkedHashSet<Integer>> entry:from.storeWaiters.entrySet())storeWaiters.put(entry.getKey(),new LinkedHashSet<>(entry.getValue()));}
     }
 }
