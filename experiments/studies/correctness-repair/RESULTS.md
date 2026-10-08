@@ -49,13 +49,13 @@
 
 该输入有8个约39–41GB外部输入的ExtractSGT根。旧规划分到8台VM；新规划将其中7个放到VM0，7组共278.145799951GB，在1MB/s入口上的服务下界即278145.799951秒。Task23的输入到达时刻从38738.009440变成271164.806080，后者精确等于 `0.21 + 7 × 38737.79944`。
 
-固定每VM顺序还产生可直接观察的队头阻塞：VM1上的Task3数据在40305.069834已就绪，事件却记录16个空闲VM、0派发；它必须等待被VM0慢根阻塞的计划前缀，直到278543.895748才执行。这238238.825914秒等待中，VM1只忙了115.56秒。因此VM内部queue waiting为0不等于没有调度等待。新旧总计算工作同为3215.75秒，未扩大数倍。完整逐任务及事件证据见[隔离控制报告](../../../output/workbench-correctness-repair-97c66a0/impact-analysis/REPORT.md)。
+固定每VM顺序还产生可直接观察的队头阻塞：VM1上的Task3数据在40305.069834已就绪，事件却记录16个空闲VM、0派发；它必须等待被VM0慢根阻塞的计划前缀，直到278543.895748才执行。这238238.825914秒等待中，VM1只忙了115.56秒。因此VM内部queue waiting为0不等于没有调度等待。新旧总计算工作同为3215.75秒，未扩大数倍。完整逐任务及事件证据见`output/workbench-correctness-repair-97c66a0/impact-analysis/REPORT.md`（原工作区的可选保留输出）。
 
 这是对指定case的控制，不是对所有变化的统一因果归因；模型修正也不保证每个启发式在每个工作负载上变快。R10中的LOCAL策略带每VM顺序，而RANDOM/PSO仅映射、运行时可选择已就绪作业，因此它比较的是完整策略流水线，不能仅解释为映射优化优劣。R12/R13三种LOCAL列表规划器使用相同的顺序执行纪律。
 
 ## PEFT 的算法身份
 
-作者公开博士论文第3章明确收录 DOI `10.1109/TPDS.2013.57` 对应文章。印刷p71 Eq7使用后继成本、出口OCT=0，p73 Algorithm1使用ready-list和插入EFT；[一级来源说明](../../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md)记录了公开来源和转录核对方法。
+作者公开博士论文第3章明确收录 DOI `10.1109/TPDS.2013.57` 对应文章。印刷p71 Eq7使用后继成本、出口OCT=0，p73 Algorithm1使用ready-list和插入EFT；[一级来源说明](<../../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>)记录了公开来源和转录核对方法。
 
 真正论文夹具已验证PEFT122、HEFT133（计入110.1引导后232.1/243.1）。原HEFT-origin夹具在正确PEFT递推下为85，不是旧76。旧R12/R13关于“同构退化”“异构激活”或PEFT优劣的解释，不能被直接继承为标准PEFT结论。
 
@@ -69,7 +69,7 @@
 
 ## 独立复核与保留位置
 
-[独立工具](../../../scripts/STUDY_AUDIT.md)不导入Java生产函数。最终实际执行结果：
+[独立工具](<../../../scripts/STUDY_AUDIT.md>)不导入Java生产函数。最终实际执行结果：
 
 | 独立检查 | 规模 | 结果 |
 |---|---:|---|
@@ -80,10 +80,12 @@
 
 检查计数不等于独立样本数。CPU物理容差为1/MIPS量化加绝对/ULP误差，不按绝对时钟比例放宽；汇总数字另用明确的相对/绝对容差。每个bundle列出实际复算的指标与范围外项，逐流网络分配不因缺少完整账本而被冒称已重放。
 
-本轮保留证据（本地生成物，不随普通Git检出提供）：
+以下为原工作区的可选保留位置，均相对于项目根；本地生成物不随普通Git检出提供，路径记录不保证当前机器存在：
 
-- [新R10索引](../../../output/workbench-correctness-repair-97c66a0/studies/network-limited-r10-v3/network-study.json)、[R12索引](../../../output/workbench-correctness-repair-97c66a0/studies/peft-comparison-r12-v2/network-study.json)、[R13索引](../../../output/workbench-correctness-repair-97c66a0/studies/sensitivity-response-r13-v2/network-study.json)，各自同目录保留protocol、输入、结果表和全部run三件套。
-- [独立证据报告](../../../output/workbench-correctness-repair-97c66a0/independent-evidence-new-v2.json)、[独立统计与逐DAG分布](../../../output/workbench-correctness-repair-97c66a0/independent-statistics-new-v2.json)、[新旧条件对照](../../../output/workbench-correctness-repair-97c66a0/research-impact-deltas.json)。
-- [大变化隔离控制](../../../output/workbench-correctness-repair-97c66a0/impact-analysis/REPORT.md)及同目录探针、命令、逐任务CSV和控制JSON。
+- 新R10索引：`output/workbench-correctness-repair-97c66a0/studies/network-limited-r10-v3/network-study.json`。
+- R12索引：`output/workbench-correctness-repair-97c66a0/studies/peft-comparison-r12-v2/network-study.json`。
+- R13索引：`output/workbench-correctness-repair-97c66a0/studies/sensitivity-response-r13-v2/network-study.json`。三个索引各自同目录保留原始协议JSON、输入、结果表和全部run三件套。
+- 独立证据报告：`output/workbench-correctness-repair-97c66a0/independent-evidence-new-v2.json`；独立统计与逐DAG分布：`output/workbench-correctness-repair-97c66a0/independent-statistics-new-v2.json`；新旧条件对照：`output/workbench-correctness-repair-97c66a0/research-impact-deltas.json`。
+- 大变化隔离控制：`output/workbench-correctness-repair-97c66a0/impact-analysis/REPORT.md`，以及同目录探针、命令、逐任务CSV和控制JSON。
 
 生产校验器通过、独立算术一致、原文算法复现和真实硬件校准是不同证据层次。本轮完成前三者的明确范围，没有把它们当作真实网络或所有工作负载上的普遍结论。

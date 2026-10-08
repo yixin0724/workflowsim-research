@@ -1,51 +1,38 @@
-# WorkflowSim 实验模块
+# 实验模块
 
-`experiments/` 是 `org.workflowsim:workflowsim-experiments:1.0` 模块。它依赖 `simulator/`，承载教学、参考协议和具体研究的代码与材料。[根 POM](../pom.xml) 默认构建两个模块；从项目根目录执行完整验证：
+本模块的 Maven 坐标为 `org.workflowsim:workflowsim-experiments:1.0`，依赖核心模拟器。它承载 Workbench、教学示例、研究驱动及相应测试；[根 POM](<../pom.xml>)默认构建两个模块，无需额外 profile。
 
-```bash
-mvn verify
-```
+## 运行实验
 
-当前没有 `experiments` profile。仅验证核心时使用 `mvn -pl :workflowsim verify`。
-
-这不是第三个产品模块，也不是核心 API 的替代位置。稳定、可复用、需要被下游程序依赖的模拟语义和通用运行/工件 API 应留在 `simulator/`；只有研究或教学特定的驱动程序、固定矩阵和其测试才放在这里。
-
-## 内容分类
-
-| 分类 | 位置 | 目的与边界 |
-| --- | --- | --- |
-| 历史示例 | `src/main/java/org/workflowsim/examples/**` | 保留原始示例 FQCN，便于教学和兼容性探索。它们可能使用历史 API/相对路径，不能自动作为已认证研究入口。 |
-| 教程与交叉校验 | `src/main/java/org/workflowsim/examples/**`、`src/test/java/org/workflowsim/experiments/tutorials/**` | 展示 DAX/WfCommons 输入、解析器交叉校验和端到端冒烟路径。教程结果不是冻结基线。 |
-| 参考实验 | `src/main/java/org/workflowsim/experiments/reference/**` | 已冻结配置、输入哈希、算法集合和证据规则的可复核参考实现。P7 位于其 `p7` 子包。 |
-| 研究实验 | `src/main/java/org/workflowsim/experiments/fattree/`、`src/main/java/org/workflowsim/experiments/network/` 与 `studies/` | 历史 Fat-tree campaign、网络受限、PEFT 比较与敏感性矩阵；修正后的新执行和历史保留工件使用不同协议身份，见[协议修订说明](../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。 |
-| Workbench 统一入口 | `src/main/java/org/workflowsim/experiments/workbench/` | R10 统一运行与报告入口（Workbench），从经过校验的 v4 证据生成报告。 |
-| rerun 差异比对 | `src/main/java/org/workflowsim/experiments/rerun/` | D2 历史证据复跑与核心量机械比对（`RerunDiffExecutor`，见 `docs/experiments/RERUN_DIFF_CONTRACT.md`）。 |
-
-`reference/` 和 `studies/` 根目录下的 Markdown 是面向研究者的协议材料；相应 Java 源码仍必须放进 Maven 标准 `src/main/java/` 或 `src/test/java/`。不要把可编译 Java 文件直接放入 `experiments/studies/` 文档目录。
-
-## 运行方式
-
-实验模块从根 Reactor 启动，以便 Maven 先构建其核心依赖：
+从项目根目录运行维护中的 JSON 配置入口：
 
 ```bash
-# 运行一个历史或教程示例
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.examples.wfcommons.WfCommonsSimulationExample1 \
-  compile exec:java
-
-# 运行 P7 冻结参考矩阵；第一个参数必须是绝对 datasets 根目录。
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7BaselineExecutor \
-  -Dexec.args="/absolute/path/to/WorkflowSim-1.0/datasets /absolute/empty/output" \
-  compile exec:java
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
+  -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 ```
 
-P7 的详细执行与验证规则见 [`reference/p7/README.md`](reference/p7/README.md)。历史示例保留以项目根为当前工作目录的相对 `datasets/...` 路径契约；P7/reference 不依赖此契约，而是通过显式数据集根目录解析逻辑路径。
+每次实验使用独立输出目录，控制台打印离线报告位置。首次使用见[快速开始](<../docs/getting-started/QUICK_START.md>)；配置、预检、报告再生和失败处理见[Workbench 指南](<../docs/getting-started/WORKBENCH.md>)。
 
-## 新建研究的最低要求
+## 代码与材料放在哪里
 
-每个新研究应在写代码前冻结以下内容：研究问题、比较算法的同一决策层、工作流输入哈希、平台配置、随机化设计、主要/次要指标、统计方法、停止条件和输出保留决策。详细模板和目录约定见 [`studies/README.md`](studies/README.md) 与 [`../docs/experiments/CAMPAIGNS.md`](../docs/experiments/CAMPAIGNS.md)。
+| 内容 | 位置与边界 |
+| --- | --- |
+| Workbench 和 JSON 配置 | `src/main/java/org/workflowsim/experiments/workbench/`、`configs/`；面向日常实验与离线报告 |
+| 示例和自建实验类 | `src/main/java/org/workflowsim/` 下的相应包；示例中的底层兼容 API 不自动具备标准运行器证据契约 |
+| 研究专用驱动与测试 | Maven 标准源码、测试目录；比较矩阵和研究身份必须明确 |
+| 研究协议与保留说明 | `studies/`；这里放文档，不直接放可编译 Java 文件 |
 
-实现后执行 `mvn -Pjavadoc clean verify`，报告改动还应执行[浏览器矩阵验收](../docs/getting-started/BUILD.md#离线报告浏览器验收)。通用证据包写出 manifest v4、metrics v2、events v1，provenance 保持 v3；新运行记录 `WORK_CONSERVING_TASK_EXECUTION_V2`。历史工件可读不表示它们已在当前模型复跑相同，尤其旧 R12/R13 的非标准 PEFT 结果需要重新评估。
+稳定、可复用的模拟语义、配置、指标和通用证据 API 属于核心模块，不应为了单个实验而让核心依赖实验模块。需要 Java 级定制时，使用[Java API 指南](<../docs/getting-started/CODE_CONFIG_EXPERIMENTS.md>)中的运行器和证据写器。
 
-标准检出已包含质量门禁引用的五个 WfFormat/WfInstances 小型输入，相关测试缺失必需输入时会失败，不再跳过；完整大型语料需另行准备，见[数据集说明](../datasets/README.md)。实验输出与 `target/` 是生成物；需要长期保留的研究证据按协议归档，其余输出由运行者在检查后清理。
+## 研究与验证
+
+新研究先声明输入哈希、平台与模型、同一决策层的比较算法、随机化设计、指标、统计方法、停止条件和输出保留策略，见[研究目录约定](<studies/README.md>)。
+
+```bash
+mvn -Pjavadoc clean verify
+```
+
+该命令验证两个 Java 模块及核心 Javadoc。Python 独立检查和[离线报告浏览器验收](<../docs/getting-started/BUILD.md#离线报告浏览器验收>)另行执行，完整工具要求见[构建与验证](<../docs/getting-started/BUILD.md>)。
+
+输入来源及标准检出范围见[数据集说明](<../datasets/README.md>)。构建输出和实验产物不是源码；只有按研究协议明确保留、记录来源和验证命令的证据才应作为长期交付物。

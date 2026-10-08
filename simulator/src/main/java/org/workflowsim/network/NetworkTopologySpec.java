@@ -8,7 +8,7 @@ import java.util.Map;
  * 平台网络拓扑的不可变声明。
  *
  * <p>v1 只支持 Al-Fares k-Pod Fat-tree（见 {@link FatTreeTopology} 与
- * {@code docs/research/FAT_TREE_PRINCIPLES.md}）。拓扑参数属于平台描述
+ * {@code docs/research/FAT_TREE_DESIGN.md}）。拓扑参数属于平台描述
  * （{@code PlatformProfile}），数据移动模型只声明"使用拓扑争用"这一语义。</p>
  *
  * <p>诚实边界：流级流体模型的结构声明——不包含丢包、排队时延细节、ECN、

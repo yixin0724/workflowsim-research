@@ -1,103 +1,51 @@
-# 网络研究协议修订与只读认证
+# 网络研究协议身份与兼容性
 
-## 参数矩阵相同，不等于执行模型相同
+注册身份同时包括 **protocol ID 和 mode**。相同参数矩阵不等于相同执行模型；只读完整性检查也不等于在当前代码下重新执行。
 
-正确性整改后的新运行使用 `configuration.executionSemantics=WORK_CONSERVING_TASK_EXECUTION_V2`，
-取自核心 `TaskExecutionModel.EXECUTION_SEMANTICS`。工作量与执行时钟修正可能改变科学结果；
-不能把新运行冒认为旧冻结实验，也不能为维持旧数值而降低验证要求。
+## 当前与历史身份
 
-| 参数矩阵 / CLI 变体 | 冻结历史协议（只读兼容） | 新执行协议 | full / smoke 次数 |
-|---|---|---|---:|
-| R10 / `r10`（默认） | `network-limited-r10-v2` | `network-limited-r10-v3` | 504 / 36 |
-| R12 / `peft-comparison` | `peft-comparison-r12-v1` | `peft-comparison-r12-v2` | 126 / 18 |
-| R13 / `sensitivity-r13` | `sensitivity-response-r13-v1` | `sensitivity-response-r13-v2` | 546 / 30 |
+以下字符串来自 [NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)，是实际协议标识，不应因文档整理而重命名。
 
-`protocol ID + mode` 共同构成注册身份。smoke 是有自己输入、种子和条件声明的微型矩阵，
-不是任意裁剪的 full，也不能只把 mode 改成 full 就取得完整研究认证。
-执行器只生成表中的新协议；没有“用当前代码输出旧模型身份”的开关。
+| CLI 变体 | 当前执行协议 | 接受的历史协议 | full / smoke 计划单元 |
+| --- | --- | --- | ---: |
+| `r10`，也是默认变体 | `network-limited-r10-v3` | `network-limited-r10-v2` | 504 / 36 |
+| `peft-comparison` | `peft-comparison-r12-v2` | `peft-comparison-r12-v1` | 126 / 18 |
+| `sensitivity-r13` | `sensitivity-response-r13-v2` | `sensitivity-response-r13-v1` | 546 / 30 |
 
-历史协议与结果保留于 [R10](<../../experiments/studies/network-limited-r10/PROTOCOL.md>)、
-[R12](<../../experiments/studies/peft-comparison-r12/PROTOCOL.md>)、
-[R13](<../../experiments/studies/sensitivity-r13/PROTOCOL.md>)。
-它们记录当时的模型和观测，不能作为修正后模型的黄金值、性能结论或本次验证结果。
-原预注册叙述作为历史记录保留，新自动报告不继承其机制判定。
+表中数量是注册矩阵的计划规模，不是已完成运行或测试通过数。smoke 有自己的输入、条件和种子，不是任意裁剪的 full；仅修改 mode 不能取得完整研究身份。
 
-## R12/R13：旧 LOCAL_PEFT 是非标准实现
+执行器只产生当前协议，没有用当前代码伪装旧执行身份的开关。当前协议和运行配置均须声明 `WORK_CONSERVING_TASK_EXECUTION_V2`；接受的旧协议保持其原 v4 形状，不得补上当前执行标识后继续冒认历史身份。
 
-依据 Hamid Arabnejad 的博士论文 *QoS based workflow scheduling on heterogeneous resources*（2016），
-见作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)和[公开全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)
-第3章**印刷 p.71（Eq.7 及出口条件）、p.73（Algorithm 1）**；这里指印刷页码，不是 PDF 阅读器的页序号。
+运行命令、当前矩阵条件与统计范围集中在 [campaign 指南](<CAMPAIGNS.md>)。原始研究及历史数字的来源通过[研究目录](<../../experiments/studies/README.md>)追溯，不作为新用户入口或当前黄金值。
 
-- `peft-comparison-r12-v1` 与 `sensitivity-response-r13-v1` 使用的旧 `LOCAL_PEFT`，在 OCT 递推中错误计入**当前任务自身**的 `w(t,p)`，并把出口 OCT 设为出口任务平均计算成本。这与原文定义不符，属于非标准实现，不是已被论文验证的 PEFT。
-- 标准 Eq.7 计入的是**后继任务**在候选后继处理器上的 `w(child,p')`，出口 `OCT=0`。R13 的 ready-list 修复只调整就绪任务分配纪律，没有纠正上述递推或出口条件；运行成功、旧黄金吻合及证据完整性通过不能替代算法正确性证明。
-- 因此旧-v1的数值只能记录当时非标准实现的行为，不能用于解释标准 PEFT 的优劣、“同构退化/异构激活”或其他 OCT 机制。历史正文中的论文复现声明、预注册判定和机制解释均须在这一纠错背景下阅读，不能直接继承为标准算法结论。
+## 注册声明如何形成
 
-新 `peft-comparison-r12-v2` 与 `sensitivity-response-r13-v2` 研究将以符合原文 Eq.7 的后继计算成本和出口零值为前提，
-结合修正后的执行模型，并通过真正的论文 fixture 校核算法实现。标准 PEFT 的表现与机制仍需新研究评估；
-本说明不声明新研究结果已经生成。旧协议、原预注册、历史数值表和冻结工件均不改写，也不重标为标准 PEFT 证据。
+[NetworkStudyExecutor](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyExecutor.java>)先构造并核对计划，将实际 `NetworkStudyPlan.asMap()` 保存为输出目录的 `protocol.json`，随后生成逐运行证据和索引。这个生成的 JSON 是保留协议工件；不是以旧 Markdown 正文决定当前运行矩阵。
 
-## 注册声明与输入身份
+注册声明固定输入 ID、顺序、来源、哈希、资格排除、条件、规划器及实际种子。合成输入由确定性生成器产生；输入资格在观察算法效果之前对所有规划器一致检查。变更输入内容、候选、种子或条件需要新的注册协议，不能继续沿用旧 ID。
 
-[NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)
-同时提供新执行计划和无文件 I/O 的注册声明：后者不解析原机器输入、不生成合成文件，
-不从待验证索引反向推定“应该有哪些实验”。两者复用同一条件、算法、种子和计数构造。
+运行前的输入资格与只读验证使用不同路径：执行器读取并解析本地输入；验证器从无文件 I/O 的注册声明核对保留记录，不从待验证索引反推“应该执行什么”。保留的输入绝对路径须对应注册逻辑路径和声明的数据集根，但完整性检查不要求原机器输入文件在当前机器上存在；实际复跑仍必须定位并核对原始输入。
 
-注册声明固定：
+## 完整性检查的范围
 
-- 输入 ID、顺序、家族、经典/合成来源及 SHA-256；经典输入指纹与冻结语料对应，合成输入由保留的确定性生成器固定。
-- full 的统一资格排除项，以及各 mode 的完整 VM/网络/异构度、候选规划器和种子集合。
-- 端点/链路参数、传输起点、统计口径与新执行模型标识。
+[NetworkStudyValidator](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyValidator.java>)接受表中的当前和历史身份，并执行：
 
-输入和排除项中的原机器绝对路径作为保留元数据处理，不要求它们在验证机器上存在，
-但必须对应注册逻辑输入，并与逐运行输入、显式数据集根一致。
-修改工作流内容、种子、候选集或条件需要另外声明研究协议，不能继续使用同一注册 ID。
+1. 核对索引 plan 与保留协议 JSON 的值一致，并匹配注册的完整矩阵；拒绝协调裁剪、重复、遗漏、未声明条件或模式变化。
+2. 对 `protocol.json` 的**原始字节**计算 SHA-256，绑定逐运行 study ID、protocol logical ID、available 标志、协议哈希和驱动构件身份。
+3. 校验逐运行 bundle，并核对标准配置、平台资源/价格/存储/拓扑、pin/preflight/actual 放置。新旧协议的执行标识不能互换。
+4. 核对输入身份、算法标签及完整成功状态；索引的成功标记不能覆盖证据中的未完成工作流。
+5. 核对发布的 makespan、逻辑完成、平均/P95 等待、平均 VM 利用率，并重新计算汇总。指标须是有限非负 JSON 数值，该研究的利用率须在 `[0,1]`；符号与上界按精确十进制判断，不靠 double 舍入放行。
 
-## 验证器究竟证明什么
+历史 source/binary hashes 不要求等于当前代码，算法契约说明文本也不是按当前文案逐字认证；算法标签和固定条件仍须匹配。协议 SHA 只是内容一致性绑定，不是数字签名或作者身份认证。
 
-[NetworkStudyValidator](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyValidator.java>)
-执行以下只读检查：
+CLI 成功输出包含协议、mode 和 `HISTORICAL_PROTOCOL_INTEGRITY` 或 `DECLARED_PROTOCOL_INTEGRITY`，并明确标记 `NOT_A_CURRENT_CODE_RERUN`。Java 验证器按协议 ID 识别兼容身份；独立 Python 工具的 `--historical` 要求见[审计工具说明](<../../scripts/STUDY_AUDIT.md>)，不要混淆两个 CLI。
 
-1. 根索引与保留协议 JSON 的值一致，且匹配注册的完整矩阵与固定参数；拒绝空矩阵、协调裁剪、重复/遗漏/未声明单元。
-2. 对协议文件的**原始字节**计算 SHA-256，绑定每个 run 的 study ID、protocol logical ID、available 标志、协议哈希和研究驱动构件身份。
-3. 逐个验证 manifest/metrics/events，再按执行器的标准配置和平台构造核对完整快照：包括 overhead、failure、clustering、costModel、Host/VM/存储/价格/拓扑及 pin/preflight/actual 放置。
-4. 核对算法标签、输入身份、索引指标与实际完成性；索引的 SUCCESS 不能覆盖证据中的 INCOMPLETE。发布的五个指标必须存在、为 JSON 数值、可表示为有限 double 且精确值非负；该规范研究的平均建模区间利用率还须在 `[0,1]`。符号和上界按精确十进制判断，不允许将微小负值或略大于1的值经 double 舍入后放行；此限制不扩展到其他通用指标。
-5. 从运行记录重算汇总，使用精确 JSON 数值比较；不能借助 double 舍入隐藏声明差异。
+## 为什么旧数字不能证明当前算法
 
-算法契约说明文本和历史 source/binary hashes 不要求与当前源码相同；算法标签仍必须匹配。
-旧协议原始 v4 缺少 executionSemantics 的形式继续可读，但不能塞入当前模型标识再冒认旧协议；
-新协议则必须同时在协议和运行配置中声明当前执行模型。
+旧 `peft-comparison-r12-v1` 与 `sensitivity-response-r13-v1` 使用的 LOCAL_PEFT 将当前任务自身成本计入 OCT，并把出口设为平均计算成本。它不是原 PEFT 的后继成本、出口零递推；仅修正 ready-list 或重算统计不能使旧数字成为标准 PEFT 证据。
 
-CLI 保留 `NETWORK_STUDY_VALIDATION PASSED runs=...` 前缀，并附加协议、mode 和验证范围：
-`HISTORICAL_PROTOCOL_INTEGRITY` 或 `DECLARED_PROTOCOL_INTEGRITY`，明确 `NOT_A_CURRENT_CODE_RERUN`。
+当前协议使用维护中的执行与算法语义，但协议 ID、测试或完整性校验通过并不自动产生新的效果结论。PEFT 递推、来源夹具与模型边界见[算法契约](<../algorithms/CONTRACTS.md>)。应按完整当前矩阵重新评估，同时保留旧证据身份，不复制旧机制解释或把旧结果改名为新结果。
 
-**这证明注册声明及其保留证据满足交叉约束，不证明作者身份、真实云校准、算法优越性，
-也不证明历史科学量在当前代码下重跑不变。** 协议 SHA 是一致性绑定，不是数字签名。
-需要实际复跑和差异判定时使用 [D2 契约](<RERUN_DIFF_CONTRACT.md>)，保留 `DIVERGED` 等合法结果，
-不要改写冻结工件来制造 `IDENTICAL_CORE`。
+执行模型也会改变有效 MI、计算窗口、故障重试、数据就绪和终止时刻。即使参数相同或部分数值恰好一致，也不能据此断言旧模型被逐位重放。需要实际运行比较时使用[复跑差异契约](<RERUN_DIFF_CONTRACT.md>)，保留 `DIVERGED`、重建拒绝等有意义的结果。
 
-## 当前运行示例
-
-```bash
-# 新目录，微型 PEFT 对比；当前生成 peft-comparison-r12-v2
-mvn -pl :workflowsim-experiments -am compile exec:java \
-  -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyExecutor \
-  -Dexec.args="smoke /absolute/datasets /absolute/new-study-output peft-comparison"
-
-# 同一验证入口可读取已知的新协议和历史协议
-mvn -pl :workflowsim-experiments -am compile exec:java \
-  -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyValidator \
-  -Dexec.args="/absolute/study-output/network-study.json"
-```
-
-验证器不修改目标证据；上例中的 Maven 编译仍会生成构建输出。
-full 研究需要显式安排预算和全新输出目录，不属于默认 smoke 门禁。
-
-## 统计与保留边界
-
-本修订不改变先按 DAG 汇总种子、再按来源/VM/网络/异构度配对的公式，也不增加独立 DAG 数。
-经典组仅 5 对，双侧符号检验最小原始 p 为 0.0625；不得把未达 0.05 当作算法等价证明。
-同构/异构条件的总算力、VM32 的拓扑变化，以及逐 DAG 的效果分布仍需随结论呈现。
-
-交接时保留完整协议原字节、索引、逐运行三件套和生成输入；不要只交汇总表，也不要把历史
-结果的成功记录当作本次执行证据。原目录、失败试点、压缩包和新修订结果应分别登记保留用途。
-新执行与修复测试一律使用新目录或测试临时目录，不覆盖原冻结输出。
+交接应包含协议原字节、索引、全部引用证据和生成输入；只交汇总表不足以复核。原证据保持只读，新执行和审计使用独立输出，不为迎合当前验证器而重写历史研究。

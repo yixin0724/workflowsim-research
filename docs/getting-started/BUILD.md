@@ -1,207 +1,158 @@
-# WorkflowSim 构建与运行指南
+# 构建、测试与验证
+
+以下命令从仓库根目录执行。日常运行实验从[快速开始](<QUICK_START.md>)进入；本文集中说明开发与验证工具，不要求新用户先执行全部质量检查。
 
 ## 环境与模块
 
-要求 **JDK 17+、Maven 3.6.3+**。构建使用现代 JDK，Java 产物通过 `--release 8`
-保持 Java 8 API 兼容。以下命令均从仓库根目录执行：
+| 工具 | 要求 | 用途 |
+| --- | --- | --- |
+| JDK | 17+ | Maven 构建和 Java 仿真 |
+| Maven | 3.6.3+ | 编译、测试、Javadoc、运行入口 |
+| Python | 3.9+，标准库即可 | 独立证据检查器及自测；CI 使用 3.12 |
+| Node.js | 20+ | 离线报告浏览器验收；CI 使用 22 |
+| Chrome 或 Playwright Chromium | 已安装的兼容浏览器 | 浏览器验收，不是仿真依赖 |
+
+[根 POM](<../../pom.xml>)默认包含两个模块，无需启用 `experiments` profile：
+
+| 模块 | Maven 坐标 | 职责 |
+| --- | --- | --- |
+| 核心模拟器 | `org.workflowsim:workflowsim:1.0` | 模型、运行器、指标和通用证据 API |
+| 实验模块 | `org.workflowsim:workflowsim-experiments:1.0` | Workbench、示例和研究驱动 |
+
+编译使用 `--release 8`，产物保持 Java 8 API 兼容；这不降低构建 JDK 的要求。
 
 ```bash
 java -version
 mvn -v
 ```
 
-[根 POM](../../pom.xml) 默认声明两个模块，**不需要 `experiments` profile**：
-
-| 模块 | Maven 坐标 | 职责 | 默认构建 |
-| --- | --- | --- | --- |
-| `simulator/` | `org.workflowsim:workflowsim:1.0` | 核心模拟器、通用运行/工件 API、核心测试 | 是 |
-| `experiments/` | `org.workflowsim:workflowsim-experiments:1.0` | 示例、教程、P7 参考实验、研究驱动及测试 | 是 |
-
-实验模块依赖核心模块。需要只检查核心时，显式使用 `-pl :workflowsim`；运行实验入口时
-使用 `-pl :workflowsim-experiments -am`，让 Reactor 同时构建其核心依赖。
-
-## 命令速查
+## Java 构建与测试
 
 | 任务 | 命令 |
 | --- | --- |
 | 编译两个模块 | `mvn compile` |
-| 仅编译核心 | `mvn -pl :workflowsim compile` |
 | 两个模块的单元/语义测试 | `mvn test` |
-| 仅核心单元/语义测试 | `mvn -pl :workflowsim test` |
-| 两个模块完整验证 | `mvn verify` |
-| 仅核心完整验证 | `mvn -pl :workflowsim verify` |
-| 两个模块清理后完整验证 | `mvn clean verify` |
-| 清理后联合验收（含核心 API 文档） | `mvn -Pjavadoc clean verify` 或 `make audit` |
+| 两个模块的单元、集成及覆盖率门禁 | `mvn verify` |
+| 清理后验证，包含核心 API 文档 | `mvn -Pjavadoc clean verify`，或 `make audit` |
+| 仅验证核心 | `mvn -pl :workflowsim verify` |
+| 仅编译核心 | `mvn -pl :workflowsim compile` |
 | 清理两个模块的构建输出 | `mvn clean` |
-| 仅清理核心构建输出 | `mvn -pl :workflowsim clean` |
-| 核心 API 文档及验证 | `mvn -pl :workflowsim -Pjavadoc verify` |
 
-编译输出分别在 `simulator/target/classes/` 和 `experiments/target/classes/`。
-`mvn clean` 清理所选模块的构建目录，不会清理任意自定义实验输出目录或已归档证据。
-
-## 测试与质量门禁
-
-Surefire 在 `test` 阶段运行单元/语义测试，排除 `*IntegrationTest.java`；Failsafe
-在 `integration-test`/`verify` 阶段运行这些集成测试。完整研究验证使用 `mvn verify`。
+Surefire 在 `test` 阶段执行单元/语义测试，排除 `*IntegrationTest.java`；Failsafe 在 `integration-test`/`verify` 阶段执行集成测试。定向检查示例：
 
 ```bash
-# 一个核心单元测试类
 mvn -pl :workflowsim -Dtest=TaskCostMatrixTest test
-
-# 一个核心单元测试方法
 mvn -pl :workflowsim \
-  -Dtest=TaskCostMatrixTest#getCostSecondsReturnsRegisteredEntries test
-
-# 核心单元测试 + 指定集成测试，并完成 verify 门禁
+  '-Dtest=TaskCostMatrixTest#getCostSecondsReturnsRegisteredEntries' test
 mvn -pl :workflowsim -Dit.test=SimulationEvidenceIntegrationTest verify
 ```
 
-测试数量随代码变化，以本次构建的 Surefire/Failsafe 报告为准。报告位于各模块的
-`target/surefire-reports/` 与 `target/failsafe-reports/`，不要用历史测试总数判断当前构建
-是否完整。
+最后一条命令仍执行核心单元测试与 `verify` 门禁，只限定集成测试选择。定向测试不能代替完整验证。
 
-JaCoCo 在 `verify` 阶段检查单元测试覆盖率。阈值由
-[核心 POM](../../simulator/pom.xml) 与[实验 POM](../../experiments/pom.xml) 声明；
-当前 instruction/branch 下限分别为核心 `0.54/0.48`、实验 `0.39/0.42`（R10 随实测上调）。
-报告输出在各模块 `target/site/jacoco/`（单元）及 `target/site/jacoco-it/`（集成）。
+报告位于各模块的 `target/surefire-reports/`、`target/failsafe-reports/`、`target/site/jacoco/` 和 `target/site/jacoco-it/`。以实际退出状态和报告为准，不用固定测试数量判断成功。JaCoCo 门槛由[核心 POM](<../../simulator/pom.xml>)与[实验 POM](<../../experiments/pom.xml>)维护。
+
+标准检出包含门禁必需的小型输入，缺失时测试失败；完整大型语料不是默认前提，见[数据集说明](<../../datasets/README.md>)。`mvn clean` 只清理构建目录，不清理自定义实验输出或保留证据。
+
+## Python 独立检查器自测
+
+这些测试不导入 Java 生产算法，也不以 Maven 测试替代。完整运行以下八个套件：
 
 ```bash
-open simulator/target/site/jacoco/index.html
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-network-ledger.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-file-lifecycle.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-file-lifecycle-context.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-storage-lifecycle.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-storage-lifecycle-context.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-assignment.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-profile.py
 ```
 
-[CI 配置](../../.github/workflows/ci.yml) 对推送/PR 到 `main` 使用 JDK 17 执行
-`mvn -B -Pjavadoc verify`，覆盖两个模块及核心 API 文档；随后使用 Node 22 与固定版本
-Chromium 验证真实生成的离线报告。测试引用的五个 WfFormat/WfInstances 小型输入已通过
-[忽略规则](../../.gitignore) 的白名单纳入版本库，缺失必需输入会失败。
+自测验证检查器的正例与反例，不证明任意真实研究已通过审计。[CI 配置](<../../.github/workflows/ci.yml>)另外生成 Java 的 V1 网络、V2 文件、V3 存储和在线绑定证据，再用 Python 检查实际产物；对应生产夹具和跨语言验收命令以该文件为准。`mvn verify` 只覆盖 Java 门禁，不包含这些 Python 检查。
 
-D2 的当前模型复跑测试使用现场生成的小型证据，标准检出必跑；另有两个明确标为可选的
-历史兼容测试，缺少保留研究时会逐项显示跳过，不能用它们替代必跑验证，也不向父目录
-借用历史输出。完整大型语料需另行准备，见[数据集说明](../../datasets/README.md)。
+## 文档检查
+
+```bash
+python3 -B scripts/test-check-docs.py
+python3 -B scripts/check-docs.py
+# 需要机器可读诊断时：
+python3 -B scripts/check-docs.py --json
+```
+
+检查器通过Git元数据发现现有项目Markdown，排除依赖、构建输出和本地实验结果；验证本地目标、Markdown锚点及来源文本行号，不访问外网。缺失目标、错误锚点或不支持的引用形式会产生带文件/行号的诊断并以非零退出。语义和命令仍需对照源码，规范见[文档与源码注释要求](<../advanced/CODE_STYLE.md>)。
 
 ## 离线报告浏览器验收
 
-这不是新的仿真 Web 服务，也不需要启动替代服务器。检查器直接以 `file://` 打开真实
-Workbench 报告，并拦截所有 HTTP 请求。依赖固定在[浏览器依赖清单](../../scripts/package.json)
-与[锁文件](../../scripts/package-lock.json)中，不依赖某台机器的全局 npm 包。
+检查器通过 `file://` 打开真实生成的报告，不启动服务。依赖版本固定在[浏览器依赖清单](<../../scripts/package.json>)与[锁文件](<../../scripts/package-lock.json>)。
 
 ```bash
 npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
-# 没有本机 Chrome 时安装 Chromium；Linux CI 使用 install --with-deps chromium。
+
+# 已有可用 Chrome 时可省略；Linux CI 使用 install --with-deps chromium。
 scripts/node_modules/.bin/playwright-core install chromium
 
 mvn -pl :workflowsim-experiments -am test-compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.WorkbenchBrowserFixtures \
   -Dexec.classpathScope=test \
   '-Dexec.args="/absolute/checkout" "/absolute/new-browser-output"'
+
 node scripts/verify-report.cjs /absolute/new-browser-output/browser-fixtures.json
 node scripts/test-report-checker.cjs /absolute/new-browser-output/browser-fixtures.json
 ```
 
-输出目录必须尚不存在。矩阵包含在线/网络、多种子、单报告再生、全失败、成功失败混合与
-1000 任务大图，核对算法/种子标签、成功图表计数、VM与任务筛选、聚焦关系、图形截断、
-390px 布局、浏览器错误和离线行为。可提供第二个脚本参数保存截图目录；单份 HTML 的旧
-调用方式仍可使用。macOS 默认使用已安装的 Google Chrome，其他平台使用已安装的
-Playwright Chromium；可用 `WORKFLOWSIM_CHROME` 显式指定浏览器可执行文件。
+替换两个绝对路径占位符，输出目录必须尚不存在。该测试入口在测试源码中，因此需要 `test-compile` 和 `-Dexec.classpathScope=test`。
 
-## API 文档
+矩阵覆盖算法/种子标签、多种子、单报告再生、失败状态、大图，以及 V1/V2/V3 和在线动作面板。检查运行选择、VM/任务筛选、依赖聚焦、图形截断、390px 布局、精确数字、无浏览器错误和无额外网络/文件读取；反例脚本确认这些检查确实能失败。Java 测试不执行浏览器 JavaScript，不能替代此步骤。
+
+macOS 优先使用已安装的 Google Chrome；否则使用 Playwright Chromium。任意系统均可通过 `WORKFLOWSIM_CHROME` 指定浏览器可执行文件：
+
+```bash
+WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
+  node scripts/verify-report.cjs /absolute/experiment/report.html
+```
+
+[报告检查器](<../../scripts/verify-report.cjs>)还接受可选截图参数：单报告传截图文件路径，矩阵传截图目录。Node 和浏览器只用于验收，不是生成报告的必需依赖；阅读报告只需普通浏览器。
+
+## 运行 Java 入口
+
+实验入口使用 `-pl :workflowsim-experiments -am compile exec:java`，由Reactor先构建当前核心依赖再执行。不要省略`compile`直接调用`exec:java`：它可能解析本地Maven仓库中的旧核心JAR，导致当前源码已有的模型枚举在运行时仍不被识别。遇到这种情况应重建正确的模块/类路径，而不是改写证据中的模型标签。Workbench的四个命令见[操作指南](<WORKBENCH.md>)；自建Java类见[代码指南](<CODE_CONFIG_EXPERIMENTS.md>)。
+
+使用仓库自带 JSON 输入的示例：
+
+```bash
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.examples.wfcommons.WfCommonsSimulationExample1 \
+  -Dexec.args="datasets/wfformat/montage/n100/montage-100-000.json"
+```
+
+## 证据校验命令
+
+核心模块默认跳过 `exec:java`；运行核心校验器时启用 `core-exec`：
+
+```bash
+# 单次运行证据包
+mvn -Pcore-exec -pl :workflowsim -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiment.ExperimentArtifactValidator \
+  '-Dexec.args="/absolute/output/run.manifest.json"'
+
+# 通用 campaign index
+mvn -Pcore-exec -pl :workflowsim -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiment.ExperimentCampaignValidator \
+  '-Dexec.args="/absolute/output/experiment-campaign-index.json"'
+
+# 独立检查 V1/V2/V3 证据及适用的在线绑定上下文
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-network-ledger.py \
+  /absolute/output/run.manifest.json --json
+```
+
+独立网络检查器用于已启用匹配网络/生命周期记录的证据包，不应把普通 OFF 证据包当作其完整捕获输入。校验器只读目标证据，但命令中的 Maven 编译仍会写构建输出。校验成功只证明声明范围内的结构、哈希、上下文或语义约束，不证明算法最优或真实平台校准。研究指标与统计检查另见[独立审计工具](<../../scripts/STUDY_AUDIT.md>)。
+
+## API 文档与环境排查
 
 ```bash
 mvn -pl :workflowsim -Pjavadoc verify
+# macOS；其他系统在文件管理器中打开相同路径。
 open simulator/target/reports/apidocs/index.html
 ```
 
-`javadoc` profile 生成并检查维护中的 Java API 注释；上游 CloudSim 源码注释不在本项目
-维护的 Javadoc 检查范围内。
-
-## 运行示例与代码配置实验
-
-历史示例保留 `org.workflowsim.examples.*` 类名和从项目根解析 `datasets/...` 的路径约定。
-
-```bash
-# 默认 DAX 示例
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.examples.WorkflowSimBasicExample1 \
-  compile exec:java
-
-# 使用 SimulationConfig 的 HEFT/CPOP 论文算例
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.examples.HeftPaperReproductionExperiment \
-  compile exec:java
-
-# 使用仓库自带的 WfFormat 输入
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.examples.wfcommons.WfCommonsSimulationExample1 \
-  -Dexec.args="datasets/wfformat/montage/n100/montage-100-000.json" \
-  compile exec:java
-```
-
-自建实验类的方法见[快速上手](QUICK_START.md)和[代码配置指南](CODE_CONFIG_EXPERIMENTS.md)。
-旧 `MyConfigurableExperiment` 及其 CSV/HTML 写器已删除，不是可运行入口。
-
-完整 WfInstances 语料已准备到本地时，可以额外运行解析/DAG 校验：
-
-```bash
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.examples.wfcommons.WfCommonsJsonParserValidationExample \
-  -Dexec.args="datasets/wfinstances/v1.5" \
-  compile exec:java
-```
-
-该命令验证的是传入目录实际存在的文件；标准检出中的小型输入集合不能代表完整语料。
-
-## P7 冻结参考基线
-
-批量入口为 `org.workflowsim.experiments.reference.p7.P7BaselineExecutor`。为明确运行位置，
-传入两个参数：绝对数据集根目录，以及绝对且为空的输出目录。
-
-```bash
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7BaselineExecutor \
-  -Dexec.args="/absolute/path/to/WorkflowSim-1.0/datasets /absolute/empty/p7-output" \
-  compile exec:java
-```
-
-逻辑输入名如 `dax/epigenomics/n100/Epigenomics_100.dax` 相对于数据集根目录。完整矩阵、
-输入哈希与证据约束见[P7 协议](../experiments/reference-baselines/P7_PROTOCOL.md)。
-
-## 工件与只读验证器
-
-`ExperimentArtifactWriter.write(report, outputDirectory, runId)` 写出 manifest、metrics 和
-事件流三个相互引用的工件。当前 manifest 为 `workflowsim-experiment-manifest-v4`，
-包含工作流到达时刻、任务成本矩阵、网络拓扑和数据移动语义；其 provenance 仍为
-`workflowsim-provenance-v3`。校验器兼容历史 manifest v2/v3，但历史格式不能据此视为包含
-v4 新增的完整配置。metrics schema 仍为 v2，事件 schema 仍为 v1。
-
-```bash
-# 验证单次运行的完整工件包
-mvn -Pcore-exec -pl :workflowsim -am \
-  -Dexec.mainClass=org.workflowsim.experiment.ExperimentArtifactValidator \
-  -Dexec.args="/absolute/output/run.manifest.json" \
-  compile exec:java
-
-# 验证 P7 index 及其引用的工件包
-mvn -pl :workflowsim-experiments -am \
-  -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7EvidenceIndexValidator \
-  -Dexec.args="/absolute/output/p7-baseline-index.json" \
-  compile exec:java
-
-# 验证通用 campaign index
-mvn -Pcore-exec -pl :workflowsim -am \
-  -Dexec.mainClass=org.workflowsim.experiment.ExperimentCampaignValidator \
-  -Dexec.args="/absolute/output/experiment-campaign-index.json" \
-  compile exec:java
-```
-
-验证器只读目标证据，命令中的 Maven 编译仍会生成构建输出。验证成功说明工件满足对应版本
-的结构、引用、哈希与交叉约束，不代表来源平台校准或算法优越性。
-
-## 常见问题
-
-- **示例找不到类**：从根 POM 导入两个模块并重新加载 Maven；运行实验类时选择实验模块
-  classpath。无需启用额外的 `experiments` profile，详见[IDEA 配置](IDEA_SETUP.md)。
-- **工作流文件不存在**：核对当前目录和[数据集路径](DATASETS.md)。经典 DAX 位于
-  `datasets/dax/<family>/n<规模>/`，旧 `config/dax/` 路径已停用。
-- **只想快速检查核心**：使用 `mvn -pl :workflowsim test`；需要核心集成与覆盖率门禁时
-  使用 `mvn -pl :workflowsim verify`；提交前运行默认双模块的 `mvn verify`。
-
-工程依赖由 POM 管理，不依赖早期发行包的 `lib/`、`bin/` 或发布说明文件。
+Javadoc 检查维护中的 WorkflowSim API，不包含上游 CloudSim 注释。IDE 类路径或导入问题见[IDEA 配置](<IDEA_SETUP.md>)。输入不存在时，先区分 Java 入口的工作目录与 Workbench 配置文件的相对路径基准；不要通过切换未声明的模型或跳过校验来消除错误。

@@ -16,42 +16,15 @@ import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.utils.Parameters;
 
 /**
- * campaign 黄金值与结构性契约（HEFT 论文例 + cybershake 翻转子集）。
+ * 当前模型下的 campaign 抽样数值、重复运行和结构性契约回归。
  *
- * <p>锁定内容（campaign 配置 = 无显式成本矩阵、成本由 DAX runtime × VM MIPS
- * 推导、3 主机同质平台、seed 91；与 simulator 探测 IT 的论文成本矩阵 fixture
- * 是不同实验装置，黄金值不可互换）：
- * <ul>
- * <li>论文例 12 组合（4 规划器 × 3 模型）实测黄金 makespan；</li>
- * <li>逐 DAG 排名翻转事实：cybershake-n50 V1 第一名 LOCAL_HEFT → R2/R6
- * PSO；当前修正模型的 cybershake-n100 也由 V1 的 HEFT 转为争用下 PSO；论文例三模型下
- * LOCAL_HEFT 始终第一（结论只针对本测试的固定配置）；</li>
- * <li>弱单调性诊断：论文例子集严格成立（再标定后 V1 &lt; R2 &lt; R6）；子集内
- * 任何交叉必须为噪声级（相对偏差 ≤ 1e-4）；</li>
- * <li>确定性：同配置双跑主矩阵逐位一致；</li>
- * <li>3 主机敏感性：基线拓扑 ≡ 主矩阵 R6；结构轴（A1/A2/A3/A5）在 3 主机平台
- * 退化（实测恒等——任意两条并发流必共享端点主机，属物理现象）；带宽比轴 A4
- * （链路 1.25 MB/s &gt; 端点）精确收敛回主矩阵 R2；</li>
- * <li>4 主机结构块：结构轴仍恒等（交叉流从未并发经过差异链路），带宽轴 A4
- * 严格降低 makespan——拓扑轴判别力由再标定后的束缚链路提供。</li>
- * </ul></p>
+ * <p>装置使用 DAX 归一化工作量、无显式成本矩阵、seed 91 和声明的 3/4 主机平台；
+ * 不与 simulator 的论文成本矩阵夹具混用。以下数值、排名、单调和恒等断言仅适用于
+ * 各测试的输入及参数，不能推出所有 DAG 的不变量或完整历史研究的新排名。</p>
  *
- * <p>R10迁移：CPOP前驱秩和max-min/分段积分经独立手算测试修正后，
- * 保持原矩阵参数重跑360次，再锁定当前回归值。cybershake-n50仍由HEFT转为PSO，
- * n100在V1也为PSO；四主机论文例CPOP基线/A4为5718.1/5186.1。
- * 下面的单调和结构恒等断言只针对列出的fixture，不是所有DAG的数学不变量。</p>
- *
- * <p>执行语义 V2 修订：同参数的旧核心、新核心、旧 Datacenter 加新规划器三组
- * 36 次受控运行确认，n100 在 V1 下的当前第一名为 HEFT；n50 HEFT 的 R2 时间
- * 也发生变化。新数值由数据可达时间/工作量回归共同守护，原 R10/R8 工件不改写。
- * 该子集不能用来推断完整 360 次历史研究的新换冠比例。</p>
- *
- * <p>历史参数来源：R8 再标定 campaign（链路基线
- * 0.125 MB/s = VM 端点带宽 1/8，8:1 接入超收敛；A4 = 1.25 MB/s 真 10×）。
- * 再标定恢复了 F1 ÷8 单位 bug 修复前 campaign 所处的真实物理区间：R6 列黄金
- * 与修复前逐位相等（5738.1/5854.1/7206.1/7262.1），该逐位相等同时是 F1 修复
- * 语义的交叉验证。对称供给（链路 ≥ 端点）下 R6 ≡ R2 的退化事实记录于
- * COMPREHENSIVE_AUDIT_R8.md §3.3 N-2。</p>
+ * <p>历史参数与保留结果来源见
+ * {@code experiments/studies/fattree-scheduling-campaign/RETENTION.md}。
+ * 本测试维护当前回归值，不覆盖该目录中的历史数值工件。</p>
  */
 class FatTreeCampaignGoldenIntegrationTest {
 

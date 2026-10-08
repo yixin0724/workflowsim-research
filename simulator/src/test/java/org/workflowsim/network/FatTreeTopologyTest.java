@@ -17,7 +17,7 @@ import org.workflowsim.data.TransferContentionEngine;
 /**
  * Al-Fares k-Pod Fat-tree 拓扑的结构、放置与确定性路由单测。
  *
- * <p>黄金值全部来自 {@code docs/research/FAT_TREE_PRINCIPLES.md} §1 的手工推导：
+ * <p>黄金值全部来自 {@code docs/research/FAT_TREE_DESIGN.md} 所述结构与路由的手工推导：
  * k=2 最小拓扑（2 主机、5 交换机、1 core）与 k=4 拓扑（16 主机容量、20 交换机、
  * 4 core）。路由键序列按 v1 确定性规则手算：上行 aggregate = srcEdge mod availA；
  * 跨 Pod core 选择 j = (srcEdge + dstEdge + srcPod + dstPod) mod 该 aggregate 的

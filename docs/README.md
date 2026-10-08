@@ -1,96 +1,52 @@
-# WorkflowSim 文档中心
+# WorkflowSim文档中心
 
-按使用路径分层组织。新用户先看[统一入口与报告](getting-started/WORKBENCH.md)，最新有界计数与语义保持优化见[第三轮可扩展性审计](advanced/GRAPH_PLANNING_SCALABILITY_AUDIT.md)，配置/DAG性质见[第二轮审计](advanced/CONFIGURATION_PROPERTY_AUDIT.md)，已合并首轮修复见[整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)，新旧研究身份见[协议修订说明](experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md)。
+这里维护当前使用方法、模型契约和验证规则。首次使用按“快速开始 → Workbench”阅读；需要自定义Java实验时再看代码配置指南。开发轮次、完成清单和被替代的审计稿不作为长期入口。
 
-[网络受限研究](../experiments/studies/network-limited-r10/PROTOCOL.md)、[PEFT 对比研究（S5）](../experiments/studies/peft-comparison-r12/PROTOCOL.md)与[敏感性研究（R13）](../experiments/studies/sensitivity-r13/PROTOCOL.md)保留历史协议及结果，不自动代表当前模型。尤其旧 R12/R13 的 LOCAL_PEFT 递推不符合已核对的原论文，不能用旧数字评价标准 PEFT。
+## 开始使用
 
+| 需要 | 文档 |
+|---|---|
+| 跑通已有配置并打开报告 | [快速开始](<getting-started/QUICK_START.md>) |
+| 配置、验证、运行和重建离线报告 | [Workbench指南](<getting-started/WORKBENCH.md>) |
+| 在Java中构建配置、平台及实验 | [代码配置指南](<getting-started/CODE_CONFIG_EXPERIMENTS.md>) |
+| Maven、Python、浏览器和Javadoc检查 | [构建与验证](<getting-started/BUILD.md>) |
+| 配置IDEA模块、类路径和工作目录 | [IDEA设置](<getting-started/IDEA_SETUP.md>) |
 
-## 目录结构
+## 选择算法、输入和模型
 
-```text
-docs/
-├── getting-started/            # 新用户入门（按阅读顺序）
-│   ├── QUICK_START.md          # 5 分钟运行第一个仿真 ⭐
-│   ├── CODE_CONFIG_EXPERIMENTS.md  # 代码配置式实验指南（推荐）⭐⭐⭐
-│   ├── RUN_EXPERIMENTS.md      # 实验运行完整指南（参数/算法/IDEA 配置）⭐
-│   ├── IDEA_SETUP.md           # IDEA 配置指南（解决 experiments 模块显示问题）🔧
-│   ├── ALGORITHMS.md           # 算法决策层的本质区别与底层原理 ⭐
-│   ├── DATASETS.md             # 如何选择工作流输入数据集
-│   ├── BUILD.md                # Maven 构建、测试、示例与验证器命令
-│   └── WORKBENCH.md            # 统一入口与新报告体系（R10）⭐
-│
-├── algorithms/                 # 算法参考（研究前必读）
-│   ├── CATALOG.md              # 算法目录、决策层与主张边界
-│   ├── CONTRACTS.md            # 算法与指标的语义契约（测试验证了什么）
-│   └── LEGACY_MIGRATION.md     # 遗留算法弃用原因与迁移指南
-│
-├── experiments/                # 实验设计与协议
-│   ├── REPRODUCIBILITY.md      # 可复现性契约（随机性/成本/deadline 语义）
-│   ├── CAMPAIGNS.md            # 多场景/多重复实验与数据移动模型协议
-│   ├── FATTREE_SCHEDULING_CAMPAIGN.md  # Fat-tree × 调度联合实验设计（R7，R8 再标定：链路 0.125/A4 1.25 MB/s）
-│   ├── FATTREE_SCHEDULING_RESULTS.md   # R7 实测结果（R8 再标定版：链路束缚恢复 + 逐位交叉验证 + 排名翻转结论）
-│   ├── RERUN_DIFF_CONTRACT.md  # 复跑、迁址、精确数值与 JSON Pointer 契约
-│   ├── NETWORK_STUDY_PROTOCOL_REVISIONS.md # 修正模型与历史研究协议身份
-│   └── reference-baselines/
-│       ├── P7_PROTOCOL.md      # 冻结参考基线 P7 的实验协议
-│       └── P7_RESULTS.md       # P7 已记录结果（历史记录）
-│
-├── research/                   # 专题原理研读与设计记录
-│   ├── FAT_TREE_PRINCIPLES.md  # Al-Fares k-Pod Fat-tree 原理研读（R6 Phase 0）
-│   ├── FAT_TREE_DESIGN.md      # Fat-tree 链路争用模型设计（R6 Phase 1）
-│   └── 文献调研_工作流调度_2021-2025.md  # 启发式/元启发式/QoS 工作流调度 2021–2025 文献调研
-│
-├── advanced/                   # 专题与维护者文档
-│   ├── GRAPH_PLANNING_SCALABILITY_AUDIT.md # 第三轮有界计数、可扩展性与语义保持
-│   ├── CONFIGURATION_PROPERTY_AUDIT.md # 第二轮配置组合、DAG性质与参考指标审计
-│   ├── SIMULATION_CORRECTNESS_REPAIR.md # 首轮正确性整改、独立证据与验证范围
-│   ├── QUALITY_AUDIT.md        # 历史质量审计，不代替当前认证
-│   ├── COMPREHENSIVE_AUDIT_R8.md  # R8 全面审计报告（算法×论文/指标/拓扑/架构四通道）
-│   ├── WFINSTANCES_PILOT.md    # WfInstances 1.5 输入转换试点
-│   ├── RESEARCH_ROADMAP.md     # 科研能力演进路线图（R1-R7 轮次规划）
-│   ├── R9_CLEANUP_AND_PROBES.md  # R9 死代码清理与运行时探测记录
-│   ├── R11_LEGACY_AUDIT_AND_CLEANUP.md  # R11 全仓遗留审计与清理验收记录
-│   ├── PLATFORM_UPGRADE_R10.md # R10 平台升级历史验收记录
-│   └── CODE_STYLE.md           # 源码注释规范
-│
-└── drl-workflow-scheduling-survey-2021-2025.md  # ML/DRL 工作流调度研究现状调研（2021–2025）
-```
+- [算法目录](<algorithms/CATALOG.md>)：决策层、可选标签、组合限制及旧名称迁移。
+- [算法与指标契约](<algorithms/CONTRACTS.md>)：计算量、通信、顺序、原论文对照、指标口径及验证边界。
+- [工作流输入与数据集](<../datasets/README.md>)：随仓库输入、可选语料、来源、转换和格式约束。
+- [数据流与网络能力矩阵](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>)：物理模型、存储、在线绑定及未实现能力。
+- [Fat-tree拓扑与共享模型](<research/FAT_TREE_DESIGN.md>)：结构、放置、确定性路径和容量分配边界。
 
-## 按问题查找
+## 数据流与证据参考
 
-| 想了解的问题 | 阅读位置 |
-| --- | --- |
-| 如何快速上手？ | [`getting-started/QUICK_START.md`](getting-started/QUICK_START.md) |
-| 如何在代码中配置参数并直接运行实验？ | [`getting-started/CODE_CONFIG_EXPERIMENTS.md`](getting-started/CODE_CONFIG_EXPERIMENTS.md) ⭐⭐⭐ |
-| 如何配置参数、选择算法、在 IDEA 中运行实验？ | [`getting-started/RUN_EXPERIMENTS.md`](getting-started/RUN_EXPERIMENTS.md) ⭐ |
-| experiments 模块在 IDEA 中显示橙色咖啡杯？ | [`getting-started/IDEA_SETUP.md`](getting-started/IDEA_SETUP.md) 🔧 |
-| 算法决策层的区别和原理？ | [`getting-started/ALGORITHMS.md`](getting-started/ALGORITHMS.md) |
-| 如何选数据集？ | [`getting-started/DATASETS.md`](getting-started/DATASETS.md) |
-| 如何构建、运行示例、执行 P7？ | [`getting-started/BUILD.md`](getting-started/BUILD.md) |
-| 算法的决策层和可比较范围？ | [`algorithms/CATALOG.md`](algorithms/CATALOG.md) |
-| 测试到底验证了什么？ | [`algorithms/CONTRACTS.md`](algorithms/CONTRACTS.md) |
-| 旧算法标签为什么被拒绝？如何迁移？ | [`algorithms/LEGACY_MIGRATION.md`](algorithms/LEGACY_MIGRATION.md) |
-| 随机性、成本和 deadline 的含义？ | [`experiments/REPRODUCIBILITY.md`](experiments/REPRODUCIBILITY.md) |
-| 如何设计多场景/多重复实验？ | [`experiments/CAMPAIGNS.md`](experiments/CAMPAIGNS.md) |
-| 如何复跑一份历史 run 并机械验证核心量是否一致？ | [`experiments/RERUN_DIFF_CONTRACT.md`](experiments/RERUN_DIFF_CONTRACT.md)（CLI 用法、verdict 与退出码、报告格式） |
-| P7 冻结基线的矩阵和结果？ | [`experiments/reference-baselines/P7_PROTOCOL.md`](experiments/reference-baselines/P7_PROTOCOL.md)、[`P7_RESULTS.md`](experiments/reference-baselines/P7_RESULTS.md) |
-| 规划器收益如何随 VM 数/带宽/异构度变化（R13）？ | [`../experiments/studies/sensitivity-r13/PROTOCOL.md`](../experiments/studies/sensitivity-r13/PROTOCOL.md)、[`RESULTS.md`](../experiments/studies/sensitivity-r13/RESULTS.md) |
-| 当前修复与验证覆盖到哪里？ | [第三轮可扩展性审计](advanced/GRAPH_PLANNING_SCALABILITY_AUDIT.md)、[第二轮配置与性质审计](advanced/CONFIGURATION_PROPERTY_AUDIT.md)、[首轮整改记录](advanced/SIMULATION_CORRECTNESS_REPAIR.md)；旧审计仅作对应时期参考 |
-| WfInstances 解析了哪些字段？ | [`advanced/WFINSTANCES_PILOT.md`](advanced/WFINSTANCES_PILOT.md) |
-| 平台接下来要补全哪些科研能力？ | [`advanced/RESEARCH_ROADMAP.md`](advanced/RESEARCH_ROADMAP.md) |
-| Fat-tree 网络拓扑的原理与设计？ | [`research/FAT_TREE_PRINCIPLES.md`](research/FAT_TREE_PRINCIPLES.md)、[`research/FAT_TREE_DESIGN.md`](research/FAT_TREE_DESIGN.md) |
-| 网络争用如何改变调度算法的相对优劣？ | [`experiments/FATTREE_SCHEDULING_CAMPAIGN.md`](experiments/FATTREE_SCHEDULING_CAMPAIGN.md)（设计）、[`experiments/FATTREE_SCHEDULING_RESULTS.md`](experiments/FATTREE_SCHEDULING_RESULTS.md)（实测结论） |
-| R8 全面审计发现了什么、怎么修的？ | [`advanced/COMPREHENSIVE_AUDIT_R8.md`](advanced/COMPREHENSIVE_AUDIT_R8.md) |
-| R9 清理轮删了什么、探测了什么？ | [`advanced/R9_CLEANUP_AND_PROBES.md`](advanced/R9_CLEANUP_AND_PROBES.md) |
-| R11 审计删了哪些遗留产物与 vendored 死代码？为什么保留某些文件？ | [`advanced/R11_LEGACY_AUDIT_AND_CLEANUP.md`](advanced/R11_LEGACY_AUDIT_AND_CLEANUP.md) |
-| 工作流调度文献近况（启发式/元启发式/QoS）？ | [`research/文献调研_工作流调度_2021-2025.md`](research/文献调研_工作流调度_2021-2025.md) |
-| ML/DRL 工作流调度研究现状？ | [`drl-workflow-scheduling-survey-2021-2025.md`](drl-workflow-scheduling-survey-2021-2025.md) |
-| 源码注释怎么写？ | [`advanced/CODE_STYLE.md`](advanced/CODE_STYLE.md) |
+| 主题 | 文档 |
+|---|---|
+| 文件身份、真实来源、副本可见性和CPU输入屏障 | [一致文件数据流V2](<advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>) |
+| 有限SOURCE、提交后读取和必要输出写回 | [存储数据流V3](<advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>) |
+| 控制就绪时选VM、名义分数和动作认证范围 | [在线目标绑定](<advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
+| 逐文件侧车的精确字段与验证规则 | [文件生命周期格式](<advanced/FILE_LIFECYCLE_V2_FORMAT.md>) |
+| V1组级账本的格式、角色及严格读取 | [网络账本格式](<advanced/NETWORK_LEDGER_FORMAT.md>) |
+| V1稳定分配证书、精确会计和截断前缀 | [账本校验与指标](<advanced/NETWORK_LEDGER_VALIDATION.md>) |
+| 不依赖Java的V1/V2/V3及在线检查入口 | [独立Python证据校验](<advanced/NETWORK_LEDGER_PYTHON.md>) |
+| 同一验证快照、精确文本和有界预览 | [离线网络与动作报告](<advanced/NETWORK_REPORT_DISPLAY.md>) |
 
-## 推荐阅读路径
+## 实验、重放与统计
 
-**新用户**：QUICK_START → CODE_CONFIG_EXPERIMENTS → ALGORITHMS → DATASETS → BUILD
+- [可复现性契约](<experiments/REPRODUCIBILITY.md>)：随机性、时间/工作量、成本、参考值和deadline语义。
+- [批量实验与网络研究](<experiments/CAMPAIGNS.md>)：场景矩阵、种子、参数控制、运行和统计方法。
+- [证据重放与差异比较](<experiments/RERUN_DIFF_CONTRACT.md>)：配置重建、判定、精确核心量与少量易变字段。
+- [协议身份与历史证据边界](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)：哪些旧身份仍可读取，为什么旧结果不等于当前实现的结论。
+- [独立研究检查工具](<../scripts/STUDY_AUDIT.md>)：一般证据/统计校验的实际范围，与数据流专用证书区分。
 
-**准备发论文的研究者**：algorithms/CATALOG → algorithms/CONTRACTS → experiments/REPRODUCIBILITY → experiments/CAMPAIGNS → advanced/QUALITY_AUDIT → advanced/RESEARCH_ROADMAP
+## 维护
 
-**项目维护者**：advanced/CODE_STYLE → algorithms/LEGACY_MIGRATION → advanced/QUALITY_AUDIT
+- [文档与源码注释规范](<advanced/CODE_STYLE.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
+- [数据流状态与性能测量](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)：不可变历史/活动工作集、测量口径及可重复比较。
+- [实验模块说明](<../experiments/README.md>)：模块职责和维护入口。
+
+## 历史资料的保留原则
+
+历史实验的原始数值、预注册、输入来源与必要兼容协议保留在对应数据/参考目录，并明确版本与局限；它们不构成当前用户指南或新的科学结论。需要识别已保留研究时查看[研究数据说明](<../experiments/studies/README.md>)。其余开发过程可从Git历史查阅，不在当前导航中重复陈列。

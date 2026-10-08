@@ -1,9 +1,8 @@
-# 流体账本独立校验与精确指标（NF-002B1/B2）
+# V1流体账本校验与精确指标
 
-## 当前能力与边界
+## 范围与接口
 
-本阶段提供Java API的独立语义校验，不调用生产端的progressive-filling求解器来计算“期望速率”。
-已有运行级捕获、绑定、独立Java校验、精确指标、实际局部性和正式sidecar导出；另有[独立Python检查](<NETWORK_LEDGER_PYTHON.md>)；已支持[ON重放与精确网络比较](<../experiments/RERUN_DIFF_CONTRACT.md>)；Workbench已提供[严格配置与安全离线网络显示](<NETWORK_REPORT_DISPLAY.md>)。ON使用完整bundle导出，独立manifest不能丢弃账本；OFF历史工件格式不变。正式写读约束见[网络账本V1编解码契约](<NETWORK_LEDGER_FORMAT.md>)。
+V1组级账本的Java语义校验不调用生产端progressive-filling求解器计算“期望速率”；[Python检查器](<NETWORK_LEDGER_PYTHON.md>)独立实现同一契约。正式导出需完整bundle，包含捕获、绑定、输入聚合观察和派生指标；OFF不产生网络角色。格式见[编解码契约](<NETWORK_LEDGER_FORMAT.md>)，展示与重放分别见[离线报告](<NETWORK_REPORT_DISPLAY.md>)、[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
 
 ```java
 NetworkRunEvidence evidence = report.getNetworkEvidence(); // OFF为null
@@ -24,7 +23,7 @@ if (evidence != null) {
 - 这是内部一致性校验，不是对整份被一致重写证据的密码学认证。配置、Job绑定、主事件与provenance仍需在工件层关联校验。
 - 当前运行捕获中的流是`PARENT_GROUP_V1`或`EXTERNAL_GROUP_V1`；不是逐文件流。来源标签为`MODELED_CONSTRAINED_SOURCE`，不等于名义估算器实际选择的逐文件副本。
 
-## 精确派生指标（NF-002B2）
+## 精确派生指标
 
 `NetworkTraceMetrics.calculate`先调用独立校验器，再读取冻结快照，不访问活引擎、不推进时间。会计版本为`EXACT_BINARY64_INPUT_DECIMAL_V1`：把记录中的double精确表示为BigDecimal后执行不舍入的乘积和累加。
 
@@ -48,8 +47,6 @@ if (evidence != null) {
 - 利用率是`boundedRateArea/capacityArea`，**每个正elapsed服务批次只计一次容量面积**，排除全局空闲间隔；当时已登记但未占用的资源计零负载。
 - 从未受限的SOURCE有流量面积、无利用率分母。资源后来才登记容量时，先前无上限阶段的流量不进入受限时期的利用率分子。
 
-22项指标测试覆盖上述算式、相邻零时长完成、0/截断、正负舍入差、巨大累计量、nearest-rank和不可变性；实际端点、Fat-tree、局部命中、分数文件、截断和故障重试捕获也参与集成核对。
-
 ## 实际局部性观察
 
 局部性不使用“需求字节减服务字节”推断。原有输入循环只调用一次本地副本判断，将**同一个布尔结果**同时用于原有跳过分支和可选观察计数器；不重复查目录、不改入流/释放/副本策略。
@@ -63,7 +60,7 @@ if (evidence != null) {
 - 原始计数器可在trace预算耗尽后继续O(1)聚合，但TRUNCATED不发布完整捕获的局部性指标。
 - 旧的低层`NetworkRunEvidence.capture`重载若未提供观察，局部性为`INPUT_COUNTERS_UNAVAILABLE`，不会捏造零命中；OFF也与零需求完整捕获不同。
 
-11项新增计数/运行测试覆盖不可变性、非法输入不改状态、精确小值、本地/非本地实际分支、零引用/零字节、截断、正负归组误差；原故障重试及ON/OFF隔离对照也检查每次真实尝试的引用数。当前观察是聚合证据，不是逐文件完成时间线；工件层仍需将其与主事件、绑定和来源身份一起验证。
+输入观察是聚合证据，不是逐文件完成时间线；工件层仍需将其与主事件、绑定和来源身份一起验证。
 
 ## 完整捕获的校验语法
 
@@ -117,8 +114,6 @@ if (evidence != null) {
 - 已确定的缺失服务批次、完成队列，以及后续观察窗口内每个幸存流的必要记录，都计入最低droppedCount义务。
 - 若只有snapshot水位前进而未保留对应observed horizon，只计算保守最低义务；未知新START或改率可能改变后续批次数，不能擅自重放完整缺失历史。
 
-## 验收方式
+## 测试入口
 
-30项定向校验测试覆盖正常轨迹和一致重编号后的篡改反例，包括：遗漏/交换服务、缺失完成或改率、错误身份、75/25不公平、重复资源去重、残差伪造、零时长边界、截断完成伪装、少报droppedCount、跨资源不可补救分配和水位缺失义务。
-
-正常控制还包括36个固定多资源/数量级场景（含重复资源、0和较大时钟），对每个真实保留前缀进行校验，以及已有端点、Fat-tree、零流、局部命中、分数文件和故障重试运行的实际捕获。负例先运行并观察失败，再实施修正；不通过调整旧研究参数或刷新golden来证明兼容性。
+回归包括完整轨迹、截断前缀、正常边界和重编号/重哈希后的篡改反例。验收命令统一维护在[构建指南](<../getting-started/BUILD.md>)；修改验证器时应同时覆盖正控制与反例，不能通过调整研究参数或刷新黄金结果来掩盖语义变化。

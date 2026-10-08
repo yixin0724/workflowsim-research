@@ -1,8 +1,10 @@
 # 敏感性响应面研究（R13）：协议与保留说明
 
-> **历史协议与 PEFT 公式纠错**：本页 `sensitivity-response-r13-v1` 的旧 `LOCAL_PEFT` 是**非标准实现**：OCT 错误使用当前任务自身的 `w(t,p)`，出口取平均计算成本。R13 的 ready-list 修复只改变就绪任务的分配纪律，**没有纠正 OCT 递推和出口条件**。因此下文原预注册、“同构退化/异构激活”解释及历史数值不能作为标准 PEFT 优劣或 OCT 机制的证据；原文保留，不事后改写。
+> **历史归档：非标准 PEFT，不是当前算法指南。** 本页原地保留 `sensitivity-response-r13-v1` 的预注册、判定规则与研究条件。旧 `LOCAL_PEFT` 错把自身 `w(t,p)` 计入 OCT，出口取平均计算成本；ready-list 修复没有纠正该公式。下文“同构退化/异构激活”、验证声明和数字仅描述当时实现，不能作为标准 PEFT 优劣或机制的证据；原预注册正文不改写。
 >
-> 参见作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)和[博士论文全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章**印刷 p.71（Eq.7 / 出口条件）、p.73（Algorithm 1）**。新 `sensitivity-response-r13-v2` 研究将按后继 `w(child,p')`、出口 `OCT=0` 的标准定义与修正执行模型重新评估；本说明不代表新研究结果已生成。见[协议修订与认证范围](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+> 标准定义见作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)及[博士论文全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章印刷 p.71（Eq.7：后继 `w(child,p')`、出口 `OCT=0`）和 p.73（Algorithm 1）。当前执行器生成 `sensitivity-response-r13-v2`；下方历史运行命令不恢复旧实现。当前协议及已保留的修正模型研究分别见[协议修订](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)和[研究影响复验](<../correctness-repair/RESULTS.md>)。
+>
+> `output/...` 是原工作区的可选证据位置，普通检出不附带；归档本页不改写原始协议 JSON、数值工件或压缩包。
 
 协议ID：`sensitivity-response-r13-v1`。Java驱动复用 `org.workflowsim.experiments.network`（NetworkStudyPlan/Executor/Summary/Validator 的 sensitivity-r13 变体）。本研究是**描述性敏感性响应面**：回答"规划器相对收益如何随 VM 数量、链路带宽、VM 异构度三个轴变化"，不做参数拟合或外推。
 
@@ -15,7 +17,7 @@
 - 合格输入：与 R10/S5 相同的7个输入（5 个经典DAX：Epigenomics 100/997、CyberShake 100/1000、Inspiral 100；2 个确定性合成DAG：layered-32/128）。Inspiral 1000 因 CONFLICTING_FILE_SIZE 全量排除。
 - 算法：LOCAL_HEFT、LOCAL_CPOP、LOCAL_PEFT，均确定性，每条件一次（seed 11）。无故障、LOCAL、STATIC、SPACE_SHARED、一Host一VM、固定放置（id↔id）。
 - **主块（同构响应面）**：VM ∈ {4, 8, 16, 32} × 网络 ∈ {endpoint 1.0, fat-tree-constrained 0.125, fat-tree-mid 0.5, fat-tree-wide 1.25, fat-tree-fast 5.0 MB/s}，平台全部同构 1000 MIPS。共 20 条件。
-- **异构块（OCT 机制检验）**：VM ∈ {8, 16} × fat-tree-constrained × 异构度 ∈ {HET_MILD, HET_STRONG, HET_EXTREME}。MIPS 模式为确定性公式（按VM序号 i）：MILD = 1000(i偶)/500(i奇)；STRONG = [2000,1000,500][i%3]；EXTREME = 2000(i偶)/500(i奇)。共 6 条件。
+- **异构块（OCT 机制检验）**：VM ∈ {8, 16} × fat-tree-constrained × 异构度 ∈ {HET_MILD, HET_STRONG, HET_EXTREME}。MIPS 模式为确定性公式（按VM序号 i）：MILD = 1000(i偶)/500(i奇)；STRONG = `[2000,1000,500][i%3]`；EXTREME = 2000(i偶)/500(i奇)。共 6 条件。
 - 正式运行量：7输入 × 26条件 × 3算法 × 1种子 = **546次**。
 - CI smoke：论文十任务fixture + layered-16，主块 4VM×{endpoint, constrained}、异构块 4VM×constrained×3级，共 5 条件 × 3 算法 = 30 次。
 

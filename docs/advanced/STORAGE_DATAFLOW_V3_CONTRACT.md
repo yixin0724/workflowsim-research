@@ -1,119 +1,128 @@
-# 受限SOURCE/共享存储数据流V3（NF004）
+# 受限 SOURCE 与共享存储数据流 V3
 
-## 当前实现状态
+V3 为一致文件数据流增加有限读/写/NIC 资源、实际存储接入路径和必要输出写回。运行、独立侧车、Java/Python 校验、配置重建、精确 rerun 与离线报告使用同一版本契约；不能把 V3 证书转换或贴标为 V2。
 
-NF004A接通实际运行内核后，NF004B现已接通**独立V3侧车、Java/Python上下文校验、Workbench配置/专用显示及全字段rerun**。完整捕获先通过独立语义和本次运行上下文校验，才允许工件I/O；截断捕获或不一致数据明确拒绝，不能转换成V2证书。原V1/V2完整闭环及数值语义保留。
+## 模型与配置
 
-可运行[共享容量示例](<../../experiments/configs/storage-dataflow-v3.json>)与[同路径独立瓶颈对照](<../../experiments/configs/storage-dataflow-isolated-v3.json>)。两个配置使用相同输入、VM映射、存储与可见性规则，只改变跨流共享。Workbench使用`platform.sourceStorage`声明四个显式参数，接入Host从其0起编号的已建Host中选择；Java平台API也允许专用存储Host。
+| 项目 | 支持值 |
+|---|---|
+| 共享模型 | `COHERENT_STORAGE_DATAFLOW_V3`；`DataMovementModel.coherentStorageDataflowV3()` |
+| 无共享对照 | `COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3`；`coherentStorageDataflowNoContentionV3()` |
+| 默认目标绑定 | RANDOM 规划、STATIC 派发 |
+| 可选在线绑定 | 显式 `CONTROL_READY_ONLINE_ASSIGNMENT_V1`、INVALID 规划、STATIC 派发；见[在线绑定契约](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
+| 执行 | NONE 聚类，每 Job 一个逻辑 Task；SPACE_SHARED；无开销；受控 NOOP CPU 重试 |
+| 文件系统 | LOCAL，或下文定义的 SHARED 提交后缓存读取 |
+| 捕获 | `FILE_STORAGE_LIFECYCLE_V3`；`NetworkEvidenceConfig.storageLifecycleV3(B)`，`B` 为 `1..2147483647` 的记录预算 |
 
-新模型为`COHERENT_STORAGE_DATAFLOW_V3`和`COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3`，通过`DataMovementModel.coherentStorageDataflowV3()`或`coherentStorageDataflowNoContentionV3()`构建。捕获模式为`FILE_STORAGE_LIFECYCLE_V3`，`NetworkEvidenceConfig.storageLifecycleV3(B)`启用；OFF不保留事件历史。不得复用V2的Kind、模式、旧getter或无限SOURCE声明。
+OFF 不保留事件历史，也不改变运行物理。普通非在线运行仍保存核心文件计划；在线认证另要求匹配、完整的生命周期捕获。CPU 在线调度器、RL_POLICY 和原 LOCAL 规划器不能直接替代这里的目标绑定规则。
 
-初始执行矩阵仍为RANDOM映射、STATIC派发、NONE聚类（每Job一个Task）、无开销、受控NOOP CPU重试；LOCAL与SHARED有下述明确不同的输入规则。在线/RL分配尚属NF005，不通过简单移除约束开放。
+可运行[共享容量示例](<../../experiments/configs/storage-dataflow-v3.json>)与[独立路径瓶颈对照](<../../experiments/configs/storage-dataflow-isolated-v3.json>)。它们保持输入、绑定配置、存储与可见性规则，仅改变跨流容量共享；不能据此保证整个 DAG 的后续来源选择或完成时间相同。
 
-## 一份显式存储资源声明
+## 显式存储资源
 
-[DataflowStorageSpec](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowStorageSpec.java>)提供一个固定逻辑位置`SOURCE:source`，通过`PlatformProfile.Builder.sourceStorage(spec)`声明：
+[DataflowStorageSpec](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowStorageSpec.java>)固定逻辑位置 `SOURCE:source`，由 `PlatformProfile.Builder.sourceStorage(spec)` 声明。Workbench 对应 `platform.sourceStorage`，必须恰含四项：
 
-- `attachmentHostId`：必须属于平台；拓扑开启时该Host必须已连接。
-- `readBandwidthMbPerSecond`：存储读取服务容量。
-- `writeBandwidthMbPerSecond`：存储写入服务容量。
-- `networkBandwidthMbPerSecond`：读写共同使用的存储NIC容量。
+| 字段 | 含义与约束 |
+|---|---|
+| `attachmentHostId` | 非负实际 Host ID，必须属于平台；有拓扑时该 Host 必须已连接 |
+| `readBandwidthMbPerSecond` | 读取服务容量 |
+| `writeBandwidthMbPerSecond` | 写入服务容量 |
+| `networkBandwidthMbPerSecond` | 读写共同使用的存储 NIC 容量 |
 
-均为十进制MB/s，乘1,000,000后必须是正normal有限binary64 B/s。不做整数舍入、不因未知资源而视为无限。原`PlatformProfile.StorageSpec`及旧Harddrive估时含义不变；新资源与非存储模型组合会在会话创建前拒绝。
+三个带宽均为有限正数，单位是十进制 MB/s；按 binary64 乘 `1000000` 后必须为正 normal、有限 B/s，不做整数舍入。三者没有必须相等或大小排序的要求。未知资源不是无限资源。
 
-当前存储空间仍无限，不含容量耗尽、淘汰、存储故障、复制一致性或网络丢包重传。有限的是读、写和NIC服务资源，不能据此声称真实磁盘或云存储校准。
+Workbench 的接入 Host 从其已建的 `0..VM数−1` Host 中选择；Java 平台 API 可声明专用存储 Host。Java/codec 的 Fat-tree `k` 为偶数 `2..32`，Workbench 为偶数 `2..16`；配置还须满足对应 Host/edge 容量约束。
 
-## 资源路径
+`sourceStorage` 必须且只能与存储 V3 模型一起出现，错误组合在会话创建前拒绝。旧 `PlatformProfile.StorageSpec`、Harddrive 估时和[一致 V2](<COHERENT_DATAFLOW_V2_CONTRACT.md>)的无限、绕过 fabric 的 SOURCE 含义均不改变。有限的是服务速率，**不是存储空间**；当前没有容量耗尽、淘汰、多存储一致性、存储故障、丢包重传或真实硬件校准。
 
-[存储fabric](<../../simulator/src/main/java/org/workflowsim/data/v2/DataTransferFabric.java>)冻结实际VM→Host与存储接入Host：
+## 实际资源路径
+
+[DataTransferFabric](<../../simulator/src/main/java/org/workflowsim/data/v2/DataTransferFabric.java>)冻结实际 VM→Host 与存储接入 Host。以下次序及资源重数属于契约：
 
 | 操作 | 有序约束资源 |
 |---|---|
-| SOURCE→VM读取 | `STORE:source:READ`、`STORE:source:NIC`、实际接入路径有向链路、目标`VM:id` |
-| VM→SOURCE写回 | 源`VM:id`、实际接入路径有向链路、`STORE:source:NIC`、`STORE:source:WRITE` |
-| LOCAL策略的VM→VM读取 | 源VM、实际有向链路、目标VM |
+| SOURCE→VM 读取 | `STORE:source:READ`、`STORE:source:NIC`、实际路径有向链路、目标 `VM:id` |
+| VM→SOURCE 写回 | 源 `VM:id`、实际路径有向链路、`STORE:source:NIC`、`STORE:source:WRITE` |
+| LOCAL 的 VM→VM 读取 | 源 VM、实际路径有向链路、目标 VM |
 
-存储与VM同Host时可以没有fabric链路，但仍消耗VM端点与存储服务/NIC，不得当作本地文件零成本。无拓扑时仍计存储与VM资源。所有正复制沿用已验证的受限max-min或独立路径瓶颈服务；反向链路各自计量，NIC双向共享。无共享对照仅关闭跨流容量共享，不移除单流读写/NIC/路径瓶颈。
+同 Host 可以没有 fabric 链路，但 SOURCE 读写仍消耗 VM 端点及存储服务/NIC，不能视为本地零成本。无拓扑也保留存储/VM 资源和完整实际 VM→Host 映射。单流瓶颈为各资源容量除以路径重数后的最小值；共享模式采用受检查的 max-min 服务，无共享对照只取消跨流共享，不移除读写/NIC/路径瓶颈。反向链路分别计量，存储 NIC 双向共享。
 
-## 成功输出的必要写回与完成
+## 成功输出、异步写回与终止
 
-本版本固定采用**全部成功Task输出持久化到SOURCE**的输出策略：包括未被下游消费的sink输出。它是本模型的必要输出集，不是按照图中出现的输入边猜测网络流量。
+`ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3` 要求**全部成功 Task 输出**到 SOURCE，包括 unused/sink 和零字节输出，不能仅从被消费的输入边推导必要输出集。
 
-- CPU完成先经故障判断；失败Task不发布输出，不产生写回义务。
-- 成功输出先在实际执行VM观察可见，随后在同一事务中开始或加入(file,SOURCE)写回；已有SOURCE对象保持最早出处。
-- 正字节写回共享服务资源；零字节输出只提交元数据，标记`ZERO_BYTE_OUTPUT`，不生成正流或复制序号。
-- CPU的`CLOUDLET_RETURN`、任务/Job完成时刻不被改成存储提交时刻。VM可以在写回期间运行下一作业。
-- 仿真终止要求已请求Job终态、没有活动复制、没有SOURCE等待者，且所有成功输出的SOURCE义务已经履行。仅“活动流为零”不足以证明完整输出。
-- CPU逻辑完成指标与整体仿真结束/存储尾部不同；本版本不虚构I/O失败重试或TCP确认。
+- CPU 完成先经故障判断；失败 Task 不发布输出，也不产生写回义务。
+- 成功输出先在实际执行 VM 观察可见，再于同一事务开始或加入 `(file,SOURCE)` 写回。已有 SOURCE 副本保留最早出处。
+- 正字节输出经过服务资源；零字节输出提交元数据，副本获取方式为 `ZERO_BYTE_OUTPUT`，不生成正流或复制序号。
+- `CLOUDLET_RETURN` 和 Task/Job 完成时刻仍是 CPU 结果，不改成存储提交时刻。VM 可在输出写回期间执行下一作业。
+- 终止要求已请求 Job 均终态、无活动复制、无 SOURCE 等待者，且每个成功输出的 SOURCE 义务已履行。仅“活动流为零”不足以证明完成。
+- 逻辑计算完成、整体仿真结束及输出尾部是不同时间边界，不虚构 I/O 失败重试或 TCP 确认。
 
-## 输入可见性与两类等待
+## 输入可见性与等待
 
-### LOCAL
+**LOCAL** 使用可见目标缓存优先，否则最大独立瓶颈速率、稳定位置打破并列的来源规则。必要输出仍写回，但下游可以在 SOURCE 提交前读取已发布的 VM 副本。
 
-沿用可见目标缓存优先、否则最大独立瓶颈速率/稳定位置打破并列的来源规则。必要写回仍发生，但下游可以在SOURCE尚未提交时读取已发布的VM副本。
+**SHARED** 使用 `COMMITTED_STORE_THEN_VM_READ_CACHE_V3`，不是旧 V1 的 SHARED 估时：
 
-### SHARED：提交后读穿透缓存
+1. 控制依赖满足后，在当前观察发起固定目标 VM 的输入请求。
+2. SOURCE 未提交时记录 `INPUT_WAITING_FOR_STORE`；即使目标就是生产者且已有本地输出，也必须等待提交。
+3. SOURCE 提交后重新解析该文件：目标缓存已存在则 LOCAL，否则只从 SOURCE 读取，不能选更快 peer 绕过存储。
+4. 到达目标后该输入才满足；全部输入满足时只释放一次 `JOB_DATA_READY`，随后才可进入 CPU。
 
-明确策略为`COMMITTED_STORE_THEN_VM_READ_CACHE_V3`，不是旧V1 SHARED估时：
+等待 SOURCE 与等待目标复制是不同索引。SOURCE 提交在同一暂存事务内按确定的受影响请求顺序恢复 `(job,file)`，不重入公共 `requestJob/advance`，也不靠忙轮询。多个同目标读者可加入同一次在途读取。等待者、准备统计、输出义务、路径、复制序号与事件均随失败事务回滚。
 
-1. 输入请求仍在控制依赖完成的当前观察发出，固定目标VM。
-2. 若对应SOURCE对象未提交，记录`INPUT_WAITING_FOR_STORE`；**即使目标VM正是生产者、已有本地输出，也必须等待SOURCE提交**。
-3. SOURCE提交仅使该文件允许重新解析：已有目标VM缓存则LOCAL，否则只从SOURCE读取，不能选其他更快peer绕过共享存储规则。
-4. 读取到达目标后才使该输入满足；所有目标输入满足后发出一次数据就绪，才能进入CPU。
+## 主事件、指标与聚合顺序
 
-等待SOURCE与等待目标复制是不同索引。SOURCE提交在同一暂存事务内，按确定顺序恢复受影响的(job,file)，不能重入公共requestJob/advance，也不通过调度器忙轮询。多个同目标读者可以加入同一次在途读取。所有新增等待者、准备统计、输出义务、路径、复制编号和事件都随失败一起回滚。
+`DATA_STAGE_IN_MODELED` 在**最终数据就绪**时记录，`transferUnit=LOGICAL_FILE_STORAGE_V3`；延迟解析之前的初始统计不完整。
 
-## 观察与指标
+- `modeledTransferSeconds` 仍为名义独立输入传输秒数之和，不是并行输入墙钟、输出时间或服务面积。`NEW_COPY` 和 `JOIN_EXISTING` 各计其票据的完整 `isolatedSeconds`，不是剩余时间。
+- `requiredFileBytes`、`modeledTransferFileCount`、`newFileCopies`、`joinedFileCopies` 分别记录引用字节、引用次数、新建/加入输入复制数。输出复制不混入输入计数，也不加入 V1 的 `contentionTransferGroupCount`。
+- `observedInputPreparationSeconds = dataReady - request` 是另行记录的观察准备时长；重叠 SOURCE 等待不能逐文件相加冒充墙钟分解。
+- **引用字节按规范化 FileId 顺序聚合**：每文件的 binary64 字节值先精确乘引用数，再转为 binary64，按序累加；每 Job 总引用数不得超过 `2147483647`，聚合字节必须有限。
+- **名义输入秒数按实际 `INPUT_RESOLVED` 事件顺序累加**；SHARED 延迟恢复可能改变这个顺序，不能换成引用字节的排序。
+- 显示的精确引用总量直接累计每文件 binary64 值的精确十进制当量，不伪装成舍入后的主事件聚合。输出时间不塞进 CPU 或输入 stage-in 信封。
 
-- 新存储版`DATA_STAGE_IN_MODELED`在最终数据就绪时记录，因为延迟解析前的初始统计不完整。
-- `modeledTransferSeconds`继续表示**名义独立输入传输秒数之和**，不改写既有指标含义；`requiredFileBytes`、引用数、新建/加入输入复制数仍分别计数。
-- 新属性`observedInputPreparationSeconds = dataReady - request`单独表示真实观察准备时长；不能把重叠的逐文件SOURCE等待简单相加冒充墙钟分解。
-- 输出写回不塞进CPU或输入stage-in信封。输入/输出目的、复制拥有者和typed destination在新内存事件中明确分开。
-- [StorageLifecycleEvidence](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleEvidence.java>)自身只是不可变载体；必须经[StorageLifecycleCodec](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleCodec.java>)及完整bundle上下文校验后才有认证。其共享标志表示容量共享；`storeBackedInputs`另行表示输入访问政策，二者不可混淆。
+## 独立 V3 证据格式
 
-## 独立V3证据契约
+[StorageLifecycleCodec](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleCodec.java>)固定 role `storage-lifecycle`、文件名 `<runId>.storage-lifecycle.json`（例如 `result.storage-lifecycle.json`）、schema `workflowsim-storage-lifecycle-v3`、记录模式 `FILE_STORAGE_LIFECYCLE_V3`。role 属于外层 artifact 清单，不是侧车根字段。
 
-角色`storage-lifecycle`、侧车`result.storage-lifecycle.json`、schema `workflowsim-storage-lifecycle-v3`，记录模式`FILE_STORAGE_LIFECYCLE_V3`。根严格为九项：`schema,modelKind,recording,certificateScope,policies,capture,filePlan,fabric,events`；`certificateScope`固定`STORAGE_LIFECYCLE_NOT_FLUID_SERVICE_ACCOUNTING_V3`。
+根必须恰含 `schema,modelKind,recording,certificateScope,policies,capture,filePlan,fabric,events`；`certificateScope=STORAGE_LIFECYCLE_NOT_FLUID_SERVICE_ACCOUNTING_V3`。`policies` 必须恰含八项：
 
-`policies`严格为八项：
-
-| 字段 | 固定或受控值 |
+| 字段 | 值 |
 |---|---|
-| fileIdentity | `SCOPED_RESOLVED_WRITE_ONCE_FILES_V2` |
-| release | `DEPENDENCY_READY_AT_OBSERVATION_V2` |
-| visibility | `PER_FILE_SETTLEMENT_OBSERVATION_V2` |
-| selection | LOCAL使用`VISIBLE_LOCAL_OR_MAX_ISOLATED_RATE_STABLE_LOCATION_V2`，SHARED使用`COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
-| sourceAccess | `BOUNDED_STORE_READ_WRITE_NIC_HOST_ATTACHMENT_V3` |
-| sharing | 按Kind为`SHARED_MAX_MIN`或`ISOLATED_PATH_BOTTLENECK` |
-| inputAccess | `LOCAL_VISIBLE_REPLICA_V3`或`COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
-| outputCommit | `ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3` |
+| `fileIdentity` | `SCOPED_RESOLVED_WRITE_ONCE_FILES_V2` |
+| `release` | `DEPENDENCY_READY_AT_OBSERVATION_V2` |
+| `visibility` | `PER_FILE_SETTLEMENT_OBSERVATION_V2` |
+| `selection` | LOCAL：`VISIBLE_LOCAL_OR_MAX_ISOLATED_RATE_STABLE_LOCATION_V2`；SHARED：`COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
+| `sourceAccess` | `BOUNDED_STORE_READ_WRITE_NIC_HOST_ATTACHMENT_V3` |
+| `sharing` | 与 Kind 对应的 `SHARED_MAX_MIN` 或 `ISOLATED_PATH_BOTTLENECK` |
+| `inputAccess` | `LOCAL_VISIBLE_REPLICA_V3` 或 `COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
+| `outputCommit` | `ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3` |
 
-`capture`沿用完整前缀的观察/记录预算形状；首次导出只接受COMPLETE且无丢弃。`filePlan`沿用逻辑文件身份与控制计划。`fabric`严格五项：`locations,resources,vmHostAssignments,topology,sourceStorage`；存储对象含前述四个参数，资源表必须包含一致的读/写/NIC换算容量，VM放置即使没有拓扑也必须完整。
+`recording={mode,maxTraceRecords}`、`capture={status,observedThrough,retainedRecords,droppedRecords}`；导出要求 `COMPLETE`、零丢弃、事件数等于 retainedRecords 且不超过预算。完整表示未丢历史，不等于运行已结束。
 
-与V2相比，`COPY_ADMITTED`改为typed `destination`，并包含`purpose=INPUT|OUTPUT`、`ownerJobId`；其余文件、来源、资源、速率、独立秒数仍显式保留。新`INPUT_WAITING_FOR_STORE`记录`jobId,fileId,referenceCount`；新`OUTPUT_RESOLVED`记录`jobId,taskId,fileId,resolution,copyOrdinal,source`，处理结果为ALREADY_STORED、ZERO、JOIN_EXISTING或NEW_COPY。旧V2的destinationVmId/输入连续解析语法只属于V2，两个入口由封闭契约固定分派。
+`filePlan` 保留共同的逻辑文件/控制计划。`fabric` **恰为五项**：`locations,resources,vmHostAssignments,topology,sourceStorage`；存储对象恰含前述四参数，资源表必须含换算一致的 READ/WRITE/NIC，实际 VM 放置即使没有拓扑也必须完整。共享标志表示跨流容量共享，`storeBackedInputs`/`inputAccess` 表示访问政策，不能混同。
 
-Java/Python共享各自已有的独立逻辑计划、数值、来源与路径检查机制，但不调用生产路由器/分配器/协调器。完整前缀不可截在半个输入请求、输出发布、SOURCE恢复或缺失的即时就绪操作中；前缀仍可含运行中的复制/输入/输出义务。完整bundle另要求所有逻辑任务成功、每次compute尝试被覆盖、**每个必要输出已到SOURCE**。这不是没有记录的逐区间服务面积会计证明。
+公共事件包络为 `sequence,observedTime,type,payload`，序号从 1 连续，观察时刻单调且不超过捕获水印。相对[文件 V2 格式](<FILE_LIFECYCLE_V2_FORMAT.md>)，V3 的独立语法差异如下：
 
-请求引用字节按规范化FileId顺序进行binary64聚合，而名义输入秒数按实际解析事件顺序聚合；延迟输入可能改变两者的顺序，校验不得混用。显示中的精确引用总量则直接累计每文件binary64值的精确十进制当量，因此不伪装成舍入后的主事件聚合。
+| 事件 | V3 payload 字段 |
+|---|---|
+| `COPY_ADMITTED` | `copyOrdinal,fileId,bytes,sourceReplica,destination,purpose,ownerJobId,resources,standaloneRate,isolatedSeconds` |
+| `INPUT_WAITING_FOR_STORE` | `jobId,fileId,referenceCount` |
+| `OUTPUT_RESOLVED` | `jobId,taskId,fileId,resolution,copyOrdinal,source` |
 
-V3上下文还检查现代故障参数/VM-depth覆盖、关闭故障不能产生失败、实际及必要重试数不能超预算，以及STATIC/NOOP各次尝试不得迁移VM；这些是必要配置/因果检查，不重放随机采样。ON/OFF的核心配置都受约束，独立standalone不冒称知道外层调度/故障配置。修复哈希不能掩盖CPU、来源、目的、策略或写回历史矛盾。V2接受契约没有借此放宽或重定义。
+`destination` 为类型化位置，`purpose=INPUT|OUTPUT`，`ownerJobId` 必须对应实际请求或成功输出拥有者。输出 resolution 为 `ALREADY_STORED`、`ZERO`、`NEW_COPY` 或 `JOIN_EXISTING`；前两者 copyOrdinal 为 null。输出加入旧票据时，该事件的 source 是本次成功完成的 VM，票据仍保留原拥有者和最早来源。不能把 V2 的 `destinationVmId` 准入字段或连续输入解析语法套入 V3。
 
-模式、核心计划和物理存储在重建时全部保留；侧车全部字段在`/storageLifecycle/...`作精确核心比较，没有新易变量豁免。正常run与standalone报告复用同一已验证快照，独立存储面板以精确字符串展示输入、写回、等待和输出尾部；复制/资源/Job/事件预览分别最多64/64/64/128条。OFF、零正复制、完整但未结束的前缀、缺失显示数据与无有效结果分别处理。
+共同的严格 JSON/数值、零与小数字节、不可表示时钟、复制残余上界及出处检查见[文件格式的数值契约](<FILE_LIFECYCLE_V2_FORMAT.md#数值与结算边界>)；封闭的 V2/V3 入口分别选择语法，输入文档不能自行扩展契约。
 
-## NF004A验收记录
+## 校验、重放与显示边界
 
-本阶段新增43项Java测试：17项资源声明、9项路径/容量、10项事务生命周期、7项真实Kernel。完整Java/Javadoc **1350项、0失败/错误/跳过**通过，原覆盖率门槛不变；既有Python95项通过。冻结的13个V2完整bundle重新执行均`IDENTICAL_CORE`，原五种模型再运行也全部`IDENTICAL_CORE`。该阶段新存储版独立侧车/重放认证尚未开放，不能用当时的旧版回归代替后续V3证据验证。
+[StorageLifecycleEvidence](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleEvidence.java>)只是不可变载体。Java 和[独立 Python 校验](<../../scripts/_storage_lifecycle_audit.py>)不调用生产路由器、分配器或协调器来生成预期；完整捕获也不能结束在半个请求/输出发布/SOURCE 恢复/遗漏即时就绪操作中。合法 standalone 前缀仍可含活动复制、输入等待或输出义务。
 
-测试覆盖读写与NIC瓶颈、实际Host路径、同VM提交屏障、远程读取自动恢复、同目标合并、CPU与写回重叠、unused/零输出排空、真实失败重试、OFF/完整/截断物理一致，以及输出提交后触发不可表示读取时的整体回滚。数值反例使用合法可转换容量，未放宽生产数值域。
+完整 bundle 则额外要求所有逻辑 Task 成功、覆盖每次 compute 尝试、与 Job/Task/主事件和实际平台相符、状态静止且每个必要输出已到 SOURCE。V3 上下文核查现代故障参数及 VM/depth 覆盖、关闭故障不能产生失败、实际/必要重试不得超预算、STATIC/NOOP 重试不得迁移 VM；ON/OFF 核心配置都受约束。这些是必要配置与因果检查，不重放随机抽样，standalone 也不冒称知道外层调度/故障配置。
 
-## NF004B闭环验收
+截断、缺失或矛盾证据在工件 I/O 前拒绝；重新计算 hash 不能掩盖来源、目的、CPU、策略或写回矛盾。**认证不包括未记录的逐区间流体服务面积。** V2 的接受契约不因此改变。
 
-新增98项Java测试：37项独立codec、11项工件、5项重放、34项投影、8项Workbench、3项额外故障/重试反例。完整Java/Javadoc **1448项、0失败/错误/跳过**通过，覆盖率门槛不变。Python原95＋V3独立34/上下文33共 **162项**通过。新的23个standalone和19个真实V3 bundle入口均通过独立Python；连同原V1/V2共88个跨语言入口通过。
+重建保留模式、核心计划和物理存储；侧车全字段在 `/storageLifecycle/...` 精确比较，没有新易变量豁免。正常与独立报告复用同一已验证快照，使用 `getStorageLifecycle()/getDecodedStorageLifecycle()` 的独立路径，不复用 V1/V2 getter。显示数值为精确文本；复制/资源/Job/事件预览分别最多 **64/64/64/128** 条，嵌套列表最多 12 项、标签最多 256 字符。OFF、零正复制、完整运行前缀、缺失投影和无有效结果分别处理，不请求额外侧车。
 
-冻结13个V2 bundle与19个V3 bundle共32次实际rerun均`IDENTICAL_CORE`，原五模型另行与冻结基线比较也全部IDENTICAL_CORE。65组离线桌面/390px报告及19个验证器反例通过，覆盖第三版本切换、精确数值、读取/写回拥有者、等待和尾部、预览上限、无外部或额外file请求。
-
-额外复核发现的关闭故障却仍有失败重试、预算不足、STATIC/NOOP重试迁移VM问题，均先以会被错误接受的Java/Python反例复现，再加入V3必要配置/结果/事件联结。修复不改变生产模拟轨迹、旧V2接受契约或精确比较白名单。
-
-独立检出feee972同样通过：1448个Java用例中1446执行通过，仅2项未携带历史归档的可选用例明确跳过；Python162项、88个重新生成的跨语言入口、65组浏览器和19组反例通过。父工作树保护清单18641个文件、6,924,492,498字节的大小和SHA256再次逐一核对不变。
-
-每个后续环节立即测试；保留旧五模型与V2参考证据，不改任何历史输入、排名或覆盖率门槛。
+参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)、[Workbench](<../getting-started/WORKBENCH.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.md>)及[构建与检查](<../getting-started/BUILD.md>)。

@@ -19,12 +19,12 @@ import org.workflowsim.utils.SimulationConfig;
 import org.workflowsim.utils.TaskCostMatrix;
 
 /**
- * Fat-tree × 调度联合实验的规划器兼容性契约探测（campaign Phase A 产物）。
+ * Fat-tree × 调度联合实验的规划器兼容性契约测试。
  *
  * <p>研究问题"网络争用如何改变调度算法相对优劣"要求同一 DAG 在多个规划器 ×
  * 多个数据移动模型（无争用 V1 / R2 端点争用 / R6 Fat-tree 链路争用）下可比。
  * 本测试实证哪些组合合法且端到端健康，哪些被配置契约拒绝——探测结果直接
- * 界定 campaign 对照矩阵（见 docs/experiments/FATTREE_SCHEDULING_CAMPAIGN.md）。</p>
+ * 界定 campaign 对照矩阵（见 experiments/studies/fattree-scheduling-campaign/RETENTION.md）。</p>
  *
  * <p>fixture 与 {@link FatTreeContentionIntegrationTest} 相同：HEFT 论文例 ×
  * 3 主机（默认轮转放置）× k=4 满配 Fat-tree、链路 1 MB/s。RANDOM/PSO 是通信

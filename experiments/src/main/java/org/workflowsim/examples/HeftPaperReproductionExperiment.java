@@ -118,7 +118,7 @@ public class HeftPaperReproductionExperiment {
         System.out.println();
         System.out.println("结论：rank 与论文逐一相同；HEFT 映射与调度区间 10/10 逐位复现"
                 + "（仅整体平移引导偏移）；受控相对 makespan ≈ 论文 80"
-                + "（详见 docs/PLATFORM_AUDIT_REPORT.md COMM-1）。");
+                + "（详见 docs/algorithms/CONTRACTS.md 的“通信估计与执行模型”）。");
     }
 
     private static SimulationReport run(PlanningAlgorithm planning, long seed) throws Exception {

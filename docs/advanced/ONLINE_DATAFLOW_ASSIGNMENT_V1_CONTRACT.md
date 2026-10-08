@@ -1,90 +1,105 @@
-# 控制就绪在线VM绑定V1（NF005）
+# 控制就绪在线 VM 绑定 V1
 
-## 当前交付边界
+在线绑定是在逻辑 Task 的控制依赖和工作流到达门控解除后选择固定目标 VM，再按[一致 V2](<COHERENT_DATAFLOW_V2_CONTRACT.md>)或[存储 V3](<STORAGE_DATAFLOW_V3_CONTRACT.md>)准备输入。它不是新的物理 Kind，也不是 CPU 派发时重新映射；STATIC 只派发已绑定、数据就绪且可执行的 Job。
 
-NF005A的只读结构化观测和真实Kernel闭环，现已接通NF005B的**Java/Python动作上下文、manifest、精确重放与Workbench报告**。在线动作认证要求匹配的完整V2/V3生命周期捕获；OFF仍可用于原始Java运行，且不改变物理/动作，但不能导出未经生命周期支持的在线认证工件。截断、缺失或上下文不一致在I/O前拒绝。原V1/V2/V3默认运行和证据闭环不变。
+## 显式配置与认证前提
 
-可运行[在线V2示例](<../../experiments/configs/online-file-dataflow-v1.json>)及[在线受限存储V3示例](<../../experiments/configs/online-storage-dataflow-v1.json>)。Workbench把目标绑定划为独立决策层，不能与普通在线CPU调度或离线映射在同一实验中混排；独立报告标为`DATAFLOW_BINDING_V1`，不只显示含糊的STATIC标签。
-
-在线绑定不是另一个物理网络版本：它复用一致数据流V2或存储V3，在每个逻辑Task控制依赖和工作流到达门控解除后，选择固定目标VM，随后由既有逐文件协议准备输入。STATIC只派发已绑定且数据就绪的Job，不重新选择VM。
-
-## 显式配置与支持矩阵
-
-[DataflowAssignmentConfig](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowAssignmentConfig.java>)默认OFF，`onlineNominal()`选择：
+[DataflowAssignmentConfig](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowAssignmentConfig.java>)默认 OFF；`onlineNominal()` 对应普通核心配置字段 `configuration.dataflowAssignment`：
 
 ```json
 {"mode":"CONTROL_READY_ONLINE_ASSIGNMENT_V1","policy":"NOMINAL_INPUT_EARLIEST_RESERVATION_V1"}
 ```
 
-启用时要求`planningAlgorithm=INVALID`、`schedulingAlgorithm=STATIC`、一致V2/V3物理模型、NONE聚类（每Job一个Task）、SPACE_SHARED和无开销。V2仍限LOCAL，V3可LOCAL或SHARED；NOOP故障重试规则保留。未启用时仍按原RANDOM预映射规则运行；旧执行前传输、LOCAL规划器或CPU在线调度约束没有被简单删除。
+对象必须恰含两个大小写敏感的字符串字段，不强制转换、不裁剪空白、不猜测策略。缺省由调用者表示 OFF；显式 null、false、OFF 对象、缺字段、额外字段或未知策略均拒绝。配置不能只写入可作为身份差异处理的 `algorithmContract`。
 
-该配置独立于网络记录，在普通`configuration.dataflowAssignment`字段保存，而不只放在被rerun视作身份易变量的`algorithmContract`中。严格解码只接受上述两个已知字符串字段；缺省由调用者表示OFF，显式null/false/OFF对象、缺字段或未知策略都拒绝。在线工件另保存核心`dataflowComputeRequests`数组，每项为`jobId,taskId,taskPes,jobPes,lengthMi`，与实际Job/Task结果联结；原默认模式不添加该字段。
+| 配置 | 支持范围 |
+|---|---|
+| 规划 / 派发 | **`planningAlgorithm=INVALID`、`schedulingAlgorithm=STATIC`** |
+| 物理模型 | 一致文件 V2 或受限存储 V3，含各自无共享对照 |
+| 文件系统 | V2 仅 LOCAL；V3 可 LOCAL 或 SHARED |
+| 任务与 CPU | NONE 聚类，每 Job 一个逻辑 Task；SPACE_SHARED；无开销 |
+| 重试 | `FTCLUSTERING_NOOP`、`MONITOR_NONE`；重试保留逻辑 Task 的原目标 VM |
+| 工件认证 | 匹配物理版本、模式和预算的**完整且静止** V2/V3 生命周期捕获，以及完整运行上下文 |
 
-## 被观察的是已提交状态
+记录开关与绑定配置独立。原始 Java 运行可 OFF，物理和动作不因记录开关改变；但 OFF 不能导出缺少生命周期支持的在线认证工件。缺失、截断或上下文不一致在工件 I/O 前拒绝。未启用在线绑定的一致模型保留 RANDOM/STATIC 默认分支；旧执行前传输、LOCAL 规划器、普通 CPU 在线调度及 RL 的约束没有被移除。
 
-- [TransferServiceSnapshot](<../../simulator/src/main/java/org/workflowsim/data/TransferServiceSnapshot.java>)由checked流服务的`TransferContentionEngine.snapshotState()`生成，直接复制当前容量、活动流、余额、速率、路径及服务水印。不推进、重分配、fork、记录或调用CloudSim；旧未检查构造器明确拒绝该API。
-- [DataflowObservation](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowObservation.java>)由`CoherentDataflowRuntime.observe()`或`observeFiles(scope)`生成。数据来自同一个已提交Frame，不消费ready队列，不依赖OFF/完整/截断捕获。初始化前标为UNINITIALIZED，计划已知但实际fabric未绑定为PLAN_ONLY，不编造VM放置和容量。
-- 文件视图包含已声明尺寸和**当前可见**副本；预测完成不会产生副本。活动复制包含实际来源、typed destination、INPUT/OUTPUT目的、拥有者及当前服务进度。Job视图只列未终结尝试，分别表示等待SOURCE、等待目标复制、就绪待CPU和RUNNING。
-- `observeFiles`只限定文件持有者清单；全局活动复制、资源与未终结Job仍可见。范围外文件查询会拒绝，不伪装成“已知但无副本”。不可变静态元数据可以共享，mutable集合均被复制，不保留每次查询历史。
-- 资源分配速率按路径重数精确累加为BigDecimal。独立无共享模式的总分配可以超过资源容量，甚至超过Double.MAX_VALUE；不截断为容量，也不把它称作有界期间利用率。
+在线 manifest 另有核心 `dataflowComputeRequests` 数组，每项恰为 `jobId,taskId,taskPes,jobPes,lengthMi`，与每次实际 Job/Task outcome 联结；默认非在线模式不添加该字段。
 
-控制闭环显式在当前观察执行`advance(now)`，再读取快照。读接口本身不会自动推进到CloudSim.clock。没有使用CPU调度器中返回stub 0或会改变内部状态的MIPS查询作为真实遥测。
+可运行[在线 V2 示例](<../../experiments/configs/online-file-dataflow-v1.json>)或[在线存储 V3 示例](<../../experiments/configs/online-storage-dataflow-v1.json>)。Workbench 将其作为独立决策层，不能与普通 CPU 在线调度或离线映射在同一实验中混排；独立报告标为 `DATAFLOW_BINDING_V1`，不是仅显示 STATIC。
 
-## 确定性的myopic策略
+## 被动观测与已提交状态
 
-[DataflowVmAssigner](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowVmAssigner.java>)持有每次运行独立的逻辑Task绑定和CPU预留。候选必须恰好覆盖实际创建的fabric VM ID，按数值ID排序，Task/Job PE均须兼容。非连续ID不是数组下标。
+- [TransferServiceSnapshot](<../../simulator/src/main/java/org/workflowsim/data/TransferServiceSnapshot.java>)来自 checked 服务的 `TransferContentionEngine.snapshotState()`：复制当前容量、活动流、剩余字节、速率、路径及服务水印，不推进时间、重分配、fork、记录或调用 CloudSim。旧未检查构造器拒绝该 API。
+- [DataflowObservation](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowObservation.java>)的契约为 `OBSERVED_DATAFLOW_STATE_V1`，由 `observe()` 或 `observeFiles(scope)`读取同一个已提交 Frame，不消费 ready 队列，不依赖 OFF/完整/截断捕获。状态为 `UNINITIALIZED`、`PLAN_ONLY` 或 `BOUND`；未绑定时不编造实际 VM 放置、fabric 或容量。
+- 文件视图只含当前可见副本；预测完成不会发布副本。活动复制保存实际来源、类型化目标、INPUT/OUTPUT 目的、拥有者与当前服务进度。未终结 Job 分为 `WAITING_FOR_STORE`、`WAITING_FOR_INPUTS`、`READY_FOR_CPU`、`RUNNING`。
+- `observeFiles`仅限定文件持有者清单；全局活动复制、资源及未终结 Job 仍可见。范围外文件查询拒绝，不能当成“已知但无副本”。不可变静态元数据可共享，可变集合复制，读取不保留快照历史。
+- 资源分配速率以每条路径的重数乘各 binary64 速率，再用 BigDecimal 精确累加。无共享模式下总分配可超过容量乃至 `Double.MAX_VALUE`，不钳制；它不是已完成流量或期间利用率。
 
-对候选VM计算：
+控制闭环显式先 `advance(now)` 再读快照；读 API 自身不会推进到 `CloudSim.clock`。CPU 预留也不使用返回 stub 0 或会改变内部状态的 MIPS 查询作为实际遥测。
+
+## 名义输入与 CPU 预留策略
+
+[DataflowVmAssigner](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowVmAssigner.java>)持有每次运行独立的逻辑绑定和预留。VM 清单必须恰好覆盖实际 fabric VM，按数值 ID 排序；非连续 ID 不是数组下标。初次绑定为所有 VM 打分，Task/Job PE 均须兼容；重试仅保留原绑定 VM 的候选，不重新选择。
 
 ```text
 inputDelay = max(每个唯一逻辑输入文件的名义剩余延迟)
-cpuAvailable = now + sum(该VM仍活动的预计剩余CPU预留)
+cpuAvailable = now + sum(该 VM 仍活动的预计剩余 CPU 预留)
 scoreFinish = max(now + inputDelay, cpuAvailable) + executableComputeSeconds
 ```
 
-- `executableComputeSeconds`通过既有TaskExecutionModel计算，使用与运行相同的Task×VM矩阵和整数MI舍入；缺失矩阵坐标或不可表示成本不回落到原始MI。
-- 已开始CPU的预留按`max(0, nominalComputeSeconds - (now - observedCpuStart))`估计；尚未开始的保留完整名义计算量。终结尝试从有效预留中排除，下一次成功绑定提交时清理。所有活动compute必须属于该受控策略的预留，未知活动负载不能被当作空闲。
-- 允许选择当前忙VM：输入传输可与既有计算重叠。绑定不设置VM BUSY，实际STATIC仍按data-ready/idle队列派发，未承诺遵守预留顺序。
-- 允许的本地缓存输入延迟为0；非本地已在途(file,destination)复制使用观察剩余字节/其冻结名义瓶颈，不能重复计整份引用量或换一个更快来源。
-- 普通可见输入采用与物理策略一致的最大独立瓶颈/稳定位置规则。多个文件可并行，因此这里用max；这不同于主事件中“名义独立输入秒数之和”的工作量指标。
-- V3 SHARED在SOURCE尚未提交时，必须找到其活动OUTPUT写回，估计`writeRemaining/writeNominalRate + postCommitRead`；目标已有VM副本时只能省略提交后的读取，不能省略SOURCE门控。该项明确标记`conditionalStoreWait=true`，不是当前SOURCE可见或精确到达预测。
-- 缺少当前来源/必要SOURCE写回路径、非有限成本或无法推进binary64预测时钟时明确拒绝，不赋零成本。并列分数选择较小的实际VM ID。
+- 计算秒数通过 `TaskExecutionModel`使用与运行相同的 Task×VM 矩阵和整数 MI 舍入。缺必需坐标或不可表示成本不回落到原始 MI；正计算量还须满足 `MI × TaskPE × 1000000` 的 signed-long 指令域。
+- 已开始 CPU 的预留为 `max(0, nominalComputeSeconds - (now - observedCpuStart))`；未开始者保留完整名义计算量。按**仍存活的请求提交顺序**逐项 binary64 累加后再加 now，不按 Job ID 或 CPU 开始顺序重排。终态尝试不参与有效预留，并在下次成功绑定提交时清理；未知活动 compute 不能当作空闲。
+- 可选择忙 VM，让传输与计算重叠。绑定不设置 VM BUSY；实际 STATIC 仍遵守 data-ready/idle 门控，不承诺执行预留顺序。
+- 允许的本地缓存延迟为 0。已有 `(file,destination)` 输入复制用观察剩余字节除以**冻结名义瓶颈**，不重计整份引用量或更换来源。其他可见输入使用最大独立瓶颈/稳定位置来源规则。
+- 多个唯一输入文件的估计取 max；这不是主事件中名义独立输入秒数之和的工作量指标。
+- V3 SHARED 未见 SOURCE 提交时必须找到其活动 OUTPUT 写回，估计 `writeRemaining/writeNominalRate + postCommitRead`。目标已有副本仅免去提交后的读取，不能免去 SOURCE 门控；该项为 `conditionalStoreWait=true`，不是 SOURCE 已可见或精确到达预测。
+- 缺少来源/必要写回路径、非有限成本、正时长下溢或预测时钟不能推进均拒绝，不记零成本。分数相同时取较小实际 VM ID。
 
-这是名义路径/预留的**短视估计**，不是共享服务完整重放、真实CPU监控或全局最优调度证明。后续流、输入等待和data-ready队列可能改变实际完成时间。
+这是名义路径与预留的**短视估计**，不是共享服务完整重放、真实 CPU 监控或全局最优证明；后来流量、输入等待和 data-ready 队列会影响实际完成。
 
-## 绑定、重试与提交次序
+## 绑定事务、重试与 CPU 门控
 
-逻辑Task ID和Job尝试ID分开。第一次绑定要求Task/Job VM均为-1；NOOP创建新的Job/Task副本时必须继承既有逻辑绑定，重试只增加新的CPU工作预留，不重新选VM。
+首次绑定要求 Task/Job VM 均为 −1。NOOP 重试创建新的 Job/Task 尝试时必须继承原逻辑 Task 绑定，只增加新 CPU 预留。
 
-候选打分不调用requestJob、不添加任何模拟流。先计算完整有效决策，再向一致数据流运行器提交**一次**真实输入请求；只有该事务成功，才提交绑定、预留、策略序号及Task/Job VM字段。观察时钟推进是显式闭环步骤，与纯读取分开。失败的真实请求不会留下绑定或预留。
+候选打分不调用 `requestJob`、不添加模拟流。完整决策形成后，仅提交一次真实输入请求；只有事务成功才提交绑定、预留、策略序号及 Task/Job VM 字段。失败请求不留下这些状态；显式观察推进与纯读取是不同步骤。
 
-新主事件`DATAFLOW_VM_ASSIGNED`对每次成功准备的compute尝试记录，`binding`区分INITIAL与RETRY_REUSE；包含策略/估计版本、实际目标、策略序号、紧凑已提交观测摘要和候选分数。它在现有JOB_READY之前、真实输入请求成功后记录，跨流以身份/观察时刻联结，不假定共享序号。WORKFLOW_ARRIVED可以在尚未绑定时携带VM=-1，不能回写成提前绑定。
+每次成功准备的 compute 尝试记录 `DATAFLOW_VM_ASSIGNED`，在真实输入请求成功后、同观察时刻的 `JOB_READY`之前出现。生命周期与主事件按身份/观察时刻联结，不共享序号。`WORKFLOW_ARRIVED`可在尚未绑定时携带 VM=−1，不回写成提前绑定。
 
-仅保存有界于VM候选数的决策摘要，不把每次全活动网络快照塞入历史；不新增墙钟耗时字段或rerun豁免。
+在线 STATIC 对 compute 启用 fail-fast：实际 VM 必须存在、Task/Job 绑定相同且 PE 兼容；禁止输入已传输后 fallback 到另一 VM。stage-in 的历史 fallback 保留。运行器 `cpuStarted`另检查原请求 VM 和预先存在的数据就绪/输入可见性，CPU 提交不能自身推进网络来取得许可。
 
-## 动作证据的明确认证范围
+## 主动作的严格字段
 
-[Java动作校验器](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowAssignmentValidator.java>)和[独立Python审计](<../../scripts/_dataflow_assignment_audit.py>)采用范围`BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1`，每条动作包含相同`auditScope`。外层仍先完成原V2/V3完整生命周期及运行上下文校验，然后把动作与**每次JOB_INPUT_REQUESTED之前的状态**联结：
+主事件沿用 `sequence,simulationTime,type,jobId,vmId,classType,taskIds,attributes`；compute 的 taskIds 为单元素。主流序号从 0 开始，动作 `assignmentSequence`从 1 连续递增。
 
-- 主事件从0编号；动作策略序号从1连续编号。每个compute尝试恰有一次动作，早于同观察时刻的JOB_READY。首次逻辑绑定和NOOP重试复用分开，失败来源、Task、VM、到达和CPU门控保持一致。
-- 当前副本位置、活动复制、尚未提交输出和活动Job由已验证生命周期单遍重放得到；`scopedFileCount`只数本次Task的不同输入文件，其他计数是全局活动状态，不把重复引用、local或零字节输入混用。
-- 验证完整有序候选、SPACE_SHARED模式和Task/Job PE兼容性；矩阵带完整`unit/runtimeConversion/entries`格式，允许合法额外坐标但必需坐标不能缺失。整数MI舍入使用binary64乘积的精确值处理，不能先以double加0.5造成大数错误。
-- 当前CPU预留按已观察开始、活动尝试及前次已校验计算量重建。主CPU事件的原始MI、有效MI和`MODEL_DERIVED_COMPUTE_WINDOW`必须与Task结果/动作计算声明一致；不能仅修复哈希后保留矛盾字段。
-- 未在途的新读取、本地和零字节的名义输入量能精确重算。在途输入只认证`(0, fullBytes/nominalRate]`范围；未提交SOURCE的上界为完整写回名义秒数加提交后读取，下界为提交后读取。若该读取为0，等待必须严格为正；若读取为正，则允许很小的正写回被binary64加法吸收。不同文件以max聚合边界。
-- 对已记录输入分数、重建CPU预留及计算秒数验证严格binary64公式、有限/可推进时钟、最小分数和VM ID并列规则。原始配置、计算请求和主动作所有科学字段进入精确rerun比较，没有新增易变量豁免。
+`attributes`恰含 `assignmentMode,assignmentPolicy,inputEstimateSemantics,cpuReservationSemantics,auditScope,assignmentSequence,binding,selectedVmId,observation,candidates`。固定语义标签为：
 
-**不认证精确活动流余额或完整未来争用过程。** 当前动作不记录全部服务epoch，因此名义边界内的进度改写可能仍满足此有限认证；实际rerun仍会逐字段发现变化并给出DIVERGED。测试包含该正控制，避免把边界检查宣传为流体重放。输出/CPU实际因果仍由底层生命周期证书检查。
+| 字段 | 值 |
+|---|---|
+| `assignmentMode` | `CONTROL_READY_ONLINE_ASSIGNMENT_V1` |
+| `assignmentPolicy` | `NOMINAL_INPUT_EARLIEST_RESERVATION_V1` |
+| `inputEstimateSemantics` | `MAX_FILE_NOMINAL_REMAINING_CONDITIONAL_STORE_V1` |
+| `cpuReservationSemantics` | `ACTIVE_COMPUTE_RESERVATION_FROM_OBSERVED_START_V1` |
+| `auditScope` | `BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1` |
+| `binding` | `INITIAL` 或 `RETRY_REUSE` |
 
-报告只接收同一个已验证工件快照；动作最多64条，每条候选预览最多12条，选中项即使在预览之外也从完整候选集中正确取出。数值始终是精确文本，缺失投影、未配置和无有效结果明确分开；物理V2/V3面板同时保留，不重新请求任何侧车。
+`observation`恰含 `contract,status,storageVersion,storeBackedInputs,interFlowSharing,observedThrough,serviceThrough,activeCopyCount,activeJobCount,pendingOutputFileCount,scopedFileCount`；动作必须为 `OBSERVED_DATAFLOW_STATE_V1`/`BOUND`。`scopedFileCount`只数本 Task 的不同输入，其余计数是全局活动状态。
 
-## CPU门控与后续验收
+每项 candidate 恰含 `vmId,compatible,inputSeconds,cpuAvailableAt,computeSeconds,scoreFinishSeconds,conditionalStoreWait,joinedInputCopies`。初次动作覆盖全部实际 VM、按数值 ID 排序；重试只列原 VM。不兼容候选的后六个值必须显式 null。只保存有界于候选数的摘要，不把每次全活动网络快照放入历史。
 
-在线模式下STATIC对compute启用fail-fast：实际VM必须存在、Task与Job绑定相同、PE兼容，否则禁止在数据已传输后fallback到其他VM。stage-in的历史fallback仍保留。运行器的cpuStarted另行验证原请求VM与输入可见，形成第二道约束。
+## 独立动作认证的范围
 
-定向控制包含手算两条100B流共享10B/s在t=3的85B余额/5B/s速率、不可变/不推进观测、Source-vs-VM双等待、缓存/矩阵舍入/预留、忙VM I/O重叠、错峰工作流、真实NOOP重试、记录预算不影响动作与轨迹，以及不完整候选/未知负载/失败请求的拒绝。
+[Java 校验器](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowAssignmentValidator.java>)和[独立 Python 审计](<../../scripts/_dataflow_assignment_audit.py>)使用 `BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1`。先完成 V2/V3 生命周期及运行上下文检查，再单遍重建**每次 `JOB_INPUT_REQUESTED`之前**的可见副本、复制、未提交输出和活动 Job：
 
-NF005A新增67项Java测试：15项服务快照、12项数据流观测、13项配置、16项策略、7项真实Kernel及4项STATIC保护。完整Java/Javadoc **1515项、0失败/错误/跳过**通过，原覆盖率门槛不变；既有Python162项通过。冻结的13个V2及19个V3 bundle共32次重放均IDENTICAL_CORE，原五模型也再次与冻结基线比对一致。无输入重试夹具初始固定四个种子未覆盖故障，因此改用固定有限种子域直到实际触发一次重试；未修改生产故障参数或比较规则。
+- 每个 compute 尝试恰有一次动作和同观察的后续 JOB_READY；初次绑定、失败父谱系、NOOP 同 VM 复用、到达与 CPU 门控一致。关闭故障不能有失败/重试，重试数受预算约束。
+- 候选及 SPACE_SHARED、Task/Job PE 均受检查。矩阵恰含 `unit,runtimeConversion,entries`，其中 `unit=EXECUTION_SECONDS`、`runtimeConversion=ROUND_SECONDS_TIMES_VM_MIPS_TO_POSITIVE_INTEGER_MI`，entry 为 `taskId,vmId,executionSeconds`；允许合法额外坐标，但必须覆盖实际 Task/VM。按 binary64 乘积的精确值舍入，不能先用 double 加 0.5；正 MI 上限为 `9223372036854 / TaskPE` 的整数域。
+- CPU 预留按已观察开始、活动尝试和已校验计算量重建。主 CPU 事件的原始/有效 MI 及 `MODEL_DERIVED_COMPUTE_WINDOW`必须与 Task outcome 和动作声明一致；重新计算 hash 不能消除字段矛盾。
+- 新读取、本地和零字节名义量可精确重算。在途输入只认证 `(0, fullBytes/nominalRate]`；未提交 SOURCE 的上界为完整写回名义秒数加提交后读取，下界为提交后读取。后读为 0 时等待必须严格为正；后读为正时，允许很小的正写回被 binary64 加法吸收。多文件以 max 聚合边界。
+- 对已记录输入分数、重建 CPU 预留和计算秒数核对严格 binary64 公式、有限/可推进时钟、最小分数与 VM ID 平局规则。数字必须为真正 JSON 数值，整数按 int32/int64 域精确读取；数值 token 长度、十进制精度及绝对 scale 均不超过 4096，不把非零下溢为零接受。
 
-NF005B新增93项Java测试（57动作校验、9工件、5重放、14投影、8Workbench）；完整Java/Javadoc **1608项、0失败/错误/跳过**通过。Python原162＋新74共 **236项**通过；V1/V2/V3与在线共 **109个跨语言入口**通过。冻结默认V2/V3加21个在线bundle共 **53次实际重放全部IDENTICAL_CORE**，原五模型另行保持一致。**99组桌面/390px报告与26个检查器反例**通过，原覆盖率及精确比较规则不变。
+**不认证精确活动流余额或完整未来争用过程。** 动作没有记录全部服务 epoch，名义边界内的进度改写可能仍满足有限认证；实际 rerun 仍逐字段比较并可返回 `DIVERGED`。原始配置、计算请求和主动作的科学字段没有新增易变量豁免；实际输出/CPU 因果由生命周期证书承担。
 
-额外复核先以Java6个重哈希子例和Python56个拒绝子例复现了主CPU事件MI/计时范围及Python VM调度模式漏检，再加入仅作用于在线新契约的确定性字段联结。所有实际运行工件继续通过，有限输入进度范围的明确例外不被混成字段自相矛盾的豁免。提交b63e4dd的独立检出复核收集1608个Java用例，1606执行通过，仅2个未携带历史归档的可选用例明确跳过；Python236项、重新生成的109个跨语言入口、99组浏览器和26组反例均通过。原18641个受保护文件的大小与SHA256再核对不变。性能复制范围优化不改变本契约。
+## 报告与复核
+
+报告只读取同一个已验证快照。动作预览最多 **64** 条，每条候选最多 **12** 条；选中项即使不在预览内，也从完整候选集合提取。数值为精确文本，缺失投影、未配置、无有效结果分别处理；物理 V2/V3 面板同时保留，不重新读取侧车。
+
+参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)、[Workbench](<../getting-started/WORKBENCH.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.md>)与[构建检查](<../getting-started/BUILD.md>)。

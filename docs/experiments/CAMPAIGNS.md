@@ -1,394 +1,128 @@
-# 实验 Campaign 与数据移动协议
+# 批量实验与研究矩阵
 
-> **R10 current contract:** New manifests use v4 (provenance remains v3; historical v2/v3 remain readable). Contention uses max-min progressive filling with intermediate-completion integration; all contention groups start at Job readiness, unlike V1 parent-finish estimates. The R7/R8 numerical section below is historical after the CPOP correction. The new qualified multi-seed study is specified in [R10 protocol](../../experiments/studies/network-limited-r10/PROTOCOL.md).
+批量运行之前，先明确比较单位、基线、输入和模型。不同入口承担不同职责：
 
-
-## Status and Claim Boundary
-
-P9 adds an executable, immutable experiment-campaign declaration and an
-auditable campaign index. P10-A adds one optional, topology-free data-movement
-model. Together they make experiment inputs, repetition intent, transfer
-assumptions, and basic descriptive statistics explicit. They do not turn a
-WorkflowSim result into a replay of a WfInstances trace, a cloud-network
-prediction, a provider-billing estimate, or a calibrated storage benchmark.
-
-The frozen P7 matrix remains governed by `P7_PROTOCOL.md`. This
-protocol is an additional capability and must not be used to retroactively
-change P7's deterministic result interpretation.
-
-模块边界：`ExperimentPlan`、campaign executor、指标和只读验证器是可复用核心 API，
-位于 `simulator/`；具体研究的矩阵构造、CLI 驱动和研究专用测试应位于
-`experiments/src/main/java/org/workflowsim/experiments/studies/<study-id>/`，相应协议材料位于
-`experiments/studies/<study-id>/`。研究模块通过 `mvn verify` 验证，核心只读
-验证器通过 `-Pcore-exec -pl :workflowsim -am` 启动。
-
-## Campaign Contract
-
-`ExperimentPlan` is the source of truth for a campaign. A cell declares its
-identifier, comparison group, candidate identifier, baseline role,
-`SimulationConfig`, `PlatformProfile`, `SeedPlan`, and optional string tags.
-The builder rejects a malformed study before simulation:
-
-| Invariant | Reason |
+| 入口 | 适用场景 |
 | --- | --- |
-| Every comparison group has exactly one baseline. | A delta otherwise has no declared reference. |
-| A candidate identifier occurs once per comparison group. | Avoids an accidental duplicate treatment cell. |
-| Cells in one group use the same randomization design. | Keeps the summary's inference label meaningful. |
-| A configuration's VM count equals its platform VM specification count. | Prevents an apparent algorithm comparison from silently using a different resource count. |
-| Seed-plan count, per-run seed, report seed, and cell/replication pair agree. | Keeps replication provenance auditable. |
+| [Workbench](<../getting-started/WORKBENCH.md>) | 用 JSON 比较同一决策层的算法，查看离线报告 |
+| 核心 `ExperimentPlan` / `ExperimentCampaignExecutor` | 在 Java 中声明比较组、基线和种子设计，生成通用 campaign 证据 |
+| `NetworkStudyExecutor` | 执行已注册的网络研究矩阵，不是任意配置的通用 CLI |
 
-`ExperimentCampaignExecutor` deliberately runs one cell and one replication at
-a time through `SimulationRunner`. WorkflowSim retains legacy static CloudSim
-state, so concurrent JVM execution is outside this contract. Parallel studies
-must use separate JVM processes and must record their process-level isolation
-and artifact merge procedure separately.
+通用 API 位于核心模块，研究专用驱动位于实验模块。新研究的协议和保留要求见[研究目录约定](<../../experiments/studies/README.md>)；算法与物理模型的组合以[算法目录](<../algorithms/CATALOG.md>)为准。
 
-The executor is deliberately fail-fast: a parsing, configuration, simulator, or
-retry-limit exception prevents a complete campaign result from being produced.
-Such an exception is not silently converted into a workflow-failure sample.
+## 通用 campaign API
 
-`WorkflowProfile` is included in every report and campaign-run record. It
-describes the parsed, pre-clustering logical graph: task/edge/root/leaf counts,
-depth and width, runtime-MI distribution, and declared file-reference/input
-size summaries. It supports scenario stratification and audit. It is not a
-measurement of a real execution environment.
+[ExperimentPlan](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentPlan.java>)的每个 `Cell` 声明：cell ID、comparison group、candidate ID、是否基线、`SimulationConfig`、`PlatformProfile`、`SeedPlan` 和可选字符串标签。
 
-Every `PlatformProfile` also contains a capacity-feasible VM-to-Host preflight.
-Researchers may pin individual VMs, while the default mirrors the legacy
-greatest-remaining-PE selection with declared Host order as its tie-break. The
-runner compares that map to the allocation observed at CloudSim VM creation and
-records both in each evidence bundle. Keep one VM per Host when Host placement
-must be excluded as a factor; co-location is a resource-capacity scenario, not
-a Host CPU-contention model or a proxy for real infrastructure utilization.
+以下是放入自建 Java 实验类的 API 片段，不是独立程序。`config`、`platform` 可沿用[Java API 指南](<../getting-started/CODE_CONFIG_EXPERIMENTS.md>)的普通在线示例；`outputDirectory` 是新建或为空的 `Path`，并需导入所用的 `org.workflowsim.experiment` 类型。
 
-## Randomness and Statistics
-
-`SeedPlan` stores every actual root seed, either explicitly or by a
-deterministic SplitMix64 derivation from a recorded derivation root. It offers
-three interpretations:
-
-| `RandomizationDesign` | Permitted result interpretation |
-| --- | --- |
-| `DETERMINISTIC` | One reproducible model result. Report exact values, a workflow-run completion fact, and descriptive deltas only; no confidence interval. |
-| `INDEPENDENT_REPLICATIONS` | Per-cell sample mean, sample standard deviation, min/max, and two-sided 95% Student-t mean interval when at least two replications exist. Eligible workflow-run completion additionally has a cell-local Wilson score interval. |
-| `COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN` | Per-cell descriptive summaries, descriptive workflow-run completion rate, equal-root-seed matched simulation-end deltas, and a paired Wilcoxon signed-rank test on the matched makespan deltas (see below). No paired confidence interval and no CRN-paired treatment-effect claim. |
-
-The important distinction is that equal root seeds do not establish common
-random numbers. Scheduling choices can alter which component stream is
-consumed next. A true CRN comparison needs a future event-keyed stochastic
-contract: each logical random event must be assigned a stable key independent
-of algorithm control flow, and that property must receive dedicated regression
-tests.
-
-Since R1 (paired significance framework), `ComparisonSummary` additionally
-exposes `getPairedSignificance()` — a two-sided Wilcoxon signed-rank test
-(`PairedWilcoxonSignificance`) over the matched-seed makespan deltas
-(candidate minus baseline). The test is non-parametric, needs no normality
-assumption, and is computed on the same matched-root-seed pairs as the
-descriptive deltas. Machine-readable statuses:
-
-| Status | Meaning |
-| --- | --- |
-| `AVAILABLE_WILCOXON_SIGNED_RANK_EXACT` | Exact distribution p-value (effective nonzero-difference count ≤ 25). |
-| `AVAILABLE_WILCOXON_SIGNED_RANK_NORMAL_APPROXIMATION` | Normal-approximation p-value with continuity correction (effective count > 25). |
-| `UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO` | Every paired makespan delta is zero (e.g. algorithms converge on identical schedules); no test is fabricated. |
-| `UNAVAILABLE_SINGLE_NONZERO_PAIRED_DIFFERENCE` | Only one nonzero delta; the rank test is undefined. |
-| `UNAVAILABLE_FEWER_THAN_TWO_PAIRED_SAMPLES` | Not enough matched seeds. |
-| `UNAVAILABLE_INDEPENDENT_REPLICATIONS_ARE_NOT_PAIRED` | Independent-replication cells share no seeds; no paired test exists. |
-
-Interpretation boundary: because the stochastic model is not event-keyed, this
-test answers "do the two paired seed series differ in distribution", not a
-variance-reduced CRN treatment-effect claim. Zero deltas are reported honestly
-rather than silently dropped, and `medianDifference` provides the direction
-and typical magnitude of the candidate-minus-baseline delta. The acceptance
-regression `MultiSeedSignificanceIntegrationTest` demonstrates the full path
-on a heterogeneous 16-VM platform with Montage_1000 and a failure model
-(FCFS vs READY_BATCH_MCT, 10 shared root seeds, exact p-value reported).
-
-The Wilson interval is mathematically defined with one eligible observation,
-but one replication is not sufficient research evidence. It is a per-cell
-proportion interval only: the simulator supplies no success-rate-difference
-interval, odds/risk ratio, McNemar test, paired test, or automatic algorithm
-superiority claim.
-
-The campaign summary reports `simulationEndSeconds` (the historical
-`makespanSeconds`), modeled processing cost, and logical-task completion-rate
-samples per cell. It also reports a distinct workflow-run completion summary:
-an eligible run has at least one logical Task, and it succeeds only if every
-logical Task completed successfully. A Wilson 95% proportion interval is
-available only for an explicitly declared `INDEPENDENT_REPLICATIONS` design.
-That interval is an interval for the declared simulator randomization process,
-not a real-cloud reliability, availability, or failure-calibration claim.
-
-`successfulWorkflowLogicalCompletionSeconds` is deliberately a conditional
-summary over successful workflow runs only. Failed or incomplete runs do not
-contribute their simulation-end time as a surrogate completion time. When no
-workflow run succeeds, this summary is explicitly unavailable. Consequently,
-this conditional completion-time sample must be read beside the workflow-run
-completion rate; it is not by itself a fair unconditional time comparison when
-algorithms have different completion rates.
-
-Processing cost sums all completed Job attempts. It is split into a CPU-envelope
-component (which can include integral-MI stage-in) and a continuous decimal-MB
-declared-file bandwidth component; it has no internal billing-rounding rule and
-does not charge declared memory/storage price fields. It is therefore an
-abstract model quantity, not a provider-price replay or separately priced
-network cost. The summary reports candidate/baseline mean ratios for
-simulation-end time and cost when the baseline mean is non-zero, plus
-declared-baseline relative simulation-end speedup (`baseline mean / candidate
-mean`) and improvement percentage when their denominators are non-zero. It
-also reports candidate-minus-baseline logical-task completion-rate and
-workflow-run completion-rate differences, both descriptively only. The speedup
-is a descriptive comparison to the declared baseline, not serial speedup,
-parallel efficiency, or an inferential effect estimate. Its comparison label
-is deliberately machine-readable:
-
-| Label | Meaning |
-| --- | --- |
-| `DESCRIPTIVE_ONLY_DETERMINISTIC` | Exact deterministic comparison, not sampling inference. |
-| `UNPAIRED_INDEPENDENT_REPLICATIONS` | Independent-cell samples; the simulator computes per-cell continuous-metric mean intervals and workflow-run Wilson intervals, but no treatment-effect interval or test. A treatment-effect analysis requires preregistration. |
-| `DESCRIPTIVE_ONLY_COMMON_ROOT_SEEDS_ARE_NOT_EVENT_KEYED_CRN` | Same root seeds occur in both cells; matched deltas are descriptive and the paired Wilcoxon signed-rank test (`getPairedSignificance()`) is available, but CRN-paired treatment-effect inference remains unavailable. |
-
-Before a stochastic paper run, freeze the workload/platform matrix, candidate
-set, primary metric, effect size of practical interest, minimum and maximum
-replication counts, confidence-interval precision rule, multiple-comparison
-method, and compute budget. The present code intentionally has no adaptive
-stopping rule: do not stop based on a favorable interim result. A defensible
-minimum is to continue until the preregistered precision target is met or the
-maximum budget is reached, then report which condition occurred and all
-executed seeds.
-
-## Campaign Evidence
-
-`ExperimentCampaignArtifactWriter.write(result, outputDirectory)` accepts only
-a new or empty output directory. For every cell/replication it writes the
-normal evidence bundle (`manifest.json`, `metrics.json`, `events.jsonl`) under
-the campaign root, then creates `experiment-campaign-index.json` with only
-relative paths, the complete plan seed declaration, per-run result summaries,
-and workflow profiles. It validates that complete index before returning.
-
-The campaign artifact is valid only after a read-only validation succeeds:
-
-```sh
-mvn -Pcore-exec -pl :workflowsim -am \
-  -Dexec.mainClass=org.workflowsim.experiment.ExperimentCampaignValidator \
-  -Dexec.args="/absolute/output/experiment-campaign-index.json" \
-  compile exec:java
+```java
+ExperimentPlan plan = ExperimentPlan.builder("scheduler-comparison")
+        .addCell(new ExperimentPlan.Cell("fcfs", "same-input", "FCFS", true,
+                config.toBuilder().schedulingAlgorithm(SchedulingAlgorithm.FCFS).build(),
+                platform, SeedPlan.deterministic(42L), null))
+        .addCell(new ExperimentPlan.Cell("mct", "same-input", "READY_BATCH_MCT", false,
+                config.toBuilder().schedulingAlgorithm(SchedulingAlgorithm.READY_BATCH_MCT).build(),
+                platform, SeedPlan.deterministic(42L), null))
+        .build();
+ExperimentCampaignResult result = new ExperimentCampaignExecutor().execute(plan);
+ExperimentCampaignArtifactWriter.CampaignArtifacts artifacts =
+        ExperimentCampaignArtifactWriter.write(result, outputDirectory);
+System.out.println(artifacts.getIndex());
 ```
 
-The validator checks index schema, path containment, duplicate cell/replication
-records, every evidence sidecar/hash/event sequence through
-`ExperimentArtifactValidator`, seed agreement with each manifest, workflow
-profile task/edge counts, and reported job/simulation-end summary agreement.
-The campaign `summary` is a writer-derived convenience aggregation over those
-validated run reports; the current validator does not independently recompute
-every aggregate field. It does not prove that a scenario is scientifically
-representative, a platform is calibrated, or a selected algorithm is
-semantically appropriate for the study.
+构造阶段检查 cell ID 唯一、组内 candidate ID 唯一、每组恰有一个基线、组内随机化设计一致，以及配置/平台 VM 数一致。[SeedPlan](<../../simulator/src/main/java/org/workflowsim/experiment/SeedPlan.java>)保存实际种子列表；可显式给定，也可从记录的根经 SplitMix64 派生。确定性计划只能包含一个种子。
 
-Unretained campaign output, Maven `target`, generated manifests, result logs,
-and scratch directories are intermediate files and must be removed after the
-result has been inspected. Retained evidence needs a documented retention
-decision and the exact validation command above.
+这些结构检查**不自动证明实验可比**：研究者仍须固定输入、平台、文件系统、成本与数据移动模型、到达表、故障/开销和指标样本范围。不要因为两个 cell 能放进一组，就混合普通在线、静态独立任务、静态 DAG 和在线数据流绑定。
 
-## Data-Movement Contract
+[执行器](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignExecutor.java>)按 cell 和种子声明顺序串行调用 `SimulationRunner`；不支持同 JVM 并发。解析、配置、执行或重试预算异常会中止，不能被悄悄转为一个普通失败工作流样本。需要并行研究时使用独立进程和独立输出，并另外声明合并方式。
 
-`SimulationConfig` carries one immutable `DataMovementModel` and records it in
-each manifest. The compatibility default is
-`LEGACY_WORKFLOWSIM_V1`; it retains historical transfer behavior exactly. The
-new optional `FIXED_ENDPOINT_NO_CONTENTION_V1` requires three finite values:
+## 种子设计与统计解释
 
-| Parameter | Meaning |
+[RandomizationDesign](<../../simulator/src/main/java/org/workflowsim/experiment/RandomizationDesign.java>)是统计解释声明，不改变模拟器物理或随机模型。
+
+| 设计 | 可用解释 |
 | --- | --- |
-| `accessLinkBandwidthMbPerSecond` | Per-transfer upper bound on the endpoint access link. |
-| `accessLinkLatencySeconds` | Additive latency for each non-local real-input file. |
-| `sourceEndpointBandwidthMbPerSecond` | Bandwidth cap for the external source endpoint. |
+| `DETERMINISTIC` | 单次确定性模型结果和描述性差值，不给抽样置信区间 |
+| `INDEPENDENT_REPLICATIONS` | 每 cell 的均值、样本标准差和范围；至少两个样本时有双侧 95% Student-t 均值区间，合格工作流运行成功率有 cell 内 Wilson 区间 |
+| `COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN` | 按相同根种子匹配的描述性差值及可用的配对 Wilcoxon 检验；不是事件键控 CRN，也没有 CRN 处理效应区间 |
 
-For a real input file of `B` bytes, its fixed-model duration is
-`latency + B / 1,000,000 / bottleneckRate`. For `SHARED` storage the bottleneck
-is the minimum of the configured access-link bandwidth and the maximum transfer
-rate of the modeled shared storage. For `LOCAL` storage the simulator chooses
-the fastest already registered replica: same-destination-VM copies cost zero;
-the external source is bounded by source endpoint and destination VM bandwidth;
-the shared endpoint is bounded by shared storage and destination VM bandwidth;
-and a VM replica is bounded by source/destination VM bandwidth. Every candidate
-is additionally bounded by the configured access link. The chosen input is
-registered as a destination-VM replica.
+相同根种子不保证两种算法消耗相同逻辑随机事件。命名随机流隔离了组件，但调度、批次或重试变化仍可改变组件内消费顺序。必须查看实际种子与 `matchedRootSeedCount`，不能只凭设计标签认定所有运行均已配对。
 
-Files required by one compute Job are summed serially. Different Jobs never
-compete for storage capacity, network links, VM NIC queues, or packet paths.
-The model has no topology, route selection, TCP behavior, data striping,
-concurrent read/write contention, cache-eviction policy, or measured service
-trace. Its fields are therefore abstract parameters, not hardware calibration.
+[Campaign 汇总](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignSummary.java>)先计算每次运行的指标，再在 cell 内汇总，不把全部 Job 合并成一个样本。主要边界：
 
-The preExecution family (used by `LOCAL_HEFT`/`LOCAL_CPOP`/`LOCAL_PEFT`) places
-input preparation before the compute envelope, so transfers may overlap a busy
-destination VM and only compute work occupies the VM. Its variants do **not**
-share the same transfer-start rule:
+- 有至少一个逻辑 Task 的运行才进入 workflow-run 完成率；只有全部逻辑 Task 成功才记为成功。
+- `successfulWorkflowLogicalCompletionSeconds` 只汇总成功工作流。无成功运行时不可用，不能用失败运行的模拟结束时间代替，也不能脱离完成率单独比较。
+- 无真实减速比观察的运行不进入该指标的 campaign 样本；其他指标保留各自 API 的零值/退化约定，需结合单运行观察数解释。
+- 连续指标区间与 Wilson 区间都是 cell 内量；没有自动的算法差值置信区间、成功率差检验、风险比或普遍优越性证明。
+- 比率是 candidate mean / baseline mean；描述性 speedup 是 baseline mean / candidate mean；改善百分比为 `100 * (baseline-candidate) / baseline`。分母为零时相应量不可用，不是串行加速比或并行效率。
 
-- `PRE_EXECUTION_TRANSFER_DELAY_V1` estimates each parent-group arrival as the
-  parent's completion plus serial file-transfer durations (`bytes / (1e6 × rate)`).
-  Parent groups overlap; external SOURCE inputs start at Job dependency-readiness,
-  not VM dispatch. This is a no-contention arrival estimate, not a packet trace.
-- `PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1` starts all groups at Job
-  readiness, with no retroactive progress from an earlier parent finish. The
-  fluid solver uses max-min progressive filling jointly constrained by nominal
-  rates and VM endpoints, reclaiming unused capacity at internal completion times.
-- `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1` adds directed links
-  on deterministic Al-Fares fat-tree routes to those constraints. External SOURCE
-  traffic bypasses the topology and consumes the destination endpoint only.
+[PairedWilcoxonSignificance](<../../simulator/src/main/java/org/workflowsim/experiment/PairedWilcoxonSignificance.java>)比较 candidate−baseline 的匹配 makespan 差值。零差值不进入秩统计，但配对总数、有效样本数和中位差分别保留；不足两个配对、全零、仅一个非零差值或独立重复设计会返回相应 `UNAVAILABLE_*` 状态。有效非零数不超过 25 时走精确分布，更多时走库的正态近似；并列秩与连续性校正的实现限制见源码，不能把“非参数”理解为无需统计假设。
 
-The static LOCAL planners use time-stamped replica availability and a no-contention
-estimate; they are not complete runtime event replays. Additional constraints can
-redistribute capacity between flows, and neither individual-flow nor whole-DAG
-monotonicity across the models is a universal theorem. These models require static
-VM mappings. Fat-tree additionally requires LOCAL storage, NONE clustering and
-disabled failure/overhead models, with a bidirectional model/topology declaration
-check in `SimulationConfig`/`SimulationRunner`.
+执行前冻结主要指标、实际意义阈值、重复数或预先定义的精度/预算停止规则、多重比较方法。当前执行器没有自适应停止实现，不应因中途结果有利而停止。
 
-The model decides a compute-attempt outcome at its Job-envelope completion
-boundary. A declared output is committed to the replica catalog only for a
-successful Task; an output from a failed Task never becomes a local or shared
-input candidate for a dependent Job. This prevents a failed retry parent from
-creating a false local-data hit, but it does not model partial writes,
-transactional storage, mid-attempt failures, or real recovery I/O.
+## 通用 campaign 证据
 
-`DATA` remains an online byte-locality heuristic: it chooses a compatible VM
-with the fewest required non-local input bytes and does not use fixed-model
-latency or rate. It must not be described as a bandwidth-aware/network-aware
-algorithm. `SHARED_STORAGE_HEFT`, `SHARED_STORAGE_CPOP`, `SHARED_STORAGE_DLS`, and
-`SHARED_STORAGE_ETF`, and `SHARED_STORAGE_PEFT` currently require
-the legacy movement model because their planning estimates are aligned only to
-that execution model. Configuring any of these planners with the fixed endpoint model
-fails before a run; this is intentional rather than an unsupported silent
-approximation.
+[Campaign 写器](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignArtifactWriter.java>)只接受新建或为空的目录，为每个 cell/replication 写出证据，再写索引并校验：
 
-Each `DATA_STAGE_IN_MODELED` event and `SimulationMetrics` record the transfer
-model observations: model-event count, modeled real-input demand file count,
-total required input-demand bytes, total modeled transfer seconds, and mean
-modeled transfer seconds. The demand count/bytes do not mean that that amount
-crossed a physical link: a local replica can give a zero modeled transfer
-delay, and the simulator has no link-level traffic ledger (the R6 fat-tree
-contention events additionally record `fatTreePathLinkCount`, the number of
-routed path links per stage-in group). These are model
-observations. They are not measured I/O throughput, network utilization,
-storage utilization, or a trace-validation result.
+```text
+campaign-output/
+  experiment-campaign-index.json
+  <cell-id>/
+    replication-0000.manifest.json
+    replication-0000.metrics.json
+    replication-0000.events.jsonl
+    ...匹配记录模式的可选网络或生命周期侧车
+```
 
-The CloudSim `JobOutcome` is an end-to-end Job envelope: the Cloudlet scheduler
-converts the requested stage-in duration to an integral MI addition. The
-corresponding `TASK_EXECUTION_MODELED` event records a logical Task compute
-window after that effective delay; its first Task carries
-`modeledStageInSecondsBeforeTask`, while
-`requestedDataStageInSecondsForJob` retains the raw data-model value and later
-clustered Tasks carry zero effective delay. A `TaskOutcome` is marked exact only
-if its one-Task compute window equals the completed Job envelope. This prevents
-a task-level CPU window from being mistaken for the broader data-plus-compute
-Job timing and makes CloudSim's quantization visible rather than hidden.
+索引保存计划种子、比较身份、相对路径、运行摘要和逻辑工作流 profile。`ExperimentCampaignValidator` 核对引用、逐运行证据、种子和主要摘要，但不独立复算所有 campaign 聚合字段；它不证明选样代表性或算法组合的研究意义。命令集中在[构建与验证](<../getting-started/BUILD.md>)，指标定义见[语义契约](<../algorithms/CONTRACTS.md>)。
 
-`simulationEndSeconds` (the historical `makespanSeconds`) is the CloudSim
-simulation-end clock. By contrast, `logicalTaskCompletionSeconds` is available
-only for a fully successful logical workflow and is the maximum first-successful
-Job-envelope finish among its source Tasks. The non-negative difference is
-`terminalLifecycleTailSeconds`; it can include modeled post-delay or other
-terminal lifecycle events and is not a measured scheduler-overhead quantity.
+通用运行可使用当前合法的九种物理模型及显式在线绑定，但须满足各自配置/捕获前提；支持某模型不表示每个 planner 都可用。外部 RL 策略通过专用 Java episode 接口接入，不由 campaign 自动训练或注册。
 
-## Minimal Study Matrix
+## 执行注册网络研究
 
-For a first use of the new capability, keep the question narrow and use a
-single algorithm decision layer. A sufficient non-energy scheduling study has:
+[NetworkStudyExecutor](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyExecutor.java>)接受 `smoke|full`、数据集根、必须尚不存在的输出目录，以及可选变体 `r10`、`peft-comparison`、`sensitivity-r13`。省略变体等于 `r10`。
 
-1. Two frozen workflow inputs with recorded hashes and profiles, covering a
-   small and a larger graph from the same input contract.
-2. One homogeneous and one heterogeneous platform profile with equal VM count,
-   one VM per host unless host contention is the question under study.
-3. One baseline plus the eligible algorithms from the same decision layer.
-   Do not pool online ready-job schedulers, independent-task static planners,
-   and controlled shared-storage DAG planners.
-4. One fixed data-movement model per comparison group. Vary the model only as
-   an explicit sensitivity factor, never as an unrecorded scheduler difference.
-5. Primary simulation-end time; secondary workflow-run completion, conditional
-   successful-workflow logical completion time, completed/retry/failed attempt
-   evidence, CPU-envelope and declared-file cost components, modeled input
-   demand and stage-in seconds, logical workflow profile, and explicit failure
-   state. Keep wall-clock decision time, provider cost, resource utilization,
-   energy, and real-cloud prediction out of the main claim unless separately
-   designed and calibrated.
-6. Deterministic exact comparisons for no-randomness scenarios, or the frozen
-   independent-replication protocol above for stochastic scenarios.
+从项目根运行一个当前 smoke 研究；替换绝对路径占位符：
 
-This is sufficient to establish behavior under declared abstract models. It is
-not sufficient to claim algorithm superiority across all workflows, real
-systems, cloud providers, or network conditions.
+```bash
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyExecutor \
+  '-Dexec.args=smoke "/absolute/datasets" "/absolute/new-network-study" r10'
 
-## Fat-tree × Scheduling Campaign (R7)
+mvn -pl :workflowsim-experiments -am compile exec:java \
+  -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyValidator \
+  '-Dexec.args="/absolute/new-network-study/network-study.json"'
+```
 
-The first joint contention/scheduling campaign answers "how does network
-contention change the relative ranking of scheduling algorithms?" across the
-three preExecution movement models (V1 / R2 / R6 fat-tree) and four static
-planners (LOCAL_HEFT / LOCAL_CPOP / PSO / RANDOM) on 10 Pegasus DAX instances
-(montage/sipht excluded: their raw DAX files contain inconsistent same-name
-file sizes that the LOCAL communication planning family rejects).
+执行器将 [NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)的实际声明冻结到输出的 `protocol.json`，不是读取旧 Markdown 来决定实验。输出还包含生成输入、逐运行证据、`network-study.json` 和自动结果表。当前与只读兼容身份见[协议身份说明](<NETWORK_STUDY_PROTOCOL_REVISIONS.md>)；不能修改条件后继续使用同一注册 ID。
 
-It uses a dedicated executor
-(`org.workflowsim.experiments.fattree.FatTreeSchedulingCampaignExecutor`,
-360 runs: 120 main matrix + 120 three-host sensitivity + 120 four-host
-structural sensitivity, fixed seed 91, derived costs without an explicit cost
-matrix) rather than `ExperimentPlan`, because pairing is defined across DAG
-instances rather than over seed-keyed replications. Its measured results and
-ranking-flip conclusions live in `FATTREE_SCHEDULING_RESULTS.md`; the design
-(fixtures, DAG partition, sensitivity axes, acceptance) in
-`FATTREE_SCHEDULING_CAMPAIGN.md`. Contracts are locked by
-`FatTreeCampaignGoldenIntegrationTest`,
-`FatTreeCampaignDagCompatibilityIntegrationTest`, and the simulator-side
-`FatTreePlannerCompatibilityIntegrationTest`.
+### 输入与资格
 
-**R8 re-record and recalibration (2026-09-16).** The R8 audit fixed a fat-tree
-link-capacity unit bug (declared MB/s were divided by 8, so links physically
-ran at 1/8 of their declared bandwidth), a contention-payload accounting bug
-(bytes of already-local files were charged to contention transfers), and the
-paired Wilcoxon zero-difference handling. The campaign went through two stages:
+- full 从六个经典 DAX 候选统一排除同名文件尺寸冲突的 Inspiral1000，最终使用 Epigenomics100/997、CyberShake100/1000、Inspiral100，以及确定性生成的 layered-32/128。
+- smoke 使用 HEFT 来源的十任务输入与 layered-16。它不是 PEFT 一级来源算法证明，也不是任意裁剪的 full。
+- 排除发生在观察算法效果之前，并对所有规划器一致；输入顺序、哈希与排除原因必须匹配注册声明。资格失败或输入变化不能靠换文件、漏跑或改名绕过。
 
-1. **Audit re-record**: all 360 runs were re-executed at the declared
-   bandwidth. With the declared link bandwidth (1.0 MB/s) equal to the VM
-   endpoint bandwidth, the fat-tree layer never binds: R6 was bit-for-bit
-   identical to R2 across all 10 DAGs × 4 planners and every
-   sensitivity/structural axis (including A4) degenerated to identity. This
-   symmetric-provisioning degeneracy is recorded as boundary physics
-   (`docs/advanced/COMPREHENSIVE_AUDIT_R8.md` §3.3 N-2), not as the campaign
-   apparatus.
-2. **User-approved recalibration re-run (13:42)**: the baseline link bandwidth
-   was recalibrated to 0.125 MB/s (= endpoint/8, an 8:1 access oversubscription
-   that restores the physical regime in which pre-fix declared 1.0 actually ran)
-   and the A4 axis to 1.25 MB/s (a true 10× baseline, above the endpoint, so it
-   converges back to R2 by construction). Discriminative power was restored with
-   a decisive cross-validation: the recalibrated R6 column is bit-for-bit equal
-   to the pre-fix R7 goldens (paper example 5738.1/5854.1/7206.1/7262.1;
-   four-host structural block 5718.1/5574.1/5186.1/5168.1; 5 weak-monotonicity
-   violations, max 7.47×10⁻⁵), proving the recalibration exactly recovers the
-   pre-fix physics and validating the F1 unit-fix semantics. Key recalibrated
-   facts: R6 > R2 holds (paper example HEFT 5195.1 → 5738.1); the A4 bandwidth
-   axis converges exactly to the main-matrix R2 (5195.1/5205.1) and strictly
-   lowers the structural-block makespan on 8/10 DAGs (p=0.0078/0.0156); the
-   structural axes A1/A2/A3/A5 still degenerate on both the 3-host and 4-host
-   blocks (endpoint-sharing physics, not a bandwidth-parameter issue); per-DAG
-   winner flips survive (cybershake-n50 HEFT→PSO, cybershake-n100 CPOP→PSO in
-   R2 and R6) and inspiral-n50 now splits between R2 (CPOP) and R6 (HEFT) at
-   noise level; HEFT vs PSO significance erodes from p=0.0371 (V1) to p=0.0645
-   (R2/R6) while R6 vs R2 becomes significant for HEFT/CPOP/RANDOM
-   (p=0.0059/0.0078/0.0039).
+### 固定条件
 
-Model effectiveness under binding links is locked by the simulator slow-link
-probe (0.25 MB/s links → makespan 588.1 > R2's 284.1) and the unit contract by
-the symmetric probe (284.1 == R2). See `FATTREE_SCHEDULING_RESULTS.md` §0 and
-`docs/advanced/COMPREHENSIVE_AUDIT_R8.md`.
+这些注册研究使用 **LOCAL/STATIC、NONE 聚类、SPACE_SHARED、无故障/开销、无任务成本矩阵、端点 1 MB/s**，每台 VM 固定一个 Host。网络是 V1 端点争用和 Fat-tree 争用，均从 Job 就绪时开始传输；它们不是 coherent V2/V3 的覆盖矩阵。
 
-## Deferred Work
+| 变体 | full 条件 | 规划器与实际种子 |
+| --- | --- | --- |
+| `r10` | VM 4/16 × endpoint、fat-tree-constrained、fat-tree-wide | `LOCAL_HEFT`、`LOCAL_CPOP` 各 seed 11 一次；`RANDOM`、`PSO` 各 11/29/47/71/101 |
+| `peft-comparison` | 与上一行相同 | `LOCAL_HEFT`、`LOCAL_CPOP`、`LOCAL_PEFT`，各 seed 11 一次 |
+| `sensitivity-r13` | 同构主块 VM 4/8/16/32 × 五个网络档；另在 VM 8/16、constrained 下加三种异构模式 | `LOCAL_HEFT`、`LOCAL_CPOP`、`LOCAL_PEFT`，各 seed 11 一次 |
 
-Flow-level endpoint and Fat-tree contention, deterministic routes, and LOCAL
-candidate-VM communication estimates already exist. Remaining work includes
-packet/queue/latency/loss behavior, adaptive routing, calibrated storage/network
-traces, and a data-preparation interface that supports online destination choice.
-Those capabilities require explicit contracts and independent validation, not
-merely enabling another enum combination. The maintained `SHARED_STORAGE_PEFT`
-is still a controlled shared-storage adaptation with zero edge communication;
-it must not be relabelled as topology-aware PEFT.
+constrained/mid/wide/fast 的 Fat-tree 链路为 0.125/0.5/1.25/5 MB/s；前两个变体只用 constrained/wide。默认同构 VM 为 1000 MIPS；异构循环模式为 `[1000,500]`、`[2000,1000,500]`、`[2000,500]`。VM 不超过 16 时 k=4，VM32 时 k=8。改变 VM 数同时可能改变拓扑，异构度也改变总算力，不能把所有效果归因于单一因素。
+
+前两个 smoke 变体只用 VM4；随机规划器种子为 11/29。敏感性 smoke 使用 VM4 的 endpoint/constrained 同构条件，以及 constrained 下三种异构模式。具体计划单元数以注册声明为准，不表示这些运行已经执行。
+
+### 网络研究统计与失败处理
+
+[NetworkStudySummary](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudySummary.java>)先在每个 DAG 内平均种子，再按来源、VM、网络和适用的异构度分层，与 LOCAL_HEFT 配对。它使用**双侧符号检验**，不是通用 campaign 的 Wilcoxon；Holm 在同一分层的候选族内调整。胜平负阈值是注册的 `1e-9 * max(1, baseline, candidate)`，不是 rerun 的数值容差。
+
+经典与合成总体分开，不把种子当作额外 DAG。经典 full 只有五个 DAG 对，即使全部同向，双侧符号检验最小原始 p 也为 0.0625；不显著不能证明等价。应报告效果幅度、逐 DAG 分布和失败状态，不把固定语料的探索结果外推到真实云。
+
+研究执行器会保留单次失败并继续其他单元，但失败研究不输出有效推断，最终完整性校验不通过。中断索引标记 `RUNNING_OR_INTERRUPTED`；已有聚合不能冒充完整矩阵。只读验证会核对注册矩阵、协议原字节哈希、完整运行配置/平台、输入身份、完成状态、索引指标及重新计算的汇总；独立统计与物理检查见[审计工具](<../../scripts/STUDY_AUDIT.md>)。
+
+保留协议原字节、索引、全部引用证据和生成输入，不只保留结果表。来源和历史材料通过[研究目录](<../../experiments/studies/README.md>)追溯；当前代码实际复跑是否一致由[复跑差异契约](<RERUN_DIFF_CONTRACT.md>)另行判断。

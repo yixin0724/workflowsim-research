@@ -1,10 +1,12 @@
 # 敏感性响应面研究（R13）— 结果
 
-> **历史结果与 PEFT 公式纠错**：以下546次记录使用的旧 `LOCAL_PEFT` 是**非标准实现**：递推错误计入当前任务自身的 `w(t,p)`，出口 OCT 取平均计算成本。正文记录的 ready-list 修复未改动这两处公式错误；运行成功、旧黄金通过或证据完整性通过均不构成标准 PEFT 的正确性证明。因此旧数值与“退化/激活/乐观偏差”等解释不能用于判断标准 PEFT 的优劣或 OCT 机制。原预注册、数值表及历史正文不改写。
+> **历史归档：保留原评估，不认证标准 PEFT。** 以下546次记录属于 `sensitivity-response-r13-v1`。旧 `LOCAL_PEFT` 错把自身 `w(t,p)` 计入 OCT，出口取平均计算成本；正文的 ready-list 修复没有纠正公式。运行成功、旧黄金或完整性校验通过都不能使“退化/激活/乐观偏差”等原解释成为标准 PEFT 的证据。原预注册判定、数值表和评估正文保留不改。
 >
-> 作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)与[全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章**印刷 p.71 的 Eq.7 / 出口条件、p.73 的 Algorithm 1**给出后继 `w(child,p')` 与出口 `OCT=0`。新 `sensitivity-response-r13-v2` 研究将采用该定义并重新评估；本页不声明修正后结果已生成。见[协议修订说明](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。
+> 作者[公开收录页](<https://repositorio-aberto.up.pt/handle/10216/92290>)及[论文全文](<https://repositorio-aberto.up.pt/bitstream/10216/92290/2/129782.pdf>)第3章印刷 p.71（Eq.7 / 出口条件）、p.73（Algorithm 1）给出后继 `w(child,p')` 和出口 `OCT=0`。当前执行器生成 `sensitivity-response-r13-v2`，不是本页旧结果；当前契约和保留的修正研究见[协议修订](<../../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)、[研究影响复验](<../correctness-repair/RESULTS.md>)。
+>
+> 文中 `output/...` 是原工作区的可选保留位置，普通检出不附带。下面的旧复现命令在当前代码下不会恢复历史实现；禁止覆盖原始结果或压缩包。
 
-- 协议：`sensitivity-response-r13-v1`（[PROTOCOL.md](PROTOCOL.md)，预注册内容在实验前写定）
+- 协议：`sensitivity-response-r13-v1`（[PROTOCOL.md](<PROTOCOL.md>)，预注册内容在实验前写定）
 - 证据：`output/sensitivity-r13/network-study.json` + `runs/`（打包 `output/sensitivity-r13-evidence.tar.gz`，gitignored）
 - 规模：7 workflows × 26 conditions × 3 planners（seed 11）= **546 runs，0 failed**
 - 验证：执行器内置校验 + 独立 Validator `NETWORK_STUDY_VALIDATION PASSED runs=546`；冻结证据复验 `runs=504` / `runs=126` 仍 PASSED

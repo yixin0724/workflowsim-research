@@ -40,7 +40,6 @@ public final class DataMovementModel {
          * {@code PlatformProfile.networkTopology(...)} 声明拓扑（
          * {@code org.workflowsim.network.NetworkTopologySpec}）。外部输入
          * （SOURCE）流量 v1 不经过拓扑，只占用目标 VM 端点。原理与设计见
-         * {@code docs/research/FAT_TREE_PRINCIPLES.md} 与
          * {@code docs/research/FAT_TREE_DESIGN.md}。
          */
         PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1,

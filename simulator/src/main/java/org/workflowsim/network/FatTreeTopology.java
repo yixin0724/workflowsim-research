@@ -17,7 +17,7 @@ import org.workflowsim.data.TransferContentionEngine;
  * 交换机（Pod 内全二部连接）；core 层满配 k²/4 台，core (i,j)（c = i·(k/2)+j）
  * 连接每个 Pod 的第 i 台 aggregate。core 减量 m &lt; k²/4 即超收敛，收敛比
  * (k²/4)/m。逐层带宽守恒（edge→agg、agg→core、core 下行、主机接入的链路总数
- * 均为 k³/4）给出满二分带宽；详见 {@code docs/research/FAT_TREE_PRINCIPLES.md}。</p>
+ * 均为 k³/4）给出满二分带宽；详见 {@code docs/research/FAT_TREE_DESIGN.md}。</p>
  *
  * <p><b>确定性路由（v1 规则，全部写入证据可审计）</b>：</p>
  * <ul>
@@ -36,7 +36,7 @@ import org.workflowsim.data.TransferContentionEngine;
  *
  * <p>诚实边界：交换机内部转发不设容量约束（只约束链路与端点）；均匀链路带宽；
  * 链路延迟不建模；无自适应路由/ECMP 哈希/链路故障。原理与取舍见
- * {@code docs/research/FAT_TREE_PRINCIPLES.md} §5。</p>
+ * {@code docs/research/FAT_TREE_DESIGN.md} 的模型边界。</p>
  */
 public final class FatTreeTopology {
 

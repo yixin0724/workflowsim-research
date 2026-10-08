@@ -1,8 +1,10 @@
 # 网络账本V1编解码契约
 
-## 当前状态
+## 作用与接口
 
-`NetworkLedgerCodec`提供严格JSON编解码与不可变重建；`ExperimentArtifactWriter`现在已能写出ON网络账本，`ExperimentArtifactValidator`会同时核对内容及运行上下文。另有不调用Java的[独立Python检查器](<NETWORK_LEDGER_PYTHON.md>)。已接入[ON重放与精确网络比较](<../experiments/RERUN_DIFF_CONTRACT.md>)；Workbench已支持[严格可选配置](<../getting-started/WORKBENCH.md>)与[安全离线网络显示](<NETWORK_REPORT_DISPLAY.md>)；新版本物理模型与在线闭环仍是后续范围。
+`NetworkLedgerCodec`负责V1组级账本的严格JSON编解码与不可变重建；`ExperimentArtifactWriter`写出完整工件，`ExperimentArtifactValidator`核对账本内容及运行上下文。[独立Python检查器](<NETWORK_LEDGER_PYTHON.md>)不调用Java。[重放工具](<../experiments/RERUN_DIFF_CONTRACT.md>)比较完整账本的科学字段，[Workbench](<../getting-started/WORKBENCH.md>)只显示已验证的有界投影。
+
+本文仅定义V1组级账本。逐文件V2、存储V3及在线动作使用各自契约，见[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.md>)，不能按同一语义互相替换。
 
 ```java
 String json = NetworkLedgerCodec.encode(report.getNetworkEvidence());
@@ -33,7 +35,7 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 - v4的networkEvidence对象必须与network-ledger角色同时存在；null、false、OFF对象或非法预算不能被当成缺省OFF。
 - 工件大小与事件序号按精确long校验，不接受小数截断或越界转换。
 
-21项工件集成测试覆盖完整/截断/零流、OFF目录复用、写前预检保护、重算哈希后的非法指标/服务/来源/路径/容量/局部性、观察时刻与Job释放、精确长度、UTF-8及搬迁。拓扑正控制包含同edge、跨Pod、显式放置和缩减core；不会为不可信的大k分配整张拓扑。
+拓扑验证覆盖同edge、跨Pod、显式放置和缩减core，不为不可信的大`k`分配整张拓扑。
 
 ## 文档头
 
@@ -72,4 +74,4 @@ ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest�
 - v4旧工具可能只验证额外角色的哈希而不理解这些网络语义。ON证据必须使用升级后的校验/重放链路；专用rerun已升级并逐字段比较sidecar；Workbench正常与独立报告均内嵌有界的已验证网络显示投影。
 - 内部一致性不等于密码学真实性，也不证明未知截断后缀存在。
 
-26项codec测试覆盖正常/所有保留前缀往返、巨大与超1024字符的精确十进制聚合、长ID、标签作为纯数据、严格词法边界、非法结构和派生摘要篡改。既有真实端点/Fat-tree/局部性/故障重试捕获也执行严格往返测试。非法绑定异常类型和写读数值边界先被测试发现，再实施修正。
+服务语法、max-min证书与派生指标的定义见[独立校验规则](<NETWORK_LEDGER_VALIDATION.md>)；运行测试命令统一见[构建指南](<../getting-started/BUILD.md>)。

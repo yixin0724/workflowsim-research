@@ -174,9 +174,9 @@ public final class SimulationRunner {
     /**
      * 装配 Fat-tree 拓扑并校验其与数据移动模型的双向契约。
      *
-     * <p>使用 {@code fatTreeContentionV1()} 的配置必须通过
-     * {@code PlatformProfile.networkTopology(...)} 声明拓扑；反之，声明了拓扑的
-     * 平台必须搭配使用该模型（避免拓扑声明被静默忽略）。</p>
+     * <p>使用 {@code fatTreeContentionV1()} 时必须通过
+     * {@code PlatformProfile.networkTopology(...)} 声明拓扑；coherent V2/V3 可选择
+     * 声明拓扑并使用实际放置路径。其他模型拒绝多余拓扑，避免声明被静默忽略。</p>
      *
      * @param config 仿真配置
      * @param platform 平台描述

@@ -1,223 +1,187 @@
-# 算法与指标语义契约
+# 算法、执行与指标语义契约
 
-## Purpose
+本文规定算法结果如何对应到模拟执行和证据。可选标签与组合集中在[算法目录](<CATALOG.md>)，不在这里重复完整清单。所谓复现，是在明确的 WorkflowSim 模型下实现并验证核心决策语义，不是重建论文目标环境的全部硬件、网络或软件行为。
 
-P8 treats an algorithm as reproduced when WorkflowSim implements its core
-decision semantics in a declared simulator model and regression-tests those
-semantics. This is intentionally stronger than "the run completes" and
-intentionally narrower than a claim of bit-for-bit or real-environment
-equivalence with a paper implementation.
+测试应以独立算术、外部表格或独立小模型给出预期，而不是调用被检验的生产决策函数生成答案。下文的测试链接说明被覆盖的具体性质，不表示任意合法配置都已逐一测试，更不构成真实平台校准。
 
-Every maintained algorithm must have a decision contract, an explicit model
-adaptation statement, deterministic tie-break rules, and a test oracle that
-does not call the production decision helper being checked.
+## 标准执行与工作量
 
-## Common Execution and Decision-Layer Contract
+[SimulationConfig](<../../simulator/src/main/java/org/workflowsim/utils/SimulationConfig.java>)和[SimulationRunner](<../../simulator/src/main/java/org/workflowsim/experiment/SimulationRunner.java>)共同校验：
 
-The standard runner supports `NONE` clustering and `SPACE_SHARED` VMs only.
-Every non-empty planner requires `STATIC`, and `STATIC` requires a planner.
-Placements must be PE-compatible; dispatch still allows at most one Job per VM
-at a time. A complete static plan enforces per-VM order, not exact timestamps.
+- 标准运行使用 NONE 聚类、SPACE_SHARED VM；Task 的 PE 需求不得超过所选 VM 的 PE 数，每台 VM 同时最多派发一个 Job。
+- 非 INVALID 规划器必须配 STATIC。没有规划器的 STATIC 仅在显式 coherent 在线绑定配置下合法，此时先由绑定策略确定目标 VM，STATIC 不重新选择目标。
+- 平台预检资源和确定性 VM→Host 放置；计划在 VM 时间线上安排工作，不把 Host 共置解释为已校准的跨 VM 干扰或迁移模型。
+- 输入与到达表在启动前声明，运行期按时刻释放。同一 JVM 的运行是串行的；静态计划的时间估计不能未经验证当作任意错峰到达的事件回放。
 
-Time-aware independent planners, PSO, LOCAL planners and execution share
-`TaskExecutionModel`: compute seconds are raw per-PE length / MIPS without a
-matrix, or `round(matrixSeconds * MIPS) / MIPS` with one. A matrix is
-authoritative, so missing coordinates cannot fall back to raw MI. Rounded work
-must be positive and representable as signed-long instructions, including PE
-multiplicity. Source Task length and per-attempt effective execution MI are
-separate; planning does not overwrite the source length.
+[TaskExecutionModel](<../../simulator/src/main/java/org/workflowsim/utils/TaskExecutionModel.java>)区分原始单 PE 长度与当前尝试的有效计算量：
 
-These are compute-cost estimates, not total runtime Job envelopes. New
-manifests identify corrected execution with
-`executionSemantics = WORK_CONSERVING_TASK_EXECUTION_V2`; historical artifacts
-are not rewritten to appear as current evidence. Regression coverage is not a
-claim that every supported configuration or original-paper assumption has been
-independently verified.
+```text
+L_eff(t,v) = L_raw(t)                         没有任务成本矩阵
+L_eff(t,v) = Math.round(matrixSeconds(t,v) * mips(v))  有矩阵
+computeSeconds(t,v) = L_eff(t,v) / mips(v)
+```
 
-## Shared-Storage Static DAG Track
+矩阵一旦存在就是权威成本输入：缺少坐标不得回退到原始长度，舍入结果必须为正，MI×PE×1,000,000 必须可用 signed long 表示。多个 PE 并行执行单 PE 工作量，不能把总长度再除以单 PE MIPS 当作墙钟计算时长。原始 `lengthMi` 不被覆盖；`effectiveExecutionLengthMi` 描述当前尝试的实际计算工作。
 
-The controlled model is `SHARED` storage, `NONE` clustering, no overhead,
-disabled failures, `legacyWorkflowsimV1()` data movement, and capacity-feasible
-`SPACE_SHARED` VMs with deterministic VM-to-Host placement. Task cost matrices
-are rejected on this track. Candidates must have at least the Task's requested
-PE count; multi-PE compatibility is supported, while dispatch still permits
-only one Job per VM at a time.
+时间感知独立规划、PSO、LOCAL 规划和对应执行使用这一转换；SHARED_STORAGE 规划器拒绝矩阵，采用下文的共享存储时长。`executionSemantics` 的当前标识为 `WORK_CONSERVING_TASK_EXECUTION_V2`，不能通过改写旧 manifest 将不同执行口径变成相同证据。
 
-A model-generated 110 MI stage-in Job runs on the lowest VM ID. For a compute
-Task, sum all real input file delays first:
-`transferSeconds = sum(fileSize / 1e6 / storageRate)`. The candidate duration is
-`(rawPerPeLengthMi + floor(vmMips * transferSeconds)) / vmMips`.
-Rounding is once per Task's summed delay, not once per file. Requested PEs
-execute in parallel, so multiplying the per-PE length by PE count is not the
-wall-clock duration formula. Parent-to-child movement is represented by DAG
-release plus this storage delay, not by a calibrated network schedule.
+[矩阵回归](<../../simulator/src/test/java/org/workflowsim/planning/PlanningCostMatrixRegressionTest.java>)覆盖与原始 MI 排名相反的成本、舍入、缺坐标和成本无关对照；[PE 域测试](<../../simulator/src/test/java/org/workflowsim/planning/PlanningPeCompatibilityTest.java>)覆盖更快但不兼容的 VM、空可行域以及 CPOP 全路径兼容性。
 
-Completion-event scheduling uses the minimum-event interval and 0.01-second
-safety margin; it does not license starting new work with stale CPU progress.
-Root Jobs also wait one kernel release interval after stage-in returns. Planned
-timings do not replay the complete event loop, and the static dispatcher
-enforces per-VM order rather than exact planned timestamps.
+## 静态顺序、插入与平局
 
-A one-VM-per-Host layout remains the recommended reference layout because it
-removes Host placement as an experimental factor. Profiles may co-locate VMs
-only when their RAM, bandwidth, storage, PE, and MIPS reservations are
-preflighted. The planner reserves VM timelines and assumes each declared VM
-receives its declared MIPS; it does not model Host CPU scheduling, Host
-utilization, VM migration, or cross-VM Host contention. The manifest records
-optional pins, the deterministic preflight map, and the actual map frozen on
-CloudSim VM creation.
+完整静态 DAG 规划输出映射和计划开始时间；[StaticSchedulePlan](<../../simulator/src/main/java/org/workflowsim/scheduling/StaticSchedulePlan.java>)按计划开始时间构造每 VM 的 Job 序列，相同开始按 Job ID 排序。[StaticSchedulingAlgorithm](<../../simulator/src/main/java/org/workflowsim/scheduling/StaticSchedulingAlgorithm.java>)只放行该 VM 下一项已经 ready 的 Job，**不强制绝对计划开始时刻**。
 
-| Algorithm | Core decision semantics reproduced | Deterministic adaptation | Required oracle evidence |
-| --- | --- | --- | --- |
-| `SHARED_STORAGE_HEFT` | Upward rank priority followed by insertion-based earliest finish allocation | Ranks use compatible-VM average model duration; equal ranks and equal finishes use lower Task/VM ID | Rank values, selected VM, planned start/finish, a reservation-gap insertion, and incompatible-PE exclusion |
-| `SHARED_STORAGE_CPOP` | Upward-plus-downward priority; one critical path is placed on its lowest-total-duration compatible VM | Equal entry/path/processor choices use lower IDs; noncritical Tasks use the same insertion allocation as HEFT | `r_u`, `r_d`, combined priority, chosen critical path/VM, path tie-break, and planned allocation |
-| `SHARED_STORAGE_DLS` | At every selection, choose the dependency-ready Task-VM pair with maximum `upward rank - earliest insertion start` | Static b-level uses the compatible-VM average model duration; equal dynamic levels use lower Task ID then VM ID | Static b-level, independently derived dynamic-level values, selection order, task/VM tie-break, and full execution-plan alignment |
-| `SHARED_STORAGE_ETF` | At every selection, choose the dependency-ready Task-VM pair with the minimum earliest insertion start | Equal starts use higher static b-level, then lower Task ID and VM ID | Independently derived earliest-start values, b-level tie-break, selection order, task/VM tie-break, and full execution-plan alignment |
-| `SHARED_STORAGE_PEFT` | Select the dependency-ready Task with maximum compatible-VM average OCT, then its VM with minimum insertion `EFT + OCT` | OCT omits the original communication term because this model has none; equal task priorities and VM scores use lower IDs | Independently derived OCT/rank/objective values, selection order, task/VM tie-break, and full execution-plan alignment |
+后选择的 Task 可以插入先前预留区间之间的合法空档，因此算法选择顺序不等于最终执行顺序。未 ready 的队首可能阻塞其后的 Job；不能为改善某个算法的结果而临时取消顺序。RANDOM、PSO 和独立任务映射器没有完整计划，只保留映射，由引擎处理依赖释放。
 
-The source method is Topcuoglu, Hariri, and Wu, *Performance-Effective and
-Low-Complexity Task Scheduling for Heterogeneous Computing*, IEEE TPDS 13(3),
-2002, DOI [10.1109/71.993206](https://doi.org/10.1109/71.993206). The contract
-above is an explicit model adaptation, not a claim that WorkflowSim recreates
-that paper's communication-cost environment.
+模型生成的 stage-in Job 不是源逻辑 Task；静态派发使用最低 VM ID 的后备位置处理这类 Job。其 110 MI 工作量及根任务释放间隔会影响绝对时刻；偏移取决于 VM MIPS 和内核节拍，不是所有实验共用一个固定秒数。计算完成事件还受最小事件间隔和安全余量影响，计划并不完整重放内核事件队列。
 
-DLS follows Sih and Lee, *A Compile-Time Scheduling Heuristic for
-Interconnection-Constrained Heterogeneous Processor Architectures*, IEEE TPDS
-4(2), 1993, DOI [10.1109/71.207593](https://doi.org/10.1109/71.207593). Its
-original dynamic-level method models communication and interconnection
-constraints. This contract retains the Task-VM dynamic-level core but excludes
-topology, routing, and shared-link contention from the controlled model.
+平局应按各策略的明确规则处理：ready-batch Min/Max-Min 的任务平局用较小 Job ID、候选 VM 平局用较小 VM ID；FCFS/MCT 保留 ready 到达序，轮转保留跨批次游标。静态独立任务按 Task ID 建立顺序；静态 DAG 的等优先级、等候选分数通常用 Task/VM ID，DLS/ETF 另有下述优先级规则。不得用不稳定的集合遍历次序代替这些规则。
 
-ETF follows Hwang, Chow, Anger, and Lee, *Scheduling Precedence Graphs in
-Systems with Interprocessor Communication Times*, SIAM Journal on Computing
-18(2), 1989, DOI [10.1137/0218016](https://doi.org/10.1137/0218016). The
-source method is analyzed for identical processors with communication delays.
-This contract retains earliest-start selection and static-b-level tie-breaking,
-while excluding the original hardware and communication assumptions.
+[共享存储 HEFT 测试](<../../simulator/src/test/java/org/workflowsim/planning/SharedStorageHeftPlanningAlgorithmTest.java>)检验 rank、PE 排除和空档插入；[DLS/ETF 插入边界测试](<../../simulator/src/test/java/org/workflowsim/planning/SharedStorageDlsEtfSlotSemanticsAuditTest.java>)覆盖相接区间、微小空档、浮点边界与预留变化，避免以缓存或区间合并改变调度语义。
 
-PEFT follows Arabnejad and Barbosa, *List Scheduling Algorithm for
-Heterogeneous Systems by an Optimistic Cost Table*, IEEE TPDS 25(3), 2014, DOI
-[10.1109/TPDS.2013.57](https://doi.org/10.1109/TPDS.2013.57). Its original OCT
-includes interprocessor communication costs. This contract retains the OCT
-successor look-ahead, average-OCT priority, and `EFT + OCT` selection core, but
-sets the communication term to zero because the controlled model does not
-represent topology, routing, or link contention. The LOCAL track also maintains
-`LOCAL_PEFT`, with pairwise communication
-`bytes / (1e6 × min(bw_p, bw_p'))` for different VMs and zero for the same VM.
-Both maintained PEFT tracks now use successor-cost OCT and exit zero. The
-LOCAL equation is `max_child min_p'[OCT(child,p') + w(child,p') + c(t,child,p,p')]`;
-SHARED removes communication but uses its shared-storage execution-duration
-model, so their full runtime assumptions still differ.
+## 通信估计与执行模型
 
-This coordinate and exit condition were verified against the author's
-[open article chapter](https://repositorio-aberto.up.pt/handle/10216/92290),
-Chapter 3 printed p71 Eq. (7), p72 Table 5 and p73 Algorithm 1. Its actual
-Figure 1 has PEFT/HEFT makespans 122/133, not the older HEFT-origin input's
-claimed76/80. The former LOCAL current-task-cost/exit-mean version was a
-nonstandard algorithm, not an equivalent exit-constant convention. Its old
-results must not be relabeled as original PEFT. New machine contracts carry
-`PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2`. See the
-[algorithm catalog](<CATALOG.md>) and [source provenance](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>).
+[Topcuoglu、Hariri、Wu 的 HEFT/CPOP 论文](<https://doi.org/10.1109/71.993206>)使用任务计算成本和处理器间通信成本来估计排程。论文中的边通信假设、模拟器的文件系统、传输发生的时点和 VM 占用范围并非同一件事。不能把带通信项的纸面 HEFT 预测，直接解释为任意 SHARED 配置的执行时间。
 
-## Independent-Task Static Track
+### SHARED 的计算信封模型
 
-`STATIC_OLB`, `STATIC_MET`, `STATIC_MCT`, `STATIC_MINMIN`, `STATIC_MAXMIN`,
-`STATIC_SUFFERAGE`, and `STATIC_ROUND_ROBIN` only accept a bag of independent
-Tasks. Their core contract is VM mapping under predicted model execution time;
-they do not create a DAG schedule, network schedule, or real queue replay.
+SHARED_STORAGE 规划器要求 SHARED、legacy 数据移动、无故障/开销、NONE 聚类和 SPACE_SHARED。对每个 Task 先累加真实输入的存储延迟，再一次性转换为 MI：
 
-The maintained tests cover sorted-ID tie-breaks, PE compatibility, availability
-updates, Min-Min/Max-Min opposing selection, and Sufferage's best-versus-
-second-best completion-time loss. The taxonomy source is Maheswaran et al.,
-*Dynamic Mapping of a Class of Independent Tasks onto Heterogeneous Computing
-Systems*, JPDC 59(2), 1999, DOI [10.1006/jpdc.1999.1581](https://doi.org/10.1006/jpdc.1999.1581).
+```text
+inputSeconds(t) = sum(bytes(file) / 1e6 / storageRate)
+duration(t,v) = (L_raw(t) + floor(mips(v) * inputSeconds(t))) / mips(v)
+```
 
-## LOCAL Data-Availability and Ready-List Contract
+不是逐文件分别 floor，也不是免费通信。父子依赖通过引擎释放约束，输入延迟被加入 Job 执行信封；该轨道没有点对点通信边、路径或共享链路争用。计算时长与 stage-in 估计的实现见 [SharedStorageDagPlanner](<../../simulator/src/main/java/org/workflowsim/planning/SharedStorageDagPlanner.java>)。固定端点模型也在 Job 内建模输入延迟，但附加接入参数不同，因此不能未经适配用于这些 SHARED_STORAGE 规划器。
 
-LOCAL_HEFT/CPOP/PEFT require LOCAL storage, STATIC dispatch, NONE clustering,
-no modeled overhead/failure, SPACE_SHARED VMs and a preExecution-family data
-model. Planning stays contention-free even when runtime uses endpoint or
-Fat-tree contention. Fat-tree also requires the matching topology declaration.
+### LOCAL 的 V1 输入可用性估计
 
-A candidate reads only replicas whose recorded availability is no later than
-the Task's dependency-ready time. Parent-file groups use the parent's planned
-finish plus the sum of that parent's file delays; different parents overlap.
-External inputs, including root inputs, begin at the consuming Job's
-**dependency-ready time**, not simulated zero. Bootstrap's datacenter replica
-does not make a destination-VM local copy.
+LOCAL_HEFT/CPOP/PEFT 要求 LOCAL、STATIC、无故障/开销，以及 V1 pre-execution 家族。无争用计算使用有效 MI；文件传输使用十进制 MB/s：SOURCE→VM 受目标端点带宽约束，VM→VM 使用两端带宽的较小值。
 
-Positive input holds use the configured minimum event interval. All real input
-replicas are registered at the **whole hold's completion**, before any possible
-VM queue wait; output replicas at planned compute finish. Recording a future
-placement must not grant an earlier local hit. Valid earlier gap insertions
-remain allowed when their own inputs can arrive in time.
+- 在 Task 的依赖就绪时点，只读当前部分计划中已可用的副本；目标已有可见副本才免传输。
+- 同一父任务的文件延迟相加，从父任务的计划完成时刻估计到达；不同父组可以重叠。
+- 根与非根的外部输入均从消费 Job 依赖就绪时开始。平台级 stage-in 登记不意味着文件已在目标 VM 本地。
+- 输入就绪取依赖就绪、各父组到达及外部输入到达的最大值；正 hold 受最小事件间隔约束。
+- INPUT 副本在完整 hold 结束时可用，OUTPUT 在计划计算完成时可用。未来副本不得让插入更早空档的任务提前命中；输入可以早于消费者真正开始计算时到达。
+- VM 只预留计算，输入准备可与 VM 忙碌区间重叠。这里是部分计划估计，不是整个运行期事件重放。
 
-The planner does not replay the complete runtime event queue. Same-time
-ordering, replicas produced by later-planned Tasks, short compute completion
-rules and contention remain explicit sources of prediction differences.
-Required independent oracles include root and non-root external inputs,
-shared-input future replicas, valid gap insertion, and input availability
-before consumer compute starts; see the
-[LOCAL data-availability tests](<../../simulator/src/test/java/org/workflowsim/planning/LocalDataAvailabilityPlanningTest.java>).
+[输入可用性回归](<../../simulator/src/test/java/org/workflowsim/planning/LocalDataAvailabilityPlanningTest.java>)覆盖外部根输入、未来副本、有效空档和输入到达早于计算开始。文件名/大小冲突可能使某些现成输入不适用，不能从普通在线运行成功推导 LOCAL 规划也合法。
 
-PE-compatible costs are used for rank averages. CPOP's one critical processor
-must support its entire selected path. LOCAL_PEFT selects the highest mean OCT
-**among dependency-ready Tasks**, then minimizes EFT+OCT over compatible VMs;
-incompatible OCT entries never enter its rank average. A child with higher
-rank than its parent is handled by this ready list, not rejected. The primary
-source explicitly uses this ready-list discipline. The corrected implementation
-is guarded by [independent Eq. (7) counterexamples](<../../simulator/src/test/java/org/workflowsim/planning/LocalPeftSuccessorCostContractTest.java>)
-and the [actual paper fixture](<../../simulator/src/test/java/org/workflowsim/planning/LocalPeftPrimarySourcePaperTest.java>),
-including TaskOutcome effective MI and compute-window agreement with Job timing.
+启用 V1 端点或 Fat-tree 争用时，**规划仍无争用**，运行期所有父组在 Job 就绪时统一启动，不追溯更早父完成以来的传输进度。求解器采用受名义上限与资源容量共同约束的 max-min progressive filling，并在内部完成点回收、重新分配容量；不是简单固定的 `capacity/n`。因此无争用 V1 与争用 V1 的差异还包含传输起点规则。Fat-tree 另加入确定性有向路径约束，外部 SOURCE 仍绕过 fabric，详见[拓扑与路由契约](<../research/FAT_TREE_DESIGN.md>)。
 
-## Mapping-Only Cost Contract
+### coherent 文件、存储与控制平面
 
-Independent time-aware strategies use the common effective compute cost.
-OLB updates availability with that cost; MET ignores availability; MCT,
-Min-Min, Max-Min and Sufferage use the corresponding completion estimates.
-Sufferage defines loss as zero when there is only one compatible VM.
-STATIC_ROUND_ROBIN and RANDOM intentionally do not optimize those costs.
+coherent V2/V3 是独立的逐文件生命周期，不是把 LOCAL 规划器的估计替换成精确网络重放。控制依赖就绪、目标绑定、输入可见、CPU 执行和 SOURCE 提交必须分开解释。
 
-PSO also consumes effective matrix costs but keeps its sequential VM-load
-objective and ignores DAG/network timing. With `price = MIPS/1000`, cost is
-mathematically mapping-invariant **only in the no-matrix raw-MI case**:
-`sum(rawPerPeLength)/1000`. With a matrix, it is
-`sum(effectiveSeconds(task,assignedVm) * assignedVmMips/1000)` and may vary by
-mapping. The price remains an abstract heuristic. Incompatible particle
-positions are projected to the nearest compatible VM index, ties by lower VM
-ID, without additional random draws. The whole compatible domain is checked
-before sampling; missing matrix coordinates do not depend on which particles
-happen to visit them. Independent expectations and cost-oblivious controls
-live in the [matrix regression tests](<../../simulator/src/test/java/org/workflowsim/planning/PlanningCostMatrixRegressionTest.java>)
-and [PE-domain tests](<../../simulator/src/test/java/org/workflowsim/planning/PlanningPeCompatibilityTest.java>).
+- **V2 文件数据流**：LOCAL；按实际可见源副本和实际路径准备输入，同文件同目标可合并复制，各文件独立观察可见；外部 SOURCE 显式无限汇聚并绕过 fabric。
+- **V3 存储数据流**：必须声明受限 SOURCE 的附着 Host、读/写/NIC 容量。LOCAL 可读 VM 副本；SHARED 必须先等 SOURCE 提交，再用目标缓存或从 SOURCE 读，同 VM 缓存也不能绕过提交。
+- V3 所有成功输出都有写回义务，包括未被消费的 sink 和零字节输出；CPU 返回不等待写回，但模拟结束等待义务完成。失败尝试不发布可读输出。
+- 两个家族均可选 Fat-tree。无争用对照保留相同路径、生命周期和单流瓶颈，只去掉跨流共享，不把传输改成零成本。
+- 未启用在线绑定时要求 RANDOM/STATIC；显式 `CONTROL_READY_ONLINE_ASSIGNMENT_V1` 使用 INVALID/STATIC，在控制就绪后根据名义输入估计和 CPU 预留选目标，然后准备输入。NOOP 重试复用原逻辑绑定。
 
-## Metric Contract
+`dataflowPlan` 记录文件身份和生产/消费关系，不是 STATIC 的每 VM 执行顺序计划。生命周期证书记录来源、路径、可见性与因果，不认证逐区间服务面积或未来拥塞；在线动作认证也不重放精确在途余额。Workbench 在线导出要求完整且匹配的生命周期捕获，Java OFF/截断运行不能冒充完整动作证书。模型未实现 TCP、丢包/ECN、包级队列或自适应路由。
 
-Metrics are simulator-derived quantities, not production observability data.
+具体字段与数值域见[V2 契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)、[V3 契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)和[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。对应的[存储运行测试](<../../simulator/src/test/java/org/workflowsim/data/v2/StorageDataflowRuntimeTest.java>)与[在线证据测试](<../../simulator/src/test/java/org/workflowsim/experiment/OnlineDataflowArtifactIntegrationTest.java>)检查提交门控、输出义务、失败来源和捕获完整性。
 
-| Metric family | Counting rule | Required edge cases |
-| --- | --- | --- |
-| Job outcome rate and throughput | Compute Job outcomes only; stage-in is reported separately. A compute outcome is an attempt, so retry attempts remain in this denominator. | Empty run, failed Job, retry Job |
-| Logical Task completion | A source logical Task is completed only when it appears in at least one successful compute Job. | Retry after failure, clustering, no source Task snapshot |
-| Simulation end and logical workflow completion | Historical `makespanSeconds` and explicit `simulationEndSeconds` are the same CloudSim end clock. `logicalTaskCompletionSeconds` is available only when every source logical Task has a successful compute Job; it is the latest among those Tasks' first successful Job-envelope finish times. | Incomplete workflow and no-logical-Task runs have no logical completion time; `terminalLifecycleTailSeconds` is available only for complete workflows. |
-| Attempt, retry, and failure evidence | One completed Job outcome is one Job attempt. Retry attempts are identified by `RETRY_JOB_CREATED` evidence and its failed parent; failed compute envelope/cost totals include complete failed attempts. | Missing, duplicate, self-referential, or non-failed retry-parent evidence fails metric derivation rather than silently changing counts. |
-| Delay metrics | Total waiting/bounded slowdown require an ordered ready-to-start observation; ready-to-decision requires both corresponding events, while decision-to-start uses its own observation count. VM-queue waiting starts at VM submission, not Job readiness. | Missing events, decision after start, and distinct sample counts; preExecution waiting includes data preparation, unlike legacy in-envelope stage-in. |
-| Bounded slowdown / waiting percentiles | Per-attempt `max((wait+execution)/max(execution,10s),1)` then arithmetic mean; waiting median/P95 use the documented nearest-rank convention. | A value of 1 does not prove zero waiting; empty samples, short jobs, retry attempts, and percentile tails. |
-| VM busy/utilization | Union of completed Job intervals per VM; not host utilization | Overlap, gaps, zero makespan, idle VM |
-| Data-stage-in demand | Count/bytes describe inputs external to each compute Job, including files produced by workflow parents; they are not limited to SOURCE inputs. Stage-in seconds sum nominal estimates, including in contention variants. | Local hits can give zero delay; overlapping groups mean the sum is not network wall time, and it is not an actual contention-duration or link-traffic ledger. |
-| Modeled processing cost | Sum every completed Job attempt's CPU-envelope component and declared-file bandwidth component. Declared file bytes are summed continuously in decimal MB (`1,000,000` bytes) with no per-file billing rounding. | Failed and retry attempts remain included; effective stage-in MI can affect the CPU envelope; memory/storage price fields are not charged by this model. |
-| Algorithm decision overhead | Recorded `System.nanoTime` around explicit static planner runs and runtime scheduling cycles; never simulated time | Missing/non-numeric planner event, online run with no explicit planner, and wall-clock exclusion from deterministic fingerprints |
-| SLR reference | Controlled SHARED, NONE clustering, no failure/overhead, SPACE_SHARED, legacy or fixed-endpoint transfer only. Minimize effective per-PE integer work over compatible VMs, including a legal mapping-only matrix; fixed-endpoint retains an optimistic storage-only bound. | PreExecution parallel input arrivals cannot use the serial-input bound. If any required candidate/envelope is not representable, this optional reference is unavailable rather than turning a completed selected execution into failure; actual execution/planner validation is unchanged. Check raw/matrix differences, PE feasibility, MI rounding and scope. |
-| Deadline SLA observation | Compare the exact signed-long threshold with the exact binary64 `simulationEndSeconds` value from simulated time zero before rounding slack/tardiness. It never alters dispatch, admission, retry, or failure behavior. | No deadline requested, incomplete precedence, nonzero arrivals, lifecycle tail, replayed fault/overhead samples, and values around 2^53/Long.MAX_VALUE. No comparison epsilon. |
-| Task timing accuracy | `lengthMi` retains parsed/normalized source work; `effectiveExecutionLengthMi` is the current attempt's compute work after matrix rounding. Task windows use effective work. Legacy/fixed stage-in may enlarge the Job envelope, while preExecution transfers precede it; exact timing requires one Task and matching Task/Job windows. | Matrix shorter/longer than source, retry copying, requested/effective stage-in, quantization and failed attempts; do not substitute the source length for effective work. |
+## 优先级与成本语义
 
-The current failure model determines outcome after an attempt has reached its
-Job envelope completion boundary. Only successful Tasks commit their declared
-output files to the replica catalog; a failed Task output is not a readable
-input replica for a dependent Job. This is a simulator fail-after-attempt and
-output-commit contract, not a calibrated mid-execution outage, transactional
-storage, or distributed-filesystem model.
+### HEFT、CPOP、DLS 与 ETF
 
-The test oracle records its arithmetic inputs directly and never treats a
-passing test as evidence of real cloud, storage, network, price, failure, or
-trace calibration.
+记 `w̄(t)` 为兼容 VM 上的平均模型时长，`c̄` 为所选模型的平均通信估计；SHARED 的通信项为 0，模型时长包含其共享存储输入延迟。
+
+```text
+r_u(t) = w̄(t) + max_child(c̄(t,child) + r_u(child))
+r_d(entry) = 0
+r_d(t) = max_parent(r_d(parent) + w̄(parent) + c̄(parent,t))
+CPOP priority(t) = r_u(t) + r_d(t)
+```
+
+出口任务的 `max_child` 项为 0。HEFT 按 upward rank 降序，再选插入式最小 EFT。CPOP 在依赖就绪集合内选择优先级最大者；关键路径沿满足 rank 递推的实际边确定，选择一条而不是所有等优先级节点，并固定到支持整条路径、总模型时长最小的 VM。
+
+SHARED_STORAGE_DLS 在 ready Task-VM 对中最大化 `b-level − earliestInsertionStart`，等分用 Task ID、VM ID。SHARED_STORAGE_ETF 最小化插入开始时间，同开始先选更高 b-level，再用 Task/VM ID。它们保留 [DLS](<https://doi.org/10.1109/71.207593>)与 [ETF](<https://doi.org/10.1137/0218016>)的选择核心，但不因此取得原文的互连硬件、通信资源或同构处理器假设。
+
+### PEFT 的后继成本递推
+
+对兼容 VM，当前 PEFT 使用后继成本而非当前 Task 自身成本：
+
+```text
+OCT(exit,v) = 0
+OCT(t,v) = max_child min_compatible_v' {
+    OCT(child,v') + w(child,v') + c(t,child,v,v')
+}
+rank_o(t) = mean_compatible_v OCT(t,v)
+OEFT(t,v) = insertionEFT(t,v) + OCT(t,v)
+```
+
+每步只在父任务均已分配的 ready-list 中选择最大 `rank_o` 的 Task，再选最小 OEFT 的兼容 VM；平局用较小 Task/VM ID。子任务平均 OCT 高于父任务并非错误，ready-list 保证分配顺序。
+
+LOCAL 的不同 VM 通信按端点带宽模型计算，同 VM 为 0；OCT 是静态 look-ahead，不使用运行期副本折扣，实际插入 EFT 另按部分计划的副本可用性估计。SHARED 去掉通信项后，兼容候选的 OCT 与当前 VM 无关，处理器选择退化为 EFT，但任务优先级仍可能不同；不能把它称为网络感知 PEFT。
+
+递推和来源页码见保留不变的 [PEFT 论文夹具来源说明](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>)。[独立递推反例](<../../simulator/src/test/java/org/workflowsim/planning/LocalPeftSuccessorCostContractTest.java>)覆盖出口、后继成本与 rank 反转；[原文夹具回归](<../../simulator/src/test/java/org/workflowsim/planning/LocalPeftPrimarySourcePaperTest.java>)用字面矩阵/OCT/选择顺序验证计划和实际 Task/Job 区间。当前机器契约标识为 `PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2`；自身成本/出口均值的变体不能重命名为原 PEFT。
+
+### 独立任务与仅映射目标
+
+独立任务映射器拒绝任何父/子边；其 availability 是暂定累计计算负载，不是运行期队列回放。OLB 按 availability 选择但仍用有效计算时长更新；MET 忽略 availability；MCT、Min/Max-Min 和 Sufferage 使用完成估计。Sufferage 只有一个兼容 VM 时定义损失为 0，轮转有意不看成本。命名依据[独立任务映射分类](<https://doi.org/10.1006/jpdc.1999.1581>)，不是给在线 ready-batch 自动赋予离线语义。
+
+RANDOM 在按 ID 排序的兼容 VM 中沿输入 Task 顺序抽样。PSO 则先按 Task/VM ID 固定坐标，并将不兼容位置投影到最近合法 VM 下标，等距取较小 ID，不额外抽样。其参考实现与常量见 [PSOPlanningAlgorithm](<../../simulator/src/main/java/org/workflowsim/planning/PSOPlanningAlgorithm.java>)。
+
+```text
+PSO fitness = 0.8 * sum(effectiveSeconds(t,assignedVm) * assignedVmMips / 1000)
+            + 0.2 * max_vm(sum_assigned_tasks effectiveSeconds(t,vm))
+```
+
+该目标忽略 DAG 边和网络。只有无矩阵的原始 MI 模型中，成本项在数学上才等于 `sum(L_raw)/1000`、与映射无关；浮点舍入须单独考虑。有矩阵时成本可以随映射变化。它不是实际云计费，也不保证优于其他基线。
+
+RL 使用另一条 ready-job 契约：动作按 ready 到达序排列，值为 VM ID 排序后的列表下标而非 VM ID，`-1` 跳过；null、长度错误或越界中止，忙/不兼容/已占用目标使该 Job 本轮跳过而不自动重选。成功派发进入轨迹，奖励为负 makespan；持续无进展会被拦截。实现见 [RL 派发器](<../../simulator/src/main/java/org/workflowsim/scheduling/RlPolicySchedulingAlgorithm.java>)，不包含学习算法。
+
+## 指标与观察样本
+
+指标由 [SimulationMetrics](<../../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java>)计算，不是生产平台遥测。时间均为模拟秒，墙钟决策耗时另行报告。
+
+### 等待、减速比与缺失观察
+
+对有有效观察的计算 Job 尝试 j：
+
+```text
+wait_j = start_j - JOB_READY_j
+execution_j = finish_j - start_j
+slowdown_j = max((wait_j + execution_j) / max(execution_j, 10), 1)
+meanComputeTrueSlowdown = arithmetic_mean(slowdown_j)
+```
+
+先对每个尝试按上述两个 `max` 计算，再求均值；不是对汇总均值做一次比值，也没有减速比上限。`execution_j` 是 Job 执行信封：legacy/固定端点输入可能包含在其中，pre-execution/coherent 输入准备则发生在开始前。`JOB_READY` 与文件数据就绪不是同一事件，等待不能一律解释为纯调度器排队。
+
+- 只对有 `JOB_READY` 且 `start >= ready` 的计算 Job 统计总等待和 bounded slowdown；缺失或不合顺序的观察不以零值加入样本。重复关键事件会显式失败。
+- 正常均值包含成功、失败与 retry 尝试；`successOnlyMeanComputeTotalWaitingTimeSeconds`、`successOnlyMeanComputeTrueSlowdown` 是单独的成功样本，不是同一统计量的改名。
+- 无观察时聚合字段可能按 API 约定为 0.0，必须结合 `totalWaitingTimeObservationCount`、`trueSlowdownObservationCount` 或 `successOnlyWaitingObservationCount` 识别缺测，不能报告成实测零等待。
+- ready→decision 与 decision→start 有各自的观察数；只有样本集合相同才能把两者均值相加得到总等待。
+- VM queue waiting 从 VM submission 起算；response 为 submission→finish，不包含此前的 ready 等待。VM 级 slowdown 不能替代这里的 ready 基准。
+- 分位数使用升序样本的最近秩 `ceil(q*n)`，偶数样本的中位数不做两中值平均；小样本 P95 可能退化为最大值。bounded slowdown 为 1 也不证明没有等待。
+
+[等待指标测试](<../../simulator/src/test/java/org/workflowsim/experiment/JobWaitingTimeMetricsTest.java>)覆盖手算值、10 秒下界、缺失事件、成功样本和分位数。事件重算应过滤计算 Job（`classType == 2`），不能把 stage-in 的 ready 事件混入该样本。
+
+### 其他核心指标
+
+| 指标 | 统计口径与边界 |
+| --- | --- |
+| Job 计数、成功率与吞吐 | 总 Job 数可含 stage-in；计算 Job 成功率/吞吐以计算尝试为样本，失败和 retry 不等于新的逻辑 Task |
+| 逻辑任务完成 | 一个源 Task 至少有一次成功计算尝试才算完成；retry 谱系须可追溯到失败父尝试 |
+| `makespanSeconds` / `simulationEndSeconds` | 同一个模拟结束时钟，不是从首个计算 Job 开始计时 |
+| `logicalTaskCompletionSeconds` | 全部源 Task 成功时，取各 Task 首次成功 Job 信封完成时间的最大值；无逻辑任务或未完成时不可用 |
+| `terminalLifecycleTailSeconds` | 完成工作流的模拟结束与逻辑完成之差；V3 输出义务可以形成尾部，不能当 CPU 计算时间 |
+| 重试与失败成本 | 每个已返回尝试分别计数；`retryAmplificationRatio` 为逻辑 Task 尝试数/逻辑 Task 数，不是失败概率 |
+| VM 繁忙与利用率 | 每 VM 已完成 Job 区间的并集，包含适用的 stage-in/失败/retry，除以模拟结束时刻；不是 Host 利用率或网络占用 |
+| 输入需求与名义传输秒数 | 含工作流父任务产生的 Job 外部输入，不仅是 SOURCE；名义估计、实际复制字节与争用墙钟不同，不能互相替代 |
+| 抽象处理成本 | 每个已返回尝试的 CPU 信封成本加声明文件带宽成本；字节按连续十进制 MB 换算，无逐文件账单取整；memory/storage 价格声明不等于实际收费 |
+| 决策开销 | 显式规划与调度周期的 `System.nanoTime` 观察，不推进模拟时钟，不要求确定性重跑逐位相同 |
+| 受控关键路径/SLR 参考 | 仅适用声明的 SHARED、NONE、无故障/开销、SPACE_SHARED、legacy/固定端点范围；并行输入的 pre-execution/coherent 模型不可套用串行输入下界；不可用时查看 scope/available 而非把零当有效下界 |
+| deadline SLA | 从模拟零时刻比较精确 signed-long 阈值与 binary64 结束时钟，先精确比较再计算显示余量；未请求或工作流未完成须区分，不改变派发、准入、重试或终止 |
+| Task 时间 | 原始长度与有效计算 MI 分开；Task 窗口使用当前尝试工作量，精确 Task/Job 一致性还需检查时序范围与单 Task 条件 |
+
+Jain 指数为 `(sum(u))² / (n * sum(u²))`。在同一窗口、同一 VM 样本且非零平均负载下，`Jain = 1 / (1 + CV²)`，两者不是独立的分布形态证据；空或全零利用率时返回 1.0 是约定，不表示资源被充分利用。
+
+## 证据与主张范围
+
+失败模型在尝试信封完成边界判定结果，仅成功输出才能成为后续可读来源；这是受控尝试/重试语义，不是中途断电、真实分布式事务或存储系统校准。
+
+manifest 中的算法契约、执行版本和模型配置必须与实际输入、平台和证据一致。工件结构/哈希校验、生命周期因果检查、算法 oracle、统计显著性和现实校准是不同层次，不能互相替代。保持原始证据身份，不通过改名、改 golden 或混合不同决策/执行层来掩盖差异。

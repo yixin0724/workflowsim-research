@@ -25,13 +25,13 @@ import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
 /**
- * Fat-tree × 调度联合实验执行器（campaign Phase B 主入口）。
+ * 固定参数的 Fat-tree × 调度 campaign 执行器。
  *
- * <p>执行协议见 {@code docs/experiments/FATTREE_SCHEDULING_CAMPAIGN.md}：
+ * <p>参数与历史来源见 {@code experiments/studies/fattree-scheduling-campaign/RETENTION.md}：
  * 主矩阵 10 DAG × 4 规划器 × 3 数据移动模型 = 120 次运行；3 主机敏感性 OFAT
  * 扫描 10 DAG × 2 通信感知规划器 × 6 拓扑变体 = 120 次运行；4 主机结构
  * 敏感性扫描（激活 k/超收敛/放置轴判别力）= 120 次运行。全部运行使用同一
- * seed（91）、同一 3 主机同质平台，配对统计沿 DAG 维度（Wilcoxon 符号秩）。</p>
+ * seed（91）和各块声明的 3/4 主机同质平台，配对统计沿 DAG 维度（Wilcoxon 符号秩）。</p>
  *
  * <p>Montage/Sipht 家族被排除：原始 DAX 含同名文件的不一致尺寸声明（如
  * Montage 的 fit.txt），被 LOCAL 通信感知规划族的严格副本校验拒绝——兼容性
@@ -60,28 +60,23 @@ public final class FatTreeSchedulingCampaignExecutor {
                     Parameters.PlanningAlgorithm.RANDOM,
                     Parameters.PlanningAlgorithm.PSO));
 
-    /** 三级数据移动模型：约束域 V1 ⊂ R2  R6（弱单调性不变量的基础）。 */
+    /** 三种 V1 数据移动对照；释放和共享规则不同，跨模型单调性仅作诊断。 */
     static final List<DataMovementModel> MODELS = Collections.unmodifiableList(Arrays.asList(
             DataMovementModel.preExecutionTransferDelayV1(),
             DataMovementModel.preExecutionTransferDelayWithContentionV1(),
             DataMovementModel.fatTreeContentionV1()));
 
     /**
-     * R8 再标定（2026-09-16，用户授权执行）：campaign 链路带宽基线。
-     *
-     * <p>取 0.125 MB/s = VM 端点带宽（1 MB/s）的 1/8，即 8:1 接入超收敛。
-     * 依据：① F1 8 单位 bug 修复前，声明 1.0 MB/s 的链路实际就运行在
-     * 0.125——再标定恢复 R7 分析所处的真实物理区间（诚实单位下的对账锚点）；
-     * ② 审计实测（COMPREHENSIVE_AUDIT_R8.md §3.3 N-2）：链路 ≥ 端点时链路层
-     * 永不束缚单流，R6 ≡ R2 逐位相等、全部拓扑敏感性轴退化，对称供给下
-     * campaign 的拓扑轴没有判别力；③ simulator 慢链路探针证明链路 &lt; 端点
-     * 时争用模型正确生效。</p>
+     * 固定历史装置的链路基线：0.125 MB/s，为 VM 端点带宽 1 MB/s 的 1/8。
+     * 参数选择和原始再标定说明见
+     * {@code experiments/studies/fattree-scheduling-campaign/RETENTION.md}；
+     * 不据此推导任意拓扑或负载的跨模型恒等/单调结论。
      */
     static final double BASELINE_LINK_BANDWIDTH_MB = 0.125;
 
     /**
-     * A4 带宽比轴 = 基线 ×10 = 1.25 MB/s &gt; 端点带宽 ⇒ 链路非束缚 ⇒
-     * 预期精确收敛回 R2——恢复该轴"链路远宽于端点时收敛回端点主导"的设计语义。
+     * A4 带宽比对照：基线 ×10 = 1.25 MB/s；端点带宽仍为 1 MB/s。
+     * 是否退化为端点主导由具体路径/并发和回归夹具检查，不作为普遍结论。
      */
     static final double A4_LINK_BANDWIDTH_MB = BASELINE_LINK_BANDWIDTH_MB * 10.0;
 

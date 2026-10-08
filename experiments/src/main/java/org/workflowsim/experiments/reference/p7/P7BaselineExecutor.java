@@ -24,9 +24,9 @@ import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.SimulationConfig;
 
 /**
- * P7 确定性基线批量执行器 - 生成冻结调度器对比基线的主入口。
+ * P7 兼容性参考矩阵执行器；常规新实验使用 Workbench。
  *
- * <p>执行完整 P7 基线矩阵（20 个 DAX 场景 × 6 个调度算法 = 120 次确定性仿真），
+ * <p>执行冻结矩阵（2 个 Epigenomics 输入 × 2 个平台 × 5 个在线调度器 = 20 次仿真），
  * 生成标准化实验证据包（manifest/metrics/events）和索引文件。支持无参数运行（使用项目根目录下的
  * {@code datasets} 和自动创建的 {@code p7-output/run-<时间戳>} 输出目录）。
  *
