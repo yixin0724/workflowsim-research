@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -257,13 +258,14 @@ public final class WorkflowParser {
             WorkflowInputReport report = new WorkflowInputReport(path,
                     WorkflowInputReport.Format.DAX_XML, root.getAttributeValue("version"));
             List<Task> parsedTasks = new ArrayList<>();
+            Map<String, FileItem> firstDeclaredInputs = new LinkedHashMap<>();
             mName2Task.clear();
             daxDependencyEdges.clear();
 
             // 先建立全部任务定义，才能严格解析和验证后续的依赖引用。
             for (Element node : list) {
                 if ("job".equalsIgnoreCase(node.getName())) {
-                    parsedTasks.add(parseDaxJob(node, report, fileNamespace));
+                    parsedTasks.add(parseDaxJob(node, report, fileNamespace, firstDeclaredInputs));
                 }
             }
 
@@ -273,6 +275,15 @@ public final class WorkflowParser {
                 }
             }
             WorkflowDagValidator.validateAndAssignDepths(parsedTasks);
+            // F-009 修复（2026-10-19）：结构与 DAG 校验全部通过，才把首轮 INPUT
+            // 声明提交进全局副本目录；失败解析不再留下半提交条目（污染会经
+            // "first-declared 尺寸沿用"规则替换同 JVM 重试解析的新声明）。
+            // 提交时保留历史跨解析语义：已存在即不覆盖。
+            for (Map.Entry<String, FileItem> entry : firstDeclaredInputs.entrySet()) {
+                if (!ReplicaCatalog.containsFile(entry.getKey())) {
+                    ReplicaCatalog.setFile(entry.getKey(), entry.getValue());
+                }
+            }
             report.setTaskCount(parsedTasks.size());
             this.getTaskList().addAll(parsedTasks);
             this.inputReports.add(report);
@@ -284,7 +295,8 @@ public final class WorkflowParser {
         }
     }
 
-    private Task parseDaxJob(Element node, WorkflowInputReport report, String fileNamespace) {
+    private Task parseDaxJob(Element node, WorkflowInputReport report, String fileNamespace,
+            Map<String, FileItem> firstDeclaredInputs) {
         String nodeName = requiredAttribute(node, "id", "DAX job");
         if (mName2Task.containsKey(nodeName)) {
             throw new WorkflowValidationException("Duplicate DAX job ID " + nodeName);
@@ -299,7 +311,7 @@ public final class WorkflowParser {
         List<FileItem> files = new ArrayList<>();
         for (Element file : node.getChildren()) {
             if ("uses".equalsIgnoreCase(file.getName())) {
-                files.add(parseDaxFile(file, nodeName, fileNamespace));
+                files.add(parseDaxFile(file, nodeName, fileNamespace, firstDeclaredInputs));
             }
         }
 
@@ -314,7 +326,8 @@ public final class WorkflowParser {
         return task;
     }
 
-    private FileItem parseDaxFile(Element file, String taskId, String fileNamespace) {
+    private FileItem parseDaxFile(Element file, String taskId, String fileNamespace,
+            Map<String, FileItem> firstDeclaredInputs) {
         String originalFileName = file.getAttributeValue("name");
         if (originalFileName == null || originalFileName.trim().isEmpty()) {
             originalFileName = file.getAttributeValue("file");
@@ -338,8 +351,12 @@ public final class WorkflowParser {
                 requiredAttribute(file, "size", "DAX file " + originalFileName),
                 "size for DAX file " + originalFileName);
         FileItem item;
-        if (type == FileType.INPUT && ReplicaCatalog.containsFile(fileName)) {
-            item = ReplicaCatalog.getFile(fileName);
+        // F-009：INPUT 声明只与"本地首轮表 + 既有全局目录"交互，不再直接写入全局目录；
+        // 三种来源中取首个：既有目录（历史跨解析语义）> 本轮先声明 > 新建条目。
+        FileItem registered = ReplicaCatalog.containsFile(fileName)
+                ? ReplicaCatalog.getFile(fileName) : firstDeclaredInputs.get(fileName);
+        if (type == FileType.INPUT && registered != null) {
+            item = registered;
             if (Double.compare(item.getSize(), size) != 0) {
                 // 放宽校验：记录警告但继续使用第一次声明的 size。
                 // 真实科学工作流中，同一文件在不同任务的 size 估算可能不同，
@@ -352,15 +369,16 @@ public final class WorkflowParser {
         } else {
             item = new FileItem(fileName, size);
             if (type == FileType.INPUT) {
-                ReplicaCatalog.setFile(fileName, item);
-            } else if (ReplicaCatalog.containsFile(fileName)
-                    && Double.compare(ReplicaCatalog.getFile(fileName).getSize(), size) != 0) {
+                // 解析期先入本地首轮表；通过 DAG 校验后统一提交（见 parseXmlFile 尾部）。
+                firstDeclaredInputs.putIfAbsent(fileName, item);
+            } else if (registered != null
+                    && Double.compare(registered.getSize(), size) != 0) {
                 // R8 审计修复（架构通道 P1-4）：OUTPUT 与已注册同名 INPUT 尺寸不一致
                 // 原为完全静默——中间文件（上游 output = 下游 input）两处声明分叉时，
                 // 传输字节数取决于解析顺序。与 INPUT 分支对齐记录警告。
                 Log.printLine("WARNING: DAX file '" + originalFileName
                         + "' output size " + size + " differs from registered input size "
-                        + ReplicaCatalog.getFile(fileName).getSize()
+                        + registered.getSize()
                         + " (transfers use the registered input declaration)");
             }
         }

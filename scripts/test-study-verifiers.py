@@ -74,11 +74,11 @@ def make_bundle(root, duration=1.0, effective=1000, matrix=False):
                        "taskIds": list(tids), "attributes": attrs})
     event("STAGE_IN_JOB_CREATED", 0.0, 1, inputFileCount=1, inputBytes=0.5)
     event("JOB_READY", 0.1, 1)
-    event("SCHEDULING_CYCLE", 0.1)
+    event("SCHEDULING_CYCLE", 0.1, decisionElapsedNanos=100_000)
     event("SCHEDULING_DECISION", 0.1, 1)
     event("JOB_RETURNED", 0.21, 1)
     event("JOB_READY", start, 0, [1])
-    event("SCHEDULING_CYCLE", start)
+    event("SCHEDULING_CYCLE", start, decisionElapsedNanos=250_750)
     event("SCHEDULING_DECISION", start, 0, [1])
     event("DATA_STAGE_IN_MODELED", start, 0, [1], requiredFileBytes=0.5, modeledTransferSeconds=transfer, modeledTransferFileCount=1)
     event("TASK_EXECUTION_MODELED", end, 0, [1], taskStartTime=start, taskFinishTime=end, effectiveExecutionLengthMi=effective)
@@ -104,6 +104,8 @@ def make_bundle(root, duration=1.0, effective=1000, matrix=False):
         "successOnlyWaitingObservationCount": 1, "retryAmplificationRatio": 1.0,
         "meanComputeReadyToDecisionDelaySeconds": 0.0, "meanComputeDecisionToStartDelaySeconds": 0.0,
         "readyToDecisionObservationCount": 1, "decisionToStartObservationCount": 1, "schedulingCycleCount": 2,
+        "totalSchedulingDecisionWallClockNanos": 350_750, "totalPlanningDecisionWallClockNanos": 0,
+
         "explicitPlannerDecisionObservationCount": 0, "dataStageInModelObservationCount": 1, "modeledDataTransferFileCount": 1,
         "totalModeledDataTransferSeconds": transfer, "totalModeledRequiredInputBytes": 0.5, "meanModeledDataTransferSeconds": transfer,
         "totalModeledProcessingCost": 3.0 * busy + 2 * bw, "totalModeledCpuEnvelopeCost": 3.0 * busy,
@@ -286,6 +288,40 @@ class IndependentAuditorTests(unittest.TestCase):
         rows = [{"pExact": p} for p in (Fraction(2, 100), Fraction(1, 100), Fraction(4, 100))]
         statistics.holm(rows)
         self.assertEqual([Fraction(4, 100), Fraction(3, 100), Fraction(4, 100)], [r["holmExact"] for r in rows])
+
+
+    def test_wallclock_nanos_recompute_matches_java_number_semantics(self):
+        manifest = make_bundle(self.root / "wallclock", 1.0, 1000, False)
+        doc = json.loads(manifest.read_text())
+        events_path = manifest.parent / "run.events.jsonl"
+        events = [json.loads(line) for line in events_path.read_text().splitlines()]
+        # 1) 数值截断：250.75 纳秒按 Java Number.longValue() 截为 250。
+        end = float(doc["result"]["simulationEndSeconds"])
+        events.append({"sequence": len(events), "simulationTime": end, "type": "SCHEDULING_CYCLE",
+                       "jobId": None, "taskIds": [], "attributes": {"decisionElapsedNanos": 250.75}})
+        # 2) 非数值（字符串）按 instanceof Number 语义跳过，不判失败。
+        events.append({"sequence": len(events), "simulationTime": end, "type": "SCHEDULING_CYCLE",
+                       "jobId": None, "taskIds": [], "attributes": {"decisionElapsedNanos": "not-a-number"}})
+        # 3) 显式规划事件计 7 纳秒；4) 非显式事件携带 99 纳秒必须被排除（Java 同口径）。
+        events.append({"sequence": len(events), "simulationTime": end, "type": "PLANNING_COMPLETED",
+                       "jobId": None, "taskIds": [], "attributes": {"explicitPlannerDecision": True,
+                                                                    "planningDecisionElapsedNanos": 7}})
+        events.append({"sequence": len(events), "simulationTime": end, "type": "PLANNING_COMPLETED",
+                       "jobId": None, "taskIds": [], "attributes": {"explicitPlannerDecision": False,
+                                                                    "planningDecisionElapsedNanos": 99}})
+        events_path.write_text(''.join(json.dumps(e) + '\n' for e in events), encoding="utf-8")
+        metrics = doc["metrics"]
+        metrics.update(schedulingCycleCount=4, totalSchedulingDecisionWallClockNanos=351_000,
+                       totalPlanningDecisionWallClockNanos=7, explicitPlannerDecisionObservationCount=1)
+        doc["events"]["eventCount"] = len(events)
+        bind_sidecars(manifest, doc)
+        audit = Audit()
+        result = evidence.inspect_manifest(manifest, audit)
+        self.assertEqual(0, audit.issue_count, audit.report())
+        expected = {"totalSchedulingDecisionWallClockNanos": 351_000, "totalPlanningDecisionWallClockNanos": 7}
+        for key, value in expected.items():
+            self.assertEqual(value, result["recomputedMetrics"][key], key)
+            self.assertIn(key, result["coverage"]["checkedMetrics"])
 
     def test_healthy_single_manifest_and_matrix_override(self):
         for name, duration, effective, matrix in (("plain", 1.0, 1000, False), ("matrix", 0.5, 500, True)):

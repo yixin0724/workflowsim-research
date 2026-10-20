@@ -56,19 +56,47 @@ public final class EvidenceCoreDiffer {
     private static final List<String> VOLATILE_SUBTREE_PREFIXES = Collections.unmodifiableList(
             Arrays.asList("/provenance", "/runtime"));
 
-    private static final List<Pattern> VOLATILE_POINTER_PATTERNS = Collections.unmodifiableList(
-            Arrays.asList(
-                    // 身份声明：随代码演化合法变化，不参与核心量判定，单独提取报告。
-                    Pattern.compile("/configuration/algorithmContract"),
-                    // Only path leaves are volatile: input identity/order and array length remain core.
-                    Pattern.compile("/configuration/workflowPaths/\\d+"),
-                    Pattern.compile("/inputs/\\d+/path"),
-                    Pattern.compile("/result/workflowOutcomes/\\d+/path"),
-                    Pattern.compile("/artifacts/\\d+/(sha256|sizeBytes)"),
-                    Pattern.compile("/metrics/(totalSchedulingDecisionWallClockNanos"
-                            + "|totalPlanningDecisionWallClockNanos)"),
-                    Pattern.compile("/events/\\d+/attributes/"
-                            + "(decisionElapsedNanos|planningDecisionElapsedNanos)")));
+    /**
+     * 比对行为使用的豁免叶子模式。
+     *
+     * <p>审查工程 F-001 修复（2026-10-19）：metrics/events 墙钟豁免正则改为从
+     * {@link #VOLATILE_METRIC_FIELDS} / {@link #VOLATILE_EVENT_ATTRIBUTE_KEYS}
+     * **程序化派生**——此前两个 public 常量在全库零消费、行为只由此处硬编码正则
+     * 驱动，构成双定义漂移隐患（向常量加项不会改变行为）。单一信息源后，
+     * 常量即契约：字段集的任何变动自动反映到比对行为。行为锚 =
+     * {@code EvidenceCoreDifferTest}（指针豁免、墙钟属性豁免等既有契约用例）。
+     * 归期（agreement）语义与修复前逐项一致。</p>
+     */
+    private static final List<Pattern> VOLATILE_POINTER_PATTERNS = buildVolatilePointerPatterns();
+
+    private static List<Pattern> buildVolatilePointerPatterns() {
+        List<Pattern> patterns = new ArrayList<Pattern>();
+        // 身份声明：随代码演化合法变化，不参与核心量判定，单独提取报告。
+        patterns.add(Pattern.compile("/configuration/algorithmContract"));
+        // Only path leaves are volatile: input identity/order and array length remain core.
+        patterns.add(Pattern.compile("/configuration/workflowPaths/\\d+"));
+        patterns.add(Pattern.compile("/inputs/\\d+/path"));
+        patterns.add(Pattern.compile("/result/workflowOutcomes/\\d+/path"));
+        patterns.add(Pattern.compile("/artifacts/\\d+/(sha256|sizeBytes)"));
+        patterns.add(Pattern.compile("/metrics/(" + regexAlternation(VOLATILE_METRIC_FIELDS) + ")"));
+        patterns.add(Pattern.compile("/events/\\d+/attributes/("
+                + regexAlternation(VOLATILE_EVENT_ATTRIBUTE_KEYS) + ")"));
+        return Collections.unmodifiableList(patterns);
+    }
+
+    /** 常量集合到正则候选分支的字面量化连接（保持集合声明顺序）。 */
+    private static String regexAlternation(Set<String> keys) {
+        StringBuilder alternation = new StringBuilder();
+        boolean first = true;
+        for (String key : keys) {
+            if (!first) {
+                alternation.append('|');
+            }
+            alternation.append(Pattern.quote(key));
+            first = false;
+        }
+        return alternation.toString();
+    }
 
     /** 单侧值序列化后的最大记录长度，超过即截断。 */
     private static final int MAX_VALUE_CHARS = 120;

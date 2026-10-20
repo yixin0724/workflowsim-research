@@ -104,8 +104,9 @@ public class HorizontalImpactBalancing extends BalancingMethod {
             @Override
             public int compare(TaskSet t1, TaskSet t2) {
                 // 升序：较短的集合排在前面。
-                return (int) (t1.getJobRuntime() - t2.getJobRuntime());
-
+                // F-005 修复（2026-10-19）：Long.compare 全域正确，杜绝 (int)(long 差)
+                // 在 2^32 回绕域的判等塌缩；常规值域行为不变。
+                return Long.compare(t1.getJobRuntime(), t2.getJobRuntime());
             }
         });
 

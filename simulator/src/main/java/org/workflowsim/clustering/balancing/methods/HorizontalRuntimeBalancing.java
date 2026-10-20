@@ -89,14 +89,7 @@ public class HorizontalRuntimeBalancing extends BalancingMethod {
      * @param taskList 待排序的任务集合
      */
     private void sortListIncreasing(List<TaskSet> taskList) {
-        Collections.sort(taskList, new Comparator<TaskSet>() {
-            @Override
-            public int compare(TaskSet t1, TaskSet t2) {
-                // 升序：最短集合排在前面。
-                return (int) (t1.getJobRuntime() - t2.getJobRuntime());
-            }
-        });
-
+        Collections.sort(taskList, RUNTIME_INCREASING);
     }
 
     /**
@@ -105,13 +98,32 @@ public class HorizontalRuntimeBalancing extends BalancingMethod {
      * @param taskList 待排序的任务集合
      */
     private void sortListDecreasing(List<TaskSet> taskList) {
-        Collections.sort(taskList, new Comparator<TaskSet>() {
-            @Override
-            public int compare(TaskSet t1, TaskSet t2) {
-                // 降序：最长集合优先分配。
-                return (int) (t2.getJobRuntime() - t1.getJobRuntime());
-            }
-        });
-
+        Collections.sort(taskList, RUNTIME_DECREASING);
     }
+
+    /**
+     * 升序比较器：按 {@link TaskSet#getJobRuntime()} 升序。
+     *
+     * <p>审查工程 F-005：历史实现 {@code (int)(t1-t2)} 对 long 差窄化取低 32 位，
+     * 差恰为 2^32 倍数的两个集合会被误判"相等"（稳定排序保持错误顺序）。
+     * 该语义由 {@code BalancingComparatorContractTest} 按守恒律锁定；
+     * 本字段是供其直接审计的单一实现。</p>
+     */
+    static final Comparator<TaskSet> RUNTIME_INCREASING = new Comparator<TaskSet>() {
+        @Override
+        public int compare(TaskSet t1, TaskSet t2) {
+            // F-005 修复（2026-10-19）：Long.compare 全域正确，杜绝 (int)(long 差) 的
+            // 2^32 回绕塌缩（差为 2^32 倍数被误判相等）。
+            return Long.compare(t1.getJobRuntime(), t2.getJobRuntime());
+        }
+    };
+
+    /** 降序比较器：与 {@link #RUNTIME_INCREASING} 同一排序标准的反向。 */
+    static final Comparator<TaskSet> RUNTIME_DECREASING = new Comparator<TaskSet>() {
+        @Override
+        public int compare(TaskSet t1, TaskSet t2) {
+            // F-005 修复（2026-10-19）：同上，全域正确的反向比较。
+            return Long.compare(t2.getJobRuntime(), t1.getJobRuntime());
+        }
+    };
 }

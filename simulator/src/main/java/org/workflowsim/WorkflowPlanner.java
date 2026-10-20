@@ -408,25 +408,63 @@ public final class WorkflowPlanner extends SimEntity {
         }
         double avg = 1.0 / exits.size();
         for (Task task : exits) {
-            addImpact(task, avg);
+            propagateImpactFrom(task, avg);
         }
     }
 
     /**
      * 将影响度累加到一个任务并沿其父边均分回传。
      *
-     * @param task 接收影响度的任务
+     * <p>审查工程 F-004 修复（2026-10-19）：历史实现沿父边<b>递归</b>，调用栈深度
+     * 承受 DAG 深度，50 000 深度纯链上实测 {@code StackOverflowError}
+     * （回归测试 {@code PlannerImpactDeepChainTest}）。本实现改用显式帧栈模拟同一
+     * 递归：<b>调用序列与浮点累加顺序逐位保持</b>——激活帧先执行一次自身累加，
+     * 再按 {@code parentList} 声明顺序逐个压入父帧并等待其整个父链子树处理完毕后
+     * 才继续下一个父帧，与递归的调用顺序完全一致；图形由
+     * {@link WorkflowDagValidator} 保证无环。</p>
+     *
+     * @param start 接收初始影响度的任务
      * @param impact 要累加和回传的影响度
      */
-    private void addImpact(Task task, double impact) {
-
-        task.setImpact(task.getImpact() + impact);
-        int size = task.getParentList().size();
-        if (size > 0) {
-            double avg = impact / size;
-            for (Task parent : task.getParentList()) {
-                addImpact(parent, avg);
+    private void propagateImpactFrom(Task start, double impact) {
+        java.util.Deque<ImpactFrame> stack = new java.util.ArrayDeque<>();
+        stack.push(new ImpactFrame(start, impact));
+        while (!stack.isEmpty()) {
+            ImpactFrame frame = stack.peek();
+            if (!frame.applied) {
+                frame.applied = true;
+                frame.task.setImpact(frame.task.getImpact() + frame.impact);
+                frame.parentCount = frame.task.getParentList().size();
+                frame.parentShare = frame.parentCount > 0 ? frame.impact / frame.parentCount : 0.0;
             }
+            if (frame.parentCount == 0 || frame.nextParentIndex >= frame.parentCount) {
+                stack.pop();
+                continue;
+            }
+            Task parent = frame.task.getParentList().get(frame.nextParentIndex);
+            frame.nextParentIndex++;
+            stack.push(new ImpactFrame(parent, frame.parentShare));
+        }
+    }
+
+    /** 单个影响度分发帧：激活时先完成一次自身累加，随后按声明顺序驱动父帧。 */
+    private static final class ImpactFrame {
+        /** 接收本帧影响度的任务。 */
+        final Task task;
+        /** 待累加到该任务的影响度份额。 */
+        final double impact;
+        /** 已向下分发的父边数量。 */
+        private int nextParentIndex;
+        /** 父边总数；首次激活时计算。 */
+        private int parentCount;
+        /** 每条父边分得的份额（impact / parentCount）；无父边时为 0。 */
+        private double parentShare;
+        /** 是否已执行自身累加（每帧恰好一次）。 */
+        private boolean applied;
+
+        ImpactFrame(Task task, double impact) {
+            this.task = task;
+            this.impact = impact;
         }
     }
 

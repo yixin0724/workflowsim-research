@@ -103,6 +103,13 @@ public class BalancingMethod {
          */
         head.setImpactFafctor(head.getImpactFactor() + tail.getImpactFactor());
         for (TaskSet taskSet : tail.getParentList()) {
+            if (taskSet == head || taskSet == tail) {
+                // F-008 修复（2026-10-19）：邻接重接不得把目标集变成自身的父/子。
+                // 垂直均衡"父并入子"时 tail.childList 含 head；对称保护病态邻接，
+                // 防止集合图自环令 BalancedClustering.getDepth 无限递归
+                // （回归：ClusteringConservationPropertyTest.balancedVertical*）。
+                continue;
+            }
             taskSet.getChildList().remove(tail);
             if (!taskSet.getChildList().contains(head)) {
                 taskSet.getChildList().add(head);
@@ -113,6 +120,10 @@ public class BalancingMethod {
         }
 
         for (TaskSet taskSet : tail.getChildList()) {
+            if (taskSet == head || taskSet == tail) {
+                // 同上：head 不能出现在自身的父/子列表中。
+                continue;
+            }
             taskSet.getParentList().remove(tail);
             if (!taskSet.getParentList().contains(head)) {
                 taskSet.getParentList().add(head);

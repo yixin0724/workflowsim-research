@@ -40,6 +40,8 @@ Job 信封与 Task 计算窗口不能混用：legacy/固定端点可把有效输
 
 `simulationEndSeconds` 与 `makespanSeconds` 是同一模拟结束时钟。只有全部逻辑 Task 成功时，`logicalTaskCompletionSeconds` 才可用，取各 Task 首次成功 Job 信封完成时刻的最大值；差值 `terminalLifecycleTailSeconds` 可以包含输出写回等尾部，不是纯 CPU 或调度器耗时。
 
+**事件流可重算边界（审查工程 2026-10-19 声明）**：配置了正 post-delay 时，最后一个 Job 返回与模拟终止时钟之间没有任何事件——`makespanSeconds` 及其派生吞吐、利用率分母、`terminalLifecycleTailSeconds` 无法从 events 独立重算，不能依赖这类尾部恰为零的巧合。同理，事件流不携带 Job 信封开始时刻：`TASK_EXECUTION_MODELED.taskStartTime` 仅在 `exactJobTiming` 为真时等于该信封。独立复算范围因此覆盖计数、比率、成本、等待族与决策计数；makespan 取值与决策→开始类延迟以 manifest 的 result/metrics 表为权威。要把这些量纳入事件级审计，应先修订 events 契约（例如末端终止事件与执行开始事件），而不是放宽比较。
+
 [PlatformProfile](<../../simulator/src/main/java/org/workflowsim/platform/PlatformProfile.java>)记录 Host/VM 规格、可选 pin 和容量可行的预检映射；实际 VM 创建后的放置还须与预检一致。需要排除 Host 放置因素时使用一 Host 一 VM。共置是资源配置条件，不表示已经建模或校准 Host CPU 干扰、迁移或真实基础设施利用率。
 
 `CostModel.DATACENTER` 与 `CostModel.VM` 是抽象计价范围；后者要求每 VM 显式定价。processing cost 包含每个已返回尝试的 CPU 信封成本和声明文件连续十进制 MB 的带宽成本，包括失败与重试；memory/storage 价格仅声明而不计费，没有服务商账单舍入或实际网络流量计费语义。完整指标定义见[算法、执行与指标契约](<../algorithms/CONTRACTS.md>)。

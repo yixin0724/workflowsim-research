@@ -6,6 +6,7 @@ import argparse
 import collections
 import math
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 from _study_audit import (Audit, CheckError, EXECUTION_SEMANTICS, LONG_MAX, RUN_METRICS,
@@ -16,6 +17,27 @@ from _study_audit import (Audit, CheckError, EXECUTION_SEMANTICS, LONG_MAX, RUN_
 SUCCESS, FAILED, COMPUTE, STAGE_IN = 4, 5, 2, 1
 PRE_MODELS = {"PRE_EXECUTION_TRANSFER_DELAY_V1", "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
               "PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1"}
+
+
+def tolerant_wallclock_nanos(events, event_type, attribute):
+    """Sum a wall-clock nanos attribute exactly like SimulationMetrics:
+    non-numeric values are skipped and numeric values truncate toward
+    zero (Java Number.longValue()). Matched in test-study-verifiers.py."""
+    total = 0
+    for event in events:
+        if event["type"] != event_type:
+            continue
+        value = events_attribute(event, attribute)
+        # JSON 数值经 decode_json 解析为 int/Decimal；bool 与字符串不属 Java Number。
+        if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+            continue
+        total += int(value)
+    return total
+
+
+def events_attribute(event, attribute):
+    attrs = event.get("attributes")
+    return attrs.get(attribute) if isinstance(attrs, dict) else None
 
 
 def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
@@ -379,7 +401,12 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                        dataStageInModelObservationCount=len(data), modeledDataTransferFileCount=sum(file_counts),
                        totalModeledRequiredInputBytes=ordered_sum(demand_values), totalModeledDataTransferSeconds=ordered_sum(transfer_seconds),
                        meanModeledDataTransferSeconds=mean(transfer_seconds), schedulingCycleCount=sum(e["type"] == "SCHEDULING_CYCLE" for e in events),
-                       explicitPlannerDecisionObservationCount=sum(e["type"] == "PLANNING_COMPLETED" and e["attributes"].get("explicitPlannerDecision") is True for e in events))
+                       explicitPlannerDecisionObservationCount=sum(e["type"] == "PLANNING_COMPLETED" and e["attributes"].get("explicitPlannerDecision") is True for e in events),
+                       totalSchedulingDecisionWallClockNanos=tolerant_wallclock_nanos(events, "SCHEDULING_CYCLE", "decisionElapsedNanos"),
+                       totalPlanningDecisionWallClockNanos=tolerant_wallclock_nanos(
+                           [e for e in events if e["type"] == "PLANNING_COMPLETED"
+                            and e["attributes"].get("explicitPlannerDecision") is True],
+                           "PLANNING_COMPLETED", "planningDecisionElapsedNanos"))
         for base, values in (("ComputeTotalWaitingTimeSeconds", waits), ("ComputeTrueSlowdown", slow)):
             for label, quantile in (("median", 0.5), ("p95", 0.95), ("max", 1.0)):
                 derived[label + base] = percentile(values, quantile)
@@ -416,7 +443,8 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
             audit.metric(metrics, key, expected, prefix + ":metrics")
         coverage["checkedMetrics"] = sorted(derived)
         coverage["outsideMetricScope"] = sorted(set(metrics) - set(derived) - {"vmMetrics"})
-        coverage["outsideMetricScopeNote"] = "Wall-clock timers, deadline/critical-path references, and fields not listed above are not certified."
+        coverage["outsideMetricScopeNote"] = ("Decision wall-clock nanos are recomputed from event attributes (审查工程 C10, 2026-10-19); "
+                                              "deadline/critical-path references and fields not listed above remain uncertified.")
     except (CheckError, OSError, ValueError, KeyError, TypeError, ArithmeticError) as error:
         audit.problem("invalid-or-unsupported-bundle", prefix, str(error))
         coverage["aborted"] = str(error)

@@ -3,6 +3,12 @@ target/
 *.class
 node_modules/
 
+# 2026-10 审查工程专用临时工作区：只存中间文档与审查产物，完成后整体清理
+review-workspace/
+
+# Python 字节码缓存（本地跑检查器副作用）
+scripts/__pycache__/
+
 # IDE
 .idea/
 *.iml

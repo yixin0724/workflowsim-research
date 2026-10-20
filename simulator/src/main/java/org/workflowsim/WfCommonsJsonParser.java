@@ -125,6 +125,8 @@ public final class WfCommonsJsonParser {
         Map<String, SpecTask> specTasks = indexSpecTasks(instance.workflow.specification.tasks);
         Map<String, Task> tasksByWfCommonsId = new LinkedHashMap<>();
         Map<String, FileItem> fileItemsByNameAndType = new HashMap<>();
+        // F-009：本地首轮声明表——只在整份实例通过依赖对称性与 DAG 校验后提交全局目录。
+        Map<String, FileItem> firstDeclaredInputs = new LinkedHashMap<>();
         List<Task> tasks = new ArrayList<>();
 
         int nextTaskId = firstTaskId;
@@ -137,9 +139,9 @@ public final class WfCommonsJsonParser {
 
             List<FileItem> taskFiles = new ArrayList<>();
             addFiles(taskFiles, fileItemsByNameAndType, specTask.inputFiles, fileSizes,
-                    FileType.INPUT, fileNamespace);
+                    FileType.INPUT, fileNamespace, firstDeclaredInputs);
             addFiles(taskFiles, fileItemsByNameAndType, specTask.outputFiles, fileSizes,
-                    FileType.OUTPUT, fileNamespace);
+                    FileType.OUTPUT, fileNamespace, firstDeclaredInputs);
 
             for (FileItem taskFile : taskFiles) {
                 task.addRequiredFile(taskFile.getName());
@@ -155,6 +157,8 @@ public final class WfCommonsJsonParser {
         WorkflowDagValidator.validateAndAssignDepths(tasks);
 
         report.setTaskCount(tasks.size());
+        // F-009：结构校验全部通过，才把首轮 INPUT 声明提交进全局副本目录。
+        commitFirstDeclaredInputs(firstDeclaredInputs);
 
         Log.printLine("Parsed WfCommons JSON " + file.getName() + " with "
                 + tasks.size() + " tasks.");
@@ -285,7 +289,8 @@ public final class WfCommonsJsonParser {
             List<String> fileNames,
             Map<String, Double> fileSizes,
             FileType fileType,
-            String fileNamespace) {
+            String fileNamespace,
+            Map<String, FileItem> firstDeclaredInputs) {
         if (fileNames == null) {
             return;
         }
@@ -297,8 +302,22 @@ public final class WfCommonsJsonParser {
             FileItem item = getOrCreateFileItem(fileItemsByNameAndType, fileName,
                     scopedFileName, fileSizes, fileType);
             taskFiles.add(item);
-            if (fileType == FileType.INPUT && !ReplicaCatalog.containsFile(scopedFileName)) {
-                ReplicaCatalog.setFile(scopedFileName, item);
+            // F-009 修复（2026-10-19）：解析期只登记进本地首轮声明表，
+            // 全部结构/DAG 校验通过后由 commitFirstDeclaredInputs 提交全局目录；
+            // 失败解析不再留下半提交状态（污染会经 first-declared 规则替换
+            // 同 JVM 重试解析的文件尺寸）。行为等价性：提交时保留
+            // "已存在即不覆盖"的历史跨解析语义。
+            if (fileType == FileType.INPUT && !firstDeclaredInputs.containsKey(scopedFileName)) {
+                firstDeclaredInputs.put(scopedFileName, item);
+            }
+        }
+    }
+
+    /** 校验通过后把本轮首轮 INPUT 声明一次性提交进全局目录（幂等、不覆盖既有条目）。 */
+    private static void commitFirstDeclaredInputs(Map<String, FileItem> firstDeclaredInputs) {
+        for (Map.Entry<String, FileItem> entry : firstDeclaredInputs.entrySet()) {
+            if (!ReplicaCatalog.containsFile(entry.getKey())) {
+                ReplicaCatalog.setFile(entry.getKey(), entry.getValue());
             }
         }
     }

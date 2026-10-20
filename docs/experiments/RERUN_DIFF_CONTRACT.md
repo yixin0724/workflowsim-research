@@ -103,6 +103,8 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 
 输入/结果等核心数组的长度、输入身份、配置中的 `schedulingAlgorithm` / `planningAlgorithm`、`executionSemantics`、物理参数和记录预算不在白名单内。侧车命名空间不继承根 `/runtime`、`/provenance` 豁免；工件哈希/大小豁免也不能使侧车内容漏比。新增字段默认核心，不能随手加入易变量规则。
 
+本契约定义的逐位比较以 manifest/metrics 工件为域；makespan 等字段在其中的精确相等即构成复跑一致性。事件级独立重算的覆盖边界（正 post-delay 尾部无事件、事件不含 Job 信封开始时刻）另见[可复现性契约](<REPRODUCIBILITY.md>)，不能因该边界而在此处新增豁免。
+
 对象成员名先按 RFC 6901 编码（`~`→`~0`，`/`→`~1`），再拼接指针、判定白名单。字面键 `configuration/algorithmContract` 的路径为 `/configuration~1algorithmContract`，不是嵌套的身份对象；`provenance/extra` 同理，不能借名称骗过分类。
 
 读取器可接受非 `result` 命名的原包，但新复跑固定写 `result.*`；因此原包的工件引用路径可能产生合法核心分歧。**工件 path 没有额外豁免**，不能为获得 `IDENTICAL_CORE` 而忽略这种差异。
