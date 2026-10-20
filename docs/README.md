@@ -16,6 +16,7 @@
 
 - [算法目录](<algorithms/CATALOG.md>)：决策层、可选标签、组合限制及旧名称迁移。
 - [算法与指标契约](<algorithms/CONTRACTS.md>)：计算量、通信、顺序、原论文对照、指标口径及验证边界。
+- [论文指标口径卡](<algorithms/METRICS_CARD.md>)：逐指标的文献口径差异与论文引用建议。
 - [工作流输入与数据集](<../datasets/README.md>)：随仓库输入、可选语料、来源、转换和格式约束。
 - [数据流与网络能力矩阵](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>)：物理模型、存储、在线绑定及未实现能力。
 - [Fat-tree拓扑与共享模型](<research/FAT_TREE_DESIGN.md>)：结构、放置、确定性路径和容量分配边界。

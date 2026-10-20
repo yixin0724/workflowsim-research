@@ -6,6 +6,7 @@ import argparse
 import collections
 import math
 import sys
+from fractions import Fraction
 from decimal import Decimal
 from pathlib import Path
 
@@ -38,6 +39,140 @@ def tolerant_wallclock_nanos(events, event_type, attribute):
 def events_attribute(event, attribute):
     attrs = event.get("attributes")
     return attrs.get(attribute) if isinstance(attrs, dict) else None
+
+
+CS_SCOPE = "SHARED_STORAGE_NO_CLUSTERING_NO_FAILURE_NO_OVERHEAD_SPACE_SHARED"
+CS_OUTSIDE = "UNAVAILABLE_OUTSIDE_CONTROLLED_SHARED_STORAGE_SCOPE"
+
+
+def critical_path_reference(config, platform, raw_tasks):
+    """链 E（2026-10-20）：controlledSharedStorage 关键路径下界的独立复算。
+
+    Java WorkflowModelReference.calculate 的 Python 等价：受控范围六条件 →
+    最快 MIPS → stage-in（110 MI，含 SimulationTiming 保护）→ 拓扑遍历
+    （每任务取全部 PE 兼容 VM 的最小信封秒数）→ lowerBound。全部
+    UNAVAILABLE 分支语义与 Java 字面一致。
+    """
+    import math
+
+    def unavailable(scope):
+        return {"available": False, "scope": scope, "lowerBound": None}
+
+    movement = config.get("dataMovementModel")
+    movement_kind = movement.get("kind") if isinstance(movement, dict) else movement
+    if movement_kind not in ("LEGACY_WORKFLOWSIM_V1", "FIXED_ENDPOINT_NO_CONTENTION_V1"):
+        return unavailable(CS_OUTSIDE)
+    clustering = config.get("clustering")
+    if not isinstance(clustering, dict) or clustering.get("method") != "NONE":
+        return unavailable(CS_OUTSIDE)
+    failure = config.get("failureModel")
+    if isinstance(failure, dict) and (failure.get("generatorMode") not in (None, "FAILURE_NONE")):
+        return unavailable(CS_OUTSIDE)
+    if str(config.get("fileSystem", "")).upper() != "SHARED":
+        return unavailable(CS_OUTSIDE)
+    overhead = config.get("overheadModel")
+    if not isinstance(overhead, dict):
+        return unavailable(CS_OUTSIDE)
+    if (overhead.get("workflowEngineDelayInterval") not in (None, 0)
+            or overhead.get("bandwidth") not in (None, 0.0)
+            or bool(overhead.get("workflowEngineDelays"))
+            or bool(overhead.get("queueDelays"))
+            or bool(overhead.get("postDelays"))
+            or bool(overhead.get("clusteringDelays"))):
+        return unavailable(CS_OUTSIDE)
+    storage = platform.get("storage")
+    transfer_rate = storage.get("maxTransferRateMbPerSecond") if isinstance(storage, dict) else None
+    if not transfer_rate or number(transfer_rate, "storage rate") <= 0:
+        return unavailable(CS_OUTSIDE)
+    vms = platform.get("vms")
+    if not isinstance(vms, list) or not vms:
+        return unavailable(CS_OUTSIDE)
+    for vm in vms:
+        if vm.get("schedulerMode") != "SPACE_SHARED" or number(vm.get("mips"), "vm mips") <= 0.0:
+            return unavailable(CS_OUTSIDE)
+    if not raw_tasks:
+        return unavailable("UNAVAILABLE_NO_SOURCE_TASKS")
+
+    vms = sorted(vms, key=lambda v: integer(v.get("id"), "vm id"))
+    fastest_mips = max(number(v.get("mips"), "vm mips") for v in vms)
+
+    min_interval = number(config.get("cloudSimMinEventIntervalSeconds", 0.1), "min interval")
+    # SimulationTiming.earliestCloudletCompletionTime(0, 110/mips, minInterval)
+    # = max(predicted, 0 + minInterval + 0.01)（Java 保护值 0.01），随后引擎再加 minInterval。
+    stage_raw = 110.0 / fastest_mips
+    stage_secs = max(stage_raw, min_interval + 0.01) + min_interval
+
+    matrix = {}
+    matrix_spec = config.get("taskCostMatrix")
+    if isinstance(matrix_spec, dict):
+        for ent in matrix_spec.get("entries", []):
+            matrix[(integer(ent["taskId"], "matrix task"), integer(ent["vmId"], "matrix vm"))] = (
+                number(ent["executionSeconds"], "matrix seconds"))
+
+    finish_times = {}
+    remaining = {tid: len(task["parents"]) for tid, task in raw_tasks.items()}
+    ready = [tid for tid in sorted(raw_tasks) if remaining[tid] == 0]
+    lower_bound = 0.0
+    processed = 0
+    while ready:
+        tid = ready.pop(0)
+        task = raw_tasks[tid]
+        ready_time = stage_secs if not task["parents"] else max(
+            finish_times[parent] for parent in task["parents"])
+        # Java transferSeconds：任务文件表中真实外部输入（同任务同名输出不计）
+        external_seconds = 0.0
+        for name, kind, size in task["files"]:
+            if kind != "input":
+                continue
+            if any(n2 == name and k2 == "output" for (n2, k2, _) in task["files"]):
+                continue
+            external_seconds += number(size, "file size") / (1_000_000.0 * number(transfer_rate, "rate"))
+        if not math.isfinite(external_seconds) or external_seconds < 0.0:
+            return unavailable("UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST")
+        best = None
+        unsupported = False
+        for vm in vms:
+            vm_id = integer(vm.get("id"), "vm id")
+            mips = number(vm.get("mips"), "vm mips")
+            # Java TaskExecutionModel.executionLengthMi：矩阵权威；缺坐标显式不可表示。
+            if matrix:
+                key = (tid, vm_id)
+                if key not in matrix:
+                    unsupported = True
+                    break
+                compute_mi = java_round(matrix[key] * mips)
+                if compute_mi <= 0:
+                    unsupported = True
+                    break
+            else:
+                compute_mi = task["lengthMi"]
+                if compute_mi <= 0:
+                    return unavailable("UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST")
+            # Java (long) cast is truncation toward zero, not rounding.
+            transfer_mi = int(mips * external_seconds)
+            envelope_mi = compute_mi + max(transfer_mi, 0)
+            candidate = envelope_mi / mips
+            if not math.isfinite(candidate) or candidate <= 0.0:
+                return unavailable("UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST")
+            if best is None or candidate < best:
+                best = candidate
+        if unsupported:
+            return unavailable("UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST")
+        if best is None:
+            return unavailable("UNAVAILABLE_NO_COMPATIBLE_VM")
+        finish_time = ready_time + best
+        if not math.isfinite(finish_time) or finish_time < 0.0:
+            return unavailable("UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST")
+        finish_times[tid] = finish_time
+        lower_bound = max(lower_bound, finish_time)
+        processed += 1
+        for child in sorted(task["children"]):
+            remaining[child] -= 1
+            if remaining[child] == 0:
+                ready.append(child)
+    if processed != len(raw_tasks):
+        return unavailable("UNAVAILABLE_CYCLIC_SOURCE_TASK_GRAPH")
+    return {"available": True, "scope": CS_SCOPE, "lowerBound": lower_bound}
 
 
 def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
@@ -439,12 +574,54 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                        vmModeledBusyTimeCoefficientOfVariation=cv, vmUtilizationJainFairnessIndex=fairness,
                        exactTaskTimingObservationCount=sum(t.get("exactJobTiming") is True for t in task_outcomes),
                        modeledApproximateTaskTimingObservationCount=sum(t.get("exactJobTiming") is not True for t in task_outcomes))
+        # 审查工程链 E（2026-10-20）：deadline 六字段独立复算（Java Metrics L486-498
+        # 精确语义：BigDecimal.valueOf(long) − new BigDecimal(makespan)；Python 用
+        # Fraction 的等价闭环，含正负号分支与 NOT_REQUESTED/MISSED_INCOMPLETE_WORKFLOW）。
+        deadline_seconds = config.get("deadline")
+        deadline_threshold = 0 if deadline_seconds is None else int(deadline_seconds)
+        if deadline_threshold > 0:
+            frac_deadline = Fraction(deadline_threshold)
+            frac_make = Fraction(end)
+            slack_frac = frac_deadline - frac_make
+            slack_double = float(slack_frac)
+        else:
+            slack_frac = Fraction(0)
+            slack_double = 0.0
+        workflow_completed = metrics.get("logicalTaskCompletionStatus") == "COMPLETED_SUCCESSFULLY"
+        if deadline_threshold <= 0:
+            deadline_outcome = "NOT_REQUESTED"
+        elif not workflow_completed:
+            deadline_outcome = "MISSED_INCOMPLETE_WORKFLOW"
+        else:
+            deadline_outcome = "MET" if slack_frac >= 0 else "MISSED_LATE"
+        derived.update(deadlineObservationEnabled=deadline_threshold > 0,
+                       deadlineObservationOutcome=deadline_outcome,
+                       deadlineObservationTimeBasis="SIMULATION_END_SECONDS",
+                       deadlineMet=deadline_outcome == "MET",
+                       deadlineSlackSeconds=slack_double,
+                       deadlineTardinessSeconds=max(0.0, -slack_double))
+        # ── 链 E 尾项（2026-10-20）：controlledSharedStorage 4 项独立复算 ──
+        # Java WorkflowModelReference.calculate 的 Python 等价：受控范围检查 →
+        # 最快 MIPS → 110 MI stage-in → 拓扑遍历（与 raw_tasks lengthMi 一致的
+        # 明细模型），全部 UNAVAILABLE 分支语义对齐。
+        cp = critical_path_reference(config, platform, raw_tasks)
+        derived.update(controlledSharedStorageCriticalPathReferenceAvailable=cp["available"],
+                       controlledSharedStorageCriticalPathReferenceScope=cp["scope"])
+        if cp["available"]:
+            derived["controlledSharedStorageCriticalPathLowerBoundSeconds"] = cp["lowerBound"]
+            derived["controlledSharedStorageScheduleLengthRatio"] = (
+                end / cp["lowerBound"] if cp["lowerBound"] > 0.0 else 0.0)
+        else:
+            derived["controlledSharedStorageCriticalPathLowerBoundSeconds"] = 0.0
+            derived["controlledSharedStorageScheduleLengthRatio"] = 0.0
+
         for key, expected in derived.items():
             audit.metric(metrics, key, expected, prefix + ":metrics")
         coverage["checkedMetrics"] = sorted(derived)
         coverage["outsideMetricScope"] = sorted(set(metrics) - set(derived) - {"vmMetrics"})
-        coverage["outsideMetricScopeNote"] = ("Decision wall-clock nanos are recomputed from event attributes (审查工程 C10, 2026-10-19); "
-                                              "deadline/critical-path references and fields not listed above remain uncertified.")
+        coverage["outsideMetricScopeNote"] = ("Decision wall-clock nanos + deadline family are recomputed "
+                                              "(审查工程 C10 + 链 E, 2026-10-19/20); "
+                                              "critical-path references and fields not listed above remain uncertified.")
     except (CheckError, OSError, ValueError, KeyError, TypeError, ArithmeticError) as error:
         audit.problem("invalid-or-unsupported-bundle", prefix, str(error))
         coverage["aborted"] = str(error)

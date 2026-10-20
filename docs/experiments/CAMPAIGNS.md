@@ -61,6 +61,15 @@ System.out.println(artifacts.getIndex());
 
 执行前冻结主要指标、实际意义阈值、重复数或预先定义的精度/预算停止规则、多重比较方法。当前执行器没有自适应停止实现，不应因中途结果有利而停止。
 
+### 参数与调参公平性（审查工程链 D 声明，2026-10-20）
+
+带内部超参的随机基线（如 PSO 的代数/粒子数/认知系数；`RANDOM` 的种子流）与确定性算法不同——比较结论对“超参从何而来”敏感。披露规则：
+
+- 与基线/candidate 相关的超参**必须随协议记录**（cell 配置的 planner/scheduler 标签 + 配置工件已含的算法契约字段），包括数值与其来源（预设值/网格/外部调参数据）。
+- 不做<b>事后选择性调参</b>：candidate 与 baseline 的超参在同一 campaign 内必须以相同的预设规则立项；一方网格化而另一方用默认值的比较，其不对称性须在报告中显式声明。
+- 平局规则并非调参：基线决策超参中的平局/浮点敏感参数（如 PI 配准中的 tie-break 语义）的确定行为即协议的一部分：改变即重注册，不可视作隐式调参自由度。
+- 随机基线的种子流遵循 [SeedPlan](<../../simulator/src/main/java/org/workflowsim/experiment/SeedPlan.java>) 设计（确定性算法多种子只是重复，见可复现性契约在本目录的声明）。
+
 ## 通用 campaign 证据
 
 [Campaign 写器](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignArtifactWriter.java>)只接受新建或为空的目录，为每个 cell/replication 写出证据，再写索引并校验：

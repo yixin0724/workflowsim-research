@@ -105,7 +105,13 @@ def make_bundle(root, duration=1.0, effective=1000, matrix=False):
         "meanComputeReadyToDecisionDelaySeconds": 0.0, "meanComputeDecisionToStartDelaySeconds": 0.0,
         "readyToDecisionObservationCount": 1, "decisionToStartObservationCount": 1, "schedulingCycleCount": 2,
         "totalSchedulingDecisionWallClockNanos": 350_750, "totalPlanningDecisionWallClockNanos": 0,
-
+        "deadlineObservationEnabled": False, "deadlineObservationOutcome": "NOT_REQUESTED",
+        "deadlineObservationTimeBasis": "SIMULATION_END_SECONDS", "deadlineMet": False,
+        "deadlineSlackSeconds": 0.0, "deadlineTardinessSeconds": 0.0,
+        "controlledSharedStorageCriticalPathReferenceAvailable": False,
+        "controlledSharedStorageCriticalPathReferenceScope": "UNAVAILABLE_OUTSIDE_CONTROLLED_SHARED_STORAGE_SCOPE",
+        "controlledSharedStorageCriticalPathLowerBoundSeconds": 0.0,
+        "controlledSharedStorageScheduleLengthRatio": 0.0,
         "explicitPlannerDecisionObservationCount": 0, "dataStageInModelObservationCount": 1, "modeledDataTransferFileCount": 1,
         "totalModeledDataTransferSeconds": transfer, "totalModeledRequiredInputBytes": 0.5, "meanModeledDataTransferSeconds": transfer,
         "totalModeledProcessingCost": 3.0 * busy + 2 * bw, "totalModeledCpuEnvelopeCost": 3.0 * busy,
@@ -289,6 +295,38 @@ class IndependentAuditorTests(unittest.TestCase):
         statistics.holm(rows)
         self.assertEqual([Fraction(4, 100), Fraction(3, 100), Fraction(4, 100)], [r["holmExact"] for r in rows])
 
+
+    def test_deadline_family_recompute_matches_java_semantics(self):
+        # 链 E：构造请求 deadline 的 bundle，验证 6 字段的 Python 精确复算。
+        manifest = make_bundle(self.root / "deadline", 1.0, 1000, False)
+        doc = json.loads(manifest.read_text())
+        doc["configuration"]["deadline"] = 200  # 2× 100 就位（阈值数输入）
+        m = doc["metrics"]
+        m.update(deadlineObservationEnabled=True, deadlineObservationOutcome="MET",
+                 deadlineObservationTimeBasis="SIMULATION_END_SECONDS", deadlineMet=True,
+                 deadlineSlackSeconds=200 - m["makespanSeconds"], deadlineTardinessSeconds=0.0)
+        bind_sidecars(manifest, doc)
+        audit = Audit()
+        result = evidence.inspect_manifest(manifest, audit)
+        self.assertEqual(0, audit.issue_count, audit.report())
+        # 第二轮：MISSED_LATE 分支
+        manifest2 = make_bundle(self.root / "deadline-late", 1.0, 1000, False)
+        doc2 = json.loads(manifest2.read_text())
+        doc2["configuration"]["deadline"] = 1  # 1 < makespan(1.21) → 迟到
+        m2 = doc2["metrics"]
+        slack2 = 1 - m2["makespanSeconds"]  # 负值 −0.21
+        m2.update(deadlineObservationEnabled=True, deadlineObservationOutcome="MISSED_LATE",
+                  deadlineObservationTimeBasis="SIMULATION_END_SECONDS", deadlineMet=False,
+                  deadlineSlackSeconds=slack2, deadlineTardinessSeconds=-slack2)  # +0.21
+        bind_sidecars(manifest2, doc2)
+        audit2 = Audit()
+        result2 = evidence.inspect_manifest(manifest2, audit2)
+        self.assertEqual(0, audit2.issue_count, audit2.report())
+        for key in ("deadlineObservationEnabled", "deadlineObservationOutcome",
+                    "deadlineObservationTimeBasis", "deadlineMet",
+                    "deadlineSlackSeconds", "deadlineTardinessSeconds"):
+            self.assertIn(key, result["coverage"]["checkedMetrics"], key)
+            self.assertIn(key, result2["coverage"]["checkedMetrics"], key)
 
     def test_wallclock_nanos_recompute_matches_java_number_semantics(self):
         manifest = make_bundle(self.root / "wallclock", 1.0, 1000, False)

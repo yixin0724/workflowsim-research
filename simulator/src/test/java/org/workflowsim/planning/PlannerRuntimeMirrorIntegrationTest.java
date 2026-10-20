@@ -71,10 +71,32 @@ class PlannerRuntimeMirrorIntegrationTest {
 
     @Test
     void localHeftPlannedWindowsMirrorActualRuntimeWindowsExactly() throws Exception {
+        mirrorPlannedWindowsAgainstActualRuntime(PlanningAlgorithm.LOCAL_HEFT);
+    }
+
+    /** 链 F 扩展（S-F1）：CPOP 的 0 容差镜像——关键处理器逻辑不破坏端到端恒等。 */
+    @Test
+    void localCpopPlannedWindowsMirrorActualRuntimeWindowsExactly() throws Exception {
+        mirrorPlannedWindowsAgainstActualRuntime(PlanningAlgorithm.LOCAL_CPOP);
+    }
+
+    /** 链 F 扩展（S-F1）：PEFT 的 0 容差镜像——OCT 评分路径不破坏端到端恒等。 */
+    @Test
+    void localPeftPlannedWindowsMirrorActualRuntimeWindowsExactly() throws Exception {
+        mirrorPlannedWindowsAgainstActualRuntime(PlanningAlgorithm.LOCAL_PEFT);
+    }
+
+    /**
+     * 通用镜像驱动：完整 SimulationRunner 运行 vs 独立重解析+复规划，
+     * 逐任务断言 VM 绑定/计划开始/计划完成 0 容差镜像
+     * （LOCAL_HEFT / LOCAL_CPOP / LOCAL_PEFT，AbstractLocalCommPlanningAlgorithm 家族）。
+     */
+    private void mirrorPlannedWindowsAgainstActualRuntime(PlanningAlgorithm algorithm)
+            throws Exception {
         Path workflow = layeredDax();
         PlatformProfile platform = mirrorPlatform();
         SimulationConfig config = SimulationConfig.builder(workflow.toString(), 2)
-                .planningAlgorithm(PlanningAlgorithm.LOCAL_HEFT)
+                .planningAlgorithm(algorithm)
                 .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
@@ -83,11 +105,10 @@ class PlannerRuntimeMirrorIntegrationTest {
 
         SimulationReport report = new SimulationRunner().run(config, platform);
         assertEquals(true, report.getMetrics().isAllLogicalTasksCompletedSuccessfully(),
-                "镜像基线要求仿真完整成功");
+                "镜像基线要求仿真完整成功：" + algorithm);
 
-        // 独立复规划：重解析同一 DAX（全新任务对象，同 ID 空间）+ 全新规划器。
-        List<Task> reparsed = reparse(workflow);
-        LocalHeftPlanningAlgorithm planner = new LocalHeftPlanningAlgorithm(
+        List<Task> reparsed = reparse(workflow, algorithm);
+        org.workflowsim.planning.BasePlanningAlgorithm planner = createPlanner(algorithm,
                 new PlanningContext(config, platform));
         planner.setTaskList(reparsed);
         List<CondorVM> vms = new ArrayList<CondorVM>();
@@ -98,19 +119,38 @@ class PlannerRuntimeMirrorIntegrationTest {
         planner.run();
 
         List<SimulationReport.TaskOutcome> outcomes = report.getTasks();
-        assertEquals(reparsed.size(), outcomes.size(), "任务数必须一致（同一 DAX）");
+        assertEquals(reparsed.size(), outcomes.size(), "任务数必须一致（同一 DAX）：" + algorithm);
+        org.workflowsim.planning.AbstractLocalCommPlanningAlgorithm localPlanner =
+                (org.workflowsim.planning.AbstractLocalCommPlanningAlgorithm) planner;
         for (SimulationReport.TaskOutcome outcome : outcomes) {
             Task planned = findById(reparsed, outcome.getTaskId());
             assertEquals(planned.getVmId(), outcome.getVmId(), 0,
-                    "任务 " + outcome.getTaskId() + " 的 VM 绑定必须镜像");
+                    algorithm + " 任务 " + outcome.getTaskId() + " 的 VM 绑定必须镜像");
             assertEquals(planned.getStaticScheduleStartTime(), outcome.getStartTime(),
-                    ZERO_TOLERANCE, "任务 " + outcome.getTaskId() + " 计划开始必须逐位镜像");
-            assertEquals(planner.plannedFinishOf(planned).doubleValue(), outcome.getFinishTime(),
-                    ZERO_TOLERANCE, "任务 " + outcome.getTaskId() + " 计划完成必须逐位镜像");
+                    ZERO_TOLERANCE, algorithm + " 任务 " + outcome.getTaskId()
+                            + " 计划开始必须逐位镜像");
+            assertEquals(localPlanner.plannedFinishOf(planned).doubleValue(), outcome.getFinishTime(),
+                    ZERO_TOLERANCE, algorithm + " 任务 " + outcome.getTaskId()
+                            + " 计划完成必须逐位镜像");
+        }
+    }
+
+    private static org.workflowsim.planning.BasePlanningAlgorithm createPlanner(
+            PlanningAlgorithm algorithm, PlanningContext context) {
+        switch (algorithm) {
+            case LOCAL_HEFT:
+                return new LocalHeftPlanningAlgorithm(context);
+            case LOCAL_CPOP:
+                return new org.workflowsim.planning.LocalCpopPlanningAlgorithm(context);
+            case LOCAL_PEFT:
+                return new org.workflowsim.planning.LocalPeftPlanningAlgorithm(context);
+            default:
+                throw new IllegalArgumentException("镜像驱动不支持规划算法 " + algorithm);
         }
     }
 
     // ---- 夹具 ----
+
     /** 6 任务 3 层 DAG，边带通信文件（层1→层2→层3），桥接文件 4MB/秒带宽八进制换算。 */
     private Path layeredDax() throws Exception {
         StringBuilder dax = new StringBuilder();
@@ -159,12 +199,12 @@ class PlannerRuntimeMirrorIntegrationTest {
                 new CloudletSchedulerSpaceShared());
     }
 
-    private List<Task> reparse(Path workflow) {
+    private List<Task> reparse(Path workflow, PlanningAlgorithm algorithm) {
         ReplicaCatalog.reset();
         ReplicaCatalog.init(ReplicaCatalog.FileSystem.LOCAL);
         org.workflowsim.utils.Parameters.reset();
         org.workflowsim.utils.Parameters.init(2, workflow.toString(), null, null, null, null,
-                SchedulingAlgorithm.STATIC, PlanningAlgorithm.LOCAL_HEFT, null, 0L);
+                SchedulingAlgorithm.STATIC, algorithm, null, 0L);
         WorkflowParser parser = new WorkflowParser(0);
         parser.parse();
         return parser.getTaskList();

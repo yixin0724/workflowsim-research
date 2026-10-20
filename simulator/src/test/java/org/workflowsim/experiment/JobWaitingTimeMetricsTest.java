@@ -1,6 +1,8 @@
 package org.workflowsim.experiment;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import org.cloudbus.cloudsim.Cloudlet;
@@ -156,6 +158,49 @@ class JobWaitingTimeMetricsTest {
         // 作业 A: wait=2, exec=4, bounded=10 → (2+4)/10=0.6 → max(0.6, 1.0)=1.0（下界钳制）
         assertEquals(1.0, metrics.getMeanComputeTrueSlowdown(), 1e-9);
         assertEquals(1, metrics.getTrueSlowdownObservationCount());
+    }
+
+    @Test
+    void duplicateSchedulingDecisionEventFailsExplicitly() {
+        // 契约 L154（CONTRACTS.md）："重复关键事件会显式失败"——链 B 审计补锁
+        // （S-B1：此前声明无测试锁定）。同一 Job 的第二个 SCHEDULING_DECISION
+        // 事件必须在指标计算入口显式抛错，不得静默取首个/末个决策时刻。
+        java.util.List<SimulationReport.JobOutcome> jobs = java.util.Arrays.asList(
+                job(10, 0.0, 2.0, 6.0));
+        java.util.List<SimulationReport.TaskOutcome> tasks = java.util.Arrays.asList(
+                task(1, 10, 0.0, 6.0));
+        java.util.List<org.workflowsim.Task> sourceTasks = java.util.Arrays.asList(
+                new org.workflowsim.Task(1, 1000));
+        java.util.List<SimulationEvent> events = java.util.Arrays.asList(
+                event(1, 0.5, SimulationEventType.JOB_READY, 10),
+                event(2, 0.6, SimulationEventType.SCHEDULING_DECISION, 10),
+                event(3, 0.7, SimulationEventType.SCHEDULING_DECISION, 10));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> SimulationMetrics.calculate(6.0, jobs, summaries(), events,
+                        tasks, sourceTasks, config(), platform()));
+        assertTrue(failure.getMessage().contains("Duplicate SCHEDULING_DECISION"),
+                "错误消息应指明重复决策事件，实际: " + failure.getMessage());
+    }
+
+    @Test
+    void duplicateReadyEventAlsoFailsExplicitly() {
+        // 同一契约语义的邻位：同一 Job 重复 JOB_READY 亦不得静默。
+        java.util.List<SimulationReport.JobOutcome> jobs = java.util.Arrays.asList(
+                job(10, 0.0, 2.0, 6.0));
+        java.util.List<SimulationReport.TaskOutcome> tasks = java.util.Arrays.asList(
+                task(1, 10, 0.0, 6.0));
+        java.util.List<org.workflowsim.Task> sourceTasks = java.util.Arrays.asList(
+                new org.workflowsim.Task(1, 1000));
+        java.util.List<SimulationEvent> events = java.util.Arrays.asList(
+                event(1, 0.5, SimulationEventType.JOB_READY, 10),
+                event(2, 1.5, SimulationEventType.JOB_READY, 10));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> SimulationMetrics.calculate(6.0, jobs, summaries(), events,
+                        tasks, sourceTasks, config(), platform()));
+        assertTrue(failure.getMessage() != null && !failure.getMessage().isEmpty(),
+                "重复 ready 必须显式失败：" + failure.getMessage());
     }
 
     private static SimulationEvent event(SimulationEventType type, double time, Integer jobId) {
