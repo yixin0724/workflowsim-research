@@ -21,7 +21,7 @@
 | 历史记录 | 身份与范围 | 保留材料 / 可选位置 |
 |---|---|---|
 | Fat-tree campaign | R8 再标定版本；360 个单元，seed 91 | [来源与参数](<fattree-scheduling-campaign/RETENTION.md>)；仓库内保留 [JSON](<fattree-scheduling-campaign/campaign-results.json>) 和 [数值表](<fattree-scheduling-campaign/campaign-results.md>) |
-| R10 首次试点 | 576 个单元；其中 12 个不兼容运行失败，未认证为完整比较 | `output/network-study-r10/`；[资格排除说明](<network-limited-r10/PROTOCOL.md>) |
+| R10 首次试点 | 576 个单元；其中 12 个不兼容运行失败，未认证为完整比较 | `output/network-study-r10-pilot.tar.gz`（已压为 tar 正本）；[资格排除说明](<network-limited-r10/PROTOCOL.md>) |
 | R10 合格矩阵 | `network-limited-r10-v2`；504 个单元 | [历史来源说明](<network-limited-r10/PROTOCOL.md>)；`output/network-study-r10-final/`；`output/network-study-r10-evidence.tar.gz` |
 | R12 / S5 PEFT 比较 | `peft-comparison-r12-v1`；126 个单元；旧 PEFT 非标准 | `output/peft-comparison-r12/`；`output/peft-comparison-r12-evidence.tar.gz`；修正身份为 `peft-comparison-r12-v2` |
 | R13 敏感性响应面 | `sensitivity-response-r13-v1`；546 个单元；旧 PEFT 非标准 | 原[预注册协议](<sensitivity-r13/PROTOCOL.md>)和[评估记录](<sensitivity-r13/RESULTS.md>)原地归档；`output/sensitivity-r13/`；`output/sensitivity-r13-evidence.tar.gz` |
