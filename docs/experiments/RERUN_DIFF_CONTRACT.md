@@ -9,7 +9,7 @@
 从项目根执行，替换占位路径：
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.rerun.RerunDiffExecutor \
   '-Dexec.args="/absolute/original-run" "/absolute/new-rerun-output"'
 ```

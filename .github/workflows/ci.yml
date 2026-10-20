@@ -155,7 +155,7 @@ jobs:
 
       - name: Generate real Workbench browser fixtures
         run: >-
-          mvn -B -pl :workflowsim-experiments -am test-compile exec:java
+          mvn -B -pl :workflowsim-workbench -am test-compile exec:java
           -Dexec.mainClass=org.workflowsim.experiments.workbench.WorkbenchBrowserFixtures
           -Dexec.classpathScope=test
           -Dexec.args="\"$PWD\" \"$PWD/output/workbench-ci\""

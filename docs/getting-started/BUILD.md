@@ -17,7 +17,7 @@
 | 模块 | Maven 坐标 | 职责 |
 | --- | --- | --- |
 | 核心模拟器 | `org.workflowsim:workflowsim:1.0` | 模型、运行器、指标和通用证据 API |
-| 实验模块 | `org.workflowsim:workflowsim-experiments:1.0` | Workbench、示例和研究驱动 |
+| 实验模块 | `org.workflowsim:workflowsim-workbench:1.0` | Workbench、示例和研究驱动 |
 
 编译使用 `--release 8`，产物保持 Java 8 API 兼容；这不降低构建 JDK 的要求。
 
@@ -91,7 +91,7 @@ npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
 # 已有可用 Chrome 时可省略；Linux CI 使用 install --with-deps chromium。
 scripts/node_modules/.bin/playwright-core install chromium
 
-mvn -pl :workflowsim-experiments -am test-compile exec:java \
+mvn -pl :workflowsim-workbench -am test-compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.WorkbenchBrowserFixtures \
   -Dexec.classpathScope=test \
   '-Dexec.args="/absolute/checkout" "/absolute/new-browser-output"'
@@ -115,12 +115,12 @@ WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
 
 ## 运行 Java 入口
 
-实验入口使用 `-pl :workflowsim-experiments -am compile exec:java`，由Reactor先构建当前核心依赖再执行。不要省略`compile`直接调用`exec:java`：它可能解析本地Maven仓库中的旧核心JAR，导致当前源码已有的模型枚举在运行时仍不被识别。遇到这种情况应重建正确的模块/类路径，而不是改写证据中的模型标签。Workbench的四个命令见[操作指南](<WORKBENCH.md>)；自建Java类见[代码指南](<CODE_CONFIG_EXPERIMENTS.md>)。
+实验入口使用 `-pl :workflowsim-workbench -am compile exec:java`，由Reactor先构建当前核心依赖再执行。不要省略`compile`直接调用`exec:java`：它可能解析本地Maven仓库中的旧核心JAR，导致当前源码已有的模型枚举在运行时仍不被识别。遇到这种情况应重建正确的模块/类路径，而不是改写证据中的模型标签。Workbench的四个命令见[操作指南](<WORKBENCH.md>)；自建Java类见[代码指南](<CODE_CONFIG_EXPERIMENTS.md>)。
 
 使用仓库自带 JSON 输入的示例：
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.examples.wfcommons.WfCommonsSimulationExample1 \
   -Dexec.args="datasets/wfformat/montage/n100/montage-100-000.json"
 ```

@@ -11,10 +11,10 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>workflowsim-experiments</artifactId>
+    <artifactId>workflowsim-workbench</artifactId>
     <packaging>jar</packaging>
-    <name>WorkflowSim Experiments</name>
-    <description>WorkflowSim 的教学示例、冻结参考基线和未来研究实验资产。</description>
+    <name>WorkflowSim Workbench</name>
+    <description>Workbench 统一实验入口、研究驱动器、复现工具、冻结参考基线和教学示例。</description>
 
     <properties>
         <!-- R3 覆盖率门禁棘轮值：略低于实测（2026-09-17 R10 平台升级轮 clean verify：

@@ -4,7 +4,7 @@
 
 1. 打开仓库根目录或[根 POM](<../../pom.xml>)，以 Maven 工程导入。
 2. 在 Maven 工具窗口执行 **Reload All Maven Projects**。
-3. 确认存在 `workflowsim` 与 `workflowsim-experiments` 两个模块。它们属于默认 Reactor，无需额外的 `experiments` profile。
+3. 确认存在 `workflowsim` 与 `workflowsim-workbench` 两个模块。它们属于默认 Reactor，无需额外的 `experiments` profile。
 4. 确认各模块的 `src/main/java`、`src/test/java` 被识别为源码和测试源码目录。
 
 图标颜色因 IDEA 版本和主题而异；以 Maven 同步、依赖解析、代码补全和 Run 操作为准，不手动标记目录来替代正确导入。
@@ -22,7 +22,7 @@
 | 配置项 | 值 |
 | --- | --- |
 | Main class | `org.workflowsim.experiments.workbench.Workbench` |
-| Use classpath of module | `workflowsim-experiments` |
+| Use classpath of module | `workflowsim-workbench` |
 | Working directory | `$PROJECT_DIR$`，即仓库根目录 |
 | JRE | JDK 17+ |
 | Program arguments | `validate experiments/configs/online-comparison.json` |

@@ -66,7 +66,7 @@ public final class MyExperiment {
 从仓库根目录运行：
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.mystudy.MyExperiment
 ```
 

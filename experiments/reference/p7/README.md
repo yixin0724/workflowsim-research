@@ -9,11 +9,11 @@
 从项目根目录执行。第一个参数必须是包含 `dax/` 的绝对数据集根；第二个是不存在或为空的绝对输出目录。实验模块默认随 reactor 构建，不需要额外 profile。
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7BaselineExecutor \
   -Dexec.args="/absolute/path/to/WorkflowSim-1.0/datasets /absolute/empty/p7-output"
 
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.reference.p7.P7EvidenceIndexValidator \
   -Dexec.args="/absolute/p7-output/p7-baseline-index.json"
 ```

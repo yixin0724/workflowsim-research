@@ -1,13 +1,13 @@
 # 实验模块
 
-本模块的 Maven 坐标为 `org.workflowsim:workflowsim-experiments:1.0`，依赖核心模拟器。它承载 Workbench、教学示例、研究驱动及相应测试；[根 POM](<../pom.xml>)默认构建两个模块，无需额外 profile。
+本模块的 Maven 坐标为 `org.workflowsim:workflowsim-workbench:1.0`，依赖核心模拟器。它承载 Workbench、教学示例、研究驱动及相应测试；[根 POM](<../pom.xml>)默认构建两个模块，无需额外 profile。
 
 ## 运行实验
 
 从项目根目录运行维护中的 JSON 配置入口：
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 ```

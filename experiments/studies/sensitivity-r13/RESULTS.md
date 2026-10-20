@@ -156,10 +156,10 @@ HET_EXTREME 反而收敛（极端落差下快 VM 选择变得平凡，OCT 分歧
 
 ```bash
 mvn -pl :workflowsim -am install -DskipTests -q
-mvn -pl :workflowsim-experiments exec:java \
+mvn -pl :workflowsim-workbench exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyExecutor \
   -Dexec.args="full $PWD/datasets $PWD/output/<新目录> sensitivity-r13"
-mvn -pl :workflowsim-experiments exec:java \
+mvn -pl :workflowsim-workbench exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyValidator \
   -Dexec.args="$PWD/output/<新目录>/network-study.json"
 # 期望输出：NETWORK_STUDY_VALIDATION PASSED runs=546

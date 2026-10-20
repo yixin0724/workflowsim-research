@@ -7,7 +7,7 @@
 [在线调度示例](<../../experiments/configs/online-comparison.json>)使用仓库自带的 Epigenomics 输入，对比同一决策层的调度器。
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="validate experiments/configs/online-comparison.json"
 ```
@@ -17,7 +17,7 @@ mvn -pl :workflowsim-experiments -am compile exec:java \
 ## 2. 运行实验
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 ```

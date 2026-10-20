@@ -53,10 +53,10 @@ S5 在同构平台上发现 PEFT 相对 HEFT 无优势、大量精确平局，�
 完整证据保存在项目 `output/sensitivity-r13/`（`.gitignore` 排除，不入库；交接用压缩包 `output/sensitivity-r13-evidence.tar.gz`）。每次运行具有v4 manifest、metrics、events；研究根含 protocol、546 行运行索引、自动生成结果表、合成输入。
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyExecutor \
   -Dexec.args="full /absolute/datasets /absolute/new-output sensitivity-r13"
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyValidator \
   -Dexec.args="/absolute/new-output/network-study.json"
 ```

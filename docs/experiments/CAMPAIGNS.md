@@ -95,11 +95,11 @@ campaign-output/
 从项目根运行一个当前 smoke 研究；替换绝对路径占位符：
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyExecutor \
   '-Dexec.args=smoke "/absolute/datasets" "/absolute/new-network-study" r10'
 
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.network.NetworkStudyValidator \
   '-Dexec.args="/absolute/new-network-study/network-study.json"'
 ```

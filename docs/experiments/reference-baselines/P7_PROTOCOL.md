@@ -55,7 +55,7 @@ P7 驱动属于默认 reactor 构建的实验模块，核心模块不依赖它�
 
 ## 协议身份与文档指纹
 
-[P7ReferenceIdentity](<../../../experiments/src/main/java/org/workflowsim/experiments/reference/p7/P7ReferenceIdentity.java>)使用 study ID `p7-baseline`、组件 `org.workflowsim:workflowsim-experiments:1.0`、驱动 `org.workflowsim.experiments.reference.p7.P7BaselineExecutor`，以及固定逻辑 ID `docs/experiments/reference-baselines/P7_PROTOCOL.md`。
+[P7ReferenceIdentity](<../../../experiments/src/main/java/org/workflowsim/experiments/reference/p7/P7ReferenceIdentity.java>)使用 study ID `p7-baseline`、组件 `org.workflowsim:workflowsim-workbench:1.0`、驱动 `org.workflowsim.experiments.reference.p7.P7BaselineExecutor`，以及固定逻辑 ID `docs/experiments/reference-baselines/P7_PROTOCOL.md`。
 
 该逻辑 ID 对应的**本文件实际字节**会被计算 SHA-256 并写入新运行的 provenance；通过驱动 code source 定位，不依赖 CLI 当前目录。独立 JAR 缺少并置协议时记录 `available=false` 和空 hash，不伪造指纹。旧 `P7_EXPERIMENT_PROTOCOL.md` 的历史逻辑身份仍被验证器接受。
 

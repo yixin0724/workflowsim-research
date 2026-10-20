@@ -8,22 +8,22 @@ Workbench 是维护中的统一实验入口。它读取 JSON 配置，运行同�
 
 ```bash
 # 预检：解析输入并检查配置组合，不运行仿真
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="validate experiments/configs/online-comparison.json"
 
 # 运行：在输出根下创建唯一实验子目录
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 
 # 扫描实验记录，重建历史索引
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="history output/workbench"
 
 # 从单次运行证据生成独立报告；目标文件必须尚不存在
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   '-Dexec.args=report "/absolute/run/result.manifest.json" "/absolute/new-report.html"'
 ```

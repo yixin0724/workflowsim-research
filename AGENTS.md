@@ -22,7 +22,7 @@ python3 -B scripts/check-docs.py                # 文档链接/锚点校验
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py   # Python 审计器自测
 
 # Workbench 冒烟（标准入口）
-mvn -q -pl :workflowsim-experiments -am compile exec:java \
+mvn -q -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="validate experiments/configs/online-comparison.json"
 ```
@@ -59,8 +59,8 @@ mvn -q -pl :workflowsim-experiments -am compile exec:java \
 
 | 目录/文件 | 定位 | 新增项规则 |
 |---|---|---|
-| `simulator/` | 核心引擎（无上游依赖） | 算法/模型/证据类；不依赖 experiments |
-| `experiments/` | 实验入口+示例+协议+复现 | 待后续拆分为 workbench/rerun/studies/legacy |
+| `simulator/` | 核心引擎（artifactId `workflowsim`，无上游依赖） | 算法/模型/证据类 |
+| `experiments/` | Workbench Maven 模块（artifactId `workflowsim-workbench`）：统一入口+研究驱动器+复现+示例 | 重组待有外部需求时再启动 |
 | `grouped-workflows/` | 执行包研究（第二篇论文） | 独立生命周期；不反向依赖 |
 | `datasets/` | 工作流输入（三类含 .gitignore 反选） | 不新增全量语料；先查 `datasets/INDEX.json` |
 | `docs/` | 契约文档体系 | 每新文档须入 `docs/README.md` 索引；`check-docs.py` 0 issues |

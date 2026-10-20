@@ -48,7 +48,7 @@ V1 为 `PRE_EXECUTION_TRANSFER_DELAY_V1`，R2 为 `PRE_EXECUTION_TRANSFER_DELAY_
 以下命令按驱动中的历史参数使用**当前实现**生成新结果，不恢复 R8 二进制。使用全新输出目录，之后比较并解释差异；不要指向本目录。
 
 ```bash
-mvn -pl :workflowsim-experiments -am compile exec:java \
+mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.fattree.FatTreeSchedulingCampaignExecutor \
   -Dexec.args="/absolute/datasets /absolute/new-fattree-comparison"
 ```

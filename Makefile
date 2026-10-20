@@ -51,7 +51,7 @@ package:
 	@echo ""
 	@echo "产物位置："
 	@echo "  simulator/target/workflowsim-1.0.jar"
-	@echo "  experiments/target/workflowsim-experiments-1.0.jar"
+	@echo "  experiments/target/workflowsim-workbench-1.0.jar"
 
 # 清理并重新构建
 rebuild: clean build
