@@ -55,6 +55,23 @@ mvn -q -pl :workflowsim-experiments -am compile exec:java \
 - `grouped-workflows/` 例外：紧凑英文，规则见该目录内 AGENTS.md。
 - 数据集中英混合命名沿用现状；新文件名用 ASCII。
 
+## 仓库结构约定（2026-10-20 审查工程新增）
+
+| 目录/文件 | 定位 | 新增项规则 |
+|---|---|---|
+| `simulator/` | 核心引擎（无上游依赖） | 算法/模型/证据类；不依赖 experiments |
+| `experiments/` | 实验入口+示例+协议+复现 | 待后续拆分为 workbench/rerun/studies/legacy |
+| `grouped-workflows/` | 执行包研究（第二篇论文） | 独立生命周期；不反向依赖 |
+| `datasets/` | 工作流输入（三类含 .gitignore 反选） | 不新增全量语料；先查 `datasets/INDEX.json` |
+| `docs/` | 契约文档体系 | 每新文档须入 `docs/README.md` 索引；`check-docs.py` 0 issues |
+| `scripts/` | Python 审计器（纯 stdlib） | 不引入 Node 依赖；自测成对 |
+| `output/` | 运行产物（gitignored） | 只存 tar 正本 + 当前活跃实验；旧堆须清理 |
+| `review-workspace/` | 临时工作区（gitignored） | 工程收尾后整体清除 |
+| `AGENTS.md` | 编码代理守则 | 修改需人工评审 |
+| `Makefile` | 便捷命令 | 与 pom.xml 目标同步维护 |
+
+**新增顶层目录/文件的纪律**：先问"为什么不放进已有 raise 的目录"；确定必须新增时同步更新本表 + `docs/README.md`（如涉及文档） + `check-docs.py` 结果。
+
 ## 完成定义（Done）
 
 - 新逻辑：**先写失败测试**（期望值三源合法）→ 修复 → 全绿；回归测试与根因 javadoc 成对出现。
