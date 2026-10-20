@@ -42,6 +42,10 @@
 - [协议身份与历史证据边界](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)：哪些旧身份仍可读取，为什么旧结果不等于当前实现的结论。
 - [独立研究检查工具](<../scripts/STUDY_AUDIT.md>)：一般证据/统计校验的实际范围，与数据流专用证书区分。
 
+## 研究定位与质量
+
+- [科学定位声明](<SCIENCE-POSITION.md>)：研究身份、真实性标准（内部效度）、竞争定位、威胁效度。
+
 ## 维护
 
 - [文档与源码注释规范](<advanced/CODE_STYLE.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
