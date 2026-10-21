@@ -578,172 +578,201 @@ public class WorkflowDatacenter extends Datacenter {
             Job job = (Job) payload;
 
             if (job.isFinished()) {
-                String name = CloudSim.getEntityName(job.getUserId());
-                Log.printLine(getName() + ": Warning - Cloudlet #" + job.getCloudletId() + " owned by " + name
-                        + " is already completed/finished.");
-                Log.printLine("Therefore, it is not being executed again");
-                Log.printLine();
-
-                // 已完成的 Cloudlet 不会再次执行；仍需返回确认（若请求）和返回事件，
-                // 否则等待该 Cloudlet 的上游实体会一直阻塞。
-                if (ack) {
-                    int[] data = new int[3];
-                    data[0] = getId();
-                    data[1] = job.getCloudletId();
-                    data[2] = CloudSimTags.FALSE;
-
-                    // 确认事件使用与提交操作对应的唯一 CloudSim 标签。
-                    int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
-                    sendNow(job.getUserId(), tag, data);
-                }
-
-                sendNow(job.getUserId(), CloudSimTags.CLOUDLET_RETURN, job);
-
+                returnFinishedJobToUser(job, ack);
                 return;
             }
 
-            int userId = job.getUserId();
-            int vmId = job.getVmId();
-            Host host = getVmAllocationPolicy().getHost(vmId, userId);
-            if (host == null) {
-                throw new IllegalStateException(
-                        "No host contains VM " + vmId + " for submitted Job " + job.getCloudletId());
-            }
-            Vm candidateVm = host.getVm(vmId, userId);
-            if (!(candidateVm instanceof CondorVM)) {
-                throw new IllegalStateException("Submitted Job " + job.getCloudletId()
-                        + " is assigned to an unavailable or non-Condor VM " + vmId);
-            }
-            CondorVM vm = (CondorVM) candidateVm;
-
-            /**
-             * 任务×VM 异构成本矩阵投影：STATIC 派发在此把逻辑任务的精确执行秒数折算为
-             * 作业长度（MI = round(秒数 × vm.mips)），使运行时执行时间与论文成本表一致
-             * （受 CloudSim 整数 MI 舍入影响）。重试路径同样经过本方法，折算自动生效。
-             * 未携带投影的任务保持原始 MI/mips 缩放行为。
-             */
-            long computeLengthMi = job.getEffectiveExecutionLengthMi();
-            if (job.getClassType() == ClassType.COMPUTE.value) {
-                for (Task task : job.getTaskList()) {
-                    task.setEffectiveExecutionLengthMi(TaskExecutionModel.executionLengthMi(task, vmId, vm.getMips()));
-                }
-                if (job.getTaskList().size() == 1 && job.getTaskList().get(0).hasVmExecutionCostSeconds()) {
-                    computeLengthMi = job.getTaskList().get(0).getEffectiveExecutionLengthMi();
-                }
-            }
-            // Keep compute work separate from CloudSim's mutable, stage-in-inclusive envelope.
-            // A retry starts here from pure compute work and resolves its matrix again.
-            job.setEffectiveExecutionLengthMi(computeLengthMi);
-            job.setCloudletLength(computeLengthMi);
-
-            switch (Parameters.getCostModel()) {
-                case DATACENTER:
-                    // 按配置的成本模型写入本次数据中心或 VM 的计费参数。
-                    job.setResourceParameter(
-                            getId(),
-                            getCharacteristics().getCostPerSecond(),
-                            getCharacteristics().getCostPerBw());
-                    break;
-                case VM:
-                    job.setResourceParameter(getId(), vm.getCost(), vm.getCostPerBW());
-                    break;
-                default:
-                    break;
-            }
+            CondorVM vm = resolveSubmittedJobVm(job);
+            projectComputeExecutionLength(job, vm);
+            applyCostModelResourceParameters(job, vm);
 
             /** 阶段输入 Job 只登记文件所在位置，位置语义由副本文件系统模式决定。 */
             if (job.getClassType() == ClassType.STAGE_IN.value) {
                 stageInFile2FileSystem(job);
             }
-
-            /** 计算 Job 的输入数据移动时间作为 CloudletScheduler 的传输耗时参数。 */
-            double fileTransferTime = 0.0;
-            if (job.getClassType() == ClassType.COMPUTE.value) {
-                if (dataMovementModel.usesCoherentDataflowRuntime()) {
-                    requireCoherentRuntime();
-                    fileTransferTime = 0.0;
-                } else if (dataMovementModel.isPreExecutionTransferDelayV1()
-                        || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
-                        || dataMovementModel.isFatTreeContentionV1()) {
-                    // 论文语义路径（PRE_EXECUTION_TRANSFER_DELAY_V1）、链路争用路径
-                    // （R2 PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1）与 Fat-tree
-                    // 拓扑争用路径：输入传输已由引擎在数据就绪时作为执行前延迟建模
-                    // （争用模型下并发传输公平共享 VM 端点带宽，Fat-tree 下再叠加
-                    // 确定性路由路径上的共享链路），传输窗口可与目标 VM 的忙碌期
-                    // 重叠，此处不再把传输折算进执行信封——VM 只被计算 MI 占用，
-                    // 计算从提交时刻开始。DATA_STAGE_IN_MODELED 证据与输入副本登记
-                    // 由引擎在传输窗口处理。
-                    fileTransferTime = 0.0;
-                } else {
-                    DataTransferEstimate estimate = estimateDataStageInForComputeJob(job.getFileList(), job);
-                    fileTransferTime = estimate.getTransferSeconds();
-                    eventRecorder.record(
-                            SimulationEventType.DATA_STAGE_IN_MODELED,
-                            CloudSim.clock(),
-                            job,
-                            SimulationEventRecorder.attributes(
-                                    "modeledTransferSeconds",
-                                    fileTransferTime,
-                                    "requiredFileBytes",
-                                    estimate.getRequiredFileBytes(),
-                                    "modeledTransferFileCount",
-                                    estimate.getRequiredFileCount(),
-                                    "dataMovementModel",
-                                    dataMovementModel.getKind().name()));
-                }
-            }
-
-            // Validate the total envelope before CloudSim converts MI * PEs to long instructions.
-            double envelopeMi = job.getCloudletLength() + vm.getMips() * fileTransferTime;
-            if (!Double.isFinite(envelopeMi) || envelopeMi >= (double) Long.MAX_VALUE) {
-                throw new IllegalArgumentException("Stage-in overflows the executable Job envelope");
-            }
-            TaskExecutionModel.requireRepresentableLength((long) envelopeMi, job.getNumberOfPes());
-            CloudletScheduler scheduler = vm.getCloudletScheduler();
-            long cloudletLengthBeforeStageIn = job.getCloudletLength();
-            if (job.getClassType() == ClassType.COMPUTE.value && dataMovementModel.usesCoherentDataflowRuntime()) {
-                requireCoherentRuntime().cpuStarted(job.getCloudletId(), coherentTaskIds(job), vmId, CloudSim.clock());
-                sendNow(coherentEngineId, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, null);
-            }
-            double estimatedFinishTime = scheduler.cloudletSubmit(job, fileTransferTime);
-            // Fail-fast：忙碌 VM 提交路径。CloudSim 对忙碌 VM 返回 0.0 并保持作业
-            // QUEUED（execStartTime 未设置，保持默认 0.0），若继续执行，
-            // updateTaskExecTime 会把任务时间窗锚定在 ≈0.0 —— 早于该作业的
-            // JOB_READY 时刻，构成时间倒挂，并导致 FailureGenerator 基于错误
-            // 时间窗做出错误的故障归因（静默数据污染）。
-            // WorkflowSim 的标准调度契约是所有算法只向空闲 VM 派发作业，因此
-            // 提交到忙碌 VM 属于契约违规，必须显式失败而非静默降级。
-            if (!(estimatedFinishTime > 0.0) || Double.isInfinite(estimatedFinishTime)) {
-                throw new IllegalStateException(getName()
-                        + " received a Job submitted to a busy VM (cloudlet "
-                        + job.getCloudletId() + ", VM " + vm.getId()
-                        + "): WorkflowSim scheduling contract only dispatches Jobs"
-                        + " to idle VMs; a busy-VM submission would anchor the task"
-                        + " time window at 0.0 and corrupt failure attribution");
-            }
-            double effectiveStageInSeconds =
-                    effectiveCloudletStageInSeconds(job, vm, cloudletLengthBeforeStageIn, fileTransferTime);
-            updateTaskExecTime(job, vm, effectiveStageInSeconds, fileTransferTime);
-
-            double completionTime = SimulationTiming.earliestCloudletCompletionTime(
-                    CloudSim.clock(), CloudSim.clock() + estimatedFinishTime, CloudSim.getMinTimeBetweenEvents());
-            send(getId(), completionTime - CloudSim.clock(), CloudSimTags.VM_DATACENTER_EVENT);
-
-            if (ack) {
-                int[] data = new int[3];
-                data[0] = getId();
-                data[1] = job.getCloudletId();
-                data[2] = CloudSimTags.TRUE;
-
-                int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
-                sendNow(job.getUserId(), tag, data);
-            }
+            double fileTransferTime = resolveComputeJobTransferSeconds(job);
+            submitJobToScheduler(job, vm, fileTransferTime, ack);
         } catch (Exception e) {
             throw new IllegalStateException(getName() + " could not submit a workflow Job", e);
         }
         checkCloudletCompletion();
     }
 
+    /** 已完成 Job 的提交响应（失败确认 + 返回事件，逐字搬运转写自 processCloudletSubmit）。 */
+    private void returnFinishedJobToUser(Job job, boolean ack) {
+        String name = CloudSim.getEntityName(job.getUserId());
+        Log.printLine(getName() + ": Warning - Cloudlet #" + job.getCloudletId() + " owned by " + name
+                + " is already completed/finished.");
+        Log.printLine("Therefore, it is not being executed again");
+        Log.printLine();
+
+        // 已完成的 Cloudlet 不会再次执行；仍需返回确认（若请求）和返回事件，
+        // 否则等待该 Cloudlet 的上游实体会一直阻塞。
+        if (ack) {
+            int[] data = new int[3];
+            data[0] = getId();
+            data[1] = job.getCloudletId();
+            data[2] = CloudSimTags.FALSE;
+
+            // 确认事件使用与提交操作对应的唯一 CloudSim 标签。
+            int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
+            sendNow(job.getUserId(), tag, data);
+        }
+
+        sendNow(job.getUserId(), CloudSimTags.CLOUDLET_RETURN, job);
+
+        return;
+    }
+
+    /** 解析提交 Job 所指向的 CondorVM（逐字搬运转写）。 */
+    private CondorVM resolveSubmittedJobVm(Job job) {
+        int userId = job.getUserId();
+        int vmId = job.getVmId();
+        Host host = getVmAllocationPolicy().getHost(vmId, userId);
+        if (host == null) {
+            throw new IllegalStateException(
+                    "No host contains VM " + vmId + " for submitted Job " + job.getCloudletId());
+        }
+        Vm candidateVm = host.getVm(vmId, userId);
+        if (!(candidateVm instanceof CondorVM)) {
+            throw new IllegalStateException(
+                    "Submitted Job " + job.getCloudletId() + " is assigned to an unavailable or non-Condor VM " + vmId);
+        }
+        CondorVM vm = (CondorVM) candidateVm;
+        return vm;
+    }
+
+    /** 投影异构成本矩阵并设置作业长度（逐字搬运转写）。 */
+    private void projectComputeExecutionLength(Job job, CondorVM vm) {
+        int vmId = job.getVmId();
+        /**
+         * 任务×VM 异构成本矩阵投影：STATIC 派发在此把逻辑任务的精确执行秒数折算为
+         * 作业长度（MI = round(秒数 × vm.mips)），使运行时执行时间与论文成本表一致
+         * （受 CloudSim 整数 MI 舍入影响）。重试路径同样经过本方法，折算自动生效。
+         * 未携带投影的任务保持原始 MI/mips 缩放行为。
+         */
+        long computeLengthMi = job.getEffectiveExecutionLengthMi();
+        if (job.getClassType() == ClassType.COMPUTE.value) {
+            for (Task task : job.getTaskList()) {
+                task.setEffectiveExecutionLengthMi(TaskExecutionModel.executionLengthMi(task, vmId, vm.getMips()));
+            }
+            if (job.getTaskList().size() == 1 && job.getTaskList().get(0).hasVmExecutionCostSeconds()) {
+                computeLengthMi = job.getTaskList().get(0).getEffectiveExecutionLengthMi();
+            }
+        }
+        // Keep compute work separate from CloudSim's mutable, stage-in-inclusive envelope.
+        // A retry starts here from pure compute work and resolves its matrix again.
+        job.setEffectiveExecutionLengthMi(computeLengthMi);
+        job.setCloudletLength(computeLengthMi);
+    }
+
+    /** 按成本模型写入计费参数（逐字搬运转写）。 */
+    private void applyCostModelResourceParameters(Job job, CondorVM vm) {
+        switch (Parameters.getCostModel()) {
+            case DATACENTER:
+                // 按配置的成本模型写入本次数据中心或 VM 的计费参数。
+                job.setResourceParameter(
+                        getId(),
+                        getCharacteristics().getCostPerSecond(),
+                        getCharacteristics().getCostPerBw());
+                break;
+            case VM:
+                job.setResourceParameter(getId(), vm.getCost(), vm.getCostPerBW());
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** 计算 Job 的输入数据移动时间作为 CloudletScheduler 的传输耗时参数。 */
+    private double resolveComputeJobTransferSeconds(Job job) throws Exception {
+        double fileTransferTime = 0.0;
+        if (job.getClassType() == ClassType.COMPUTE.value) {
+            if (dataMovementModel.usesCoherentDataflowRuntime()) {
+                requireCoherentRuntime();
+                fileTransferTime = 0.0;
+            } else if (dataMovementModel.isPreExecutionTransferDelayV1()
+                    || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                    || dataMovementModel.isFatTreeContentionV1()) {
+                // 论文语义路径（PRE_EXECUTION_TRANSFER_DELAY_V1）、链路争用路径
+                // （R2 PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1）与 Fat-tree
+                // 拓扑争用路径：输入传输已由引擎在数据就绪时作为执行前延迟建模
+                // （争用模型下并发传输公平共享 VM 端点带宽，Fat-tree 下再叠加
+                // 确定性路由路径上的共享链路），传输窗口可与目标 VM 的忙碌期
+                // 重叠，此处不再把传输折算进执行信封——VM 只被计算 MI 占用，
+                // 计算从提交时刻开始。DATA_STAGE_IN_MODELED 证据与输入副本登记
+                // 由引擎在传输窗口处理。
+                fileTransferTime = 0.0;
+            } else {
+                DataTransferEstimate estimate = estimateDataStageInForComputeJob(job.getFileList(), job);
+                fileTransferTime = estimate.getTransferSeconds();
+                eventRecorder.record(
+                        SimulationEventType.DATA_STAGE_IN_MODELED,
+                        CloudSim.clock(),
+                        job,
+                        SimulationEventRecorder.attributes(
+                                "modeledTransferSeconds",
+                                fileTransferTime,
+                                "requiredFileBytes",
+                                estimate.getRequiredFileBytes(),
+                                "modeledTransferFileCount",
+                                estimate.getRequiredFileCount(),
+                                "dataMovementModel",
+                                dataMovementModel.getKind().name()));
+            }
+        }
+        return fileTransferTime;
+    }
+
+    /** 信封校验/调度器提交/忙碌 VM 契约检查/任务时间窗/完成事件与确认（逐字搬运转写）。 */
+    private void submitJobToScheduler(Job job, CondorVM vm, double fileTransferTime, boolean ack) {
+        int vmId = job.getVmId();
+        // Validate the total envelope before CloudSim converts MI * PEs to long instructions.
+        double envelopeMi = job.getCloudletLength() + vm.getMips() * fileTransferTime;
+        if (!Double.isFinite(envelopeMi) || envelopeMi >= (double) Long.MAX_VALUE) {
+            throw new IllegalArgumentException("Stage-in overflows the executable Job envelope");
+        }
+        TaskExecutionModel.requireRepresentableLength((long) envelopeMi, job.getNumberOfPes());
+        CloudletScheduler scheduler = vm.getCloudletScheduler();
+        long cloudletLengthBeforeStageIn = job.getCloudletLength();
+        if (job.getClassType() == ClassType.COMPUTE.value && dataMovementModel.usesCoherentDataflowRuntime()) {
+            requireCoherentRuntime().cpuStarted(job.getCloudletId(), coherentTaskIds(job), vmId, CloudSim.clock());
+            sendNow(coherentEngineId, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, null);
+        }
+        double estimatedFinishTime = scheduler.cloudletSubmit(job, fileTransferTime);
+        // Fail-fast：忙碌 VM 提交路径。CloudSim 对忙碌 VM 返回 0.0 并保持作业
+        // QUEUED（execStartTime 未设置，保持默认 0.0），若继续执行，
+        // updateTaskExecTime 会把任务时间窗锚定在 ≈0.0 —— 早于该作业的
+        // JOB_READY 时刻，构成时间倒挂，并导致 FailureGenerator 基于错误
+        // 时间窗做出错误的故障归因（静默数据污染）。
+        // WorkflowSim 的标准调度契约是所有算法只向空闲 VM 派发作业，因此
+        // 提交到忙碌 VM 属于契约违规，必须显式失败而非静默降级。
+        if (!(estimatedFinishTime > 0.0) || Double.isInfinite(estimatedFinishTime)) {
+            throw new IllegalStateException(getName()
+                    + " received a Job submitted to a busy VM (cloudlet "
+                    + job.getCloudletId() + ", VM " + vm.getId()
+                    + "): WorkflowSim scheduling contract only dispatches Jobs"
+                    + " to idle VMs; a busy-VM submission would anchor the task"
+                    + " time window at 0.0 and corrupt failure attribution");
+        }
+        double effectiveStageInSeconds =
+                effectiveCloudletStageInSeconds(job, vm, cloudletLengthBeforeStageIn, fileTransferTime);
+        updateTaskExecTime(job, vm, effectiveStageInSeconds, fileTransferTime);
+
+        double completionTime = SimulationTiming.earliestCloudletCompletionTime(
+                CloudSim.clock(), CloudSim.clock() + estimatedFinishTime, CloudSim.getMinTimeBetweenEvents());
+        send(getId(), completionTime - CloudSim.clock(), CloudSimTags.VM_DATACENTER_EVENT);
+
+        if (ack) {
+            int[] data = new int[3];
+            data[0] = getId();
+            data[1] = job.getCloudletId();
+            data[2] = CloudSimTags.TRUE;
+
+            int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
+            sendNow(job.getUserId(), tag, data);
+        }
+    }
     /**
      * 将 CloudSim 实际追加到 Job 的 MI 长度换算为生效的阶段输入耗时。
      *
