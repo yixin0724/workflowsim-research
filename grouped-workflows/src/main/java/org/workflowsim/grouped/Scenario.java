@@ -79,6 +79,29 @@ public final class Scenario {
         taskIndex = new LinkedHashMap<>();
         hosts = new Host[hs.size()];
         tasks = new Task[ts.size()];
+        parseHosts(hs);
+        indexTasks(ts);
+        List<List<Integer>> childLists = newChildLists();
+        parseTasks(ts, childLists);
+        children = childrenOf(childLists);
+        TopologicalOrder order = topologicalOrder();
+        topo = order.order;
+        topoPosition = order.position;
+        descendants = new BitSet[tasks.length];
+        ancestors = new BitSet[tasks.length];
+        fillReachability();
+        files = new DataFile[fs.size()];
+        FileIndexing indexed = parseFiles(fs);
+        inputsOfTask = new int[tasks.length][];
+        outputsOfTask = new int[tasks.length][];
+        for (int t = 0; t < tasks.length; t++) {
+            inputsOfTask[t] = ints(indexed.taskInputs.get(t));
+            outputsOfTask[t] = ints(indexed.taskOutputs.get(t));
+        }
+    }
+
+    /** Parse and validate hosts; fills hosts[] and hostIndex. */
+    private void parseHosts(JsonArray hs) {
         for (int i = 0; i < hs.size(); i++) {
             JsonObject h = hs.get(i).getAsJsonObject();
             String name = string(h, "id");
@@ -89,12 +112,25 @@ public final class Scenario {
                     positiveLong(h, "memory_bytes"),
                     positive(h, "bandwidth_bytes_per_second"));
         }
+    }
+
+    /** Index task ids. */
+    private void indexTasks(JsonArray ts) {
         for (int i = 0; i < ts.size(); i++) {
             String name = string(ts.get(i).getAsJsonObject(), "id");
             require(taskIndex.put(name, i) == null, "duplicate task " + name);
         }
+    }
+
+    /** Empty child adjacency lists. */
+    private List<List<Integer>> newChildLists() {
         List<List<Integer>> childLists = new ArrayList<>();
         for (int i = 0; i < tasks.length; i++) childLists.add(new ArrayList<Integer>());
+        return childLists;
+    }
+
+    /** Parse and validate tasks; fills tasks[] and parent->child edges. */
+    private void parseTasks(JsonArray ts, List<List<Integer>> childLists) {
         for (int i = 0; i < tasks.length; i++) {
             JsonObject t = ts.get(i).getAsJsonObject();
             String name = string(t, "id");
@@ -123,16 +159,25 @@ public final class Scenario {
             tasks[i] = new Task(
                     name, domain, cores, memory, optionalNonnegative(t, "bootstrap_seconds", 0), durations, parents);
         }
-        children = new int[tasks.length][];
+    }
+
+    /** Compact child adjacency. */
+    private int[][] childrenOf(List<List<Integer>> childLists) {
+        int[][] children = new int[tasks.length][];
         for (int i = 0; i < tasks.length; i++) children[i] = ints(childLists.get(i));
+        return children;
+    }
+
+    /** Deterministic topological order (lexicographic tie-break). */
+    private TopologicalOrder topologicalOrder() {
         int[] degrees = new int[tasks.length];
         PriorityQueue<Integer> ready = new PriorityQueue<>((a, b) -> tasks[a].id.compareTo(tasks[b].id));
         for (int i = 0; i < tasks.length; i++) {
             degrees[i] = tasks[i].parents.length;
             if (degrees[i] == 0) ready.add(i);
         }
-        topo = new int[tasks.length];
-        topoPosition = new int[tasks.length];
+        int[] topo = new int[tasks.length];
+        int[] topoPosition = new int[tasks.length];
         int done = 0;
         while (!ready.isEmpty()) {
             int t = ready.remove();
@@ -141,8 +186,11 @@ public final class Scenario {
             for (int c : children[t]) if (--degrees[c] == 0) ready.add(c);
         }
         require(done == tasks.length, "task dependency cycle");
-        descendants = new BitSet[tasks.length];
-        ancestors = new BitSet[tasks.length];
+        return new TopologicalOrder(topo, topoPosition);
+    }
+
+    /** Fill transitive descendants/ancestors bitsets in reverse topological order. */
+    private void fillReachability() {
         for (int i = 0; i < tasks.length; i++) {
             descendants[i] = new BitSet(tasks.length);
             ancestors[i] = new BitSet(tasks.length);
@@ -159,7 +207,10 @@ public final class Scenario {
                 ancestors[t].set(p);
                 ancestors[t].or(ancestors[p]);
             }
-        files = new DataFile[fs.size()];
+    }
+
+    /** Parse and validate files; returns per-task input/output file index lists. */
+    private FileIndexing parseFiles(JsonArray fs) {
         Set<String> names = new HashSet<>();
         List<List<Integer>> taskInputs = new ArrayList<>(), taskOutputs = new ArrayList<>();
         for (int t = 0; t < tasks.length; t++) {
@@ -186,11 +237,26 @@ public final class Scenario {
             if (producer >= 0) taskOutputs.get(producer).add(i);
             for (int c : consumers) taskInputs.get(c).add(i);
         }
-        inputsOfTask = new int[tasks.length][];
-        outputsOfTask = new int[tasks.length][];
-        for (int t = 0; t < tasks.length; t++) {
-            inputsOfTask[t] = ints(taskInputs.get(t));
-            outputsOfTask[t] = ints(taskOutputs.get(t));
+        return new FileIndexing(taskInputs, taskOutputs);
+    }
+
+    /** Ctor helper carrier: topological order arrays. */
+    private static final class TopologicalOrder {
+        final int[] order, position;
+
+        TopologicalOrder(int[] order, int[] position) {
+            this.order = order;
+            this.position = position;
+        }
+    }
+
+    /** Ctor helper carrier: per-task input/output file lists. */
+    private static final class FileIndexing {
+        final List<List<Integer>> taskInputs, taskOutputs;
+
+        FileIndexing(List<List<Integer>> taskInputs, List<List<Integer>> taskOutputs) {
+            this.taskInputs = taskInputs;
+            this.taskOutputs = taskOutputs;
         }
     }
 
