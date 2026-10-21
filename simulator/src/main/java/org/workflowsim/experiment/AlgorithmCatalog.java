@@ -283,32 +283,10 @@ public final class AlgorithmCatalog {
         Map<String, Object> values = base(algorithm.name());
         switch (algorithm) {
             case RANDOM:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING");
-                values.put("inputDomain", "VALID_DAG");
-                values.put("decisionRule", "Seeded random Task-to-compatible-VM mapping before clustering");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "DETERMINISTIC_MAPPING_REGRESSION_COVERED");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Runtime dependencies remain engine-enforced; this is not an offline timing schedule."));
+                randomPlanner(values);
                 break;
             case SHARED_STORAGE_HEFT:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "HEFT upward rank with insertion-based earliest finish time; "
-                                + "per-task shared-storage input delay is added for every VM");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope", "CORE_HEFT_DECISION_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                                "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
+                sharedStorageHeftPlanner(values);
                 break;
             case SHARED_STORAGE_CPOP:
                 sharedStorageCpopPlanner(values);
@@ -367,6 +345,40 @@ public final class AlgorithmCatalog {
                 break;
         }
         return values;
+    }
+
+    /** Catalog switch branch (RANDOM).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void randomPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING");
+        values.put("inputDomain", "VALID_DAG");
+        values.put("decisionRule", "Seeded random Task-to-compatible-VM mapping before clustering");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "DETERMINISTIC_MAPPING_REGRESSION_COVERED");
+        values.put(
+                "limitations",
+                limitations("Runtime dependencies remain engine-enforced; this is not an offline timing schedule."));
+    }
+
+    /** Catalog switch branch (SHARED_STORAGE_HEFT).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void sharedStorageHeftPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "HEFT upward rank with insertion-based earliest finish time; "
+                        + "per-task shared-storage input delay is added for every VM");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+        values.put("reproductionScope", "CORE_HEFT_DECISION_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
+                        "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
     }
 
     /** Catalog switch branch (SHARED_STORAGE_CPOP).
