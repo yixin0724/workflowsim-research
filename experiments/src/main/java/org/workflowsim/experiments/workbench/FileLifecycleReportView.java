@@ -41,47 +41,7 @@ final class FileLifecycleReportView {
             fileBytes.put(fileKey(file.getAsJsonObject("fileId")), exact(file.get("bytes")));
         }
 
-        Map<Long, JsonObject> admissions = new LinkedHashMap<>();
-        Map<Long, JsonObject> settlements = new HashMap<>();
-        Totals totals = new Totals();
-        for (JsonElement value : rawEvents) {
-            JsonObject event = value.getAsJsonObject();
-            JsonObject payload = event.getAsJsonObject("payload");
-            switch (event.get("type").getAsString()) {
-                case "COPY_ADMITTED":
-                    admissions.put(payload.get("copyOrdinal").getAsLong(), event);
-                    totals.admitted = totals.admitted.add(exact(payload.get("bytes")));
-                    break;
-                case "COPY_SETTLED":
-                    long ordinal = payload.get("copyOrdinal").getAsLong();
-                    settlements.put(ordinal, event);
-                    // Settled payload is the declared object size, not rate * elapsed or size - residual.
-                    totals.settled = totals.settled.add(exact(
-                            admissions.get(ordinal).getAsJsonObject("payload").get("bytes")));
-                    totals.residual = totals.residual.add(exact(payload.get("remainingAfterService")));
-                    break;
-                case "INPUT_RESOLVED":
-                    BigDecimal references =
-                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
-                    BigDecimal bytes = fileBytes
-                            .get(fileKey(payload.getAsJsonObject("fileId")))
-                            .multiply(references);
-                    totals.references = totals.references.add(references);
-                    totals.requiredBytes = totals.requiredBytes.add(bytes);
-                    String resolution = payload.get("resolution").getAsString();
-                    if ("LOCAL".equals(resolution)) {
-                        totals.localReferences = totals.localReferences.add(references);
-                        totals.localBytes = totals.localBytes.add(bytes);
-                    } else if ("JOIN_EXISTING".equals(resolution)) {
-                        // Count the joined reference multiplicity, not an inferred number of saved copies.
-                        totals.joinedReferences = totals.joinedReferences.add(references);
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-
+        LifecycleScan scan = scanLifecycleEvents(rawEvents, fileBytes);
         Map<String, Object> root = map();
         root.put("schema", "workflowsim-file-lifecycle-display-v2");
         // TRUNCATED cannot be represented by a valid first-version Decoded certificate.
@@ -103,15 +63,80 @@ final class FileLifecycleReportView {
         root.put("requestedJobCount", integer(decoded.getRequestedJobCount()));
         root.put("completedJobCount", integer(decoded.getCompletedJobCount()));
         root.put("quiescent", decoded.isQuiescent());
-        root.put("totals", totals.display());
+        root.put("totals", scan.totals.display());
 
-        List<Map<String, Object>> copies = new ArrayList<>();
-        for (Map.Entry<Long, JsonObject> entry : admissions.entrySet()) {
-            if (copies.size() == COPY_LIMIT) break;
-            copies.add(copyRow(entry.getValue(), settlements.get(entry.getKey())));
-        }
+        List<Map<String, Object>> copies = copiesRows(decoded, scan);
         root.put("copies", preview(decoded.getCopyCount(), COPY_LIMIT, copies));
+        List<Map<String, Object>> resources = resourceRows(rawResources);
+        root.put("resources", preview(rawResources.size(), RESOURCE_LIMIT, resources));
+        List<Map<String, Object>> events = eventRows(rawEvents, scan);
+        root.put("events", preview(rawEvents.size(), EVENT_LIMIT, events));
+        root.put("labelLimit", integer(LABEL_LIMIT));
+        root.put("nestedListLimit", integer(LIST_LIMIT));
+        root.put("labelsClipped", integer(labelsClipped));
+        root.put("nestedItemsOmitted", integer(nestedItemsOmitted));
+        return freeze(root);
+    }
 
+    /** 文件生命周期事件扫描阶段（逐字搬运转写自 project()）。 */
+    private LifecycleScan scanLifecycleEvents(JsonArray rawEvents, Map<DataflowFilePlan.FileId, BigDecimal> fileBytes) {
+        LifecycleScan scan = new LifecycleScan();
+
+        for (JsonElement value : rawEvents) {
+            JsonObject event = value.getAsJsonObject();
+            JsonObject payload = event.getAsJsonObject("payload");
+            switch (event.get("type").getAsString()) {
+                case "COPY_ADMITTED":
+                    scan.admissions.put(payload.get("copyOrdinal").getAsLong(), event);
+                    scan.totals.admitted = scan.totals.admitted.add(exact(payload.get("bytes")));
+                    break;
+                case "COPY_SETTLED":
+                    long ordinal = payload.get("copyOrdinal").getAsLong();
+                    scan.settlements.put(ordinal, event);
+                    // Settled payload is the declared object size, not rate * elapsed or size - residual.
+                    scan.totals.settled = scan.totals.settled.add(exact(scan.admissions
+                            .get(ordinal)
+                            .getAsJsonObject("payload")
+                            .get("bytes")));
+                    scan.totals.residual = scan.totals.residual.add(exact(payload.get("remainingAfterService")));
+                    break;
+                case "INPUT_RESOLVED":
+                    BigDecimal references =
+                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
+                    BigDecimal bytes = fileBytes
+                            .get(fileKey(payload.getAsJsonObject("fileId")))
+                            .multiply(references);
+                    scan.totals.references = scan.totals.references.add(references);
+                    scan.totals.requiredBytes = scan.totals.requiredBytes.add(bytes);
+                    String resolution = payload.get("resolution").getAsString();
+                    if ("LOCAL".equals(resolution)) {
+                        scan.totals.localReferences = scan.totals.localReferences.add(references);
+                        scan.totals.localBytes = scan.totals.localBytes.add(bytes);
+                    } else if ("JOIN_EXISTING".equals(resolution)) {
+                        // Count the joined reference multiplicity, not an inferred number of saved copies.
+                        scan.totals.joinedReferences = scan.totals.joinedReferences.add(references);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return scan;
+    }
+
+    /** 副本行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> copiesRows(FileLifecycleCodec.Decoded decoded, LifecycleScan scan) {
+        List<Map<String, Object>> copies = new ArrayList<>();
+        for (Map.Entry<Long, JsonObject> entry : scan.admissions.entrySet()) {
+            if (copies.size() == COPY_LIMIT) break;
+            copies.add(copyRow(entry.getValue(), scan.settlements.get(entry.getKey())));
+        }
+        return copies;
+    }
+
+    /** 资源行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> resourceRows(JsonArray rawResources) {
         List<Map<String, Object>> resources = new ArrayList<>();
         for (int i = 0; i < Math.min(RESOURCE_LIMIT, rawResources.size()); i++) {
             JsonObject resource = rawResources.get(i).getAsJsonObject();
@@ -120,18 +145,23 @@ final class FileLifecycleReportView {
             row.put("capacityBytesPerSecond", quantity(resource.get("capacityBytesPerSecond")));
             resources.add(freeze(row));
         }
-        root.put("resources", preview(rawResources.size(), RESOURCE_LIMIT, resources));
+        return resources;
+    }
 
+    /** 事件行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> eventRows(JsonArray rawEvents, LifecycleScan scan) {
         List<Map<String, Object>> events = new ArrayList<>();
         for (int i = 0; i < Math.min(EVENT_LIMIT, rawEvents.size()); i++) {
-            events.add(eventRow(rawEvents.get(i).getAsJsonObject(), admissions));
+            events.add(eventRow(rawEvents.get(i).getAsJsonObject(), scan.admissions));
         }
-        root.put("events", preview(rawEvents.size(), EVENT_LIMIT, events));
-        root.put("labelLimit", integer(LABEL_LIMIT));
-        root.put("nestedListLimit", integer(LIST_LIMIT));
-        root.put("labelsClipped", integer(labelsClipped));
-        root.put("nestedItemsOmitted", integer(nestedItemsOmitted));
-        return freeze(root);
+        return events;
+    }
+
+    /** project() 事件扫描阶段聚合量的私有搬运转写结构。 */
+    private static final class LifecycleScan {
+        final Map<Long, JsonObject> admissions = new LinkedHashMap<>();
+        final Map<Long, JsonObject> settlements = new HashMap<>();
+        final Totals totals = new Totals();
     }
 
     private Map<String, Object> copyRow(JsonObject admission, JsonObject settlement) {

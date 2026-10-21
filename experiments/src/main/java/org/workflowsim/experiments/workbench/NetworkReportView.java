@@ -52,6 +52,34 @@ final class NetworkReportView {
         root.put("tailPhase", validation.getTailPhase());
         root.put("minimumMissingRecords", number(validation.getMinimumMissingRecords()));
         root.put("integrationEpochCount", number(metrics.getIntegrationEpochCount()));
+        Map<String, Object> totals = totalsSection(metrics);
+        root.put("totals", freeze(totals));
+        Map<String, Object> fct = fctSection(metrics);
+        root.put("fct", freeze(fct));
+        Map<String, Object> locality = localitySection(run);
+        root.put("locality", freeze(locality));
+        Map<Long, NetworkFlowBinding> bindings = new HashMap<Long, NetworkFlowBinding>();
+        for (NetworkFlowBinding b : evidence.getBindings())
+            if (bindings.put(b.getAdmissionOrdinal(), b) != null)
+                throw new IllegalArgumentException("Duplicate display admission binding");
+        List<Map<String, Object>> flows = flowRows(metrics, bindings);
+        root.put("flows", preview(metrics.isAvailable() ? metrics.getFlows().size() : null, FLOW_LIMIT, flows));
+        List<Map<String, Object>> resources = resourceRows(metrics);
+        root.put(
+                "resources",
+                preview(metrics.isAvailable() ? metrics.getResources().size() : null, RESOURCE_LIMIT, resources));
+        List<TransferTraceEvent> raw = evidence.getTraceSnapshot().getEvents();
+        List<Map<String, Object>> events = eventRows(evidence, bindings);
+        root.put("events", preview(raw.size(), EVENT_LIMIT, events));
+        root.put("labelsClipped", number(labelsClipped));
+        root.put("nestedItemsOmitted", number(nestedItemsOmitted));
+        root.put("labelLimit", number(LABEL_LIMIT));
+        root.put("nestedListLimit", number(LIST_LIMIT));
+        return freeze(root);
+    }
+
+    /** 传输总量指标段（逐字搬运转写自 project()）。 */
+    private Map<String, Object> totalsSection(NetworkTraceMetrics metrics) {
         Map<String, Object> totals = map();
         totals.put("admittedPayloadBytes", number(metrics.getAdmittedPayloadBytes()));
         totals.put("completedDemandBytes", number(metrics.getCompletedDemandBytes()));
@@ -60,14 +88,22 @@ final class NetworkReportView {
         totals.put("completionResidualBytes", number(metrics.getCompletionResidualBytes()));
         totals.put("remainingLedgerBytes", number(metrics.getRemainingLedgerBytes()));
         totals.put("rateAreaMinusBalanceDeltaBytes", number(metrics.getRateAreaMinusBalanceDeltaBytes()));
-        root.put("totals", freeze(totals));
+        return totals;
+    }
+
+    /** 完成 FCT 指标段（逐字搬运转写）。 */
+    private Map<String, Object> fctSection(NetworkTraceMetrics metrics) {
         Map<String, Object> fct = map();
         fct.put("completedSamples", number(metrics.getCompletedFctSampleCount()));
         fct.put("meanEffectiveSeconds", number(metrics.getMeanEffectiveFctSeconds()));
         fct.put("p95EffectiveSeconds", number(metrics.getP95EffectiveFctSeconds()));
         fct.put("maxEffectiveSeconds", number(metrics.getMaxEffectiveFctSeconds()));
         fct.put("meanNotificationLagSeconds", number(metrics.getMeanNotificationLagSeconds()));
-        root.put("fct", freeze(fct));
+        return fct;
+    }
+
+    /** 局部性指标段（逐字搬运转写）。 */
+    private Map<String, Object> localitySection(NetworkRunMetrics run) {
         Map<String, Object> locality = map();
         locality.put("status", run.getLocalityStatus().name());
         locality.put("scope", run.getLocalityScope());
@@ -80,11 +116,11 @@ final class NetworkReportView {
                 "admittedMinusTransferableReferenceBytes", number(run.getAdmittedMinusTransferableReferenceBytes()));
         locality.put("localByteFraction", number(run.getLocalByteFraction()));
         locality.put("localReferenceFraction", number(run.getLocalReferenceFraction()));
-        root.put("locality", freeze(locality));
-        Map<Long, NetworkFlowBinding> bindings = new HashMap<Long, NetworkFlowBinding>();
-        for (NetworkFlowBinding b : evidence.getBindings())
-            if (bindings.put(b.getAdmissionOrdinal(), b) != null)
-                throw new IllegalArgumentException("Duplicate display admission binding");
+        return locality;
+    }
+
+    /** 起源流行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> flowRows(NetworkTraceMetrics metrics, Map<Long, NetworkFlowBinding> bindings) {
         List<Map<String, Object>> flows = new ArrayList<Map<String, Object>>();
         for (int index = 0; index < Math.min(FLOW_LIMIT, metrics.getFlows().size()); index++) {
             NetworkTraceMetrics.FlowSummary f = metrics.getFlows().get(index);
@@ -121,7 +157,11 @@ final class NetworkReportView {
             row.put("remainingBytes", number(f.getRemainingBytes()));
             flows.add(freeze(row));
         }
-        root.put("flows", preview(metrics.isAvailable() ? metrics.getFlows().size() : null, FLOW_LIMIT, flows));
+        return flows;
+    }
+
+    /** 资源行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> resourceRows(NetworkTraceMetrics metrics) {
         List<Map<String, Object>> resources = new ArrayList<Map<String, Object>>();
         for (int index = 0;
                 index < Math.min(RESOURCE_LIMIT, metrics.getResources().size());
@@ -136,9 +176,11 @@ final class NetworkReportView {
             row.put("integrationEpochUtilization", number(r.getIntegrationEpochUtilization()));
             resources.add(freeze(row));
         }
-        root.put(
-                "resources",
-                preview(metrics.isAvailable() ? metrics.getResources().size() : null, RESOURCE_LIMIT, resources));
+        return resources;
+    }
+
+    /** 事件行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> eventRows(NetworkRunEvidence evidence, Map<Long, NetworkFlowBinding> bindings) {
         List<TransferTraceEvent> raw = evidence.getTraceSnapshot().getEvents();
         List<Map<String, Object>> events = new ArrayList<Map<String, Object>>();
         for (int index = 0; index < Math.min(EVENT_LIMIT, raw.size()); index++) {
@@ -155,12 +197,7 @@ final class NetworkReportView {
             row.put("detail", detail(e));
             events.add(freeze(row));
         }
-        root.put("events", preview(raw.size(), EVENT_LIMIT, events));
-        root.put("labelsClipped", number(labelsClipped));
-        root.put("nestedItemsOmitted", number(nestedItemsOmitted));
-        root.put("labelLimit", number(LABEL_LIMIT));
-        root.put("nestedListLimit", number(LIST_LIMIT));
-        return freeze(root);
+        return events;
     }
 
     private String detail(TransferTraceEvent event) {
