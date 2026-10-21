@@ -88,6 +88,74 @@ public final class ExperimentArtifactValidator {
         if (!manifestMetrics.equals(sidecarMetrics)) {
             throw new IOException("Manifest metrics do not match the metrics sidecar");
         }
+        org.workflowsim.data.NetworkEvidenceConfig recording = decodeRecordingConfig(root);
+        EvidenceBundles bundles = decodeEvidenceBundles(root, paths, recording, schema);
+        org.workflowsim.data.NetworkLedgerCodec.Decoded decoded = bundles.decoded;
+        org.workflowsim.data.v2.FileLifecycleCodec.Decoded fileDecoded = bundles.fileDecoded;
+        org.workflowsim.data.v2.StorageLifecycleCodec.Decoded storageDecoded = bundles.storageDecoded;
+        NetworkLedgerContextValidator networkContext = bundles.networkContext;
+        FileLifecycleContextValidator fileContext = bundles.fileContext;
+        Path networkLedger = bundles.networkLedger,
+                fileLifecycle = bundles.fileLifecycle,
+                storageLifecycle = bundles.storageLifecycle;
+        boolean groupRequested = bundles.groupRequested;
+        int actualEvents = validateEvents(events, networkContext, fileContext);
+        if (actualEvents != expectedEvents) {
+            throw new IOException("Event count mismatch: manifest declares " + expectedEvents + " but JSONL contains "
+                    + actualEvents);
+        }
+        if (networkContext != null) networkContext.finish();
+        if (fileContext != null) fileContext.finish();
+        return buildValidationResult(
+                manifest,
+                metrics,
+                events,
+                actualEvents,
+                networkLedger,
+                decoded,
+                fileLifecycle,
+                fileDecoded,
+                storageLifecycle,
+                storageDecoded,
+                root,
+                fileContext);
+    }
+
+    /** validate() 的结果装配阶段（逐字搬运转写）。 */
+    private static ValidationResult buildValidationResult(
+            Path manifest,
+            Path metrics,
+            Path events,
+            int actualEvents,
+            Path networkLedger,
+            org.workflowsim.data.NetworkLedgerCodec.Decoded decoded,
+            Path fileLifecycle,
+            org.workflowsim.data.v2.FileLifecycleCodec.Decoded fileDecoded,
+            Path storageLifecycle,
+            org.workflowsim.data.v2.StorageLifecycleCodec.Decoded storageDecoded,
+            JsonObject root,
+            FileLifecycleContextValidator fileContext) {
+        return new ValidationResult(
+                manifest,
+                metrics,
+                events,
+                actualEvents,
+                networkLedger,
+                decoded == null
+                        ? null
+                        : decoded.getEvidence().getTraceSnapshot().getStatus(),
+                decoded,
+                fileLifecycle,
+                fileDecoded,
+                storageLifecycle,
+                storageDecoded,
+                root,
+                fileContext == null ? null : fileContext.getDataflowAssignmentResult());
+    }
+
+    /** validate() 的网络记录配置解析阶段（逐字搬运转写）。 */
+    private static org.workflowsim.data.NetworkEvidenceConfig decodeRecordingConfig(JsonObject root)
+            throws IOException {
         org.workflowsim.data.NetworkEvidenceConfig recording = org.workflowsim.data.NetworkEvidenceConfig.off();
         if (root.getAsJsonObject("configuration").has("networkEvidence"))
             try {
@@ -96,6 +164,17 @@ public final class ExperimentArtifactValidator {
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Invalid network recording mode", invalid);
             }
+        return recording;
+    }
+
+    /** validate() 的证据束装配阶段：角色一致性检查与三侧车解析（逐字搬运转写）。 */
+    private static EvidenceBundles decodeEvidenceBundles(
+            JsonObject root,
+            Map<String, Path> paths,
+            org.workflowsim.data.NetworkEvidenceConfig recording,
+            String schema)
+            throws IOException {
+        EvidenceBundles bundles = new EvidenceBundles();
         boolean
                 groupRequested =
                         recording.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,
@@ -113,58 +192,49 @@ public final class ExperimentArtifactValidator {
             throw new IOException("Network recording configuration and versioned artifact roles disagree");
         if (recording.isEnabled() && !MANIFEST_SCHEMA_V4.equals(schema))
             throw new IOException("Versioned network evidence requires manifest v4");
-        org.workflowsim.data.NetworkLedgerCodec.Decoded decoded = null;
-        org.workflowsim.data.v2.FileLifecycleCodec.Decoded fileDecoded = null;
-        org.workflowsim.data.v2.StorageLifecycleCodec.Decoded storageDecoded = null;
-        NetworkLedgerContextValidator networkContext = null;
-        FileLifecycleContextValidator fileContext = null;
         if (groupRequested) {
             try {
-                decoded = org.workflowsim.data.NetworkLedgerCodec.decode(strictUtf8(networkLedger));
+                bundles.decoded = org.workflowsim.data.NetworkLedgerCodec.decode(strictUtf8(networkLedger));
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Invalid network ledger content", invalid);
             }
-            networkContext = new NetworkLedgerContextValidator(root, decoded.getEvidence());
+            bundles.networkContext = new NetworkLedgerContextValidator(root, bundles.decoded.getEvidence());
         }
         if (fileRequested) {
             try {
-                fileDecoded = org.workflowsim.data.v2.FileLifecycleCodec.decode(strictUtf8(fileLifecycle));
+                bundles.fileDecoded = org.workflowsim.data.v2.FileLifecycleCodec.decode(strictUtf8(fileLifecycle));
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Invalid V2 file lifecycle content", invalid);
             }
-            fileContext = new FileLifecycleContextValidator(root, fileDecoded);
+            bundles.fileContext = new FileLifecycleContextValidator(root, bundles.fileDecoded);
         }
         if (storageRequested) {
             try {
-                storageDecoded = org.workflowsim.data.v2.StorageLifecycleCodec.decode(strictUtf8(storageLifecycle));
+                bundles.storageDecoded =
+                        org.workflowsim.data.v2.StorageLifecycleCodec.decode(strictUtf8(storageLifecycle));
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Invalid V3 storage lifecycle content", invalid);
             }
-            fileContext = new FileLifecycleContextValidator(root, storageDecoded);
+            bundles.fileContext = new FileLifecycleContextValidator(root, bundles.storageDecoded);
         }
-        int actualEvents = validateEvents(events, networkContext, fileContext);
-        if (actualEvents != expectedEvents) {
-            throw new IOException("Event count mismatch: manifest declares " + expectedEvents + " but JSONL contains "
-                    + actualEvents);
-        }
-        if (networkContext != null) networkContext.finish();
-        if (fileContext != null) fileContext.finish();
-        return new ValidationResult(
-                manifest,
-                metrics,
-                events,
-                actualEvents,
-                networkLedger,
-                decoded == null
-                        ? null
-                        : decoded.getEvidence().getTraceSnapshot().getStatus(),
-                decoded,
-                fileLifecycle,
-                fileDecoded,
-                storageLifecycle,
-                storageDecoded,
-                root,
-                fileContext == null ? null : fileContext.getDataflowAssignmentResult());
+        bundles.networkLedger = networkLedger;
+        bundles.fileLifecycle = fileLifecycle;
+        bundles.storageLifecycle = storageLifecycle;
+        bundles.groupRequested = groupRequested;
+        return bundles;
+    }
+
+    /** validate() 证据束的私有搬运转写结构（字段直读，无转发行为）。 */
+    private static final class EvidenceBundles {
+        private org.workflowsim.data.NetworkLedgerCodec.Decoded decoded;
+        private org.workflowsim.data.v2.FileLifecycleCodec.Decoded fileDecoded;
+        private org.workflowsim.data.v2.StorageLifecycleCodec.Decoded storageDecoded;
+        private NetworkLedgerContextValidator networkContext;
+        private FileLifecycleContextValidator fileContext;
+        private Path networkLedger;
+        private Path fileLifecycle;
+        private Path storageLifecycle;
+        private boolean groupRequested;
     }
 
     private static void validateManifestTopLevelShape(JsonObject root) throws IOException {
