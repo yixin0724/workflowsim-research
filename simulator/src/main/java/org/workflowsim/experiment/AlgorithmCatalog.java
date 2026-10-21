@@ -153,17 +153,7 @@ public final class AlgorithmCatalog {
                         limitations("The batch is the runtime-ready Job set, not a static independent-task batch."));
                 break;
             case READY_BATCH_MCT:
-                values.put("decisionLayer", "ONLINE_READY_JOB");
-                values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
-                values.put("decisionRule", "Ready-batch minimum estimated completion time under current idle-VM state");
-                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Not the offline independent-task MCT heuristic; "
-                                        + "it does not reserve future VM availability.",
-                                "For a fixed positive Job length and the same idle compatible candidates, "
-                                        + "minimizing length/MIPS is equivalent to choosing maximum MIPS."));
+                readyBatchMctScheduler(values);
                 break;
             case READY_BATCH_MINMIN:
                 values.put("decisionLayer", "ONLINE_READY_JOB");
@@ -180,19 +170,7 @@ public final class AlgorithmCatalog {
                 values.put("limitations", limitations("Not the offline independent-task Max-Min heuristic."));
                 break;
             case DATA:
-                values.put("decisionLayer", "ONLINE_READY_JOB");
-                values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
-                values.put(
-                        "decisionRule",
-                        "Selects a compatible VM with the fewest required nonlocal input bytes; "
-                                + "equal totals use lower VM ID");
-                values.put("verification", "DATA_LOCALITY_BASELINE_REGRESSION_COVERED");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Input byte counts are not transfer times; this scheduler does not "
-                                        + "consult DataMovementModel endpoint latency or transfer rates.",
-                                "No calibrated network, replica, or bandwidth-contention model is implied."));
+                dataScheduler(values);
                 break;
             case STATIC:
                 values.put("decisionLayer", "STATIC_MAPPING_DISPATCH");
@@ -205,22 +183,7 @@ public final class AlgorithmCatalog {
                                 "A SimulationConfig requires a non-INVALID planner; model-generated stage-in Jobs use the legacy fallback mapping."));
                 break;
             case RL_POLICY:
-                values.put("decisionLayer", "ONLINE_READY_JOB");
-                values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
-                values.put(
-                        "decisionRule",
-                        "Registered RlPolicy selects a VM index per ready Job "
-                                + "(RlEnvironment episode; reward = negative makespan)");
-                values.put("verification", "RL_EPISODE_ENVIRONMENT_REGRESSION_COVERED");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "The policy is an external decision function; the platform "
-                                        + "guarantees deterministic episodes and action validation only.",
-                                "Actions on busy/incompatible/reserved VMs skip the Job for that update; no built-in "
-                                        + "learning algorithm is provided.",
-                                "Must run through RlEnvironment.runEpisode; SimulationRunner alone fails without a "
-                                        + "registered policy."));
+                rlPolicyScheduler(values);
                 break;
             case MINMIN:
                 legacyScheduler(values, "SPT-fastest-idle ready-job variant", "READY_BATCH_MINMIN");
@@ -244,6 +207,64 @@ public final class AlgorithmCatalog {
                 break;
         }
         return values;
+    }
+
+    /** Catalog switch branch (READY_BATCH_MCT).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void readyBatchMctScheduler(Map<String, Object> values) {
+        values.put("decisionLayer", "ONLINE_READY_JOB");
+        values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
+        values.put("decisionRule", "Ready-batch minimum estimated completion time under current idle-VM state");
+        values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+        values.put(
+                "limitations",
+                limitations(
+                        "Not the offline independent-task MCT heuristic; "
+                                + "it does not reserve future VM availability.",
+                        "For a fixed positive Job length and the same idle compatible candidates, "
+                                + "minimizing length/MIPS is equivalent to choosing maximum MIPS."));
+    }
+
+    /** Catalog switch branch (DATA).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void dataScheduler(Map<String, Object> values) {
+        values.put("decisionLayer", "ONLINE_READY_JOB");
+        values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
+        values.put(
+                "decisionRule",
+                "Selects a compatible VM with the fewest required nonlocal input bytes; "
+                        + "equal totals use lower VM ID");
+        values.put("verification", "DATA_LOCALITY_BASELINE_REGRESSION_COVERED");
+        values.put(
+                "limitations",
+                limitations(
+                        "Input byte counts are not transfer times; this scheduler does not "
+                                + "consult DataMovementModel endpoint latency or transfer rates.",
+                        "No calibrated network, replica, or bandwidth-contention model is implied."));
+    }
+
+    /** Catalog switch branch (RL_POLICY).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void rlPolicyScheduler(Map<String, Object> values) {
+        values.put("decisionLayer", "ONLINE_READY_JOB");
+        values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
+        values.put(
+                "decisionRule",
+                "Registered RlPolicy selects a VM index per ready Job "
+                        + "(RlEnvironment episode; reward = negative makespan)");
+        values.put("verification", "RL_EPISODE_ENVIRONMENT_REGRESSION_COVERED");
+        values.put(
+                "limitations",
+                limitations(
+                        "The policy is an external decision function; the platform "
+                                + "guarantees deterministic episodes and action validation only.",
+                        "Actions on busy/incompatible/reserved VMs skip the Job for that update; no built-in "
+                                + "learning algorithm is provided.",
+                        "Must run through RlEnvironment.runEpisode; SimulationRunner alone fails without a "
+                                + "registered policy."));
     }
 
     private static void legacyScheduler(Map<String, Object> values, String rule, String replacement) {
@@ -290,80 +311,16 @@ public final class AlgorithmCatalog {
                                 "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
                 break;
             case SHARED_STORAGE_CPOP:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "CPOP upward-plus-downward rank priority; an identified critical path is assigned to the minimum-cost processor");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope", "CORE_CPOP_DECISION_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                                "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
+                sharedStorageCpopPlanner(values);
                 break;
             case SHARED_STORAGE_DLS:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "Dynamic-level selection over dependency-ready Task-VM candidates: "
-                                + "upward-rank static level minus insertion-based earliest start time; "
-                                + "equal dynamic levels use lower Task ID, then lower VM ID");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_DLS_DYNAMIC_LEVEL_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                                "It adapts DLS to the current shared-storage model and does not reproduce irregular interconnect topology, routing, or communication contention.",
-                                "It is not calibrated to a real storage or network system."));
+                sharedStorageDlsPlanner(values);
                 break;
             case SHARED_STORAGE_ETF:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "Earliest Task First selection over dependency-ready Task-VM candidates: "
-                                + "choose the minimum insertion-based earliest start time; equal starts use higher "
-                                + "upward-rank static b-level, then lower Task ID and VM ID");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_ETF_EARLIEST_START_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                                "It adapts ETF to the current shared-storage model and does not reproduce the original communication-delay or homogeneous-processor assumptions.",
-                                "It is not calibrated to a real storage or network system."));
+                sharedStorageEtfPlanner(values);
                 break;
             case SHARED_STORAGE_PEFT:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "Predict Earliest Finish Time: dependency-ready Task with "
-                                + "maximum compatible-VM average optimistic cost rank, followed by the VM "
-                                + "that minimizes insertion-based earliest finish plus optimistic successor cost");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_PEFT_OCT_LOOKAHEAD_SEMANTICS_" + "ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                                "The controlled model has no interprocessor communication term, topology, routing, or link contention; OCT is therefore a successor look-ahead rather than a network prediction.",
-                                "It is not calibrated to a real storage or network system."));
+                sharedStoragePeftPlanner(values);
                 break;
             case STATIC_OLB:
                 independentPlanner(values, "Opportunistic Load Balancing based on least predicted VM availability");
@@ -387,156 +344,16 @@ public final class AlgorithmCatalog {
                 independentPlanner(values, "Deterministic ascending-VM-ID cyclic mapping");
                 break;
             case PSO:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING");
-                values.put("inputDomain", "VALID_DAG");
-                values.put(
-                        "decisionRule",
-                        "Particle swarm optimization over PE-compatible Task-to-VM mappings: "
-                                + "fitness = 0.8 * sequential-load execution cost (price = mips/1000) "
-                                + "+ 0.2 * per-VM load makespan; effective compute seconds use the supplied "
-                                + "task/VM matrix rounded to MI, or raw per-PE length/MIPS without a matrix; "
-                                + "population 30, 100 iterations, w=0.7, c1=c2=1.5, seeded named random stream");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_PSO_DECISION_SEMANTICS_OF_PANDEY_AINA_2010_"
-                                + "PER_OPENSOURCE_WORKFLOWSIM_PSO_REFERENCE");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Fitness uses the reference implementation's sequential VM-load model and "
-                                        + "ignores DAG dependency edges; planning-side makespan estimates may differ "
-                                        + "from runtime makespan under engine-enforced dependencies.",
-                                "The cost model is the abstract price = mips/1000 heuristic, not calibrated cloud pricing.",
-                                "Only without a task/VM matrix is cost mathematically mapping-invariant "
-                                        + "(sum of raw per-PE task lengths / 1000). With a matrix, "
-                                        + "effective execution time and the cost term may depend on the assigned VM.",
-                                "Incompatible particle positions are projected to the nearest compatible VM-list index; "
-                                        + "equal distances use lower VM ID. No additional random draws are introduced.",
-                                "Random stream comes from the campaign root seed, not the reference's hardcoded seed 42."));
+                psoPlanner(values);
                 break;
             case LOCAL_HEFT:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "HEFT compatible-VM upward rank with insertion-based earliest finish time; "
-                                + "inter-task transfer is modeled per VM pair as bytes/(1e6 × min(bw_src, bw_dst)). "
-                                + "Per-parent transfer estimates start at parent finish, external inputs at dependency "
-                                + "readiness with destination bandwidth. Timestamped replicas prevent future-locality "
-                                + "discounts; transfer holds may overlap VM busy time and reservations contain compute only");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_HEFT_DECISION_SEMANTICS_OF_TOPCUOGLU_TPDS_2002_"
-                                + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                        + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
-                                "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
-                                        + "otherwise raw per-PE task length/MIPS.",
-                                "Replica availability is timestamped: inputs become visible at the complete input hold end, "
-                                        + "outputs at planned compute finish. Candidate estimates only use replicas "
-                                        + "available at dependency readiness; external inputs, including roots, transfer from that time.",
-                                "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
-                                        + "replicas produced by later-planned tasks, short compute completions and contention "
-                                        + "can cause planning/runtime differences.",
-                                "Planning estimates use contention-free VM-pair bandwidth. Runtime may use endpoint "
-                                        + "or Fat-tree max-min contention; transfers start at Job readiness in those variants.",
-                                "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
-                                        + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
-                                        + "root external inputs still incur their own transfer hold.",
-                                "Tasks shorter than the minimum event interval plus completion safety margin can drift "
-                                        + "from their planned completion under the runtime completion-event rule."));
+                localHeftPlanner(values);
                 break;
             case LOCAL_CPOP:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "CPOP priority ru+rd; rd(t)=max_parent(rd(parent)+meanCompute(parent)+meanCommunication(parent,t)); "
-                                + "critical-path edges satisfy the upward-rank recurrence and constant critical priority; "
-                                + "critical tasks use one minimum-total-compute VM compatible with the entire path; "
-                                + "other tasks use insertion EFT over their compatible VMs");
-                values.put("implementationRevision", "CPOP_PREDECESSOR_RANK_TIGHT_PATH_V2");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_CPOP_DECISION_SEMANTICS_OF_TOPCUOGLU_TPDS_2002_"
-                                + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                        + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
-                                "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
-                                        + "otherwise raw per-PE task length/MIPS.",
-                                "Replica availability is timestamped: inputs become visible at the complete input hold end, "
-                                        + "outputs at planned compute finish. Candidate estimates only use replicas "
-                                        + "available at dependency readiness; external inputs, including roots, transfer from that time.",
-                                "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
-                                        + "replicas produced by later-planned tasks, short compute completions and contention "
-                                        + "can cause planning/runtime differences.",
-                                "Planning estimates use contention-free VM-pair bandwidth. Runtime may use endpoint "
-                                        + "or Fat-tree max-min contention; transfers start at Job readiness in those variants.",
-                                "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
-                                        + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
-                                        + "root external inputs still incur their own transfer hold.",
-                                "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime completion ordering remain explicit model boundaries."));
+                localCpopPlanner(values);
                 break;
             case LOCAL_PEFT:
-                values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
-                values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
-                values.put(
-                        "decisionRule",
-                        "PEFT optimistic cost table "
-                                + "OCT(t,p)=max_child min_p'[OCT(child,p')+w(child,p')+c(t,child,p,p')], "
-                                + "with OCT(exit,p)=0; same-VM communication is zero, otherwise the LOCAL "
-                                + "model uses bytes/(1e6 × min(bw_p,bw_p')). Select the dependency-ready task "
-                                + "with highest compatible-VM mean OCT (ties use lower task ID), then the "
-                                + "compatible VM minimizing insertion EFT+OCT (ties use lower VM ID).");
-                values.put("implementationRevision", "PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2");
-                values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
-                values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
-                values.put(
-                        "reproductionScope",
-                        "CORE_PEFT_DECISION_SEMANTICS_OF_ARABNEJAD_BARBOSA_TPDS_2014_"
-                                + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
-                values.put(
-                        "limitations",
-                        limitations(
-                                "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                        + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
-                                "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
-                                        + "otherwise raw per-PE task length/MIPS.",
-                                "Replica availability is timestamped: inputs become visible at the complete input hold end, "
-                                        + "outputs at planned compute finish. Candidate estimates only use replicas "
-                                        + "available at dependency readiness; external inputs, including roots, transfer from that time.",
-                                "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
-                                        + "replicas produced by later-planned tasks, short compute completions and contention "
-                                        + "can cause planning/runtime differences.",
-                                "OCT is a static pre-scheduling quantity computed with contention-free VM-pair bandwidth "
-                                        + "and no replica-locality discount; runtime stage-in transfers may exploit evolved "
-                                        + "replicas and endpoint/Fat-tree contention variants change transfer timing.",
-                                "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
-                                        + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
-                                        + "root external inputs still incur their own transfer hold.",
-                                "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime completion ordering remain explicit model boundaries.",
-                                "Mean-OCT priority is not necessarily topological under heterogeneous compute costs; "
-                                        + "a dependency-ready list schedules every parent before its children, "
-                                        + "including cases where a child has higher mean OCT.",
-                                "Successor-cost Eq. (7), exit zero, OEFT and ready-list semantics are verified "
-                                        + "against the author's open article chapter (Porto handle 10216/92290, "
-                                        + "printed pages 71-74). The article fixture has PEFT/HEFT makespans 122/133 "
-                                        + "before bootstrap; the older HEFT-origin fixture is separate.",
-                                "Earlier LOCAL_PEFT revisions used current-task cost and an exit mean, not original PEFT. "
-                                        + "The paper uses average communication under uniform links; heterogeneous "
-                                        + "endpoint bandwidth and replica effects remain declared LOCAL model adaptations."));
+                localPeftPlanner(values);
                 break;
             case INVALID:
             default:
@@ -550,6 +367,260 @@ public final class AlgorithmCatalog {
                 break;
         }
         return values;
+    }
+
+    /** Catalog switch branch (SHARED_STORAGE_CPOP).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void sharedStorageCpopPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "CPOP upward-plus-downward rank priority; an identified critical path is assigned to the minimum-cost processor");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+        values.put("reproductionScope", "CORE_CPOP_DECISION_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
+                        "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
+    }
+
+    /** Catalog switch branch (SHARED_STORAGE_DLS).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void sharedStorageDlsPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "Dynamic-level selection over dependency-ready Task-VM candidates: "
+                        + "upward-rank static level minus insertion-based earliest start time; "
+                        + "equal dynamic levels use lower Task ID, then lower VM ID");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+        values.put("reproductionScope", "CORE_DLS_DYNAMIC_LEVEL_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
+                        "It adapts DLS to the current shared-storage model and does not reproduce irregular interconnect topology, routing, or communication contention.",
+                        "It is not calibrated to a real storage or network system."));
+    }
+
+    /** Catalog switch branch (SHARED_STORAGE_ETF).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void sharedStorageEtfPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "Earliest Task First selection over dependency-ready Task-VM candidates: "
+                        + "choose the minimum insertion-based earliest start time; equal starts use higher "
+                        + "upward-rank static b-level, then lower Task ID and VM ID");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+        values.put("reproductionScope", "CORE_ETF_EARLIEST_START_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
+                        "It adapts ETF to the current shared-storage model and does not reproduce the original communication-delay or homogeneous-processor assumptions.",
+                        "It is not calibrated to a real storage or network system."));
+    }
+
+    /** Catalog switch branch (SHARED_STORAGE_PEFT).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void sharedStoragePeftPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "Predict Earliest Finish Time: dependency-ready Task with "
+                        + "maximum compatible-VM average optimistic cost rank, followed by the VM "
+                        + "that minimizes insertion-based earliest finish plus optimistic successor cost");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+        values.put(
+                "reproductionScope",
+                "CORE_PEFT_OCT_LOOKAHEAD_SEMANTICS_" + "ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
+                        "The controlled model has no interprocessor communication term, topology, routing, or link contention; OCT is therefore a successor look-ahead rather than a network prediction.",
+                        "It is not calibrated to a real storage or network system."));
+    }
+
+    /** Catalog switch branch (PSO).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void psoPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING");
+        values.put("inputDomain", "VALID_DAG");
+        values.put(
+                "decisionRule",
+                "Particle swarm optimization over PE-compatible Task-to-VM mappings: "
+                        + "fitness = 0.8 * sequential-load execution cost (price = mips/1000) "
+                        + "+ 0.2 * per-VM load makespan; effective compute seconds use the supplied "
+                        + "task/VM matrix rounded to MI, or raw per-PE length/MIPS without a matrix; "
+                        + "population 30, 100 iterations, w=0.7, c1=c2=1.5, seeded named random stream");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
+        values.put(
+                "reproductionScope",
+                "CORE_PSO_DECISION_SEMANTICS_OF_PANDEY_AINA_2010_" + "PER_OPENSOURCE_WORKFLOWSIM_PSO_REFERENCE");
+        values.put(
+                "limitations",
+                limitations(
+                        "Fitness uses the reference implementation's sequential VM-load model and "
+                                + "ignores DAG dependency edges; planning-side makespan estimates may differ "
+                                + "from runtime makespan under engine-enforced dependencies.",
+                        "The cost model is the abstract price = mips/1000 heuristic, not calibrated cloud pricing.",
+                        "Only without a task/VM matrix is cost mathematically mapping-invariant "
+                                + "(sum of raw per-PE task lengths / 1000). With a matrix, "
+                                + "effective execution time and the cost term may depend on the assigned VM.",
+                        "Incompatible particle positions are projected to the nearest compatible VM-list index; "
+                                + "equal distances use lower VM ID. No additional random draws are introduced.",
+                        "Random stream comes from the campaign root seed, not the reference's hardcoded seed 42."));
+    }
+
+    /** Catalog switch branch (LOCAL_HEFT).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void localHeftPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "HEFT compatible-VM upward rank with insertion-based earliest finish time; "
+                        + "inter-task transfer is modeled per VM pair as bytes/(1e6 × min(bw_src, bw_dst)). "
+                        + "Per-parent transfer estimates start at parent finish, external inputs at dependency "
+                        + "readiness with destination bandwidth. Timestamped replicas prevent future-locality "
+                        + "discounts; transfer holds may overlap VM busy time and reservations contain compute only");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
+        values.put(
+                "reproductionScope",
+                "CORE_HEFT_DECISION_SEMANTICS_OF_TOPCUOGLU_TPDS_2002_"
+                        + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
+                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
+                        "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
+                                + "otherwise raw per-PE task length/MIPS.",
+                        "Replica availability is timestamped: inputs become visible at the complete input hold end, "
+                                + "outputs at planned compute finish. Candidate estimates only use replicas "
+                                + "available at dependency readiness; external inputs, including roots, transfer from that time.",
+                        "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
+                                + "replicas produced by later-planned tasks, short compute completions and contention "
+                                + "can cause planning/runtime differences.",
+                        "Planning estimates use contention-free VM-pair bandwidth. Runtime may use endpoint "
+                                + "or Fat-tree max-min contention; transfers start at Job readiness in those variants.",
+                        "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
+                                + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
+                                + "root external inputs still incur their own transfer hold.",
+                        "Tasks shorter than the minimum event interval plus completion safety margin can drift "
+                                + "from their planned completion under the runtime completion-event rule."));
+    }
+
+    /** Catalog switch branch (LOCAL_CPOP).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void localCpopPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "CPOP priority ru+rd; rd(t)=max_parent(rd(parent)+meanCompute(parent)+meanCommunication(parent,t)); "
+                        + "critical-path edges satisfy the upward-rank recurrence and constant critical priority; "
+                        + "critical tasks use one minimum-total-compute VM compatible with the entire path; "
+                        + "other tasks use insertion EFT over their compatible VMs");
+        values.put("implementationRevision", "CPOP_PREDECESSOR_RANK_TIGHT_PATH_V2");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
+        values.put(
+                "reproductionScope",
+                "CORE_CPOP_DECISION_SEMANTICS_OF_TOPCUOGLU_TPDS_2002_"
+                        + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
+                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
+                        "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
+                                + "otherwise raw per-PE task length/MIPS.",
+                        "Replica availability is timestamped: inputs become visible at the complete input hold end, "
+                                + "outputs at planned compute finish. Candidate estimates only use replicas "
+                                + "available at dependency readiness; external inputs, including roots, transfer from that time.",
+                        "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
+                                + "replicas produced by later-planned tasks, short compute completions and contention "
+                                + "can cause planning/runtime differences.",
+                        "Planning estimates use contention-free VM-pair bandwidth. Runtime may use endpoint "
+                                + "or Fat-tree max-min contention; transfers start at Job readiness in those variants.",
+                        "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
+                                + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
+                                + "root external inputs still incur their own transfer hold.",
+                        "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime completion ordering remain explicit model boundaries."));
+    }
+
+    /** Catalog switch branch (LOCAL_PEFT).
+     * Verbatim relocation: put order fixes the JSON key order and must not change.
+     */
+    private static void localPeftPlanner(Map<String, Object> values) {
+        values.put("decisionLayer", "STATIC_DAG_VM_MAPPING_AND_PER_VM_ORDER");
+        values.put("inputDomain", "VALID_DAG_LOCAL_FILE_SYSTEM_NO_CLUSTERING");
+        values.put(
+                "decisionRule",
+                "PEFT optimistic cost table "
+                        + "OCT(t,p)=max_child min_p'[OCT(child,p')+w(child,p')+c(t,child,p,p')], "
+                        + "with OCT(exit,p)=0; same-VM communication is zero, otherwise the LOCAL "
+                        + "model uses bytes/(1e6 × min(bw_p,bw_p')). Select the dependency-ready task "
+                        + "with highest compatible-VM mean OCT (ties use lower task ID), then the "
+                        + "compatible VM minimizing insertion EFT+OCT (ties use lower VM ID).");
+        values.put("implementationRevision", "PEFT_SUCCESSOR_COST_OCT_EXIT_ZERO_V2");
+        values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
+        values.put("verification", "PAPER_REPRODUCTION_REGRESSION_COVERED");
+        values.put(
+                "reproductionScope",
+                "CORE_PEFT_DECISION_SEMANTICS_OF_ARABNEJAD_BARBOSA_TPDS_2014_"
+                        + "ADAPTED_TO_CONTROLLED_LOCAL_FILE_SYSTEM_MODEL");
+        values.put(
+                "limitations",
+                limitations(
+                        "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
+                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
+                        "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
+                                + "otherwise raw per-PE task length/MIPS.",
+                        "Replica availability is timestamped: inputs become visible at the complete input hold end, "
+                                + "outputs at planned compute finish. Candidate estimates only use replicas "
+                                + "available at dependency readiness; external inputs, including roots, transfer from that time.",
+                        "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
+                                + "replicas produced by later-planned tasks, short compute completions and contention "
+                                + "can cause planning/runtime differences.",
+                        "OCT is a static pre-scheduling quantity computed with contention-free VM-pair bandwidth "
+                                + "and no replica-locality discount; runtime stage-in transfers may exploit evolved "
+                                + "replicas and endpoint/Fat-tree contention variants change transfer timing.",
+                        "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
+                                + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
+                                + "root external inputs still incur their own transfer hold.",
+                        "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime completion ordering remain explicit model boundaries.",
+                        "Mean-OCT priority is not necessarily topological under heterogeneous compute costs; "
+                                + "a dependency-ready list schedules every parent before its children, "
+                                + "including cases where a child has higher mean OCT.",
+                        "Successor-cost Eq. (7), exit zero, OEFT and ready-list semantics are verified "
+                                + "against the author's open article chapter (Porto handle 10216/92290, "
+                                + "printed pages 71-74). The article fixture has PEFT/HEFT makespans 122/133 "
+                                + "before bootstrap; the older HEFT-origin fixture is separate.",
+                        "Earlier LOCAL_PEFT revisions used current-task cost and an exit mean, not original PEFT. "
+                                + "The paper uses average communication under uniform links; heterogeneous "
+                                + "endpoint bandwidth and replica effects remain declared LOCAL model adaptations."));
     }
 
     private static void independentPlanner(Map<String, Object> values, String rule) {
