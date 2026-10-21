@@ -232,47 +232,14 @@ public final class SimulationReport {
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
             mutableVmSummaries.put(vm.getId(), new MutableVmSummary(vm.getId()));
         }
-        int successes = 0;
-        int failures = 0;
-        Set<Integer> seenJobIds = new HashSet<>();
-        for (Job job : completedJobs) {
-            JobOutcome outcome = JobOutcome.fromJob(job);
-            if (!seenJobIds.add(outcome.getJobId())) {
-                throw new IllegalStateException("Completed simulation contains duplicate Job ID " + outcome.getJobId());
-            }
-            jobs.add(outcome);
-            tasks.addAll(TaskOutcome.fromJob(job));
-            if (outcome.getStatus() == Cloudlet.SUCCESS) {
-                successes++;
-            } else if (outcome.getStatus() == Cloudlet.FAILED) {
-                failures++;
-            }
-            MutableVmSummary summary = mutableVmSummaries.get(outcome.getVmId());
-            if (summary == null) {
-                throw new IllegalStateException(
-                        "Completed job " + outcome.getJobId() + " reports undeclared VM " + outcome.getVmId());
-            }
-            summary.add(outcome);
-        }
-
+        OutcomeCounts counts = accumulateJobOutcomes(completedJobs, jobs, tasks, mutableVmSummaries);
+        int successes = counts.successes;
+        int failures = counts.failures;
         Map<Integer, VmSummary> vmSummaries = new LinkedHashMap<>();
         for (Map.Entry<Integer, MutableVmSummary> entry : mutableVmSummaries.entrySet()) {
             vmSummaries.put(entry.getKey(), entry.getValue().freeze());
         }
-        List<DataflowComputeRequest> computeRequests = null;
-        if (config.getDataflowAssignmentConfig().isEnabled()) {
-            Map<Integer, DataflowComputeRequest> ordered = new TreeMap<>();
-            for (Job job : completedJobs)
-                if (job.getClassType() == org.workflowsim.utils.Parameters.ClassType.COMPUTE.value) {
-                    if (job.getTaskList().size() != 1)
-                        throw new IllegalStateException("Online compute request must remain singleton");
-                    DataflowComputeRequest request =
-                            new DataflowComputeRequest(job, job.getTaskList().get(0));
-                    if (ordered.put(job.getCloudletId(), request) != null)
-                        throw new IllegalStateException("Duplicate online compute attempt");
-                }
-            computeRequests = new ArrayList<>(ordered.values());
-        }
+        List<DataflowComputeRequest> computeRequests = buildComputeRequests(config, completedJobs);
         return new SimulationReport(
                 config,
                 platform,
@@ -293,6 +260,60 @@ public final class SimulationReport {
                 dataflowPlan,
                 storageLifecycleEvidence,
                 computeRequests);
+    }
+
+    /** capture() 的 Job 结果聚合阶段（去重/成功失败计数/VM 汇总累计，逐字搬运转写）。 */
+    private static OutcomeCounts accumulateJobOutcomes(
+            List<Job> completedJobs,
+            List<JobOutcome> jobs,
+            List<TaskOutcome> tasks,
+            Map<Integer, MutableVmSummary> mutableVmSummaries) {
+        OutcomeCounts counts = new OutcomeCounts();
+        Set<Integer> seenJobIds = new HashSet<>();
+        for (Job job : completedJobs) {
+            JobOutcome outcome = JobOutcome.fromJob(job);
+            if (!seenJobIds.add(outcome.getJobId())) {
+                throw new IllegalStateException("Completed simulation contains duplicate Job ID " + outcome.getJobId());
+            }
+            jobs.add(outcome);
+            tasks.addAll(TaskOutcome.fromJob(job));
+            if (outcome.getStatus() == Cloudlet.SUCCESS) {
+                counts.successes++;
+            } else if (outcome.getStatus() == Cloudlet.FAILED) {
+                counts.failures++;
+            }
+            MutableVmSummary summary = mutableVmSummaries.get(outcome.getVmId());
+            if (summary == null) {
+                throw new IllegalStateException(
+                        "Completed job " + outcome.getJobId() + " reports undeclared VM " + outcome.getVmId());
+            }
+            summary.add(outcome);
+        }
+        return counts;
+    }
+
+    /** capture() 的在线计算请求装配阶段（TreeMap 确定性次序，逐字搬运转写）。 */
+    private static List<DataflowComputeRequest> buildComputeRequests(SimulationConfig config, List<Job> completedJobs) {
+        if (!config.getDataflowAssignmentConfig().isEnabled()) {
+            return null;
+        }
+        Map<Integer, DataflowComputeRequest> ordered = new TreeMap<>();
+        for (Job job : completedJobs)
+            if (job.getClassType() == org.workflowsim.utils.Parameters.ClassType.COMPUTE.value) {
+                if (job.getTaskList().size() != 1)
+                    throw new IllegalStateException("Online compute request must remain singleton");
+                DataflowComputeRequest request =
+                        new DataflowComputeRequest(job, job.getTaskList().get(0));
+                if (ordered.put(job.getCloudletId(), request) != null)
+                    throw new IllegalStateException("Duplicate online compute attempt");
+            }
+        return new ArrayList<>(ordered.values());
+    }
+
+    /** capture() 聚合计数的私有搬运转写结构。 */
+    private static final class OutcomeCounts {
+        private int successes;
+        private int failures;
     }
 
     public SimulationConfig getConfig() {
