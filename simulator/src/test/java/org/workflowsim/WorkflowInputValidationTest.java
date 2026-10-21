@@ -41,7 +41,8 @@ class WorkflowInputValidationTest {
         assertEquals(tasks.get(0), tasks.get(1).getParentList().get(0));
         assertEquals(0.0, tasks.get(0).getFileList().get(0).getSize());
         assertEquals(1, parser.getInputReports().size());
-        assertEquals(WorkflowInputReport.Format.DAX_XML,
+        assertEquals(
+                WorkflowInputReport.Format.DAX_XML,
                 parser.getInputReports().get(0).getFormat());
 
         parser.parse();
@@ -78,7 +79,8 @@ class WorkflowInputValidationTest {
         WorkflowInputReport report = result.getInputReport();
         assertEquals("1.5", report.getDeclaredVersion());
         assertEquals(1, report.getNormalizations().size());
-        assertEquals(WorkflowInputReport.NormalizationKind.TASK_RUNTIME_FLOORED_TO_MINIMUM,
+        assertEquals(
+                WorkflowInputReport.NormalizationKind.TASK_RUNTIME_FLOORED_TO_MINIMUM,
                 report.getNormalizations().get(0).getKind());
         assertFalse(result.getTasks().get(0).getFileList().isEmpty());
         assertEquals(0.0, result.getTasks().get(0).getFileList().get(0).getSize());
@@ -86,11 +88,17 @@ class WorkflowInputValidationTest {
 
     private WorkflowParser parserFor(String resource) throws Exception {
         String path = resourcePath(resource);
-        Parameters.init(2, path, null, null,
+        Parameters.init(
+                2,
+                path,
+                null,
+                null,
                 new OverheadParameters(0, null, null, null, null, 0.0),
                 new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null),
                 Parameters.SchedulingAlgorithm.FCFS,
-                Parameters.PlanningAlgorithm.INVALID, null, 0L);
+                Parameters.PlanningAlgorithm.INVALID,
+                null,
+                0L);
         return new WorkflowParser(0);
     }
 

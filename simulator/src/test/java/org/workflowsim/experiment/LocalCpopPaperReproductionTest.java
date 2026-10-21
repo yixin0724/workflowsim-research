@@ -31,8 +31,8 @@ import org.workflowsim.utils.TaskCostMatrix;
 class LocalCpopPaperReproductionTest {
 
     private static final double[][] PAPER_COST_SECONDS = {
-            {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
-            {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16},
+        {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
+        {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16},
     };
     private static final double BOOTSTRAP_OFFSET = 110.1;
 
@@ -40,13 +40,16 @@ class LocalCpopPaperReproductionTest {
     private static final int[] CONTROLLED_VM_BY_TASK = {-1, 1, 1, 0, 2, 1, 2, 0, 2, 1, 1};
     /** 受控模型的运行时开始时刻（绝对秒），下标 = 任务 ID。 */
     private static final double[] CONTROLLED_STARTS = {
-            0.0, BOOTSTRAP_OFFSET, 126.1, 138.1, 135.1, 145.1, 152.1, 149.1, 164.1, 175.1, 189.1};
+        0.0, BOOTSTRAP_OFFSET, 126.1, 138.1, 135.1, 145.1, 152.1, 149.1, 164.1, 175.1, 189.1
+    };
     /** 受控模型的运行时完成时刻（绝对秒），下标 = 任务 ID。 */
     private static final double[] CONTROLLED_FINISHES = {
-            0.0, 126.1, 145.1, 149.1, 152.1, 158.1, 161.1, 156.1, 178.1, 187.1, 196.1};
+        0.0, 126.1, 145.1, 149.1, 152.1, 158.1, 161.1, 156.1, 178.1, 187.1, 196.1
+    };
     /** 每任务实际建模传输秒数（副本已在目标 VM 上为零；跨 VM = 边权）。 */
     private static final double[] CONTROLLED_TRANSFER_SECONDS = {
-            0.0, 0.0, 0.0, 12.0, 9.0, 0.0, 14.0, 0.0, 19.0, 23.0, 28.0};
+        0.0, 0.0, 0.0, 12.0, 9.0, 0.0, 14.0, 0.0, 19.0, 23.0, 28.0
+    };
 
     @Test
     void cpopPaperExampleReproducesControlledScheduleAndMapping() throws Exception {
@@ -61,18 +64,15 @@ class LocalCpopPaperReproductionTest {
             }
             computeCount++;
             int taskId = job.getTaskIds().get(0).intValue();
-            assertEquals(CONTROLLED_VM_BY_TASK[taskId], job.getVmId(),
-                    "task " + taskId + " 的 VM 映射");
-            assertEquals(CONTROLLED_STARTS[taskId], job.getStartTime(), 1.0e-9,
-                    "task " + taskId + " 的开始时刻（规划 == 运行时）");
-            assertEquals(CONTROLLED_FINISHES[taskId], job.getFinishTime(), 1.0e-9,
-                    "task " + taskId + " 的完成时刻（规划 == 运行时）");
+            assertEquals(CONTROLLED_VM_BY_TASK[taskId], job.getVmId(), "task " + taskId + " 的 VM 映射");
+            assertEquals(CONTROLLED_STARTS[taskId], job.getStartTime(), 1.0e-9, "task " + taskId + " 的开始时刻（规划 == 运行时）");
+            assertEquals(
+                    CONTROLLED_FINISHES[taskId], job.getFinishTime(), 1.0e-9, "task " + taskId + " 的完成时刻（规划 == 运行时）");
         }
         assertEquals(10, computeCount);
         // 关键路径处理器绑定：全部四个关键路径任务同在 p_CP = vm1。
         for (int taskId : new int[] {1, 2, 9, 10}) {
-            assertEquals(1, computeJobForTask(report, taskId).getVmId(),
-                    "关键路径任务 " + taskId + " 应绑定关键路径处理器 vm1");
+            assertEquals(1, computeJobForTask(report, taskId).getVmId(), "关键路径任务 " + taskId + " 应绑定关键路径处理器 vm1");
         }
     }
 
@@ -81,9 +81,11 @@ class LocalCpopPaperReproductionTest {
         SimulationReport first = runPaperExample();
         for (int taskId = 1; taskId <= 10; taskId++) {
             SimulationEvent event = transferEventForTask(first, taskId);
-            assertEquals(CONTROLLED_TRANSFER_SECONDS[taskId],
+            assertEquals(
+                    CONTROLLED_TRANSFER_SECONDS[taskId],
                     ((Number) event.getAttributes().get("modeledTransferSeconds")).doubleValue(),
-                    1.0e-9, "task " + taskId + " 的建模传输秒数");
+                    1.0e-9,
+                    "task " + taskId + " 的建模传输秒数");
         }
         assertEquals(105.0, first.getMetrics().getTotalModeledDataTransferSeconds(), 1.0e-9);
         assertEquals(10, first.getMetrics().getDataStageInModelObservationCount());
@@ -91,10 +93,13 @@ class LocalCpopPaperReproductionTest {
         SimulationReport second = runPaperExample();
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
         for (int taskId = 1; taskId <= 10; taskId++) {
-            assertEquals(computeJobForTask(first, taskId).getVmId(),
+            assertEquals(
+                    computeJobForTask(first, taskId).getVmId(),
                     computeJobForTask(second, taskId).getVmId());
-            assertTrue(Double.compare(computeJobForTask(first, taskId).getFinishTime(),
-                    computeJobForTask(second, taskId).getFinishTime()) == 0);
+            assertTrue(Double.compare(
+                            computeJobForTask(first, taskId).getFinishTime(),
+                            computeJobForTask(second, taskId).getFinishTime())
+                    == 0);
         }
     }
 
@@ -102,8 +107,7 @@ class LocalCpopPaperReproductionTest {
     void localCpopSharesHeftControlledModelRejections() throws Exception {
         String workflow = resourcePath("/dax/heft-paper-example.dax");
         IllegalArgumentException shared = org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+                IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_CPOP)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .fileSystem(ReplicaCatalog.FileSystem.SHARED)
@@ -128,8 +132,8 @@ class LocalCpopPaperReproductionTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("cpop-paper-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }

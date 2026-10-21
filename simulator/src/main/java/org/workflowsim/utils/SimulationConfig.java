@@ -42,8 +42,7 @@ public final class SimulationConfig {
 
     private SimulationConfig(Builder builder) {
         this.workflowPaths = Collections.unmodifiableList(new ArrayList<>(builder.workflowPaths));
-        this.workflowArrivalSeconds = Collections.unmodifiableList(
-                new ArrayList<>(builder.workflowArrivalSeconds));
+        this.workflowArrivalSeconds = Collections.unmodifiableList(new ArrayList<>(builder.workflowArrivalSeconds));
         this.vmCount = builder.vmCount;
         this.overheadModel = builder.overheadModel;
         this.clusteringParameters = builder.clusteringParameters;
@@ -60,7 +59,7 @@ public final class SimulationConfig {
         this.failureModel = builder.failureModel;
         this.dataMovementModel = builder.dataMovementModel;
         this.networkEvidenceConfig = builder.networkEvidenceConfig;
-        this.dataflowAssignmentConfig=builder.dataflowAssignmentConfig;
+        this.dataflowAssignmentConfig = builder.dataflowAssignmentConfig;
         this.taskCostMatrix = builder.taskCostMatrix;
     }
 
@@ -172,7 +171,9 @@ public final class SimulationConfig {
         return networkEvidenceConfig;
     }
     /** @return explicit control-ready destination-binding policy, OFF by default */
-    public org.workflowsim.data.v2.DataflowAssignmentConfig getDataflowAssignmentConfig(){return dataflowAssignmentConfig;}
+    public org.workflowsim.data.v2.DataflowAssignmentConfig getDataflowAssignmentConfig() {
+        return dataflowAssignmentConfig;
+    }
 
     /** @return 可选的任务×VM 异构执行成本矩阵；未配置时为 {@code null} */
     public TaskCostMatrix getTaskCostMatrix() {
@@ -234,8 +235,8 @@ public final class SimulationConfig {
         private List<Double> workflowArrivalSeconds;
         private final int vmCount;
         private OverheadModelConfig overheadModel = OverheadModelConfig.none();
-        private ClusteringParameters clusteringParameters = new ClusteringParameters(
-                0, 0, ClusteringParameters.ClusteringMethod.NONE, null);
+        private ClusteringParameters clusteringParameters =
+                new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null);
         private SchedulingAlgorithm schedulingAlgorithm = SchedulingAlgorithm.FCFS;
         private PlanningAlgorithm planningAlgorithm = PlanningAlgorithm.INVALID;
         private String reduceMethod;
@@ -249,10 +250,15 @@ public final class SimulationConfig {
         private FailureModelConfig failureModel = FailureModelConfig.disabled();
         private DataMovementModel dataMovementModel = DataMovementModel.legacyWorkflowsimV1();
         private NetworkEvidenceConfig networkEvidenceConfig = NetworkEvidenceConfig.off();
-        private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignmentConfig=org.workflowsim.data.v2.DataflowAssignmentConfig.off();
+        private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignmentConfig =
+                org.workflowsim.data.v2.DataflowAssignmentConfig.off();
 
         /** @param value explicit online destination-binding option, independent of network recording @return this builder */
-        public Builder dataflowAssignment(org.workflowsim.data.v2.DataflowAssignmentConfig value){dataflowAssignmentConfig=value;return this;}
+        public Builder dataflowAssignment(org.workflowsim.data.v2.DataflowAssignmentConfig value) {
+            dataflowAssignmentConfig = value;
+            return this;
+        }
+
         private TaskCostMatrix taskCostMatrix;
 
         private Builder(List<String> workflowPaths, int vmCount) {
@@ -261,8 +267,7 @@ public final class SimulationConfig {
             }
             this.workflowPaths = new ArrayList<>(workflowPaths);
             // R5 默认：全部工作流在 t=0 提交——与历史单时刻提交逐位一致。
-            this.workflowArrivalSeconds = new ArrayList<>(
-                    Collections.nCopies(workflowPaths.size(), 0.0));
+            this.workflowArrivalSeconds = new ArrayList<>(Collections.nCopies(workflowPaths.size(), 0.0));
             this.vmCount = vmCount;
         }
 
@@ -413,23 +418,26 @@ public final class SimulationConfig {
                 }
             }
             // Validate required models before any cross-model condition dereferences them.
-            if (overheadModel == null || clusteringParameters == null
-                    || schedulingAlgorithm == null || planningAlgorithm == null
-                    || fileSystem == null || costModel == null || failureModel == null
-                    || dataMovementModel == null || networkEvidenceConfig == null || dataflowAssignmentConfig==null) {
+            if (overheadModel == null
+                    || clusteringParameters == null
+                    || schedulingAlgorithm == null
+                    || planningAlgorithm == null
+                    || fileSystem == null
+                    || costModel == null
+                    || failureModel == null
+                    || dataMovementModel == null
+                    || networkEvidenceConfig == null
+                    || dataflowAssignmentConfig == null) {
                 throw new IllegalArgumentException("Simulation configuration contains a required null value");
             }
-            org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(dataMovementModel,networkEvidenceConfig);
-            if (workflowArrivalSeconds == null
-                    || workflowArrivalSeconds.size() != workflowPaths.size()) {
-                throw new IllegalArgumentException("Workflow arrival seconds must cover every "
-                        + "workflow input path");
+            org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(dataMovementModel, networkEvidenceConfig);
+            if (workflowArrivalSeconds == null || workflowArrivalSeconds.size() != workflowPaths.size()) {
+                throw new IllegalArgumentException(
+                        "Workflow arrival seconds must cover every " + "workflow input path");
             }
             for (Double arrivalSecond : workflowArrivalSeconds) {
-                if (arrivalSecond == null || !Double.isFinite(arrivalSecond.doubleValue())
-                        || arrivalSecond < 0.0) {
-                    throw new IllegalArgumentException("Workflow arrival seconds must be finite "
-                            + "and non-negative");
+                if (arrivalSecond == null || !Double.isFinite(arrivalSecond.doubleValue()) || arrivalSecond < 0.0) {
+                    throw new IllegalArgumentException("Workflow arrival seconds must be finite " + "and non-negative");
                 }
             }
             boolean hasNonZeroArrival = false;
@@ -442,8 +450,7 @@ public final class SimulationConfig {
             // R5：到达门控按原始任务编号归属工作流；聚类会生成新 Job ID，
             // 无法可靠归属，故非零提交时刻与非 NONE 聚类互斥（显式拒绝而非静默失效）。
             if (hasNonZeroArrival
-                    && clusteringParameters.getClusteringMethod()
-                            != ClusteringParameters.ClusteringMethod.NONE) {
+                    && clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE) {
                 throw new IllegalArgumentException("Non-zero workflow arrival seconds require "
                         + "clustering method NONE: clustered jobs no longer carry the original "
                         + "task ids used for arrival gating");
@@ -452,28 +459,29 @@ public final class SimulationConfig {
                 throw new IllegalArgumentException("VM count must be positive");
             }
             if (deadline < 0L) {
-                throw new IllegalArgumentException("Deadline must be zero (not requested) or a positive simulated second");
+                throw new IllegalArgumentException(
+                        "Deadline must be zero (not requested) or a positive simulated second");
             }
-            if (!isPositiveFinite(runtimeScale) || !isPositiveFinite(runtimeReferenceMips)
+            if (!isPositiveFinite(runtimeScale)
+                    || !isPositiveFinite(runtimeReferenceMips)
                     || !isPositiveFinite(cloudSimMinEventIntervalSeconds)) {
                 throw new IllegalArgumentException("Runtime scale, reference MIPS, and CloudSim minimum "
                         + "event interval must be finite and positive");
             }
-            if (planningAlgorithm != PlanningAlgorithm.INVALID
-                    && schedulingAlgorithm != SchedulingAlgorithm.STATIC) {
+            if (planningAlgorithm != PlanningAlgorithm.INVALID && schedulingAlgorithm != SchedulingAlgorithm.STATIC) {
                 throw new IllegalArgumentException("A planning algorithm assigns VM mappings and requires "
                         + "SchedulingAlgorithm.STATIC dispatch");
             }
             if (planningAlgorithm == PlanningAlgorithm.INVALID
-                    && schedulingAlgorithm == SchedulingAlgorithm.STATIC && !dataflowAssignmentConfig.isEnabled()) {
-                throw new IllegalArgumentException("SchedulingAlgorithm.STATIC requires a planning algorithm "
-                        + "that assigns VM mappings");
+                    && schedulingAlgorithm == SchedulingAlgorithm.STATIC
+                    && !dataflowAssignmentConfig.isEnabled()) {
+                throw new IllegalArgumentException(
+                        "SchedulingAlgorithm.STATIC requires a planning algorithm " + "that assigns VM mappings");
             }
             // PLAT-7：DATA 算法的局部性判定按 VM ID 匹配副本站点，而 SHARED 模式
             // 的副本按数据中心名注册，两者永不匹配——DATA 会静默退化为 first-fit-idle，
             // 产生误导性的"数据局部性"实验结果，故在配置层直接拒绝。
-            if (schedulingAlgorithm == SchedulingAlgorithm.DATA
-                    && fileSystem == ReplicaCatalog.FileSystem.SHARED) {
+            if (schedulingAlgorithm == SchedulingAlgorithm.DATA && fileSystem == ReplicaCatalog.FileSystem.SHARED) {
                 throw new IllegalArgumentException("SchedulingAlgorithm.DATA requires ReplicaCatalog.FileSystem.LOCAL; "
                         + "under SHARED storage its replica sites are datacenter names that never match "
                         + "VM ids, so it would silently degenerate to first-fit-idle");
@@ -490,12 +498,12 @@ public final class SimulationConfig {
                 if (fileSystem != ReplicaCatalog.FileSystem.SHARED) {
                     throw new IllegalArgumentException(planningAlgorithm + " requires shared storage");
                 }
-                if (clusteringParameters.getClusteringMethod()
-                        != ClusteringParameters.ClusteringMethod.NONE) {
+                if (clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE) {
                     throw new IllegalArgumentException(planningAlgorithm + " requires clustering method NONE");
                 }
                 if (failureModel.isEnabled()) {
-                    throw new IllegalArgumentException(planningAlgorithm + " requires the failure model to be disabled");
+                    throw new IllegalArgumentException(
+                            planningAlgorithm + " requires the failure model to be disabled");
                 }
                 if (!isNoOverhead(overheadModel)) {
                     throw new IllegalArgumentException(planningAlgorithm + " requires OverheadModelConfig.none()");
@@ -513,8 +521,7 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException("A task cost matrix is applied only by the STATIC "
                             + "dispatch path; online schedulers would silently ignore it");
                 }
-                if (clusteringParameters.getClusteringMethod()
-                        != ClusteringParameters.ClusteringMethod.NONE) {
+                if (clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE) {
                     throw new IllegalArgumentException("A task cost matrix requires clustering method NONE "
                             + "so every Job maps to exactly one logical Task");
                 }
@@ -546,8 +553,7 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException(label + " requires ReplicaCatalog.FileSystem.LOCAL; "
                             + "inter-task communication is only modeled under the LOCAL file system");
                 }
-                if (clusteringParameters.getClusteringMethod()
-                        != ClusteringParameters.ClusteringMethod.NONE) {
+                if (clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE) {
                     throw new IllegalArgumentException(label + " requires clustering method NONE");
                 }
                 if (failureModel.isEnabled()) {
@@ -570,8 +576,8 @@ public final class SimulationConfig {
             // 执行前传输延迟（含链路争用模型）在任务就绪时按目标 VM 估计与登记副本，
             // 要求规划器在规划阶段完成静态 VM 映射；INVALID 规划层在释放时刻没有目标 VM。
             if ((dataMovementModel.isPreExecutionTransferDelayV1()
-                    || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
-                    || dataMovementModel.isFatTreeContentionV1())
+                            || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
+                            || dataMovementModel.isFatTreeContentionV1())
                     && planningAlgorithm == PlanningAlgorithm.INVALID) {
                 throw new IllegalArgumentException(dataMovementModel.getKind() + " requires a "
                         + "planning algorithm that assigns static VM mappings (e.g. LOCAL_HEFT, "
@@ -588,25 +594,37 @@ public final class SimulationConfig {
                             + " requires ReplicaCatalog.FileSystem.LOCAL; inter-VM communication "
                             + "along fat-tree paths is only modeled under the LOCAL file system");
                 }
-                if (clusteringParameters.getClusteringMethod()
-                        != ClusteringParameters.ClusteringMethod.NONE) {
-                    throw new IllegalArgumentException(dataMovementModel.getKind()
-                            + " requires clustering method NONE");
+                if (clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE) {
+                    throw new IllegalArgumentException(
+                            dataMovementModel.getKind() + " requires clustering method NONE");
                 }
                 if (failureModel.isEnabled()) {
-                    throw new IllegalArgumentException(dataMovementModel.getKind()
-                            + " requires the failure model to be disabled");
+                    throw new IllegalArgumentException(
+                            dataMovementModel.getKind() + " requires the failure model to be disabled");
                 }
                 if (!isNoOverhead(overheadModel)) {
-                    throw new IllegalArgumentException(dataMovementModel.getKind()
-                            + " requires OverheadModelConfig.none()");
+                    throw new IllegalArgumentException(
+                            dataMovementModel.getKind() + " requires OverheadModelConfig.none()");
                 }
             }
-            if(dataflowAssignmentConfig.isEnabled()&&(!dataMovementModel.usesCoherentDataflowRuntime()||planningAlgorithm!=PlanningAlgorithm.INVALID||schedulingAlgorithm!=SchedulingAlgorithm.STATIC))throw new IllegalArgumentException("Online dataflow binding requires coherent V2/V3, INVALID preplanning and STATIC bound-VM dispatch");
-            if(dataMovementModel.usesCoherentDataflowRuntime()){
-                if(planningAlgorithm!=(dataflowAssignmentConfig.isEnabled()?PlanningAlgorithm.INVALID:PlanningAlgorithm.RANDOM)||schedulingAlgorithm!=SchedulingAlgorithm.STATIC||(dataMovementModel.isCoherentFileDataflowV2()&&fileSystem!=ReplicaCatalog.FileSystem.LOCAL)
-                        ||clusteringParameters.getClusteringMethod()!=ClusteringParameters.ClusteringMethod.NONE||!isNoOverhead(overheadModel))
-                    throw new IllegalArgumentException("Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
+            if (dataflowAssignmentConfig.isEnabled()
+                    && (!dataMovementModel.usesCoherentDataflowRuntime()
+                            || planningAlgorithm != PlanningAlgorithm.INVALID
+                            || schedulingAlgorithm != SchedulingAlgorithm.STATIC))
+                throw new IllegalArgumentException(
+                        "Online dataflow binding requires coherent V2/V3, INVALID preplanning and STATIC bound-VM dispatch");
+            if (dataMovementModel.usesCoherentDataflowRuntime()) {
+                if (planningAlgorithm
+                                != (dataflowAssignmentConfig.isEnabled()
+                                        ? PlanningAlgorithm.INVALID
+                                        : PlanningAlgorithm.RANDOM)
+                        || schedulingAlgorithm != SchedulingAlgorithm.STATIC
+                        || (dataMovementModel.isCoherentFileDataflowV2()
+                                && fileSystem != ReplicaCatalog.FileSystem.LOCAL)
+                        || clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE
+                        || !isNoOverhead(overheadModel))
+                    throw new IllegalArgumentException(
+                            "Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
             }
             return new SimulationConfig(this);
         }
@@ -616,10 +634,12 @@ public final class SimulationConfig {
         }
 
         private static boolean isNoOverhead(OverheadModelConfig value) {
-            return value.getWorkflowEngineDelayInterval() == 0 && value.getBandwidth() == 0.0
-                    && value.getWorkflowEngineDelays().isEmpty() && value.getQueueDelays().isEmpty()
-                    && value.getPostDelays().isEmpty() && value.getClusteringDelays().isEmpty();
+            return value.getWorkflowEngineDelayInterval() == 0
+                    && value.getBandwidth() == 0.0
+                    && value.getWorkflowEngineDelays().isEmpty()
+                    && value.getQueueDelays().isEmpty()
+                    && value.getPostDelays().isEmpty()
+                    && value.getClusteringDelays().isEmpty();
         }
     }
 }
-

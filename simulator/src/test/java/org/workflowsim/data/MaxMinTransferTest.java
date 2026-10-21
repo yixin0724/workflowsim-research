@@ -1,12 +1,14 @@
 package org.workflowsim.data;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 class MaxMinTransferTest {
-    @Test void nominalLimitReturnsUnusedCapacityToOtherFlow() {
+    @Test
+    void nominalLimitReturnsUnusedCapacityToOtherFlow() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("A", 100);
         add(engine, 1, 100, 10, "A");
@@ -16,7 +18,8 @@ class MaxMinTransferTest {
         assertEquals(Arrays.asList(1L, 2L), engine.advance(10).getCompletedTransferIds());
     }
 
-    @Test void secondBottleneckReleasesSharedCapacity() {
+    @Test
+    void secondBottleneckReleasesSharedCapacity() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("A", 100);
         engine.setEndpointCapacity("B", 10);
@@ -26,7 +29,8 @@ class MaxMinTransferTest {
         assertEquals(90, engine.currentRateBytesPerSecond(2), 1e-12);
     }
 
-    @Test void cascadingBottlenecksAndDuplicateResourceMultiplicityAreRespected() {
+    @Test
+    void cascadingBottlenecksAndDuplicateResourceMultiplicityAreRespected() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("A", 100);
         engine.setEndpointCapacity("B", 40);
@@ -44,7 +48,8 @@ class MaxMinTransferTest {
         assertEquals(80, duplicate.currentRateBytesPerSecond(2), 1e-12);
     }
 
-    @Test void delayedCheckIntegratesEveryIntermediateCompletion() {
+    @Test
+    void delayedCheckIntegratesEveryIntermediateCompletion() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("A", 100);
         add(engine, 1, 500, 100, "A");
@@ -54,20 +59,22 @@ class MaxMinTransferTest {
         assertNull(engine.advance(20).getNextCompletionTime());
     }
 
-    @Test void addingAfterAnUnobservedCompletionReturnsItExactlyOnce() {
+    @Test
+    void addingAfterAnUnobservedCompletionReturnsItExactlyOnce() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("A", 100);
         add(engine, 1, 10, 10, "A");
         add(engine, 2, 180, 100, "A");
-        TransferContentionEngine.AdvanceResult result = engine.addTransfer(3, 100,
-                Collections.singletonList("A"), 100, 1.5);
+        TransferContentionEngine.AdvanceResult result =
+                engine.addTransfer(3, 100, Collections.singletonList("A"), 100, 1.5);
         assertEquals(Collections.singletonList(1L), result.getCompletedTransferIds());
         assertEquals(2.3, result.getNextCompletionTime(), 1e-12);
         assertEquals(Arrays.asList(2L, 3L), engine.advance(3).getCompletedTransferIds());
         assertTrue(engine.advance(3).getCompletedTransferIds().isEmpty());
     }
 
-    @Test void allocationIsOrderIndependentAndScaleInvariant() {
+    @Test
+    void allocationIsOrderIndependentAndScaleInvariant() {
         for (double scale : new double[] {1e-12, 1, 1e12}) {
             for (boolean reverse : new boolean[] {false, true}) {
                 TransferContentionEngine engine = new TransferContentionEngine();
@@ -87,7 +94,8 @@ class MaxMinTransferTest {
         }
     }
 
-    @Test void rejectsNonFiniteTimeAndCapacityChangesWithoutCorruptingState() {
+    @Test
+    void rejectsNonFiniteTimeAndCapacityChangesWithoutCorruptingState() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("A", 100);
         add(engine, 1, 1000, 100, "A");
@@ -99,8 +107,7 @@ class MaxMinTransferTest {
         assertEquals(10, engine.advance(0).getNextCompletionTime(), 1e-12);
     }
 
-    private static void add(TransferContentionEngine engine, long id, long bytes,
-            double nominal, String... resources) {
+    private static void add(TransferContentionEngine engine, long id, long bytes, double nominal, String... resources) {
         engine.addTransfer(id, bytes, Arrays.asList(resources), nominal, 0);
     }
 }

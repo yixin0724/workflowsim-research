@@ -29,14 +29,13 @@ class BalancingComparatorContractTest {
 
     @Test
     void runtimeIncreasingSortsInExactAscendingOrder() {
-        List<TaskSet> list = new ArrayList<TaskSet>(Arrays.asList(
-                runtime(1_000L), runtime(3000L), runtime(500L), runtime(2_000L)));
+        List<TaskSet> list =
+                new ArrayList<TaskSet>(Arrays.asList(runtime(1_000L), runtime(3000L), runtime(500L), runtime(2_000L)));
         // 先注入"输入序与目标序相反"的排布，防止比较器全零时靠稳定性侥幸通过。
         Collections.reverse(list);
         List<TaskSet> sorted = new ArrayList<TaskSet>(list);
         Collections.sort(sorted, HorizontalRuntimeBalancing.RUNTIME_INCREASING);
-        assertEquals(Arrays.asList(500L, 1_000L, 2_000L, 3_000L),
-                runtimes(sorted), "升序排序结果必须严格按运行时长排列");
+        assertEquals(Arrays.asList(500L, 1_000L, 2_000L, 3_000L), runtimes(sorted), "升序排序结果必须严格按运行时长排列");
     }
 
     @Test
@@ -44,28 +43,22 @@ class BalancingComparatorContractTest {
         // F-005 红用例：(int)(1 - 2^32) 取低 32 位 == 1（方向恰好正确纯属巧合），
         // 而 (int)(2^32 - 1) == -1 方向错误。守恒律要求：任何可区分的运行时长
         // 顺序都必须正确。用 1 而非 0 作为基线：Cloudlet 对 ≤0 长度静默保持默认 1。
-        List<TaskSet> pair = new ArrayList<TaskSet>(Arrays.asList(
-                runtime(4294967296L), runtime(1L)));
+        List<TaskSet> pair = new ArrayList<TaskSet>(Arrays.asList(runtime(4294967296L), runtime(1L)));
         Collections.sort(pair, HorizontalRuntimeBalancing.RUNTIME_INCREASING);
-        assertEquals(Arrays.asList(1L, 4294967296L), runtimes(pair),
-                "差为 2^32 的两个运行时长必须可区分（红测 F-005：窄化回绕）");
+        assertEquals(Arrays.asList(1L, 4294967296L), runtimes(pair), "差为 2^32 的两个运行时长必须可区分（红测 F-005：窄化回绕）");
 
         // 偏差不对称性探针：0 与 2^32+1 的差窄化为 1（方向碰巧正确），
         // 但 0 与 2^32-1 的差窄化为 -1（方向错误）——同一缺陷的另一面。
-        List<TaskSet> asymmetric = new ArrayList<TaskSet>(Arrays.asList(
-                runtime(4294967295L), runtime(1L)));
+        List<TaskSet> asymmetric = new ArrayList<TaskSet>(Arrays.asList(runtime(4294967295L), runtime(1L)));
         Collections.sort(asymmetric, HorizontalRuntimeBalancing.RUNTIME_INCREASING);
-        assertEquals(Arrays.asList(1L, 4294967295L), runtimes(asymmetric),
-                "0 与 2^32-1 的比较方向也必须正确（窄化回绕的另一面）");
+        assertEquals(Arrays.asList(1L, 4294967295L), runtimes(asymmetric), "0 与 2^32-1 的比较方向也必须正确（窄化回绕的另一面）");
     }
 
     @Test
     void runtimeDecreasingSortsInExactDescendingOrderAndMirrorsWrapAround() {
-        List<TaskSet> list = new ArrayList<TaskSet>(Arrays.asList(
-                runtime(4294967296L), runtime(1L), runtime(1_000L)));
+        List<TaskSet> list = new ArrayList<TaskSet>(Arrays.asList(runtime(4294967296L), runtime(1L), runtime(1_000L)));
         Collections.sort(list, HorizontalRuntimeBalancing.RUNTIME_DECREASING);
-        assertEquals(Arrays.asList(4294967296L, 1_000L, 1L), runtimes(list),
-                "降序排序必须在含大运行时长时保持正确（含 2^32 回绕红测）");
+        assertEquals(Arrays.asList(4294967296L, 1_000L, 1L), runtimes(list), "降序排序必须在含大运行时长时保持正确（含 2^32 回绕红测）");
     }
 
     private static List<Long> runtimes(List<TaskSet> sets) {

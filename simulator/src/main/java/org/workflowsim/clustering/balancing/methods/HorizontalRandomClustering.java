@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *  Copyright 2012-2013 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.clustering.balancing.methods;
 
@@ -54,10 +54,8 @@ public class HorizontalRandomClustering extends BalancingMethod {
         Map<Integer, List<TaskSet>> map = getLevelMap();
         for (List<TaskSet> taskList : map.values()) {
             // 使用会话种子派生的随机流打破输入顺序。
-            Collections.shuffle(taskList,
-                    SimulationRandom.newJavaRandom("clustering.balancing.random"));
-            Collections.shuffle(taskList,
-                    SimulationRandom.newJavaRandom("clustering.balancing.random"));
+            Collections.shuffle(taskList, SimulationRandom.newJavaRandom("clustering.balancing.random"));
+            Collections.shuffle(taskList, SimulationRandom.newJavaRandom("clustering.balancing.random"));
 
             if (taskList.size() > getClusterNum()) {
                 List<TaskSet> jobList = new ArrayList<>();
@@ -68,8 +66,8 @@ public class HorizontalRandomClustering extends BalancingMethod {
                 for (TaskSet set : taskList) {
                     // 轮转选择下一个目标集合。
                     TaskSet job = (TaskSet) jobList.get(index);
-                    index ++ ;
-                    if(index == getClusterNum()){
+                    index++;
+                    if (index == getClusterNum()) {
                         index = 0;
                     }
                     job.addTask(set.getTaskList());
@@ -77,14 +75,11 @@ public class HorizontalRandomClustering extends BalancingMethod {
                     for (Task task : set.getTaskList()) {
                         getTaskMap().put(task, job); // 依赖关系由调用方统一重建
                     }
-
                 }
                 taskList.clear();
             } else {
                 // 候选数不超过目标数时无需合并。
             }
-
         }
     }
-    
 }

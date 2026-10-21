@@ -50,13 +50,26 @@ public final class SimulationReport {
     private final List<TaskNode> workflowGraph;
     private final transient List<DataflowComputeRequest> dataflowComputeRequests;
 
-    private SimulationReport(SimulationConfig config, PlatformProfile platform,
-            double makespan, List<InputArtifact> inputs, List<WorkflowInputReport> inputReports,
-            List<JobOutcome> jobs, List<TaskOutcome> tasks, Map<Integer, VmSummary> vmSummaries,
-            Map<Integer, Integer> actualVmHostAssignments, int successfulJobs, int failedJobs,
-            List<SimulationEvent> events, List<Task> sourceTasks,
-            SharedStorageDagPlanTrace sharedStorageDagPlanTrace, NetworkRunEvidence networkEvidence,
-            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan,org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence,List<DataflowComputeRequest> computeRequests) {
+    private SimulationReport(
+            SimulationConfig config,
+            PlatformProfile platform,
+            double makespan,
+            List<InputArtifact> inputs,
+            List<WorkflowInputReport> inputReports,
+            List<JobOutcome> jobs,
+            List<TaskOutcome> tasks,
+            Map<Integer, VmSummary> vmSummaries,
+            Map<Integer, Integer> actualVmHostAssignments,
+            int successfulJobs,
+            int failedJobs,
+            List<SimulationEvent> events,
+            List<Task> sourceTasks,
+            SharedStorageDagPlanTrace sharedStorageDagPlanTrace,
+            NetworkRunEvidence networkEvidence,
+            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,
+            com.google.gson.JsonObject dataflowPlan,
+            org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence,
+            List<DataflowComputeRequest> computeRequests) {
         this.config = config;
         this.platform = platform;
         this.makespan = makespan;
@@ -65,21 +78,26 @@ public final class SimulationReport {
         this.jobs = Collections.unmodifiableList(new ArrayList<>(jobs));
         this.tasks = Collections.unmodifiableList(new ArrayList<>(tasks));
         this.vmSummaries = Collections.unmodifiableMap(new LinkedHashMap<>(vmSummaries));
-        this.actualVmHostAssignments = Collections.unmodifiableMap(
-                new LinkedHashMap<Integer, Integer>(actualVmHostAssignments));
+        this.actualVmHostAssignments =
+                Collections.unmodifiableMap(new LinkedHashMap<Integer, Integer>(actualVmHostAssignments));
         this.successfulJobs = successfulJobs;
         this.failedJobs = failedJobs;
         this.events = Collections.unmodifiableList(new ArrayList<>(events));
         this.sharedStorageDagPlanTrace = sharedStorageDagPlanTrace;
         this.networkEvidence = networkEvidence;
-        this.fileLifecycleEvidence=fileLifecycleEvidence;this.dataflowPlan=dataflowPlan==null?null:dataflowPlan.deepCopy();this.storageLifecycleEvidence=storageLifecycleEvidence;
+        this.fileLifecycleEvidence = fileLifecycleEvidence;
+        this.dataflowPlan = dataflowPlan == null ? null : dataflowPlan.deepCopy();
+        this.storageLifecycleEvidence = storageLifecycleEvidence;
         this.workflowProfile = WorkflowProfile.fromTasks(sourceTasks);
         Map<Integer, TaskNode> graph = new TreeMap<Integer, TaskNode>();
-        for (Task task : sourceTasks) { graph.put(task.getCloudletId(), new TaskNode(task)); }
+        for (Task task : sourceTasks) {
+            graph.put(task.getCloudletId(), new TaskNode(task));
+        }
         this.workflowGraph = Collections.unmodifiableList(new ArrayList<TaskNode>(graph.values()));
-        this.dataflowComputeRequests=computeRequests==null?null:Collections.unmodifiableList(new ArrayList<>(computeRequests));
-        this.metrics = SimulationMetrics.calculate(makespan, this.jobs, this.vmSummaries, this.events,
-                this.tasks, sourceTasks, config, platform);
+        this.dataflowComputeRequests =
+                computeRequests == null ? null : Collections.unmodifiableList(new ArrayList<>(computeRequests));
+        this.metrics = SimulationMetrics.calculate(
+                makespan, this.jobs, this.vmSummaries, this.events, this.tasks, sourceTasks, config, platform);
         this.workflowOutcomes = computeWorkflowOutcomes();
     }
 
@@ -96,44 +114,104 @@ public final class SimulationReport {
         for (int i = 0; i < inputReports.size(); i++) {
             int taskCount = inputReports.get(i).getTaskCount();
             int lastTaskId = firstTaskId + taskCount - 1;
-            double arrivalSecond = (arrivals != null && i < arrivals.size())
-                    ? arrivals.get(i) : 0.0;
+            double arrivalSecond = (arrivals != null && i < arrivals.size()) ? arrivals.get(i) : 0.0;
             double lastSuccessFinishSecond = Double.NaN;
             for (TaskOutcome task : tasks) {
-                if (task.getTaskId() >= firstTaskId && task.getTaskId() <= lastTaskId
+                if (task.getTaskId() >= firstTaskId
+                        && task.getTaskId() <= lastTaskId
                         && task.getTaskStatus() == Cloudlet.SUCCESS
-                        && (Double.isNaN(lastSuccessFinishSecond)
-                                || task.getFinishTime() > lastSuccessFinishSecond)) {
+                        && (Double.isNaN(lastSuccessFinishSecond) || task.getFinishTime() > lastSuccessFinishSecond)) {
                     lastSuccessFinishSecond = task.getFinishTime();
                 }
             }
-            outcomes.add(new WorkflowOutcome(i, config.getWorkflowPaths().get(i),
-                    arrivalSecond, firstTaskId, lastTaskId, taskCount, lastSuccessFinishSecond,
-                    Double.isNaN(lastSuccessFinishSecond) ? Double.NaN
-                            : lastSuccessFinishSecond - arrivalSecond));
+            outcomes.add(new WorkflowOutcome(
+                    i,
+                    config.getWorkflowPaths().get(i),
+                    arrivalSecond,
+                    firstTaskId,
+                    lastTaskId,
+                    taskCount,
+                    lastSuccessFinishSecond,
+                    Double.isNaN(lastSuccessFinishSecond) ? Double.NaN : lastSuccessFinishSecond - arrivalSecond));
             firstTaskId = lastTaskId + 1;
         }
         return Collections.unmodifiableList(outcomes);
     }
 
-    static SimulationReport capture(SimulationConfig config, PlatformProfile platform,
-            double makespan, List<WorkflowInputReport> inputReports, List<Job> completedJobs,
-            List<SimulationEvent> events, List<Task> sourceTasks,
+    static SimulationReport capture(
+            SimulationConfig config,
+            PlatformProfile platform,
+            double makespan,
+            List<WorkflowInputReport> inputReports,
+            List<Job> completedJobs,
+            List<SimulationEvent> events,
+            List<Task> sourceTasks,
             SharedStorageDagPlanTrace sharedStorageDagPlanTrace,
-            Map<Integer, Integer> actualVmHostAssignments, NetworkRunEvidence networkEvidence)
+            Map<Integer, Integer> actualVmHostAssignments,
+            NetworkRunEvidence networkEvidence)
             throws IOException {
-        return capture(config,platform,makespan,inputReports,completedJobs,events,sourceTasks,sharedStorageDagPlanTrace,actualVmHostAssignments,networkEvidence,null,null);
+        return capture(
+                config,
+                platform,
+                makespan,
+                inputReports,
+                completedJobs,
+                events,
+                sourceTasks,
+                sharedStorageDagPlanTrace,
+                actualVmHostAssignments,
+                networkEvidence,
+                null,
+                null);
     }
 
-    static SimulationReport capture(SimulationConfig config,PlatformProfile platform,double makespan,List<WorkflowInputReport> inputReports,List<Job> completedJobs,
-            List<SimulationEvent> events,List<Task> sourceTasks,SharedStorageDagPlanTrace sharedStorageDagPlanTrace,Map<Integer,Integer> actualVmHostAssignments,
-            NetworkRunEvidence networkEvidence,org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan)throws IOException{
-        return capture(config,platform,makespan,inputReports,completedJobs,events,sourceTasks,sharedStorageDagPlanTrace,actualVmHostAssignments,networkEvidence,fileLifecycleEvidence,dataflowPlan,null);
+    static SimulationReport capture(
+            SimulationConfig config,
+            PlatformProfile platform,
+            double makespan,
+            List<WorkflowInputReport> inputReports,
+            List<Job> completedJobs,
+            List<SimulationEvent> events,
+            List<Task> sourceTasks,
+            SharedStorageDagPlanTrace sharedStorageDagPlanTrace,
+            Map<Integer, Integer> actualVmHostAssignments,
+            NetworkRunEvidence networkEvidence,
+            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,
+            com.google.gson.JsonObject dataflowPlan)
+            throws IOException {
+        return capture(
+                config,
+                platform,
+                makespan,
+                inputReports,
+                completedJobs,
+                events,
+                sourceTasks,
+                sharedStorageDagPlanTrace,
+                actualVmHostAssignments,
+                networkEvidence,
+                fileLifecycleEvidence,
+                dataflowPlan,
+                null);
     }
-    static SimulationReport capture(SimulationConfig config,PlatformProfile platform,double makespan,List<WorkflowInputReport> inputReports,List<Job> completedJobs,
-            List<SimulationEvent> events,List<Task> sourceTasks,SharedStorageDagPlanTrace sharedStorageDagPlanTrace,Map<Integer,Integer> actualVmHostAssignments,
-            NetworkRunEvidence networkEvidence,org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,com.google.gson.JsonObject dataflowPlan,org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence)throws IOException{
-        if (inputReports == null || inputReports.size() != config.getWorkflowPaths().size()) {
+
+    static SimulationReport capture(
+            SimulationConfig config,
+            PlatformProfile platform,
+            double makespan,
+            List<WorkflowInputReport> inputReports,
+            List<Job> completedJobs,
+            List<SimulationEvent> events,
+            List<Task> sourceTasks,
+            SharedStorageDagPlanTrace sharedStorageDagPlanTrace,
+            Map<Integer, Integer> actualVmHostAssignments,
+            NetworkRunEvidence networkEvidence,
+            org.workflowsim.data.v2.FileLifecycleEvidence fileLifecycleEvidence,
+            com.google.gson.JsonObject dataflowPlan,
+            org.workflowsim.data.v2.StorageLifecycleEvidence storageLifecycleEvidence)
+            throws IOException {
+        if (inputReports == null
+                || inputReports.size() != config.getWorkflowPaths().size()) {
             throw new IllegalStateException("Completed simulation has "
                     + (inputReports == null ? 0 : inputReports.size())
                     + " parsed input report(s) for " + config.getWorkflowPaths().size()
@@ -160,8 +238,7 @@ public final class SimulationReport {
         for (Job job : completedJobs) {
             JobOutcome outcome = JobOutcome.fromJob(job);
             if (!seenJobIds.add(outcome.getJobId())) {
-                throw new IllegalStateException("Completed simulation contains duplicate Job ID "
-                        + outcome.getJobId());
+                throw new IllegalStateException("Completed simulation contains duplicate Job ID " + outcome.getJobId());
             }
             jobs.add(outcome);
             tasks.addAll(TaskOutcome.fromJob(job));
@@ -172,8 +249,8 @@ public final class SimulationReport {
             }
             MutableVmSummary summary = mutableVmSummaries.get(outcome.getVmId());
             if (summary == null) {
-                throw new IllegalStateException("Completed job " + outcome.getJobId()
-                        + " reports undeclared VM " + outcome.getVmId());
+                throw new IllegalStateException(
+                        "Completed job " + outcome.getJobId() + " reports undeclared VM " + outcome.getVmId());
             }
             summary.add(outcome);
         }
@@ -182,16 +259,49 @@ public final class SimulationReport {
         for (Map.Entry<Integer, MutableVmSummary> entry : mutableVmSummaries.entrySet()) {
             vmSummaries.put(entry.getKey(), entry.getValue().freeze());
         }
-        List<DataflowComputeRequest> computeRequests=null;
-        if(config.getDataflowAssignmentConfig().isEnabled()){Map<Integer,DataflowComputeRequest> ordered=new TreeMap<>();for(Job job:completedJobs)if(job.getClassType()==org.workflowsim.utils.Parameters.ClassType.COMPUTE.value){if(job.getTaskList().size()!=1)throw new IllegalStateException("Online compute request must remain singleton");DataflowComputeRequest request=new DataflowComputeRequest(job,job.getTaskList().get(0));if(ordered.put(job.getCloudletId(),request)!=null)throw new IllegalStateException("Duplicate online compute attempt");}computeRequests=new ArrayList<>(ordered.values());}
-        return new SimulationReport(config, platform, makespan, inputs, inputReports,
-                jobs, tasks, vmSummaries, actualVmHostAssignments, successes, failures,
-                events == null ? Collections.<SimulationEvent>emptyList() : events, sourceTasks,
-                sharedStorageDagPlanTrace, networkEvidence,fileLifecycleEvidence,dataflowPlan,storageLifecycleEvidence,computeRequests);
+        List<DataflowComputeRequest> computeRequests = null;
+        if (config.getDataflowAssignmentConfig().isEnabled()) {
+            Map<Integer, DataflowComputeRequest> ordered = new TreeMap<>();
+            for (Job job : completedJobs)
+                if (job.getClassType() == org.workflowsim.utils.Parameters.ClassType.COMPUTE.value) {
+                    if (job.getTaskList().size() != 1)
+                        throw new IllegalStateException("Online compute request must remain singleton");
+                    DataflowComputeRequest request =
+                            new DataflowComputeRequest(job, job.getTaskList().get(0));
+                    if (ordered.put(job.getCloudletId(), request) != null)
+                        throw new IllegalStateException("Duplicate online compute attempt");
+                }
+            computeRequests = new ArrayList<>(ordered.values());
+        }
+        return new SimulationReport(
+                config,
+                platform,
+                makespan,
+                inputs,
+                inputReports,
+                jobs,
+                tasks,
+                vmSummaries,
+                actualVmHostAssignments,
+                successes,
+                failures,
+                events == null ? Collections.<SimulationEvent>emptyList() : events,
+                sourceTasks,
+                sharedStorageDagPlanTrace,
+                networkEvidence,
+                fileLifecycleEvidence,
+                dataflowPlan,
+                storageLifecycleEvidence,
+                computeRequests);
     }
 
-    public SimulationConfig getConfig() { return config; }
-    public PlatformProfile getPlatform() { return platform; }
+    public SimulationConfig getConfig() {
+        return config;
+    }
+
+    public PlatformProfile getPlatform() {
+        return platform;
+    }
     /**
      * 返回兼容历史 API 的 CloudSim 仿真结束时钟。
      *
@@ -201,13 +311,17 @@ public final class SimulationReport {
      *
      * @return 以模拟秒表示的仿真结束时间
      */
-    public double getMakespan() { return makespan; }
+    public double getMakespan() {
+        return makespan;
+    }
     /**
      * 返回本次运行的 CloudSim 仿真结束时间。
      *
      * @return 与历史 {@link #getMakespan()} 完全相同的模拟秒值
      */
-    public double getSimulationEndSeconds() { return makespan; }
+    public double getSimulationEndSeconds() {
+        return makespan;
+    }
     /**
      * 返回全部解析逻辑 Task 首次由成功 Job 完成的最大 Job envelope 结束时间。
      *
@@ -237,23 +351,38 @@ public final class SimulationReport {
      *
      * @return 按配置顺序排列的不可变输入指纹列表
      */
-    public List<InputArtifact> getInputs() { return inputs; }
+    public List<InputArtifact> getInputs() {
+        return inputs;
+    }
     /**
      * 返回解析器针对每个配置输入给出的验证报告。
      *
      * @return 按配置顺序排列的不可变输入报告列表
      */
-    public List<WorkflowInputReport> getInputReports() { return inputReports; }
-    public List<JobOutcome> getJobs() { return jobs; }
-    public List<TaskOutcome> getTasks() { return tasks; }
+    public List<WorkflowInputReport> getInputReports() {
+        return inputReports;
+    }
+
+    public List<JobOutcome> getJobs() {
+        return jobs;
+    }
+
+    public List<TaskOutcome> getTasks() {
+        return tasks;
+    }
 
     /**
      * R5 动态到达：按输入下标返回每个工作流的到达/流时证据。
      *
      * @return 与 {@link #getInputReports()} 同序的每工作流结果
      */
-    public List<WorkflowOutcome> getWorkflowOutcomes() { return workflowOutcomes; }
-    public Map<Integer, VmSummary> getVmSummaries() { return vmSummaries; }
+    public List<WorkflowOutcome> getWorkflowOutcomes() {
+        return workflowOutcomes;
+    }
+
+    public Map<Integer, VmSummary> getVmSummaries() {
+        return vmSummaries;
+    }
     /**
      * 已与平台预检结果比对过的实际 CloudSim VM 到 Host 放置。
      *
@@ -262,22 +391,38 @@ public final class SimulationReport {
     public Map<Integer, Integer> getActualVmHostAssignments() {
         return actualVmHostAssignments;
     }
-    public int getTotalJobs() { return jobs.size(); }
-    public int getSuccessfulJobs() { return successfulJobs; }
-    public int getFailedJobs() { return failedJobs; }
-    public List<SimulationEvent> getEvents() { return events; }
+
+    public int getTotalJobs() {
+        return jobs.size();
+    }
+
+    public int getSuccessfulJobs() {
+        return successfulJobs;
+    }
+
+    public int getFailedJobs() {
+        return failedJobs;
+    }
+
+    public List<SimulationEvent> getEvents() {
+        return events;
+    }
     /**
      * 返回由本次运行解析出的任务快照计算的工作流结构摘要。
      *
      * @return 不可变的工作流画像
      */
-    public WorkflowProfile getWorkflowProfile() { return workflowProfile; }
+    public WorkflowProfile getWorkflowProfile() {
+        return workflowProfile;
+    }
     /**
      * 返回由运行证据推导出的模型层指标。
      *
      * @return 不可变的仿真指标集合
      */
-    public SimulationMetrics getMetrics() { return metrics; }
+    public SimulationMetrics getMetrics() {
+        return metrics;
+    }
 
     /**
      * Optional immutable grouped-fluid capture, frozen before session cleanup.
@@ -285,13 +430,21 @@ public final class SimulationReport {
      * performs no I/O or metric derivation; use NetworkRunMetrics and the artifact writer separately.
      * @return captured network evidence, or null when OFF
      */
-    public NetworkRunEvidence getNetworkEvidence() { return networkEvidence; }
+    public NetworkRunEvidence getNetworkEvidence() {
+        return networkEvidence;
+    }
     /** @return independent V2 lifecycle capture, null for OFF/V1 */
-    public org.workflowsim.data.v2.FileLifecycleEvidence getFileLifecycleEvidence(){return fileLifecycleEvidence;}
+    public org.workflowsim.data.v2.FileLifecycleEvidence getFileLifecycleEvidence() {
+        return fileLifecycleEvidence;
+    }
     /** @return independent storage-version capture, null for OFF/V1/V2 */
-    public org.workflowsim.data.v2.StorageLifecycleEvidence getStorageLifecycleEvidence(){return storageLifecycleEvidence;}
+    public org.workflowsim.data.v2.StorageLifecycleEvidence getStorageLifecycleEvidence() {
+        return storageLifecycleEvidence;
+    }
     /** @return defensive V2 resolved-plan snapshot, null for old models */
-    public com.google.gson.JsonObject getDataflowPlan(){return dataflowPlan==null?null:dataflowPlan.deepCopy();}
+    public com.google.gson.JsonObject getDataflowPlan() {
+        return dataflowPlan == null ? null : dataflowPlan.deepCopy();
+    }
     /**
      * 返回共享存储静态 DAG 规划的追踪记录。
      *
@@ -305,15 +458,46 @@ public final class SimulationReport {
     }
 
     /** @return 按任务ID排序的原始逻辑任务依赖快照，不含stage-in或retry节点 */
-    public List<TaskNode> getWorkflowGraph() { return workflowGraph; }
+    public List<TaskNode> getWorkflowGraph() {
+        return workflowGraph;
+    }
 
     /** @return actual online compute request metadata, null for preplanned/default runs */
-    public List<DataflowComputeRequest> getDataflowComputeRequests(){return dataflowComputeRequests;}
+    public List<DataflowComputeRequest> getDataflowComputeRequests() {
+        return dataflowComputeRequests;
+    }
     /** Immutable per-attempt compute declarations; not a forecast of CPU completion. */
     public static final class DataflowComputeRequest {
-        private final int jobId,taskId,taskPes,jobPes;private final long lengthMi;
-        private DataflowComputeRequest(Job job,Task task){jobId=job.getCloudletId();taskId=task.getCloudletId();taskPes=task.getNumberOfPes();jobPes=job.getNumberOfPes();lengthMi=task.getCloudletLength();}
-        public int getJobId(){return jobId;}public int getTaskId(){return taskId;}public int getTaskPes(){return taskPes;}public int getJobPes(){return jobPes;}public long getLengthMi(){return lengthMi;}
+        private final int jobId, taskId, taskPes, jobPes;
+        private final long lengthMi;
+
+        private DataflowComputeRequest(Job job, Task task) {
+            jobId = job.getCloudletId();
+            taskId = task.getCloudletId();
+            taskPes = task.getNumberOfPes();
+            jobPes = job.getNumberOfPes();
+            lengthMi = task.getCloudletLength();
+        }
+
+        public int getJobId() {
+            return jobId;
+        }
+
+        public int getTaskId() {
+            return taskId;
+        }
+
+        public int getTaskPes() {
+            return taskPes;
+        }
+
+        public int getJobPes() {
+            return jobPes;
+        }
+
+        public long getLengthMi() {
+            return lengthMi;
+        }
     }
 
     /** 供报告和复核使用的原始任务节点。 */
@@ -323,21 +507,44 @@ public final class SimulationReport {
         private final int depth;
         private final List<Integer> parentIds;
         private final List<Integer> childIds;
+
         private TaskNode(Task task) {
-            taskId = task.getCloudletId(); type = task.getType(); depth = task.getDepth();
+            taskId = task.getCloudletId();
+            type = task.getType();
+            depth = task.getDepth();
             List<Integer> parents = new ArrayList<Integer>();
-            for (Task parent : task.getParentList()) { parents.add(parent.getCloudletId()); }
+            for (Task parent : task.getParentList()) {
+                parents.add(parent.getCloudletId());
+            }
             List<Integer> children = new ArrayList<Integer>();
-            for (Task child : task.getChildList()) { children.add(child.getCloudletId()); }
-            Collections.sort(parents); Collections.sort(children);
+            for (Task child : task.getChildList()) {
+                children.add(child.getCloudletId());
+            }
+            Collections.sort(parents);
+            Collections.sort(children);
             parentIds = Collections.unmodifiableList(parents);
             childIds = Collections.unmodifiableList(children);
         }
-        public int getTaskId() { return taskId; }
-        public String getType() { return type; }
-        public int getDepth() { return depth; }
-        public List<Integer> getParentIds() { return parentIds; }
-        public List<Integer> getChildIds() { return childIds; }
+
+        public int getTaskId() {
+            return taskId;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public int getDepth() {
+            return depth;
+        }
+
+        public List<Integer> getParentIds() {
+            return parentIds;
+        }
+
+        public List<Integer> getChildIds() {
+            return childIds;
+        }
     }
 
     /** 已消费工作流文件的不可变内容指纹。 */
@@ -361,9 +568,17 @@ public final class SimulationReport {
             return new InputArtifact(path.toString(), sha256(path), Files.size(path));
         }
 
-        public String getPath() { return path; }
-        public String getSha256() { return sha256; }
-        public long getSizeBytes() { return sizeBytes; }
+        public String getPath() {
+            return path;
+        }
+
+        public String getSha256() {
+            return sha256;
+        }
+
+        public long getSizeBytes() {
+            return sizeBytes;
+        }
     }
 
     /** 一个 WorkflowSim Job 的不可变执行结果。 */
@@ -387,17 +602,48 @@ public final class SimulationReport {
         private final int taskCount;
         private final List<Integer> taskIds;
 
-        JobOutcome(int jobId, int vmId, int status, int classType, double submissionTime,
-                double startTime, double finishTime, double cpuTime, double modeledProcessingCost,
-                int taskCount, List<Integer> taskIds) {
-            this(jobId, vmId, status, classType, submissionTime, startTime, finishTime, cpuTime,
-                    modeledProcessingCost, 0.0, 0.0, taskCount, taskIds);
+        JobOutcome(
+                int jobId,
+                int vmId,
+                int status,
+                int classType,
+                double submissionTime,
+                double startTime,
+                double finishTime,
+                double cpuTime,
+                double modeledProcessingCost,
+                int taskCount,
+                List<Integer> taskIds) {
+            this(
+                    jobId,
+                    vmId,
+                    status,
+                    classType,
+                    submissionTime,
+                    startTime,
+                    finishTime,
+                    cpuTime,
+                    modeledProcessingCost,
+                    0.0,
+                    0.0,
+                    taskCount,
+                    taskIds);
         }
 
-        JobOutcome(int jobId, int vmId, int status, int classType, double submissionTime,
-                double startTime, double finishTime, double cpuTime, double modeledCpuEnvelopeCost,
-                double modeledDeclaredFileBandwidthCost, double modeledDeclaredFileBytes,
-                int taskCount, List<Integer> taskIds) {
+        JobOutcome(
+                int jobId,
+                int vmId,
+                int status,
+                int classType,
+                double submissionTime,
+                double startTime,
+                double finishTime,
+                double cpuTime,
+                double modeledCpuEnvelopeCost,
+                double modeledDeclaredFileBandwidthCost,
+                double modeledDeclaredFileBytes,
+                int taskCount,
+                List<Integer> taskIds) {
             this.jobId = jobId;
             this.vmId = vmId;
             this.status = status;
@@ -423,42 +669,83 @@ public final class SimulationReport {
             for (org.workflowsim.Task task : job.getTaskList()) {
                 taskIds.add(task.getCloudletId());
             }
-            return new JobOutcome(job.getCloudletId(), job.getVmId(), job.getCloudletStatus(),
-                    job.getClassType(), job.getSubmissionTime(), job.getExecStartTime(), 
-                    job.getFinishTime(), job.getActualCPUTime(), job.getModeledCpuEnvelopeCost(),
-                    job.getModeledDeclaredFileBandwidthCost(), job.getModeledDeclaredFileBytes(),
-                    job.getTaskList().size(), taskIds);
+            return new JobOutcome(
+                    job.getCloudletId(),
+                    job.getVmId(),
+                    job.getCloudletStatus(),
+                    job.getClassType(),
+                    job.getSubmissionTime(),
+                    job.getExecStartTime(),
+                    job.getFinishTime(),
+                    job.getActualCPUTime(),
+                    job.getModeledCpuEnvelopeCost(),
+                    job.getModeledDeclaredFileBandwidthCost(),
+                    job.getModeledDeclaredFileBytes(),
+                    job.getTaskList().size(),
+                    taskIds);
         }
 
-        public int getJobId() { return jobId; }
-        public int getVmId() { return vmId; }
-        public int getStatus() { return status; }
-        public int getClassType() { return classType; }
-        public double getSubmissionTime() { return submissionTime; }
-        public double getStartTime() { return startTime; }
-        public double getFinishTime() { return finishTime; }
+        public int getJobId() {
+            return jobId;
+        }
+
+        public int getVmId() {
+            return vmId;
+        }
+
+        public int getStatus() {
+            return status;
+        }
+
+        public int getClassType() {
+            return classType;
+        }
+
+        public double getSubmissionTime() {
+            return submissionTime;
+        }
+
+        public double getStartTime() {
+            return startTime;
+        }
+
+        public double getFinishTime() {
+            return finishTime;
+        }
         /**
          * 返回 VM 队列等待时间（到达 VM 到开始执行，即 startTime - submissionTime）。
          * <p><strong>注意：</strong>WorkflowSim 的所有调度算法都只向空闲 VM 派发作业，
          * 因此该值几乎总是 0。真实的调度等待时间（就绪到开始）见
          * {@code SimulationMetrics#getMeanComputeTotalWaitingTimeSeconds()}。</p>
          */
-        public double getWaitingTime() { return waitingTime; }
-        public double getExecutionTime() { return executionTime; }
-        public double getResponseTime() { return responseTime; }
+        public double getWaitingTime() {
+            return waitingTime;
+        }
+
+        public double getExecutionTime() {
+            return executionTime;
+        }
+
+        public double getResponseTime() {
+            return responseTime;
+        }
         /**
          * CloudSim 报告的该 Job 信封执行时间。启用 stage-in 时，该值可能包括相应延迟的
          * 整数 MI 表示；它不是纯粹的实测 CPU 时间观测。
          *
          * @return 以模拟秒表示的 Job 信封执行时间
          */
-        public double getCpuTime() { return cpuTime; }
+        public double getCpuTime() {
+            return cpuTime;
+        }
         /**
          * Job envelope 的 CPU 抽象成本分量。
          *
          * @return 可能包含 CloudSim stage-in MI 注入的 CPU envelope 成本
          */
-        public double getModeledCpuEnvelopeCost() { return modeledCpuEnvelopeCost; }
+        public double getModeledCpuEnvelopeCost() {
+            return modeledCpuEnvelopeCost;
+        }
         /**
          * 按 Job 全部声明文件字节数、每十进制 MB 连续计价的带宽抽象成本分量。
          *
@@ -472,16 +759,26 @@ public final class SimulationReport {
          *
          * @return Job 文件表中所有声明文件大小之和
          */
-        public double getModeledDeclaredFileBytes() { return modeledDeclaredFileBytes; }
+        public double getModeledDeclaredFileBytes() {
+            return modeledDeclaredFileBytes;
+        }
         /**
          * 同一 Job 信封的 CloudSim 处理成本。该值既不是服务商资费回放，也不是单独计价的
          * 网络传输成本。
          *
          * @return 该 Job 的建模处理成本
          */
-        public double getModeledProcessingCost() { return modeledProcessingCost; }
-        public int getTaskCount() { return taskCount; }
-        public List<Integer> getTaskIds() { return taskIds; }
+        public double getModeledProcessingCost() {
+            return modeledProcessingCost;
+        }
+
+        public int getTaskCount() {
+            return taskCount;
+        }
+
+        public List<Integer> getTaskIds() {
+            return taskIds;
+        }
     }
 
     /**
@@ -504,22 +801,56 @@ public final class SimulationReport {
         private final double finishTime;
         private final boolean exactJobTiming;
 
-        TaskOutcome(int taskId, int jobId, int vmId, int jobStatus, int taskStatus,
-                int depth, long lengthMi, double startTime, double finishTime) {
-            this(taskId, jobId, vmId, jobStatus, taskStatus, depth, lengthMi,
-                    startTime, finishTime, true);
+        TaskOutcome(
+                int taskId,
+                int jobId,
+                int vmId,
+                int jobStatus,
+                int taskStatus,
+                int depth,
+                long lengthMi,
+                double startTime,
+                double finishTime) {
+            this(taskId, jobId, vmId, jobStatus, taskStatus, depth, lengthMi, startTime, finishTime, true);
         }
 
-        TaskOutcome(int taskId, int jobId, int vmId, int jobStatus, int taskStatus,
-                int depth, long lengthMi, double startTime, double finishTime,
+        TaskOutcome(
+                int taskId,
+                int jobId,
+                int vmId,
+                int jobStatus,
+                int taskStatus,
+                int depth,
+                long lengthMi,
+                double startTime,
+                double finishTime,
                 boolean exactJobTiming) {
-            this(taskId, jobId, vmId, jobStatus, taskStatus, depth, lengthMi, lengthMi,
-                    startTime, finishTime, exactJobTiming);
+            this(
+                    taskId,
+                    jobId,
+                    vmId,
+                    jobStatus,
+                    taskStatus,
+                    depth,
+                    lengthMi,
+                    lengthMi,
+                    startTime,
+                    finishTime,
+                    exactJobTiming);
         }
 
-        TaskOutcome(int taskId, int jobId, int vmId, int jobStatus, int taskStatus,
-                int depth, long lengthMi, long effectiveExecutionLengthMi,
-                double startTime, double finishTime, boolean exactJobTiming) {
+        TaskOutcome(
+                int taskId,
+                int jobId,
+                int vmId,
+                int jobStatus,
+                int taskStatus,
+                int depth,
+                long lengthMi,
+                long effectiveExecutionLengthMi,
+                double startTime,
+                double finishTime,
+                boolean exactJobTiming) {
             this.taskId = taskId;
             this.jobId = jobId;
             this.vmId = vmId;
@@ -539,33 +870,69 @@ public final class SimulationReport {
                 boolean exactJobTiming = job.getTaskList().size() == 1
                         && Double.compare(task.getExecStartTime(), job.getExecStartTime()) == 0
                         && Double.compare(task.getTaskFinishTime(), job.getFinishTime()) == 0;
-                results.add(new TaskOutcome(task.getCloudletId(), job.getCloudletId(),
-                        job.getVmId(), job.getCloudletStatus(), job.getCloudletStatus()
-                                == Cloudlet.SUCCESS ? Cloudlet.SUCCESS : task.getCloudletStatus(),
-                        task.getDepth(), task.getCloudletLength(), task.getEffectiveExecutionLengthMi(),
-                        task.getExecStartTime(), task.getTaskFinishTime(), exactJobTiming));
+                results.add(new TaskOutcome(
+                        task.getCloudletId(),
+                        job.getCloudletId(),
+                        job.getVmId(),
+                        job.getCloudletStatus(),
+                        job.getCloudletStatus() == Cloudlet.SUCCESS ? Cloudlet.SUCCESS : task.getCloudletStatus(),
+                        task.getDepth(),
+                        task.getCloudletLength(),
+                        task.getEffectiveExecutionLengthMi(),
+                        task.getExecStartTime(),
+                        task.getTaskFinishTime(),
+                        exactJobTiming));
             }
             return results;
         }
 
-        public int getTaskId() { return taskId; }
-        public int getJobId() { return jobId; }
-        public int getVmId() { return vmId; }
-        public int getJobStatus() { return jobStatus; }
-        public int getTaskStatus() { return taskStatus; }
-        public int getDepth() { return depth; }
+        public int getTaskId() {
+            return taskId;
+        }
+
+        public int getJobId() {
+            return jobId;
+        }
+
+        public int getVmId() {
+            return vmId;
+        }
+
+        public int getJobStatus() {
+            return jobStatus;
+        }
+
+        public int getTaskStatus() {
+            return taskStatus;
+        }
+
+        public int getDepth() {
+            return depth;
+        }
         /** @return original declared per-PE work in MI */
-        public long getLengthMi() { return lengthMi; }
+        public long getLengthMi() {
+            return lengthMi;
+        }
         /** @return current attempt's effective per-PE compute MI, excluding stage-in */
-        public long getEffectiveExecutionLengthMi() { return effectiveExecutionLengthMi; }
-        public double getStartTime() { return startTime; }
-        public double getFinishTime() { return finishTime; }
+        public long getEffectiveExecutionLengthMi() {
+            return effectiveExecutionLengthMi;
+        }
+
+        public double getStartTime() {
+            return startTime;
+        }
+
+        public double getFinishTime() {
+            return finishTime;
+        }
         /**
          * 仅当单任务计算窗口等于 CloudSim Job 信封时为 {@code true}。
          *
          * @return 此任务是否具有精确 Job 时序
          */
-        public boolean hasExactJobTiming() { return exactJobTiming; }
+        public boolean hasExactJobTiming() {
+            return exactJobTiming;
+        }
     }
 
     /** R5 动态到达：单个工作流输入的到达时刻、任务区间与流时证据。 */
@@ -580,8 +947,14 @@ public final class SimulationReport {
         private final double lastSuccessFinishSecond;
         private final double flowTimeSeconds;
 
-        WorkflowOutcome(int index, String path, double arrivalSecond, int firstTaskId,
-                int lastTaskId, int taskCount, double lastSuccessFinishSecond,
+        WorkflowOutcome(
+                int index,
+                String path,
+                double arrivalSecond,
+                int firstTaskId,
+                int lastTaskId,
+                int taskCount,
+                double lastSuccessFinishSecond,
                 double flowTimeSeconds) {
             this.index = index;
             this.path = path;
@@ -594,21 +967,37 @@ public final class SimulationReport {
         }
 
         /** @return 输入在本次提交中的下标（0 起） */
-        public int getIndex() { return index; }
+        public int getIndex() {
+            return index;
+        }
         /** @return 输入文件路径 */
-        public String getPath() { return path; }
+        public String getPath() {
+            return path;
+        }
         /** @return 配置的提交时刻（模拟秒） */
-        public double getArrivalSecond() { return arrivalSecond; }
+        public double getArrivalSecond() {
+            return arrivalSecond;
+        }
         /** @return 该输入的首个任务编号 */
-        public int getFirstTaskId() { return firstTaskId; }
+        public int getFirstTaskId() {
+            return firstTaskId;
+        }
         /** @return 该输入的末个任务编号 */
-        public int getLastTaskId() { return lastTaskId; }
+        public int getLastTaskId() {
+            return lastTaskId;
+        }
         /** @return 该输入的任务数量 */
-        public int getTaskCount() { return taskCount; }
+        public int getTaskCount() {
+            return taskCount;
+        }
         /** @return 全部成功任务的最大完成时刻；无成功任务时为 {@code NaN} */
-        public double getLastSuccessFinishSecond() { return lastSuccessFinishSecond; }
+        public double getLastSuccessFinishSecond() {
+            return lastSuccessFinishSecond;
+        }
         /** @return 流时 = 最大成功完成时刻 − 提交时刻；无成功任务时为 {@code NaN} */
-        public double getFlowTimeSeconds() { return flowTimeSeconds; }
+        public double getFlowTimeSeconds() {
+            return flowTimeSeconds;
+        }
     }
 
     /** 基于已完成 Job 的每 VM 聚合值，不是 Host 利用率模型。 */
@@ -621,8 +1010,7 @@ public final class SimulationReport {
         private final double totalCpuTime;
         private final double lastFinishTime;
 
-        VmSummary(int vmId, int jobs, int successfulJobs, int failedJobs,
-                double totalCpuTime, double lastFinishTime) {
+        VmSummary(int vmId, int jobs, int successfulJobs, int failedJobs, double totalCpuTime, double lastFinishTime) {
             this.vmId = vmId;
             this.jobs = jobs;
             this.successfulJobs = successfulJobs;
@@ -631,12 +1019,29 @@ public final class SimulationReport {
             this.lastFinishTime = lastFinishTime;
         }
 
-        public int getVmId() { return vmId; }
-        public int getJobs() { return jobs; }
-        public int getSuccessfulJobs() { return successfulJobs; }
-        public int getFailedJobs() { return failedJobs; }
-        public double getTotalCpuTime() { return totalCpuTime; }
-        public double getLastFinishTime() { return lastFinishTime; }
+        public int getVmId() {
+            return vmId;
+        }
+
+        public int getJobs() {
+            return jobs;
+        }
+
+        public int getSuccessfulJobs() {
+            return successfulJobs;
+        }
+
+        public int getFailedJobs() {
+            return failedJobs;
+        }
+
+        public double getTotalCpuTime() {
+            return totalCpuTime;
+        }
+
+        public double getLastFinishTime() {
+            return lastFinishTime;
+        }
 
         @Override
         public boolean equals(Object other) {
@@ -647,7 +1052,8 @@ public final class SimulationReport {
                 return false;
             }
             VmSummary that = (VmSummary) other;
-            return vmId == that.vmId && jobs == that.jobs
+            return vmId == that.vmId
+                    && jobs == that.jobs
                     && successfulJobs == that.successfulJobs
                     && failedJobs == that.failedJobs
                     && Double.compare(totalCpuTime, that.totalCpuTime) == 0

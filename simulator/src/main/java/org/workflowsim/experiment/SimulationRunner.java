@@ -36,8 +36,7 @@ public final class SimulationRunner {
      * @throws PlatformException 当平台资源配置或 VM-to-Host 放置失败时（unchecked）
      * @throws SimulationExecutionException 当解析、CloudSim 执行或报告捕获失败时
      */
-    public SimulationReport run(SimulationConfig config, PlatformProfile platform)
-            throws SimulationExecutionException {
+    public SimulationReport run(SimulationConfig config, PlatformProfile platform) throws SimulationExecutionException {
         if (config == null || platform == null) {
             throw new SimulationConfigurationException("Configuration and platform are required");
         }
@@ -49,12 +48,13 @@ public final class SimulationRunner {
                     + " does not match platform VM count " + platform.getVms().size());
         }
         validateCostModel(config, platform);
-        if(config.getDataMovementModel().isCoherentStorageDataflowV3()!=(platform.getSourceStorage()!=null))throw new SimulationConfigurationException("Bounded sourceStorage must be present exactly for the storage V3 dataflow model");
+        if (config.getDataMovementModel().isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null))
+            throw new SimulationConfigurationException(
+                    "Bounded sourceStorage must be present exactly for the storage V3 dataflow model");
         // Fat-tree 链路争用模型：在会话外装配拓扑并校验模型与拓扑声明的双向契约
         // （配置异常在此直接以 SimulationConfigurationException 抛出，不被执行期
         // 包装；拓扑构造是纯配置计算，不触碰 CloudSim 状态）。
-        org.workflowsim.network.FatTreeTopology fatTreeTopology =
-                prepareFatTreeTopology(config, platform);
+        org.workflowsim.network.FatTreeTopology fatTreeTopology = prepareFatTreeTopology(config, platform);
 
         try (SimulationSession session = SimulationSession.open(config)) {
             SimulationEventRecorder events = new SimulationEventRecorder();
@@ -71,13 +71,25 @@ public final class SimulationRunner {
             planner.setPlanningContext(new PlanningContext(config, platform));
             planner.setTaskCostMatrix(config.getTaskCostMatrix());
             WorkflowEngine engine = planner.getWorkflowEngine();
-            org.workflowsim.data.v2.CoherentDataflowRuntime coherent=null;
-            if(config.getDataMovementModel().usesCoherentDataflowRuntime()){
-                int budget=config.getNetworkEvidenceConfig().isEnabled()?config.getNetworkEvidenceConfig().getMaxTraceRecords():0;
-                coherent=config.getDataMovementModel().isCoherentStorageDataflowV3()?org.workflowsim.data.v2.CoherentDataflowRuntime.withStorage(config.getDataMovementModel().usesSharedDataflowResources(),budget,config.getFileSystem()==org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED):new org.workflowsim.data.v2.CoherentDataflowRuntime(config.getDataMovementModel().isCoherentShared(),budget);
-                if(platform.getSourceStorage()!=null)datacenter.setSourceStorage(platform.getSourceStorage());
-                planner.setCoherentDataflowRuntime(coherent);engine.setCoherentDataflowRuntime(coherent);datacenter.setCoherentDataflowRuntime(coherent,engine.getId());
-                engine.setDataflowAssignmentConfig(config.getDataflowAssignmentConfig());if(config.getDataflowAssignmentConfig().isEnabled())engine.getScheduler(0).enableDataflowBindingGuard();
+            org.workflowsim.data.v2.CoherentDataflowRuntime coherent = null;
+            if (config.getDataMovementModel().usesCoherentDataflowRuntime()) {
+                int budget = config.getNetworkEvidenceConfig().isEnabled()
+                        ? config.getNetworkEvidenceConfig().getMaxTraceRecords()
+                        : 0;
+                coherent = config.getDataMovementModel().isCoherentStorageDataflowV3()
+                        ? org.workflowsim.data.v2.CoherentDataflowRuntime.withStorage(
+                                config.getDataMovementModel().usesSharedDataflowResources(),
+                                budget,
+                                config.getFileSystem() == org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED)
+                        : new org.workflowsim.data.v2.CoherentDataflowRuntime(
+                                config.getDataMovementModel().isCoherentShared(), budget);
+                if (platform.getSourceStorage() != null) datacenter.setSourceStorage(platform.getSourceStorage());
+                planner.setCoherentDataflowRuntime(coherent);
+                engine.setCoherentDataflowRuntime(coherent);
+                datacenter.setCoherentDataflowRuntime(coherent, engine.getId());
+                engine.setDataflowAssignmentConfig(config.getDataflowAssignmentConfig());
+                if (config.getDataflowAssignmentConfig().isEnabled())
+                    engine.getScheduler(0).enableDataflowBindingGuard();
             }
             List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
             engine.submitVmList(vms, 0);
@@ -94,21 +106,32 @@ public final class SimulationRunner {
                         + engine.getInFlightJobCount() + " in-flight job(s): the event chain stalled "
                         + "silently and the run would produce incomplete evidence");
             }
-            if(coherent!=null&&!coherent.isQuiescent())throw new SimulationExecutionException("Simulation stopped before V2 file service and requested Jobs became quiescent");
+            if (coherent != null && !coherent.isQuiescent())
+                throw new SimulationExecutionException(
+                        "Simulation stopped before V2 file service and requested Jobs became quiescent");
             List<Job> completedJobs = engine.getJobsReceivedList();
-            Map<Integer, Integer> actualVmHostAssignments = engine.getScheduler(0)
-                    .getCreatedVmHostAssignments();
+            Map<Integer, Integer> actualVmHostAssignments =
+                    engine.getScheduler(0).getCreatedVmHostAssignments();
             if (!platform.getVmHostAssignments().equals(actualVmHostAssignments)) {
                 throw new PlatformException("CloudSim VM-to-Host allocation " + actualVmHostAssignments
                         + " does not match preflighted platform placement "
                         + platform.getVmHostAssignments());
             }
             try {
-                return SimulationReport.capture(config, platform, makespan,
-                        planner.getWorkflowParser().getInputReports(), completedJobs, events.snapshot(),
-                        planner.getParsedTaskSnapshot(), planner.getSharedStorageDagPlanTrace(),
-                        actualVmHostAssignments, datacenter.captureNetworkEvidence(),datacenter.captureFileLifecycleEvidence(),
-                        coherent==null?null:coherent.getFilePlanDocument(),datacenter.captureStorageLifecycleEvidence());
+                return SimulationReport.capture(
+                        config,
+                        platform,
+                        makespan,
+                        planner.getWorkflowParser().getInputReports(),
+                        completedJobs,
+                        events.snapshot(),
+                        planner.getParsedTaskSnapshot(),
+                        planner.getSharedStorageDagPlanTrace(),
+                        actualVmHostAssignments,
+                        datacenter.captureNetworkEvidence(),
+                        datacenter.captureFileLifecycleEvidence(),
+                        coherent == null ? null : coherent.getFilePlanDocument(),
+                        datacenter.captureStorageLifecycleEvidence());
             } catch (IOException exception) {
                 throw new SimulationExecutionException(
                         "Simulation completed but its evidence record could not be created", exception);
@@ -165,8 +188,8 @@ public final class SimulationRunner {
         }
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
             if (!vm.hasCosts()) {
-                throw new SimulationConfigurationException("CostModel.VM requires explicit pricing for every VM; "
-                        + "VM " + vm.getId() + " has none");
+                throw new SimulationConfigurationException(
+                        "CostModel.VM requires explicit pricing for every VM; " + "VM " + vm.getId() + " has none");
             }
         }
     }
@@ -185,24 +208,28 @@ public final class SimulationRunner {
      */
     private static org.workflowsim.network.FatTreeTopology prepareFatTreeTopology(
             SimulationConfig config, PlatformProfile platform) {
-        boolean coherent=config.getDataMovementModel().usesCoherentDataflowRuntime();
-        if (config.getDataMovementModel().isFatTreeContentionV1()||(coherent&&platform.getNetworkTopology()!=null)) {
+        boolean coherent = config.getDataMovementModel().usesCoherentDataflowRuntime();
+        if (config.getDataMovementModel().isFatTreeContentionV1()
+                || (coherent && platform.getNetworkTopology() != null)) {
             if (platform.getNetworkTopology() == null) {
-                throw new SimulationConfigurationException(config.getDataMovementModel().getKind()
-                        + " requires PlatformProfile.builder(...).networkTopology("
-                        + "NetworkTopologySpec.fatTree(...)) so VM-to-VM transfers can be "
-                        + "routed along deterministic fat-tree paths");
+                throw new SimulationConfigurationException(
+                        config.getDataMovementModel().getKind()
+                                + " requires PlatformProfile.builder(...).networkTopology("
+                                + "NetworkTopologySpec.fatTree(...)) so VM-to-VM transfers can be "
+                                + "routed along deterministic fat-tree paths");
             }
-            if(coherent){
-                int k=platform.getNetworkTopology().getK();double bytes=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;
-                if(k<2||k>32||k%2!=0||!Double.isFinite(bytes)||bytes<Double.MIN_NORMAL)throw new SimulationConfigurationException("Coherent V2 supports even Fat-tree k in [2,32] and normal finite converted B/s capacities");
+            if (coherent) {
+                int k = platform.getNetworkTopology().getK();
+                double bytes = platform.getNetworkTopology().getLinkBandwidthMbPerSecond() * 1_000_000.0;
+                if (k < 2 || k > 32 || k % 2 != 0 || !Double.isFinite(bytes) || bytes < Double.MIN_NORMAL)
+                    throw new SimulationConfigurationException(
+                            "Coherent V2 supports even Fat-tree k in [2,32] and normal finite converted B/s capacities");
             }
             List<Integer> hostIds = new java.util.ArrayList<Integer>();
             for (PlatformProfile.HostSpec host : platform.getHosts()) {
                 hostIds.add(Integer.valueOf(host.getId()));
             }
-            return org.workflowsim.network.FatTreeTopology.fromSpec(
-                    platform.getNetworkTopology(), hostIds);
+            return org.workflowsim.network.FatTreeTopology.fromSpec(platform.getNetworkTopology(), hostIds);
         }
         if (platform.getNetworkTopology() != null) {
             throw new SimulationConfigurationException("Platform declares a network topology but the "
@@ -225,8 +252,7 @@ public final class SimulationRunner {
                     + " is legacy compatibility code and is not supported by SimulationRunner; "
                     + "use FTCLUSTERING_NOOP for the verified retry model");
         }
-        if (config.getFailureModel().getMonitorMode()
-                != FailureParameters.FTCMonitor.MONITOR_NONE) {
+        if (config.getFailureModel().getMonitorMode() != FailureParameters.FTCMonitor.MONITOR_NONE) {
             throw new SimulationConfigurationException("SimulationRunner supports MONITOR_NONE only: under the "
                     + "verified FTCLUSTERING_NOOP retry model, other monitor modes do not alter recovery "
                     + "or scheduling and must not be treated as a research factor");
@@ -237,8 +263,7 @@ public final class SimulationRunner {
      * 受维护的研究入口只支持一种受控执行模型。为兼容 API，历史聚类和时间共享 VM 模式仍可
      * 被构造；但它们与 ready-Job 调度器、任务结果和指标的交互不具有标准运行器回归契约。
      */
-    private static void validateSupportedExecutionModel(SimulationConfig config,
-            PlatformProfile platform) {
+    private static void validateSupportedExecutionModel(SimulationConfig config, PlatformProfile platform) {
         if (config.getClusteringParameters().getClusteringMethod() != ClusteringMethod.NONE) {
             throw new SimulationConfigurationException("Task clustering method "
                     + config.getClusteringParameters().getClusteringMethod()

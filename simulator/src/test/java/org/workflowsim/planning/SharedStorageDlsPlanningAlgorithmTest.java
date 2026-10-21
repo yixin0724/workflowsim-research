@@ -22,8 +22,10 @@ class SharedStorageDlsPlanningAlgorithmTest {
         Task child = new Task(3, 1000);
         connect(root, child);
 
-        SharedStorageDlsPlanningAlgorithm planner = planner(Arrays.asList(child, independent, root),
-                Arrays.asList(vm(1, 2000.0), vm(0, 1000.0)), mixedMipsPlatform());
+        SharedStorageDlsPlanningAlgorithm planner = planner(
+                Arrays.asList(child, independent, root),
+                Arrays.asList(vm(1, 2000.0), vm(0, 1000.0)),
+                mixedMipsPlatform());
         planner.run();
 
         SharedStorageDagPlanTrace trace = planner.getLastPlanTrace();
@@ -51,8 +53,8 @@ class SharedStorageDlsPlanningAlgorithmTest {
         Task higherId = new Task(8, 1000);
         Task lowerId = new Task(2, 1000);
 
-        SharedStorageDlsPlanningAlgorithm planner = planner(Arrays.asList(higherId, lowerId),
-                Arrays.asList(vm(7, 1000.0), vm(3, 1000.0)), equalMipsPlatform());
+        SharedStorageDlsPlanningAlgorithm planner = planner(
+                Arrays.asList(higherId, lowerId), Arrays.asList(vm(7, 1000.0), vm(3, 1000.0)), equalMipsPlatform());
         planner.run();
 
         SharedStorageDagPlanTrace trace = planner.getLastPlanTrace();
@@ -61,14 +63,14 @@ class SharedStorageDlsPlanningAlgorithmTest {
         assertEquals(Integer.valueOf(2), trace.getTaskPlan(8).getDlsSelectionOrder());
     }
 
-    private static SharedStorageDlsPlanningAlgorithm planner(List<Task> tasks,
-            List<CondorVM> vms, PlatformProfile platform) {
+    private static SharedStorageDlsPlanningAlgorithm planner(
+            List<Task> tasks, List<CondorVM> vms, PlatformProfile platform) {
         SimulationConfig config = SimulationConfig.builder("workflow.dax", 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_DLS)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
-        SharedStorageDlsPlanningAlgorithm result = new SharedStorageDlsPlanningAlgorithm(
-                new PlanningContext(config, platform));
+        SharedStorageDlsPlanningAlgorithm result =
+                new SharedStorageDlsPlanningAlgorithm(new PlanningContext(config, platform));
         result.setTaskList(tasks);
         result.setVmList(vms);
         return result;
@@ -80,38 +82,29 @@ class SharedStorageDlsPlanningAlgorithmTest {
     }
 
     private static CondorVM vm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static PlatformProfile mixedMipsPlatform() {
         return PlatformProfile.builder("shared-storage-dls-mixed")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 2000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 2000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 2000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 2000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }
 
     private static PlatformProfile equalMipsPlatform() {
         return PlatformProfile.builder("shared-storage-dls-ties")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(3, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(7, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        3, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        7, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }

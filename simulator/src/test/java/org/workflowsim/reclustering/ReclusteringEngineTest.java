@@ -1,8 +1,8 @@
 package org.workflowsim.reclustering;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,9 +31,11 @@ class ReclusteringEngineTest {
 
     @Test
     void noopRetryCopiesTaskMetadataWithoutRewritingFailedAttempt() throws Exception {
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
                 FailureParameters.FTCMonitor.MONITOR_NONE,
-                FailureParameters.FTCFailure.FAILURE_NONE, null);
+                FailureParameters.FTCFailure.FAILURE_NONE,
+                null);
         Job failed = new Job(40, 500L);
         assertTrue(failed.setClassType(ClassType.COMPUTE.value));
         failed.setUserId(7);
@@ -82,9 +84,11 @@ class ReclusteringEngineTest {
 
     @Test
     void noopRetryCopiesCostMatrixProjectionForEveryCandidateVm() {
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
                 FailureParameters.FTCMonitor.MONITOR_NONE,
-                FailureParameters.FTCFailure.FAILURE_NONE, null);
+                FailureParameters.FTCFailure.FAILURE_NONE,
+                null);
         Task original = new Task(1, 10000L);
         java.util.Map<Integer, Double> costs = new java.util.LinkedHashMap<>();
         costs.put(3, 1.0);
@@ -112,8 +116,7 @@ class ReclusteringEngineTest {
         Job child = new Job(41, 100L);
         failed.addChild(child);
 
-        List<Job> retries = ReclusteringEngine.partitionRetryTasks(failed, 100,
-                failed.getTaskList(), 2, false);
+        List<Job> retries = ReclusteringEngine.partitionRetryTasks(failed, 100, failed.getTaskList(), 2, false);
 
         assertEquals(3, retries.size());
         assertEquals(Arrays.asList(100, 101, 102), jobIds(retries));
@@ -142,8 +145,7 @@ class ReclusteringEngineTest {
         Task fourth = task(4, 400L, Cloudlet.FAILED);
         Job failed = computeJob(40, first, second, third, fourth);
 
-        List<Job> retries = ReclusteringEngine.partitionRetryTasks(failed, 200,
-                failed.getTaskList(), 1, true);
+        List<Job> retries = ReclusteringEngine.partitionRetryTasks(failed, 200, failed.getTaskList(), 1, true);
 
         assertEquals(Arrays.asList(200, 201, 202), jobIds(retries));
         assertEquals(Arrays.asList(1), taskIds(retries.get(0)));
@@ -153,18 +155,17 @@ class ReclusteringEngineTest {
     }
 
     @Test
-    void dcProcessUsesTheLosslessPartitionPathWhenFailureMonitorSelectsKOne()
-            throws Exception {
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_DC,
+    void dcProcessUsesTheLosslessPartitionPathWhenFailureMonitorSelectsKOne() throws Exception {
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_DC,
                 FailureParameters.FTCMonitor.MONITOR_ALL,
-                FailureParameters.FTCFailure.FAILURE_NONE, null);
+                FailureParameters.FTCFailure.FAILURE_NONE,
+                null);
         FailureMonitor.init();
         // 零开销且已观测到失败时，旧 DC 公式的最小合法因子为 1。
         FailureMonitor.postFailureRecord(new FailureRecord(1.0, 1, 1, 3, 0, 0, 7));
-        Job failed = computeJob(40,
-                task(1, 100L, Cloudlet.FAILED),
-                task(2, 200L, Cloudlet.FAILED),
-                task(3, 300L, Cloudlet.FAILED));
+        Job failed = computeJob(
+                40, task(1, 100L, Cloudlet.FAILED), task(2, 200L, Cloudlet.FAILED), task(3, 300L, Cloudlet.FAILED));
 
         List<Job> retries = ReclusteringEngine.process(failed, 300);
 

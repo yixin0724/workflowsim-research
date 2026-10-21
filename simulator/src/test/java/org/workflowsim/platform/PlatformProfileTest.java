@@ -7,8 +7,8 @@ import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.cloudbus.cloudsim.Host;
 import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
+import org.cloudbus.cloudsim.Host;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.CondorVM;
@@ -40,27 +40,27 @@ class PlatformProfileTest {
         assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder("duplicates")
                 .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 512, 1000L, 1000L))
                 .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 512, 1000L, 1000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512, 1000L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .build());
         assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder("unplaceable")
                 .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 512, 1000L, 1000L))
-                .addVm(new PlatformProfile.VmSpec(0, 2000.0, 1, 512, 1000L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 2000.0, 1, 512, 1000L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .build());
         assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder("aggregate-overcommit")
                 .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0, 1024, 1000L, 10_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 768, 500L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 768, 500L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 768, 500L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 768, 500L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .build());
         assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder("pinned-overcommit")
                 .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 10_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512, 500L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512, 500L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 500L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 512, 500L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .pinVmToHost(0, 0)
                 .pinVmToHost(1, 0)
                 .build());
@@ -71,10 +71,10 @@ class PlatformProfileTest {
         PlatformProfile profile = PlatformProfile.builder("pinned-placement")
                 .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0, 2048, 2000L, 10_000L))
                 .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0, 1024, 1000L, 10_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512, 500L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512, 500L, 1000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 500L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 512, 500L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .pinVmToHost(1, 1)
                 .build();
 
@@ -86,17 +86,15 @@ class PlatformProfileTest {
     @Test
     void factoryPreservesTheRawTimeSharedVmSchedulerSelection() {
         PlatformProfile profile = PlatformProfile.builder("time-shared-factory")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1_000L, 10_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1_000L, 1_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.TIME_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1_000L, 10_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1_000L, 1_000L, "Xen", PlatformProfile.CloudletSchedulerMode.TIME_SHARED))
                 .build();
 
         List<CondorVM> vms = PlatformFactory.createVms(profile, 99);
 
         assertEquals(1, vms.size());
-        org.junit.jupiter.api.Assertions.assertTrue(vms.get(0).getCloudletScheduler()
-                instanceof CloudletSchedulerTimeShared);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                vms.get(0).getCloudletScheduler() instanceof CloudletSchedulerTimeShared);
     }
 }

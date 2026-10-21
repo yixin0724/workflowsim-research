@@ -52,15 +52,29 @@ public final class SimulationSession implements AutoCloseable {
         Parameters.setRuntimeReferenceMips(config.getRuntimeReferenceMips());
         Parameters.setCostModel(config.getCostModel());
         if (config.getWorkflowPaths().size() == 1) {
-            Parameters.init(config.getVmCount(), config.getWorkflowPaths().get(0), null, null,
-                    config.getOverheadModel().createParameters(), config.getClusteringParameters(),
-                    config.getSchedulingAlgorithm(), config.getPlanningAlgorithm(),
-                    config.getReduceMethod(), config.getDeadline());
+            Parameters.init(
+                    config.getVmCount(),
+                    config.getWorkflowPaths().get(0),
+                    null,
+                    null,
+                    config.getOverheadModel().createParameters(),
+                    config.getClusteringParameters(),
+                    config.getSchedulingAlgorithm(),
+                    config.getPlanningAlgorithm(),
+                    config.getReduceMethod(),
+                    config.getDeadline());
         } else {
-            Parameters.init(config.getVmCount(), config.getWorkflowPaths(), null, null,
-                    config.getOverheadModel().createParameters(), config.getClusteringParameters(),
-                    config.getSchedulingAlgorithm(), config.getPlanningAlgorithm(),
-                    config.getReduceMethod(), config.getDeadline());
+            Parameters.init(
+                    config.getVmCount(),
+                    config.getWorkflowPaths(),
+                    null,
+                    null,
+                    config.getOverheadModel().createParameters(),
+                    config.getClusteringParameters(),
+                    config.getSchedulingAlgorithm(),
+                    config.getPlanningAlgorithm(),
+                    config.getReduceMethod(),
+                    config.getDeadline());
         }
         Parameters.setWorkflowArrivalSeconds(config.getWorkflowArrivalSeconds());
         ReplicaCatalog.init(config.getFileSystem());

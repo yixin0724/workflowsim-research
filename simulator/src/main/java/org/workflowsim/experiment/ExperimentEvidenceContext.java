@@ -45,8 +45,9 @@ public final class ExperimentEvidenceContext {
     public Map<String, Object> asMap() {
         Map<String, Object> values = new LinkedHashMap<String, Object>();
         values.put("id", studyId);
-        values.put("component", ExperimentProvenance.componentIdentity(driverClass, groupId,
-                artifactId, version, sourceSubpath));
+        values.put(
+                "component",
+                ExperimentProvenance.componentIdentity(driverClass, groupId, artifactId, version, sourceSubpath));
 
         boolean protocolAvailable = protocolFile != null && Files.isRegularFile(protocolFile);
         Map<String, Object> protocol = new LinkedHashMap<String, Object>();
@@ -99,8 +100,8 @@ public final class ExperimentEvidenceContext {
         /** 声明人可读协议标识与可选的本地协议文件。 */
         public Builder protocol(String protocolId, Path protocolFile) {
             this.protocolId = requireText(protocolId, "Protocol ID");
-            this.protocolFile = protocolFile == null ? null
-                    : protocolFile.toAbsolutePath().normalize();
+            this.protocolFile =
+                    protocolFile == null ? null : protocolFile.toAbsolutePath().normalize();
             return this;
         }
 
@@ -122,8 +123,13 @@ public final class ExperimentEvidenceContext {
 
         /** 校验全部研究身份字段并生成上下文。 */
         public ExperimentEvidenceContext build() {
-            if (groupId == null || artifactId == null || version == null || driverClass == null
-                    || sourceSubpath == null || protocolId == null || datasetRoot == null) {
+            if (groupId == null
+                    || artifactId == null
+                    || version == null
+                    || driverClass == null
+                    || sourceSubpath == null
+                    || protocolId == null
+                    || datasetRoot == null) {
                 throw new IllegalStateException("Study artifact, driver, protocol, and dataset root are required");
             }
             return new ExperimentEvidenceContext(this);

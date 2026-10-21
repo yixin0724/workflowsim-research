@@ -23,21 +23,51 @@ class SimulationMetricsTest {
     @Test
     void calculatesOutcomeRetryDelayCostAndUnionIntervalMetricsFromRecordedEvidence() {
         List<SimulationReport.JobOutcome> jobs = Arrays.asList(
-                job(10, 0, Cloudlet.SUCCESS, Parameters.ClassType.STAGE_IN.value,
-                        0.0, 0.11, 0.11, 1.0, Collections.<Integer>emptyList()),
-                job(11, 0, Cloudlet.SUCCESS, Parameters.ClassType.COMPUTE.value,
-                        0.11, 2.11, 2.0, 3.0, Arrays.asList(1)),
-                job(12, 1, Cloudlet.FAILED, Parameters.ClassType.COMPUTE.value,
-                        0.11, 1.11, 1.0, 2.0, Arrays.asList(2)),
-                job(13, 0, Cloudlet.SUCCESS, Parameters.ClassType.COMPUTE.value,
-                        1.11, 3.11, 2.0, 4.0, Arrays.asList(2)));
+                job(
+                        10,
+                        0,
+                        Cloudlet.SUCCESS,
+                        Parameters.ClassType.STAGE_IN.value,
+                        0.0,
+                        0.11,
+                        0.11,
+                        1.0,
+                        Collections.<Integer>emptyList()),
+                job(
+                        11,
+                        0,
+                        Cloudlet.SUCCESS,
+                        Parameters.ClassType.COMPUTE.value,
+                        0.11,
+                        2.11,
+                        2.0,
+                        3.0,
+                        Arrays.asList(1)),
+                job(12, 1, Cloudlet.FAILED, Parameters.ClassType.COMPUTE.value, 0.11, 1.11, 1.0, 2.0, Arrays.asList(2)),
+                job(
+                        13,
+                        0,
+                        Cloudlet.SUCCESS,
+                        Parameters.ClassType.COMPUTE.value,
+                        1.11,
+                        3.11,
+                        2.0,
+                        4.0,
+                        Arrays.asList(2)));
         List<SimulationReport.TaskOutcome> tasks = Arrays.asList(
                 task(1, 11, 0, Cloudlet.SUCCESS, 0.11, 2.11),
                 task(2, 12, 1, Cloudlet.FAILED, 0.11, 1.11),
                 task(2, 13, 0, Cloudlet.SUCCESS, 1.11, 3.11));
 
-        SimulationMetrics metrics = SimulationMetrics.calculate(3.11, jobs, summaries(), events(),
-                tasks, Collections.<Task>emptyList(), controlledConfig(), platform());
+        SimulationMetrics metrics = SimulationMetrics.calculate(
+                3.11,
+                jobs,
+                summaries(),
+                events(),
+                tasks,
+                Collections.<Task>emptyList(),
+                controlledConfig(),
+                platform());
 
         assertEquals(4, metrics.getJobOutcomeCount());
         assertEquals(3, metrics.getComputeJobOutcomeCount());
@@ -99,8 +129,7 @@ class SimulationMetricsTest {
         assertEquals(1.0, secondVm.getModeledBusyIntervalSeconds(), 1.0e-12);
         assertEquals(4.11, metrics.getTotalVmModeledBusyIntervalSeconds(), 1.0e-12);
         assertEquals(4.11 / (3.11 * 2.0), metrics.getMeanVmModeledIntervalUtilization(), 1.0e-12);
-        assertEquals(1.055 / 2.055, metrics.getVmModeledBusyTimeCoefficientOfVariation(),
-                1.0e-12);
+        assertEquals(1.055 / 2.055, metrics.getVmModeledBusyTimeCoefficientOfVariation(), 1.0e-12);
         assertFalse(metrics.isControlledSharedStorageCriticalPathReferenceAvailable());
         assertEquals(3, metrics.getExactTaskTimingObservationCount());
         assertEquals(0, metrics.getModeledApproximateTaskTimingObservationCount());
@@ -108,12 +137,15 @@ class SimulationMetricsTest {
 
     @Test
     void definesZeroForEmptyRatiosInsteadOfProducingNanOrInfinity() {
-        SimulationMetrics metrics = SimulationMetrics.calculate(0.0,
+        SimulationMetrics metrics = SimulationMetrics.calculate(
+                0.0,
                 Collections.<SimulationReport.JobOutcome>emptyList(),
                 Collections.<Integer, SimulationReport.VmSummary>emptyMap(),
                 Collections.<SimulationEvent>emptyList(),
                 Collections.<SimulationReport.TaskOutcome>emptyList(),
-                Collections.<Task>emptyList(), controlledConfig(), platform());
+                Collections.<Task>emptyList(),
+                controlledConfig(),
+                platform());
 
         assertEquals(0.0, metrics.getSuccessfulComputeJobOutcomeRate(), 0.0);
         assertEquals(0.0, metrics.getComputeJobOutcomeThroughputPerSecond(), 0.0);
@@ -127,15 +159,28 @@ class SimulationMetricsTest {
 
     @Test
     void separatesSuccessfulLogicalCompletionFromSimulationEndTime() {
-        List<SimulationReport.JobOutcome> jobs = Collections.singletonList(
-                job(10, 0, Cloudlet.SUCCESS, Parameters.ClassType.COMPUTE.value,
-                        0.0, 4.0, 4.0, 1.0, Collections.singletonList(1)));
-        List<SimulationReport.TaskOutcome> tasks = Collections.singletonList(
-                task(1, 10, 0, Cloudlet.SUCCESS, 0.0, 4.0));
+        List<SimulationReport.JobOutcome> jobs = Collections.singletonList(job(
+                10,
+                0,
+                Cloudlet.SUCCESS,
+                Parameters.ClassType.COMPUTE.value,
+                0.0,
+                4.0,
+                4.0,
+                1.0,
+                Collections.singletonList(1)));
+        List<SimulationReport.TaskOutcome> tasks =
+                Collections.singletonList(task(1, 10, 0, Cloudlet.SUCCESS, 0.0, 4.0));
         List<Task> sourceTasks = Collections.singletonList(new Task(1, 4000));
 
-        SimulationMetrics metrics = SimulationMetrics.calculate(7.0, jobs, summaries(),
-                Collections.<SimulationEvent>emptyList(), tasks, sourceTasks, controlledConfig(),
+        SimulationMetrics metrics = SimulationMetrics.calculate(
+                7.0,
+                jobs,
+                summaries(),
+                Collections.<SimulationEvent>emptyList(),
+                tasks,
+                sourceTasks,
+                controlledConfig(),
                 platform());
 
         assertEquals(7.0, metrics.getMakespanSeconds(), 0.0);
@@ -147,15 +192,29 @@ class SimulationMetricsTest {
 
     @Test
     void aggregatesCpuAndDeclaredFileCostComponentsWithoutChangingTheirTotal() {
-        SimulationReport.JobOutcome job = new SimulationReport.JobOutcome(10, 0,
-                Cloudlet.SUCCESS, Parameters.ClassType.COMPUTE.value,
-                0.0, 0.0, 1.0, 1.0, 1.25, 0.75, 500_000.0, 1,
+        SimulationReport.JobOutcome job = new SimulationReport.JobOutcome(
+                10,
+                0,
+                Cloudlet.SUCCESS,
+                Parameters.ClassType.COMPUTE.value,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                1.25,
+                0.75,
+                500_000.0,
+                1,
                 Collections.singletonList(1));
-        SimulationMetrics metrics = SimulationMetrics.calculate(1.0,
-                Collections.singletonList(job), summaries(),
-                Collections.<SimulationEvent>emptyList(), Collections.singletonList(
-                        task(1, 10, 0, Cloudlet.SUCCESS, 0.0, 1.0)),
-                Collections.singletonList(new Task(1, 1000)), controlledConfig(), platform());
+        SimulationMetrics metrics = SimulationMetrics.calculate(
+                1.0,
+                Collections.singletonList(job),
+                summaries(),
+                Collections.<SimulationEvent>emptyList(),
+                Collections.singletonList(task(1, 10, 0, Cloudlet.SUCCESS, 0.0, 1.0)),
+                Collections.singletonList(new Task(1, 1000)),
+                controlledConfig(),
+                platform());
 
         assertEquals(2.0, metrics.getTotalModeledProcessingCost(), 1.0e-12);
         assertEquals(1.25, metrics.getTotalModeledCpuEnvelopeCost(), 1.0e-12);
@@ -165,47 +224,85 @@ class SimulationMetricsTest {
 
     @Test
     void deadlineObservationDistinguishesNotRequestedMetLateAndIncompleteRuns() {
-        List<SimulationReport.JobOutcome> successfulJobs = Collections.singletonList(
-                job(10, 0, Cloudlet.SUCCESS, Parameters.ClassType.COMPUTE.value,
-                        0.0, 4.0, 4.0, 1.0, Collections.singletonList(1)));
-        List<SimulationReport.TaskOutcome> successfulTasks = Collections.singletonList(
-                task(1, 10, 0, Cloudlet.SUCCESS, 0.0, 4.0));
+        List<SimulationReport.JobOutcome> successfulJobs = Collections.singletonList(job(
+                10,
+                0,
+                Cloudlet.SUCCESS,
+                Parameters.ClassType.COMPUTE.value,
+                0.0,
+                4.0,
+                4.0,
+                1.0,
+                Collections.singletonList(1)));
+        List<SimulationReport.TaskOutcome> successfulTasks =
+                Collections.singletonList(task(1, 10, 0, Cloudlet.SUCCESS, 0.0, 4.0));
         List<Task> sourceTasks = Collections.singletonList(new Task(1, 4000));
 
-        SimulationMetrics notRequested = SimulationMetrics.calculate(4.0, successfulJobs, summaries(),
-                Collections.<SimulationEvent>emptyList(), successfulTasks, sourceTasks,
-                controlledConfig(), platform());
+        SimulationMetrics notRequested = SimulationMetrics.calculate(
+                4.0,
+                successfulJobs,
+                summaries(),
+                Collections.<SimulationEvent>emptyList(),
+                successfulTasks,
+                sourceTasks,
+                controlledConfig(),
+                platform());
         assertFalse(notRequested.isDeadlineObservationEnabled());
         assertEquals("NOT_REQUESTED", notRequested.getDeadlineObservationOutcome());
         assertFalse(notRequested.isDeadlineMet());
         assertEquals(0.0, notRequested.getDeadlineSlackSeconds(), 0.0);
         assertEquals(0.0, notRequested.getDeadlineTardinessSeconds(), 0.0);
 
-        SimulationMetrics met = SimulationMetrics.calculate(4.0, successfulJobs, summaries(),
-                Collections.<SimulationEvent>emptyList(), successfulTasks, sourceTasks,
-                controlledConfig(4L), platform());
+        SimulationMetrics met = SimulationMetrics.calculate(
+                4.0,
+                successfulJobs,
+                summaries(),
+                Collections.<SimulationEvent>emptyList(),
+                successfulTasks,
+                sourceTasks,
+                controlledConfig(4L),
+                platform());
         assertTrue(met.isDeadlineObservationEnabled());
         assertEquals("MET", met.getDeadlineObservationOutcome());
         assertTrue(met.isDeadlineMet());
         assertEquals(0.0, met.getDeadlineSlackSeconds(), 0.0);
         assertEquals(0.0, met.getDeadlineTardinessSeconds(), 0.0);
 
-        SimulationMetrics late = SimulationMetrics.calculate(4.0, successfulJobs, summaries(),
-                Collections.<SimulationEvent>emptyList(), successfulTasks, sourceTasks,
-                controlledConfig(3L), platform());
+        SimulationMetrics late = SimulationMetrics.calculate(
+                4.0,
+                successfulJobs,
+                summaries(),
+                Collections.<SimulationEvent>emptyList(),
+                successfulTasks,
+                sourceTasks,
+                controlledConfig(3L),
+                platform());
         assertEquals("MISSED_LATE", late.getDeadlineObservationOutcome());
         assertFalse(late.isDeadlineMet());
         assertEquals(-1.0, late.getDeadlineSlackSeconds(), 0.0);
         assertEquals(1.0, late.getDeadlineTardinessSeconds(), 0.0);
 
-        List<SimulationReport.JobOutcome> failedJobs = Collections.singletonList(
-                job(10, 0, Cloudlet.FAILED, Parameters.ClassType.COMPUTE.value,
-                        0.0, 2.0, 2.0, 1.0, Collections.singletonList(1)));
-        List<SimulationReport.TaskOutcome> failedTasks = Collections.singletonList(
-                task(1, 10, 0, Cloudlet.FAILED, 0.0, 2.0));
-        SimulationMetrics incomplete = SimulationMetrics.calculate(2.0, failedJobs, summaries(),
-                Collections.<SimulationEvent>emptyList(), failedTasks, sourceTasks,
-                controlledConfig(4L), platform());
+        List<SimulationReport.JobOutcome> failedJobs = Collections.singletonList(job(
+                10,
+                0,
+                Cloudlet.FAILED,
+                Parameters.ClassType.COMPUTE.value,
+                0.0,
+                2.0,
+                2.0,
+                1.0,
+                Collections.singletonList(1)));
+        List<SimulationReport.TaskOutcome> failedTasks =
+                Collections.singletonList(task(1, 10, 0, Cloudlet.FAILED, 0.0, 2.0));
+        SimulationMetrics incomplete = SimulationMetrics.calculate(
+                2.0,
+                failedJobs,
+                summaries(),
+                Collections.<SimulationEvent>emptyList(),
+                failedTasks,
+                sourceTasks,
+                controlledConfig(4L),
+                platform());
         assertEquals("MISSED_INCOMPLETE_WORKFLOW", incomplete.getDeadlineObservationOutcome());
         assertFalse(incomplete.isDeadlineMet());
         assertEquals(2.0, incomplete.getDeadlineSlackSeconds(), 0.0);
@@ -217,34 +314,58 @@ class SimulationMetricsTest {
 
     @Test
     void rejectsRetryEventsThatCannotBeMatchedToFailureEvidence() {
-        List<SimulationReport.JobOutcome> jobs = Collections.singletonList(
-                job(13, 0, Cloudlet.SUCCESS, Parameters.ClassType.COMPUTE.value,
-                        0.0, 1.0, 1.0, 1.0, Collections.singletonList(1)));
-        List<SimulationReport.TaskOutcome> tasks = Collections.singletonList(
-                task(1, 13, 0, Cloudlet.SUCCESS, 0.0, 1.0));
+        List<SimulationReport.JobOutcome> jobs = Collections.singletonList(job(
+                13,
+                0,
+                Cloudlet.SUCCESS,
+                Parameters.ClassType.COMPUTE.value,
+                0.0,
+                1.0,
+                1.0,
+                1.0,
+                Collections.singletonList(1)));
+        List<SimulationReport.TaskOutcome> tasks =
+                Collections.singletonList(task(1, 13, 0, Cloudlet.SUCCESS, 0.0, 1.0));
 
-        assertThrows(IllegalStateException.class, () -> SimulationMetrics.calculate(1.0, jobs,
-                summaries(), Collections.singletonList(event(0, 0.0,
-                        SimulationEventType.RETRY_JOB_CREATED, 13,
-                        Collections.<String, Object>emptyMap())), tasks,
-                Collections.singletonList(new Task(1, 1000)), controlledConfig(), platform()));
+        assertThrows(
+                IllegalStateException.class,
+                () -> SimulationMetrics.calculate(
+                        1.0,
+                        jobs,
+                        summaries(),
+                        Collections.singletonList(event(
+                                0,
+                                0.0,
+                                SimulationEventType.RETRY_JOB_CREATED,
+                                13,
+                                Collections.<String, Object>emptyMap())),
+                        tasks,
+                        Collections.singletonList(new Task(1, 1000)),
+                        controlledConfig(),
+                        platform()));
     }
 
-    private static SimulationReport.JobOutcome job(int id, int vmId, int status, int classType,
-            double start, double finish, double cpu, double cost, List<Integer> taskIds) {
-        return new SimulationReport.JobOutcome(id, vmId, status, classType, start, start, finish,
-                cpu, cost, taskIds.size(), taskIds);
+    private static SimulationReport.JobOutcome job(
+            int id,
+            int vmId,
+            int status,
+            int classType,
+            double start,
+            double finish,
+            double cpu,
+            double cost,
+            List<Integer> taskIds) {
+        return new SimulationReport.JobOutcome(
+                id, vmId, status, classType, start, start, finish, cpu, cost, taskIds.size(), taskIds);
     }
 
-    private static SimulationReport.TaskOutcome task(int taskId, int jobId, int vmId,
-            int jobStatus, double start, double finish) {
-        return new SimulationReport.TaskOutcome(taskId, jobId, vmId, jobStatus, jobStatus,
-                0, 1000L, start, finish);
+    private static SimulationReport.TaskOutcome task(
+            int taskId, int jobId, int vmId, int jobStatus, double start, double finish) {
+        return new SimulationReport.TaskOutcome(taskId, jobId, vmId, jobStatus, jobStatus, 0, 1000L, start, finish);
     }
 
     private static Map<Integer, SimulationReport.VmSummary> summaries() {
-        Map<Integer, SimulationReport.VmSummary> values =
-                new LinkedHashMap<Integer, SimulationReport.VmSummary>();
+        Map<Integer, SimulationReport.VmSummary> values = new LinkedHashMap<Integer, SimulationReport.VmSummary>();
         values.put(0, new SimulationReport.VmSummary(0, 3, 2, 0, 4.11, 3.11));
         values.put(1, new SimulationReport.VmSummary(1, 1, 0, 1, 1.0, 1.11));
         return values;
@@ -252,37 +373,65 @@ class SimulationMetricsTest {
 
     private static List<SimulationEvent> events() {
         return Arrays.asList(
-                event(0, 0.0, SimulationEventType.PLANNING_COMPLETED, null,
-                        SimulationEventRecorder.attributes("explicitPlannerDecision", true,
-                                "planningDecisionElapsedNanos", 11L)),
-                event(1, 0.10, SimulationEventType.JOB_READY, 11,
-                        Collections.<String, Object>emptyMap()),
-                event(2, 0.11, SimulationEventType.SCHEDULING_CYCLE, null,
+                event(
+                        0,
+                        0.0,
+                        SimulationEventType.PLANNING_COMPLETED,
+                        null,
+                        SimulationEventRecorder.attributes(
+                                "explicitPlannerDecision", true, "planningDecisionElapsedNanos", 11L)),
+                event(1, 0.10, SimulationEventType.JOB_READY, 11, Collections.<String, Object>emptyMap()),
+                event(
+                        2,
+                        0.11,
+                        SimulationEventType.SCHEDULING_CYCLE,
+                        null,
                         SimulationEventRecorder.attributes("decisionElapsedNanos", 3L)),
-                event(3, 0.11, SimulationEventType.SCHEDULING_DECISION, 11,
-                        Collections.<String, Object>emptyMap()),
-                event(4, 0.10, SimulationEventType.JOB_READY, 12,
-                        Collections.<String, Object>emptyMap()),
-                event(5, 0.20, SimulationEventType.SCHEDULING_DECISION, 12,
-                        Collections.<String, Object>emptyMap()),
-                event(6, 1.11, SimulationEventType.SCHEDULING_CYCLE, null,
+                event(3, 0.11, SimulationEventType.SCHEDULING_DECISION, 11, Collections.<String, Object>emptyMap()),
+                event(4, 0.10, SimulationEventType.JOB_READY, 12, Collections.<String, Object>emptyMap()),
+                event(5, 0.20, SimulationEventType.SCHEDULING_DECISION, 12, Collections.<String, Object>emptyMap()),
+                event(
+                        6,
+                        1.11,
+                        SimulationEventType.SCHEDULING_CYCLE,
+                        null,
                         SimulationEventRecorder.attributes("decisionElapsedNanos", 4L)),
-                event(7, 0.20, SimulationEventType.DATA_STAGE_IN_MODELED, 11,
-                        SimulationEventRecorder.attributes("modeledTransferSeconds", 1.0,
-                                "requiredFileBytes", 10.0,
-                                "modeledTransferFileCount", 1)),
-                event(8, 0.30, SimulationEventType.DATA_STAGE_IN_MODELED, 12,
-                        SimulationEventRecorder.attributes("modeledTransferSeconds", 3.0,
-                                "requiredFileBytes", 20.0,
-                                "modeledTransferFileCount", 2)),
-                event(9, 1.11, SimulationEventType.RETRY_JOB_CREATED, 13,
+                event(
+                        7,
+                        0.20,
+                        SimulationEventType.DATA_STAGE_IN_MODELED,
+                        11,
+                        SimulationEventRecorder.attributes(
+                                "modeledTransferSeconds",
+                                1.0,
+                                "requiredFileBytes",
+                                10.0,
+                                "modeledTransferFileCount",
+                                1)),
+                event(
+                        8,
+                        0.30,
+                        SimulationEventType.DATA_STAGE_IN_MODELED,
+                        12,
+                        SimulationEventRecorder.attributes(
+                                "modeledTransferSeconds",
+                                3.0,
+                                "requiredFileBytes",
+                                20.0,
+                                "modeledTransferFileCount",
+                                2)),
+                event(
+                        9,
+                        1.11,
+                        SimulationEventType.RETRY_JOB_CREATED,
+                        13,
                         SimulationEventRecorder.attributes("failedJobId", 12)));
     }
 
-    private static SimulationEvent event(long sequence, double time, SimulationEventType type,
-            Integer jobId, Map<String, Object> attributes) {
-        return new SimulationEvent(sequence, time, type, jobId, null, null,
-                Collections.<Integer>emptyList(), attributes);
+    private static SimulationEvent event(
+            long sequence, double time, SimulationEventType type, Integer jobId, Map<String, Object> attributes) {
+        return new SimulationEvent(
+                sequence, time, type, jobId, null, null, Collections.<Integer>emptyList(), attributes);
     }
 
     private static SimulationConfig controlledConfig() {
@@ -295,16 +444,12 @@ class SimulationMetricsTest {
 
     private static PlatformProfile platform() {
         return PlatformProfile.builder("metric-unit-platform")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }

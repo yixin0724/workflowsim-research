@@ -28,8 +28,8 @@ class SchedulingListIsolationTest {
         Job laterArrival = job(30);
         Job middleArrival = job(20);
         Job firstArrival = job(10);
-        List<Cloudlet> callerReadyList = new ArrayList<Cloudlet>(
-                Arrays.<Cloudlet>asList(laterArrival, middleArrival, firstArrival));
+        List<Cloudlet> callerReadyList =
+                new ArrayList<Cloudlet>(Arrays.<Cloudlet>asList(laterArrival, middleArrival, firstArrival));
 
         FirstFitIdleSchedulingAlgorithm scheduler = new FirstFitIdleSchedulingAlgorithm();
         scheduler.setCloudletList(callerReadyList);
@@ -37,7 +37,8 @@ class SchedulingListIsolationTest {
         scheduler.run();
 
         // 调用方列表必须保持原始到达序，不受算法内部排序影响。
-        assertEquals(Arrays.<Cloudlet>asList(laterArrival, middleArrival, firstArrival),
+        assertEquals(
+                Arrays.<Cloudlet>asList(laterArrival, middleArrival, firstArrival),
                 callerReadyList,
                 "Algorithm-side sorting must not mutate the caller's ready list");
 
@@ -60,7 +61,9 @@ class SchedulingListIsolationTest {
         scheduler.setVmList(callerVmList);
         scheduler.run();
 
-        assertEquals(Arrays.asList(higherId, lowerId), callerVmList,
+        assertEquals(
+                Arrays.asList(higherId, lowerId),
+                callerVmList,
                 "Algorithm-side VM sorting must not mutate the caller's VM list");
         // FirstFitIdle 按 VM ID 升序选第一个空闲 VM。
         assertEquals(3, job.getVmId());
@@ -73,7 +76,6 @@ class SchedulingListIsolationTest {
     }
 
     private static CondorVM vm(int id) {
-        return new CondorVM(id, 0, 1000.0, 1, 512, 1000L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 }

@@ -106,15 +106,15 @@ public final class RlObservation {
     public static RlObservation of(List<? extends Cloudlet> readyJobs, List<CondorVM> vms) {
         List<JobView> jobViews = new ArrayList<JobView>();
         for (Cloudlet cloudlet : readyJobs) {
-            jobViews.add(new JobView(cloudlet.getCloudletId(), cloudlet.getCloudletLength(),
-                    cloudlet.getNumberOfPes()));
+            jobViews.add(
+                    new JobView(cloudlet.getCloudletId(), cloudlet.getCloudletLength(), cloudlet.getNumberOfPes()));
         }
         List<CondorVM> sorted = new ArrayList<CondorVM>(vms);
         Collections.sort(sorted, (first, second) -> Integer.compare(first.getId(), second.getId()));
         List<VmView> vmViews = new ArrayList<VmView>();
         for (CondorVM vm : sorted) {
-            vmViews.add(new VmView(vm.getId(), vm.getMips(), vm.getNumberOfPes(),
-                    vm.getState() == WorkflowSimTags.VM_STATUS_IDLE));
+            vmViews.add(new VmView(
+                    vm.getId(), vm.getMips(), vm.getNumberOfPes(), vm.getState() == WorkflowSimTags.VM_STATUS_IDLE));
         }
         return new RlObservation(CloudSim.clock(), jobViews, vmViews);
     }

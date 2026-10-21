@@ -62,8 +62,8 @@ public class ReclusteringEngine {
         Job newJob = new Job(id, length);
         newJob.setUserId(job.getUserId());
         if (!newJob.setClassType(job.getClassType())) {
-            throw new IllegalStateException("Failed Job " + job.getCloudletId()
-                    + " has no executable class type to preserve for retry");
+            throw new IllegalStateException(
+                    "Failed Job " + job.getCloudletId() + " has no executable class type to preserve for retry");
         }
         // Data preparation precedes dispatch: a static mapping must already exist on retry.
         // Online schedulers may replace this hint when they make their next decision.
@@ -83,13 +83,12 @@ public class ReclusteringEngine {
         if (updateDep) {
             newJob.setChildList(job.getChildList());
             newJob.setParentList(job.getParentList());
-            for (Iterator it = job.getChildList().iterator(); it.hasNext();) {
+            for (Iterator it = job.getChildList().iterator(); it.hasNext(); ) {
                 Job cJob = (Job) it.next();
                 cJob.addParent(newJob);
             }
         }
         return newJob;
-
     }
 
     /**
@@ -107,49 +106,46 @@ public class ReclusteringEngine {
             throw new IllegalArgumentException("Retry job ID must be non-negative");
         }
         if (job.getTaskList() == null || job.getTaskList().isEmpty()) {
-            throw new IllegalArgumentException("Failed Job " + job.getCloudletId()
-                    + " has no tasks to recreate");
+            throw new IllegalArgumentException("Failed Job " + job.getCloudletId() + " has no tasks to recreate");
         }
         List jobList = new ArrayList();
 
         switch (FailureParameters.getFTCluteringAlgorithm()) {
-                case FTCLUSTERING_NOOP:
-
-                    jobList.add(createJob(id, job, job.getEffectiveExecutionLengthMi(),
-                            job.getTaskList(), true));
-                    // 重试 Job 尚未提交，无需处理失败 Job 的提交状态。
-                    break;
+            case FTCLUSTERING_NOOP:
+                jobList.add(createJob(id, job, job.getEffectiveExecutionLengthMi(), job.getTaskList(), true));
+                // 重试 Job 尚未提交，无需处理失败 Job 的提交状态。
+                break;
                 /**
                  * 动态重聚类。
                  */
-                case FTCLUSTERING_DC:
-                    jobList = DCReclustering(jobList, job, id, job.getTaskList());
-                    break;
+            case FTCLUSTERING_DC:
+                jobList = DCReclustering(jobList, job, id, job.getTaskList());
+                break;
                 /**
                  * 选择性重聚类。
                  */
-                case FTCLUSTERING_SR:
-                    jobList = SRReclustering(jobList, job, id);
+            case FTCLUSTERING_SR:
+                jobList = SRReclustering(jobList, job, id);
 
-                    break;
+                break;
                 /**
                  * 基于估计器的动态重聚类。
                  */
-                case FTCLUSTERING_DR:
-                    jobList = DRReclustering(jobList, job, id, job.getTaskList());
-                    break;
+            case FTCLUSTERING_DR:
+                jobList = DRReclustering(jobList, job, id, job.getTaskList());
+                break;
                 /**
                  * 按 DAG 深度分块重聚类。
                  */
-                case FTCLUSTERING_BLOCK:
-                    jobList = BlockReclustering(jobList, job, id);
-                    break;
+            case FTCLUSTERING_BLOCK:
+                jobList = BlockReclustering(jobList, job, id);
+                break;
                 /**
                  * 按 DAG 深度二分重聚类。
                  */
-                case FTCLUSTERING_VERTICAL:
-                    jobList = VerticalReclustering(jobList, job, id);
-                    break;
+            case FTCLUSTERING_VERTICAL:
+                jobList = VerticalReclustering(jobList, job, id);
+                break;
             default:
                 throw new IllegalStateException("Unsupported fault-tolerant clustering algorithm: "
                         + FailureParameters.getFTCluteringAlgorithm());
@@ -231,8 +227,8 @@ public class ReclusteringEngine {
      * @param failedOnly 是否只重试失败任务
      * @return 连续编号、已重建文件元数据并已连接依赖边的重试 Job
      */
-    static List<Job> partitionRetryTasks(Job job, int firstId, List<Task> candidates,
-            int clusterSize, boolean failedOnly) {
+    static List<Job> partitionRetryTasks(
+            Job job, int firstId, List<Task> candidates, int clusterSize, boolean failedOnly) {
         if (job == null || candidates == null) {
             throw new IllegalArgumentException("Retry partition requires a Job and candidate tasks");
         }
@@ -257,8 +253,7 @@ public class ReclusteringEngine {
                 currentLength = 0L;
             }
             if (task.getCloudletLength() > Long.MAX_VALUE - currentLength) {
-                throw new IllegalStateException("Retry Job length overflow for failed Job "
-                        + job.getCloudletId());
+                throw new IllegalStateException("Retry Job length overflow for failed Job " + job.getCloudletId());
             }
             currentTasks.add(task);
             currentLength += task.getCloudletLength();
@@ -342,7 +337,7 @@ public class ReclusteringEngine {
      */
     private static List<Job> VerticalReclustering(List<Job> jobList, Job job, int id) {
         Map<Integer, List<Task>> map = getDepthMap(job.getTaskList());
-        
+
         /**
          * 只有一个 DAG 层级时退化为动态重聚类。
          */
@@ -370,7 +365,6 @@ public class ReclusteringEngine {
         jobList.addAll(newUpList);
         jobList.addAll(DCReclustering(new ArrayList(), job, id, listDown));
         return jobList;
-
     }
 
     /**
@@ -403,7 +397,6 @@ public class ReclusteringEngine {
             }
         }
 
-
         return jobList;
     }
 
@@ -423,10 +416,10 @@ public class ReclusteringEngine {
         // 该历史公式把任务长度、聚类开销和深度相关除数结合起来。
         OverheadParameters overhead = Parameters.getOverheadParams();
         double clusteringDelay = overhead == null ? 0.0 : overhead.getClustDelay(job);
-        double taskLength = (double) firstTask.getCloudletLength() / 1000
-                + clusteringDelay / getDividend(job.getDepth());
-        FailureRecord record = new FailureRecord(taskLength, 0, job.getDepth(), allTaskList.size(),
-                job.getVmId(), job.getCloudletId(), job.getUserId());
+        double taskLength =
+                (double) firstTask.getCloudletLength() / 1000 + clusteringDelay / getDividend(job.getDepth());
+        FailureRecord record = new FailureRecord(
+                taskLength, 0, job.getDepth(), allTaskList.size(), job.getVmId(), job.getCloudletId(), job.getUserId());
         record.delayLength = getCumulativeDelay(job.getDepth());
         int suggestedK = FailureMonitor.getClusteringFactor(record);
 
@@ -434,7 +427,6 @@ public class ReclusteringEngine {
         int clusterSize = suggestedK > 0 ? suggestedK : Math.max(1, allTaskList.size());
         jobList.addAll(partitionRetryTasks(job, id, allTaskList, clusterSize, false));
         return jobList;
-
     }
 
     /**
@@ -492,27 +484,24 @@ public class ReclusteringEngine {
      * @param depth DAG 深度
      * @return 累积延迟
      */
-    private static double getCumulativeDelay(int depth){
+    private static double getCumulativeDelay(int depth) {
         double delay = 0.0;
         OverheadParameters overhead = Parameters.getOverheadParams();
         if (overhead == null) {
             return delay;
         }
-        if(overhead.getQueueDelay()!=null && 
-                overhead.getQueueDelay().containsKey(depth)){
+        if (overhead.getQueueDelay() != null && overhead.getQueueDelay().containsKey(depth)) {
             delay += overhead.getQueueDelay().get(depth).getMLEMean();
         }
-        if(overhead.getWEDDelay()!=null &&
-                overhead.getWEDDelay().containsKey(depth)){
+        if (overhead.getWEDDelay() != null && overhead.getWEDDelay().containsKey(depth)) {
             delay += overhead.getWEDDelay().get(depth).getMLEMean();
         }
-        if(overhead.getPostDelay()!=null &&
-                overhead.getPostDelay().containsKey(depth)){
+        if (overhead.getPostDelay() != null && overhead.getPostDelay().containsKey(depth)) {
             delay += overhead.getPostDelay().get(depth).getMLEMean();
         }
         return delay;
     }
-    
+
     /**
      * 返回某一深度最先可用的开销分布先验，用于旧版动态重聚类估计器。
      *
@@ -521,28 +510,23 @@ public class ReclusteringEngine {
      * @param depth DAG 深度
      * @return 选中的先验；没有对应开销时为 0
      */
-    private static double getOverheadLikelihoodPrior(int depth){
+    private static double getOverheadLikelihoodPrior(int depth) {
         double prior = 0.0;
         OverheadParameters overhead = Parameters.getOverheadParams();
         if (overhead == null) {
             return prior;
         }
 
-        if(overhead.getQueueDelay()!=null && 
-                overhead.getQueueDelay().containsKey(depth)){
+        if (overhead.getQueueDelay() != null && overhead.getQueueDelay().containsKey(depth)) {
             prior = overhead.getQueueDelay().get(depth).getLikelihoodPrior();
-        }else
-        if(overhead.getWEDDelay()!=null &&
-                overhead.getWEDDelay().containsKey(depth)){
+        } else if (overhead.getWEDDelay() != null && overhead.getWEDDelay().containsKey(depth)) {
             prior = overhead.getWEDDelay().get(depth).getMLEMean();
-        }else
-        if(overhead.getPostDelay()!=null &&
-                overhead.getPostDelay().containsKey(depth)){
+        } else if (overhead.getPostDelay() != null && overhead.getPostDelay().containsKey(depth)) {
             prior = overhead.getPostDelay().get(depth).getMLEMean();
         }
         return prior;
     }
-    
+
     /**
      * 根据失效到达时间和开销参数估计簇大小后，仅重试失败任务。
      *
@@ -554,37 +538,37 @@ public class ReclusteringEngine {
      */
     private static List DRReclustering(List<Job> jobList, Job job, int id, List<Task> allTaskList) {
         Task firstTask = allTaskList.get(0);
-      
+
         // 旧版 DR 路径只用首个任务长度估计单任务运行时间；这里刻意不叠加簇开销。
-        double taskLength = (double) firstTask.getCloudletLength() / 1000 ;//+ Parameters.getOverheadParams().getClustDelay(job) / getDividend(job.getDepth());
-        
+        double taskLength = (double) firstTask.getCloudletLength()
+                / 1000; // + Parameters.getOverheadParams().getClustDelay(job) / getDividend(job.getDepth());
+
         // 历史实现曾通过 FailureMonitor 计算 suggestedK；现保留直接估计路径。
-        
+
         double phi_ts = getOverheadLikelihoodPrior(job.getDepth());
         double delay = getCumulativeDelay(job.getDepth());
         int suggestedK; // 历史实现可改由 FailureMonitor 提供建议值。
-        
-        double theta = FailureParameters.getGeneratorForFailureScope(
-                job.getVmId(), job.getDepth()).getMLEMean();
-        
-        double phi_gamma = FailureParameters.getGeneratorForFailureScope(
-                job.getVmId(), job.getDepth()).getLikelihoodPrior();
-        suggestedK = ClusteringSizeEstimator.estimateK(taskLength, delay, 
-                theta, phi_gamma, phi_ts);
 
-        Log.printLine("t=" + taskLength +" d=" + delay + " theta=" + theta + " k=" + suggestedK);
+        double theta = FailureParameters.getGeneratorForFailureScope(job.getVmId(), job.getDepth())
+                .getMLEMean();
+
+        double phi_gamma = FailureParameters.getGeneratorForFailureScope(job.getVmId(), job.getDepth())
+                .getLikelihoodPrior();
+        suggestedK = ClusteringSizeEstimator.estimateK(taskLength, delay, theta, phi_gamma, phi_ts);
+
+        Log.printLine("t=" + taskLength + " d=" + delay + " theta=" + theta + " k=" + suggestedK);
         // 估计器没有有限建议时，仍严格只重试失败任务并将它们置于一个重试簇。
         int clusterSize = suggestedK > 0 ? suggestedK : Math.max(1, allTaskList.size());
         jobList.addAll(partitionRetryTasks(job, id, allTaskList, clusterSize, true));
         return jobList;
     }
-    
-    private static void updateDependencies (Job job, List<Job> jobList) {
+
+    private static void updateDependencies(Job job, List<Job> jobList) {
         // 每个重试 Job 都引用同一组依赖边；不能在循环内重写整个子节点列表，
         // 否则后续重试 Job 会覆盖先前建立的依赖关系。
         List<Task> parents = job.getParentList();
         List<Task> children = job.getChildList();
-        for (Job rawJob : jobList) { 
+        for (Job rawJob : jobList) {
             rawJob.setChildList(children);
             rawJob.setParentList(parents);
         }

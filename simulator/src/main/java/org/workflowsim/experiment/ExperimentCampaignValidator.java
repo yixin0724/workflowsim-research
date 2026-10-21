@@ -18,8 +18,7 @@ public final class ExperimentCampaignValidator {
 
     static final String SCHEMA = "workflowsim-experiment-campaign-index-v1";
 
-    private ExperimentCampaignValidator() {
-    }
+    private ExperimentCampaignValidator() {}
 
     /**
      * 校验 campaign 索引、其计划声明和所有被引用的证据工件。
@@ -69,12 +68,11 @@ public final class ExperimentCampaignValidator {
             throw new IllegalArgumentException("Usage: ExperimentCampaignValidator <experiment-campaign-index.json>");
         }
         ValidationResult result = validate(Paths.get(args[0]));
-        System.out.println("EXPERIMENT_CAMPAIGN_VALIDATION PASSED index=" + result.getIndex()
-                + " runs=" + result.getRunCount());
+        System.out.println(
+                "EXPERIMENT_CAMPAIGN_VALIDATION PASSED index=" + result.getIndex() + " runs=" + result.getRunCount());
     }
 
-    private static void validateRun(Path root, JsonObject record, Set<String> uniqueRuns)
-            throws IOException {
+    private static void validateRun(Path root, JsonObject record, Set<String> uniqueRuns) throws IOException {
         String cellId = requireString(record, "cellId", "campaign run");
         int replication = requireInt(record, "replicationIndex", "campaign run");
         long seed = requireLong(record, "seed", "campaign run");
@@ -82,12 +80,9 @@ public final class ExperimentCampaignValidator {
         if (!uniqueRuns.add(unique)) {
             throw new IOException("Campaign index has duplicate cell/replication run: " + cellId + "/" + replication);
         }
-        Path manifest = requiredRelativeFile(root,
-                requireString(record, "manifest", "campaign run"), "manifest");
-        Path metrics = requiredRelativeFile(root,
-                requireString(record, "metrics", "campaign run"), "metrics");
-        Path events = requiredRelativeFile(root,
-                requireString(record, "events", "campaign run"), "events");
+        Path manifest = requiredRelativeFile(root, requireString(record, "manifest", "campaign run"), "manifest");
+        Path metrics = requiredRelativeFile(root, requireString(record, "metrics", "campaign run"), "metrics");
+        Path events = requiredRelativeFile(root, requireString(record, "events", "campaign run"), "events");
         ExperimentArtifactValidator.ValidationResult bundle = ExperimentArtifactValidator.validate(manifest);
         if (!metrics.equals(bundle.getMetrics()) || !events.equals(bundle.getEvents())) {
             throw new IOException("Campaign index sidecars disagree with manifest for " + cellId);
@@ -101,19 +96,20 @@ public final class ExperimentCampaignValidator {
         JsonObject profile = requireObject(record, "workflowProfile", "campaign run");
         JsonObject manifestProfile = requireObject(manifestDocument, "workflowProfile", "experiment manifest");
         if (requireInt(profile, "taskCount", "campaign workflow profile")
-                != requireInt(manifestProfile, "taskCount", "manifest workflow profile")
+                        != requireInt(manifestProfile, "taskCount", "manifest workflow profile")
                 || requireInt(profile, "edgeCount", "campaign workflow profile")
-                != requireInt(manifestProfile, "edgeCount", "manifest workflow profile")) {
+                        != requireInt(manifestProfile, "edgeCount", "manifest workflow profile")) {
             throw new IOException("Campaign index workflow profile differs from manifest for " + cellId);
         }
-        if (Double.compare(requireFiniteNumber(record, "makespanSeconds", "campaign run"),
-                requireFiniteNumber(result, "makespan", "manifest result")) != 0
-                || requireInt(record, "totalJobs", "campaign run")
-                != requireInt(result, "totalJobs", "manifest result")
+        if (Double.compare(
+                                requireFiniteNumber(record, "makespanSeconds", "campaign run"),
+                                requireFiniteNumber(result, "makespan", "manifest result"))
+                        != 0
+                || requireInt(record, "totalJobs", "campaign run") != requireInt(result, "totalJobs", "manifest result")
                 || requireInt(record, "successfulJobs", "campaign run")
-                != requireInt(result, "successfulJobs", "manifest result")
+                        != requireInt(result, "successfulJobs", "manifest result")
                 || requireInt(record, "failedJobs", "campaign run")
-                != requireInt(result, "failedJobs", "manifest result")) {
+                        != requireInt(result, "failedJobs", "manifest result")) {
             throw new IOException("Campaign index result differs from manifest for " + cellId);
         }
     }
@@ -179,8 +175,7 @@ public final class ExperimentCampaignValidator {
         }
     }
 
-    private static double requireFiniteNumber(JsonObject object, String key, String subject)
-            throws IOException {
+    private static double requireFiniteNumber(JsonObject object, String key, String subject) throws IOException {
         if (!object.has(key) || !object.get(key).isJsonPrimitive()) {
             throw new IOException(subject + " is missing number " + key);
         }
@@ -205,7 +200,12 @@ public final class ExperimentCampaignValidator {
             this.runCount = runCount;
         }
 
-        public Path getIndex() { return index; }
-        public int getRunCount() { return runCount; }
+        public Path getIndex() {
+            return index;
+        }
+
+        public int getRunCount() {
+            return runCount;
+        }
     }
 }

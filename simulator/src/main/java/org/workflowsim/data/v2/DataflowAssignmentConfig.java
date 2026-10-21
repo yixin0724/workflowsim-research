@@ -86,8 +86,7 @@ public final class DataflowAssignmentConfig {
         }
         JsonObject object = element.getAsJsonObject();
         if (object.size() != 2 || !object.has("mode") || !object.has("policy")) {
-            throw new IllegalArgumentException(
-                    "dataflowAssignment must contain exactly mode and policy");
+            throw new IllegalArgumentException("dataflowAssignment must contain exactly mode and policy");
         }
         String mode = requireString(object, "mode");
         String policy = requireString(object, "policy");
@@ -102,7 +101,9 @@ public final class DataflowAssignmentConfig {
 
     private static String requireString(JsonObject object, String key) {
         JsonElement value = object.get(key);
-        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+        if (value == null
+                || !value.isJsonPrimitive()
+                || !value.getAsJsonPrimitive().isString()) {
             throw new IllegalArgumentException("dataflowAssignment " + key + " must be a JSON string");
         }
         return value.getAsString();
@@ -116,8 +117,7 @@ public final class DataflowAssignmentConfig {
      */
     @Override
     public boolean equals(Object other) {
-        return other instanceof DataflowAssignmentConfig
-                && mode == ((DataflowAssignmentConfig) other).mode;
+        return other instanceof DataflowAssignmentConfig && mode == ((DataflowAssignmentConfig) other).mode;
     }
 
     /** @return a hash consistent with the exact mode and its fixed policy */

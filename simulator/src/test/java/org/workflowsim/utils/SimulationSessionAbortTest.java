@@ -43,10 +43,21 @@ class SimulationSessionAbortTest {
         "entities", "entitiesByName", "future", "deferred", "waitPredicates", "cis", "calendar"
     };
     private static final String[] CONTROL_FIELDS = {
-        "clock", "running", "paused", "pauseAt", "abruptTerminate", "terminateAt",
-        "minTimeBetweenEvents", "cisId", "shutdownId", "traceFlag"
+        "clock",
+        "running",
+        "paused",
+        "pauseAt",
+        "abruptTerminate",
+        "terminateAt",
+        "minTimeBetweenEvents",
+        "cisId",
+        "shutdownId",
+        "traceFlag"
     };
-    @TempDir Path directory;
+
+    @TempDir
+    Path directory;
+
     private boolean loggingWasDisabled;
 
     @BeforeEach
@@ -91,14 +102,19 @@ class SimulationSessionAbortTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][] {{DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}})
-                .maxTotalRetryJobs(1).build();
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}
+                })
+                .maxTotalRetryJobs(1)
+                .build();
         SimulationConfig config = SimulationConfig.builder(workflow(), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
-                .randomSeed(SEED).failureModel(failure).build();
-        RetryLimitExceededException aborted = assertThrows(RetryLimitExceededException.class,
-                () -> new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("abort-budget", 1)));
+                .randomSeed(SEED)
+                .failureModel(failure)
+                .build();
+        RetryLimitExceededException aborted =
+                assertThrows(RetryLimitExceededException.class, () -> new SimulationRunner()
+                        .run(config, PlatformProfiles.homogeneousLocal("abort-budget", 1)));
         // Same deterministic failure fixture already used by the stochastic-model regression.
         assertEquals(1, aborted.getCreatedRetryJobs());
         assertEquals(1, aborted.getRequestedRetryJobs());
@@ -112,11 +128,15 @@ class SimulationSessionAbortTest {
     void parserAbortReleasesKernelBeforeReinitializationAndHealthyReplay() throws Exception {
         SimulationReport before = healthyRun();
         Path invalid = directory.resolve("invalid-runtime.dax");
-        Files.write(invalid, ("<adag version=\"3.3\"><job id=\"bad\" runtime=\"not-a-number\"/></adag>")
-                .getBytes(StandardCharsets.UTF_8));
-        SimulationConfig config = SimulationConfig.builder(invalid.toString(), 1).build();
-        WorkflowValidationException aborted = assertThrows(WorkflowValidationException.class,
-                () -> new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("abort-parser", 1)));
+        Files.write(
+                invalid,
+                ("<adag version=\"3.3\"><job id=\"bad\" runtime=\"not-a-number\"/></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config =
+                SimulationConfig.builder(invalid.toString(), 1).build();
+        WorkflowValidationException aborted =
+                assertThrows(WorkflowValidationException.class, () -> new SimulationRunner()
+                        .run(config, PlatformProfiles.homogeneousLocal("abort-parser", 1)));
         assertTrue(aborted.getMessage().contains("runtime"), aborted.getMessage());
         assertReleasedKernel();
         assertHealthyEquivalent(before, healthyRun());
@@ -127,9 +147,10 @@ class SimulationSessionAbortTest {
         SimulationReport before = healthyRun();
         SimulationConfig config = SimulationConfig.builder(workflow(), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
-                .planningAlgorithm(Parameters.PlanningAlgorithm.STATIC_MINMIN).build();
-        IllegalStateException aborted = assertThrows(IllegalStateException.class,
-                () -> new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("abort-planner", 1)));
+                .planningAlgorithm(Parameters.PlanningAlgorithm.STATIC_MINMIN)
+                .build();
+        IllegalStateException aborted = assertThrows(IllegalStateException.class, () -> new SimulationRunner()
+                .run(config, PlatformProfiles.homogeneousLocal("abort-planner", 1)));
         assertTrue(aborted.getMessage().contains("STATIC_MINMIN"), aborted.getMessage());
         assertNotNull(aborted.getCause());
         assertTrue(aborted.getCause().getMessage().contains("independent tasks only"));
@@ -160,7 +181,8 @@ class SimulationSessionAbortTest {
             assertEquals(1, aborter.processed);
             assertEquals(0, pending.processed);
         }
-        assertAll("closing must not re-enter entity.run or shutdownEntity",
+        assertAll(
+                "closing must not re-enter entity.run or shutdownEntity",
                 () -> assertEquals(1, aborter.processed),
                 () -> assertEquals(0, aborter.shutdowns),
                 () -> assertEquals(0, pending.processed),
@@ -186,7 +208,8 @@ class SimulationSessionAbortTest {
     void closingAnInitializedButNeverStartedSessionReleasesItsKernel() throws Exception {
         CallbackEntity entity;
         try (SimulationSession session = SimulationSession.open(SimulationConfig.builder("not-parsed.dax", 1)
-                .cloudSimMinEventIntervalSeconds(0.25).build())) {
+                .cloudSimMinEventIntervalSeconds(0.25)
+                .build())) {
             session.initializeCloudSim(1, Calendar.getInstance(), false);
             entity = new CallbackEntity();
             assertFalse(CloudSim.running());
@@ -201,7 +224,8 @@ class SimulationSessionAbortTest {
     void sessionWithoutInitializationDoesNotDestroyAnUnownedLegacyKernel() throws Exception {
         seedLegacyKernel();
         Map<String, Object> before = captureKernel();
-        try (SimulationSession ignored = SimulationSession.open(SimulationConfig.builder("not-parsed.dax", 1).build())) {
+        try (SimulationSession ignored = SimulationSession.open(
+                SimulationConfig.builder("not-parsed.dax", 1).build())) {
             // No initializeCloudSim call: this session does not own the legacy kernel.
         }
         assertKernelUnchanged(before);
@@ -212,8 +236,10 @@ class SimulationSessionAbortTest {
     void rejectedInitializeArgumentsDoNotClaimOrClearAnUnownedLegacyKernel() throws Exception {
         seedLegacyKernel();
         Map<String, Object> before = captureKernel();
-        try (SimulationSession session = SimulationSession.open(SimulationConfig.builder("not-parsed.dax", 1).build())) {
-            assertThrows(IllegalArgumentException.class,
+        try (SimulationSession session = SimulationSession.open(
+                SimulationConfig.builder("not-parsed.dax", 1).build())) {
+            assertThrows(
+                    IllegalArgumentException.class,
                     () -> session.initializeCloudSim(-1, Calendar.getInstance(), false));
         }
         assertKernelUnchanged(before);
@@ -227,7 +253,8 @@ class SimulationSessionAbortTest {
     }
 
     private static void assertReleasedKernel() throws Exception {
-        assertAll("kernel roots must be released before any later init",
+        assertAll(
+                "kernel roots must be released before any later init",
                 SimulationSessionAbortTest::assertCleanControlFields,
                 () -> assertEquals(-1, CloudSim.getCloudInfoServiceEntityId()),
                 () -> assertEquals(-1, ((Number) staticField(CloudSim.class, "shutdownId")).intValue()),
@@ -242,7 +269,8 @@ class SimulationSessionAbortTest {
     }
 
     private static void assertCleanControlFields() {
-        assertAll("kernel control state",
+        assertAll(
+                "kernel control state",
                 () -> assertFalse(CloudSim.running()),
                 () -> assertEquals(0.0, CloudSim.clock(), 0.0),
                 () -> assertFalse(CloudSim.isPaused()),
@@ -294,7 +322,9 @@ class SimulationSessionAbortTest {
 
     private static SimulationReport healthyRun() throws Exception {
         SimulationConfig config = SimulationConfig.builder(workflow(), 1)
-                .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS).randomSeed(SEED).build();
+                .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
+                .randomSeed(SEED)
+                .build();
         return new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("healthy-after-abort", 1));
     }
 
@@ -324,22 +354,29 @@ class SimulationSessionAbortTest {
     }
 
     private static final class DeliberateAbort extends IllegalStateException {
-        DeliberateAbort() { super("intentional callback abort before finishSimulation"); }
+        DeliberateAbort() {
+            super("intentional callback abort before finishSimulation");
+        }
     }
 
     private static final class AbortEntity extends SimEntity {
         private int processed;
         private int shutdowns;
         private final boolean markAbrupt;
+
         AbortEntity(boolean markAbrupt) {
             super("abort-before-cleanup-callbacks");
             this.markAbrupt = markAbrupt;
         }
-        @Override public void startEntity() {
+
+        @Override
+        public void startEntity() {
             schedule(getId(), 1.0, 8801);
             schedule(getId(), 2.0, 8802);
         }
-        @Override public void processEvent(SimEvent event) {
+
+        @Override
+        public void processEvent(SimEvent event) {
             processed++;
             CloudSim.terminateSimulation(100.0);
             CloudSim.pauseSimulation(50L);
@@ -347,15 +384,34 @@ class SimulationSessionAbortTest {
             if (markAbrupt) CloudSim.abruptallyTerminate();
             throw new DeliberateAbort();
         }
-        @Override public void shutdownEntity() { shutdowns++; }
+
+        @Override
+        public void shutdownEntity() {
+            shutdowns++;
+        }
     }
 
     private static final class CallbackEntity extends SimEntity {
         private int processed;
         private int shutdowns;
-        CallbackEntity() { super("pending-callback-sentinel"); }
-        @Override public void startEntity() { schedule(getId(), 1.0, 8803); }
-        @Override public void processEvent(SimEvent event) { processed++; }
-        @Override public void shutdownEntity() { shutdowns++; }
+
+        CallbackEntity() {
+            super("pending-callback-sentinel");
+        }
+
+        @Override
+        public void startEntity() {
+            schedule(getId(), 1.0, 8803);
+        }
+
+        @Override
+        public void processEvent(SimEvent event) {
+            processed++;
+        }
+
+        @Override
+        public void shutdownEntity() {
+            shutdowns++;
+        }
     }
 }

@@ -1,8 +1,8 @@
 package org.workflowsim.rl;
 
+import org.workflowsim.exception.SimulationConfigurationException;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
-import org.workflowsim.exception.SimulationConfigurationException;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.SimulationConfig;
@@ -32,20 +32,19 @@ public final class RlEnvironment {
      * @throws SimulationConfigurationException 当配置未选择 RL_POLICY 或策略为空时
      * @throws org.workflowsim.exception.SimulationExecutionException 当仿真执行失败时
      */
-    public RlEpisodeResult runEpisode(SimulationConfig config, PlatformProfile platform,
-            RlPolicy policy) throws org.workflowsim.exception.SimulationExecutionException {
+    public RlEpisodeResult runEpisode(SimulationConfig config, PlatformProfile platform, RlPolicy policy)
+            throws org.workflowsim.exception.SimulationExecutionException {
         if (config == null) {
             throw new SimulationConfigurationException("Configuration is required");
         }
         if (config.getSchedulingAlgorithm() != SchedulingAlgorithm.RL_POLICY) {
-            throw new SimulationConfigurationException("RlEnvironment requires "
-                    + "SchedulingAlgorithm.RL_POLICY, got " + config.getSchedulingAlgorithm());
+            throw new SimulationConfigurationException("RlEnvironment requires " + "SchedulingAlgorithm.RL_POLICY, got "
+                    + config.getSchedulingAlgorithm());
         }
         RlPolicyRegistry.init(policy);
         try {
             SimulationReport report = new SimulationRunner().run(config, platform);
-            return new RlEpisodeResult(report, RlPolicyRegistry.decisions(),
-                    RlPolicyRegistry.stepCount());
+            return new RlEpisodeResult(report, RlPolicyRegistry.decisions(), RlPolicyRegistry.stepCount());
         } finally {
             RlPolicyRegistry.reset();
         }

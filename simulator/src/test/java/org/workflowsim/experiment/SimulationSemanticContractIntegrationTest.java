@@ -26,15 +26,14 @@ class SimulationSemanticContractIntegrationTest {
 
     @Test
     void noClusteringReportRetainsTaskIdentityAndRespectsFixtureDependencies() throws Exception {
-        SimulationConfig config = SimulationConfig.builder(
-                        resourcePath("/dax/reproducibility-workflow.dax"), 3)
+        SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 3)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
                 .randomSeed(FIXED_SEED)
                 .build();
 
         Log.disable();
-        SimulationReport report = new SimulationRunner().run(config,
-                PlatformProfiles.homogeneousLocal("p7-dag-contract", 3));
+        SimulationReport report =
+                new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("p7-dag-contract", 3));
 
         Map<Integer, SimulationReport.JobOutcome> outcomeByTaskId = new HashMap<Integer, SimulationReport.JobOutcome>();
         int stageInJobs = 0;
@@ -61,8 +60,7 @@ class SimulationSemanticContractIntegrationTest {
     }
 
     @Test
-    void sharedStorageTransferRateChangesOnlyTheModeledTransferComponentMonotonically()
-            throws Exception {
+    void sharedStorageTransferRateChangesOnlyTheModeledTransferComponentMonotonically() throws Exception {
         String workflow = resourcePath("/dax/p7-shared-storage.dax");
         SimulationConfig config = SimulationConfig.builder(workflow, 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
@@ -79,23 +77,22 @@ class SimulationSemanticContractIntegrationTest {
         assertEquals(1.5, slow.getMakespan() - fast.getMakespan(), 1.0e-9);
     }
 
-    private static void assertStartsAfter(Map<Integer, SimulationReport.JobOutcome> outcomes,
-            int childTaskId, int parentTaskId) {
+    private static void assertStartsAfter(
+            Map<Integer, SimulationReport.JobOutcome> outcomes, int childTaskId, int parentTaskId) {
         SimulationReport.JobOutcome child = outcomes.get(childTaskId);
         SimulationReport.JobOutcome parent = outcomes.get(parentTaskId);
         assertTrue(child != null, "Missing task " + childTaskId);
         assertTrue(parent != null, "Missing task " + parentTaskId);
-        assertTrue(child.getStartTime() >= parent.getFinishTime(),
+        assertTrue(
+                child.getStartTime() >= parent.getFinishTime(),
                 "Task " + childTaskId + " started before parent " + parentTaskId + " finished");
     }
 
     private static PlatformProfile singleVmProfile(String name, int storageRate) {
         return PlatformProfile.builder(name)
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000_000L, storageRate))
                 .build();
     }

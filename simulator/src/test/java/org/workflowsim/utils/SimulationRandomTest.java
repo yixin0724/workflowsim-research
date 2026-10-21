@@ -1,8 +1,8 @@
 package org.workflowsim.utils;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
@@ -34,7 +34,8 @@ class SimulationRandomTest {
         long planningValue = SimulationRandom.newJavaRandom("planning.random").nextLong();
 
         SimulationRandom.reset(20260901L);
-        long clusteringValue = SimulationRandom.newJavaRandom("clustering.horizontal.bundle").nextLong();
+        long clusteringValue =
+                SimulationRandom.newJavaRandom("clustering.horizontal.bundle").nextLong();
 
         assertNotEquals(planningValue, clusteringValue);
     }
@@ -42,13 +43,13 @@ class SimulationRandomTest {
     @Test
     void distributionSamplesReplayAfterReset() {
         SimulationRandom.reset(99L);
-        DistributionGenerator first = new DistributionGenerator(
-                DistributionGenerator.DistributionFamily.WEIBULL, 2.0, 3.0);
+        DistributionGenerator first =
+                new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 2.0, 3.0);
         double firstSample = first.getNextSample();
 
         SimulationRandom.reset(99L);
-        DistributionGenerator second = new DistributionGenerator(
-                DistributionGenerator.DistributionFamily.WEIBULL, 2.0, 3.0);
+        DistributionGenerator second =
+                new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 2.0, 3.0);
 
         assertEquals(firstSample, second.getNextSample(), 0.0);
     }

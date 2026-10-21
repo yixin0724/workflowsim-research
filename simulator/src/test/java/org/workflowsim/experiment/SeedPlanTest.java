@@ -22,10 +22,11 @@ class SeedPlanTest {
 
     @Test
     void deterministicAndExplicitPlansRejectInvalidReplicationContracts() {
-        assertThrows(IllegalArgumentException.class,
-                () -> SeedPlan.derived(RandomizationDesign.DETERMINISTIC, 1L, 2));
-        assertThrows(IllegalArgumentException.class,
-                () -> SeedPlan.explicit(RandomizationDesign.INDEPENDENT_REPLICATIONS,
+        assertThrows(IllegalArgumentException.class, () -> SeedPlan.derived(RandomizationDesign.DETERMINISTIC, 1L, 2));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> SeedPlan.explicit(
+                        RandomizationDesign.INDEPENDENT_REPLICATIONS,
                         Arrays.asList(Long.valueOf(1L), Long.valueOf(1L))));
     }
 }

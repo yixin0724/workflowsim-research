@@ -37,8 +37,8 @@ class ReadyBatchRoundRobinSchedulingAlgorithmTest {
     }
 
     private CondorVM createVm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10000, "Xen",
-                new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
+        return new CondorVM(
+                id, 0, mips, 1, 512, 1000, 10000, "Xen", new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
     }
 
     @Test
@@ -94,7 +94,7 @@ class ReadyBatchRoundRobinSchedulingAlgorithmTest {
         scheduler.setVmList(vms);
         scheduler.run();
         assertEquals(1, scheduler.getScheduledList().size());
-        assertEquals(0, ((Cloudlet)scheduler.getScheduledList().get(0)).getVmId());
+        assertEquals(0, ((Cloudlet) scheduler.getScheduledList().get(0)).getVmId());
 
         // 第二次 run 复用同一策略实例:VM0 仍 BUSY,游标也应从 VM1 开始。
         List<Cloudlet> cloudlets2 = new ArrayList<>();
@@ -105,7 +105,7 @@ class ReadyBatchRoundRobinSchedulingAlgorithmTest {
         scheduler.run();
 
         assertEquals(1, scheduler.getScheduledList().size());
-        assertEquals(1, ((Cloudlet)scheduler.getScheduledList().get(0)).getVmId(),
-                "复用同一策略时,游标应跨 ready-batch 保持并指向 VM1");
+        assertEquals(
+                1, ((Cloudlet) scheduler.getScheduledList().get(0)).getVmId(), "复用同一策略时,游标应跨 ready-batch 保持并指向 VM1");
     }
 }

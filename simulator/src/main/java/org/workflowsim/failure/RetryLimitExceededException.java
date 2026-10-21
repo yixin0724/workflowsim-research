@@ -14,8 +14,8 @@ public final class RetryLimitExceededException extends IllegalStateException {
     private final int maxTotalRetryJobs;
     private final long rootSeed;
 
-    public RetryLimitExceededException(int failedJobId, int createdRetryJobs,
-            int requestedRetryJobs, int maxTotalRetryJobs, long rootSeed) {
+    public RetryLimitExceededException(
+            int failedJobId, int createdRetryJobs, int requestedRetryJobs, int maxTotalRetryJobs, long rootSeed) {
         super("Retry budget exceeded for failed Job " + failedJobId
                 + ": created=" + createdRetryJobs
                 + ", requested=" + requestedRetryJobs
@@ -28,9 +28,23 @@ public final class RetryLimitExceededException extends IllegalStateException {
         this.rootSeed = rootSeed;
     }
 
-    public int getFailedJobId() { return failedJobId; }
-    public int getCreatedRetryJobs() { return createdRetryJobs; }
-    public int getRequestedRetryJobs() { return requestedRetryJobs; }
-    public int getMaxTotalRetryJobs() { return maxTotalRetryJobs; }
-    public long getRootSeed() { return rootSeed; }
+    public int getFailedJobId() {
+        return failedJobId;
+    }
+
+    public int getCreatedRetryJobs() {
+        return createdRetryJobs;
+    }
+
+    public int getRequestedRetryJobs() {
+        return requestedRetryJobs;
+    }
+
+    public int getMaxTotalRetryJobs() {
+        return maxTotalRetryJobs;
+    }
+
+    public long getRootSeed() {
+        return rootSeed;
+    }
 }

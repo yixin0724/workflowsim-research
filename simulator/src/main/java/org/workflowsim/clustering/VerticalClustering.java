@@ -46,7 +46,6 @@ public class VerticalClustering extends BasicClustering {
         super();
         this.mDepth = depth;
         this.mHasChecked = new HashMap<>();
-
     }
 
     /**
@@ -60,7 +59,6 @@ public class VerticalClustering extends BasicClustering {
             mHasChecked.remove(index);
         }
         mHasChecked.put(index, true);
-
     }
 
     /**
@@ -153,7 +151,7 @@ public class VerticalClustering extends BasicClustering {
             }
         }
         mHasChecked.clear();
-        super.clean();        
+        super.clean();
         updateDependencies();
         addClustDelay();
     }
@@ -170,27 +168,29 @@ public class VerticalClustering extends BasicClustering {
             switch (name) {
                 case "mBackground":
                     // 移除 mBackground 指向 mProjectPP 的重复父边。
-                    
+
                     for (int j = 0; j < node.getParentList().size(); j++) {
-                        
+
                         Task parent = (Task) node.getParentList().get(j);
                         if (parent.getType().equals("mProjectPP")) {
                             j--;
                             node.getParentList().remove(parent);
                             parent.getChildList().remove(node);
                         }
-                    }   break;
+                    }
+                    break;
                 case "mAdd":
                     for (int j = 0; j < node.getParentList().size(); j++) {
-                        
+
                         Task parent = (Task) node.getParentList().get(j);
                         String pName = parent.getType();
                         if (pName.equals("mBackground") || pName.equals("mShrink")) {
                             j--;
                             node.getParentList().remove(parent);
                             parent.getChildList().remove(node);
+                        }
                     }
-                }   break;
+                    break;
                 default:
                     // 其余任务类型无去重规则（Montage 专用遗留逻辑），刻意跳过。
                     break;

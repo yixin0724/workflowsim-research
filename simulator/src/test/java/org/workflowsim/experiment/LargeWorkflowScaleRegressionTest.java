@@ -53,6 +53,7 @@ final class LargeWorkflowScaleRegressionTest {
     private static final double READY_BATCH_MINMIN_GOLDEN_MAKESPAN = 1223.7949999999978;
     /** 黄金值：FCFS + SHARED 文件系统，16 VM，seed 42。 */
     private static final double FCFS_GOLDEN_MAKESPAN = 1223.8519999999985;
+
     private static final int VM_COUNT = 16;
     private static final int MONTAGE_1000_TASK_COUNT = 1000;
     private static final int EPIGENOMICS_997_TASK_COUNT = 997;
@@ -72,7 +73,8 @@ final class LargeWorkflowScaleRegressionTest {
     /** 稳健定位仓库根：Maven surefire 的 user.dir 是 simulator/ 模块目录。 */
     static String datasetWorkflowPath() throws Exception {
         if (workflowPath == null) {
-            Path root = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+            Path root =
+                    Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
             while (root != null && !Files.exists(root.resolve("datasets/dax"))) {
                 root = root.getParent();
             }
@@ -107,8 +109,7 @@ final class LargeWorkflowScaleRegressionTest {
         // 逻辑任务 997 个；作业数 = 997 + 1 个历史 stage-in 引导作业（COMM-2 已知边界）。
         assertCompleteWorkflow(report, EPIGENOMICS_997_TASK_COUNT);
         assertLocalComputeConservation(report);
-        assertEquals(LOCAL_HEFT_GOLDEN_MAKESPAN, report.getMakespan(),
-                "LOCAL_HEFT Epigenomics_997 makespan 黄金值漂移");
+        assertEquals(LOCAL_HEFT_GOLDEN_MAKESPAN, report.getMakespan(), "LOCAL_HEFT Epigenomics_997 makespan 黄金值漂移");
         assertVmMappingsInPlatformRange(report);
     }
 
@@ -124,7 +125,9 @@ final class LargeWorkflowScaleRegressionTest {
 
         // 逻辑任务 1000 个；作业数 = 1000 + 1 个历史 stage-in 引导作业（COMM-2 已知边界）。
         assertCompleteWorkflow(report, MONTAGE_1000_TASK_COUNT);
-        assertEquals(READY_BATCH_MINMIN_GOLDEN_MAKESPAN, report.getMakespan(),
+        assertEquals(
+                READY_BATCH_MINMIN_GOLDEN_MAKESPAN,
+                report.getMakespan(),
                 "READY_BATCH_MINMIN Montage_1000 makespan 黄金值漂移");
         assertVmMappingsInPlatformRange(report);
     }
@@ -140,8 +143,7 @@ final class LargeWorkflowScaleRegressionTest {
         SimulationReport report = new SimulationRunner().run(config, platform());
 
         assertCompleteWorkflow(report, MONTAGE_1000_TASK_COUNT);
-        assertEquals(FCFS_GOLDEN_MAKESPAN, report.getMakespan(),
-                "FCFS Montage_1000 makespan 黄金值漂移");
+        assertEquals(FCFS_GOLDEN_MAKESPAN, report.getMakespan(), "FCFS Montage_1000 makespan 黄金值漂移");
         assertVmMappingsInPlatformRange(report);
     }
 
@@ -161,8 +163,8 @@ final class LargeWorkflowScaleRegressionTest {
         assertEquals(first.getSuccessfulJobs(), second.getSuccessfulJobs());
         assertEquals(first.getTasks().size(), second.getTasks().size());
         for (int i = 0; i < first.getJobs().size(); i++) {
-            assertEquals(first.getJobs().get(i).getVmId(), second.getJobs().get(i).getVmId(),
-                    "Job " + i + " 的 VM 映射在重跑间漂移");
+            assertEquals(
+                    first.getJobs().get(i).getVmId(), second.getJobs().get(i).getVmId(), "Job " + i + " 的 VM 映射在重跑间漂移");
         }
     }
 
@@ -172,7 +174,9 @@ final class LargeWorkflowScaleRegressionTest {
             mips.put(vm.getId(), vm.getMips());
         }
         java.util.Map<Integer, SimulationReport.JobOutcome> jobs = new java.util.HashMap<>();
-        for (SimulationReport.JobOutcome job : report.getJobs()) { jobs.put(job.getJobId(), job); }
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            jobs.put(job.getJobId(), job);
+        }
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
             SimulationReport.JobOutcome job = jobs.get(task.getJobId());
             double speed = mips.get(job.getVmId());
@@ -181,9 +185,11 @@ final class LargeWorkflowScaleRegressionTest {
             double required = task.getLengthMi() / speed;
             double quantum = 1.0 / speed + 1e-8;
             double observed = job.getFinishTime() - job.getStartTime();
-            assertTrue(observed + quantum >= required,
+            assertTrue(
+                    observed + quantum >= required,
                     "Task " + task.getTaskId() + " used " + observed + "s but needs " + required + "s");
-            assertTrue(task.getFinishTime() <= job.getFinishTime() + quantum,
+            assertTrue(
+                    task.getFinishTime() <= job.getFinishTime() + quantum,
                     "Modeled compute must fit inside its observed Job, apart from one MI rounding");
         }
     }
@@ -223,8 +229,7 @@ final class LargeWorkflowScaleRegressionTest {
 
     private static void assertVmMappingsInPlatformRange(SimulationReport report) {
         for (SimulationReport.JobOutcome job : report.getJobs()) {
-            assertTrue(job.getVmId() >= 0 && job.getVmId() < VM_COUNT,
-                    "Job VM 映射超出平台范围: " + job.getVmId());
+            assertTrue(job.getVmId() >= 0 && job.getVmId() < VM_COUNT, "Job VM 映射超出平台范围: " + job.getVmId());
         }
     }
 }

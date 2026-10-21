@@ -113,8 +113,7 @@ class PlanningDagReferencePropertyAuditTest {
                     continue;
                 }
                 if (local) {
-                    long mi = f.projected ? Math.round(f.costSeconds[task][vm] * f.mips[vm])
-                            : f.lengthMi[task];
+                    long mi = f.projected ? Math.round(f.costSeconds[task][vm] * f.mips[vm]) : f.lengthMi[task];
                     r.work[task][vm] = mi / f.mips[vm];
                 } else {
                     // SHARED permits no task matrix and truncates its input delay to integer MI.
@@ -151,8 +150,11 @@ class PlanningDagReferencePropertyAuditTest {
                     double best = Double.POSITIVE_INFINITY;
                     for (int nextVm = 0; nextVm < f.m; nextVm++) {
                         if (f.compatible(child, nextVm)) {
-                            best = Math.min(best, r.oct[child][nextVm] + r.work[child][nextVm]
-                                    + communication(f, local, task, child, vm, nextVm));
+                            best = Math.min(
+                                    best,
+                                    r.oct[child][nextVm]
+                                            + r.work[child][nextVm]
+                                            + communication(f, local, task, child, vm, nextVm));
                         }
                     }
                     worst = Math.max(worst, best);
@@ -166,8 +168,9 @@ class PlanningDagReferencePropertyAuditTest {
         for (int task : order) {
             for (int parent = 0; parent < f.n; parent++) {
                 if (f.edge[parent][task]) {
-                    r.downward[task] = Math.max(r.downward[task], r.downward[parent]
-                            + r.meanWork[parent] + meanCommunication(f, local, parent, task));
+                    r.downward[task] = Math.max(
+                            r.downward[task],
+                            r.downward[parent] + r.meanWork[parent] + meanCommunication(f, local, parent, task));
                 }
             }
         }
@@ -211,16 +214,14 @@ class PlanningDagReferencePropertyAuditTest {
             } else {
                 int task = -1;
                 for (int candidate = 0; candidate < f.n; candidate++) {
-                    if (ready(f, r, candidate) && (task < 0
-                            || higherPriority(f, r, algorithm, candidate, task))) {
+                    if (ready(f, r, candidate) && (task < 0 || higherPriority(f, r, algorithm, candidate, task))) {
                         task = candidate;
                     }
                 }
                 assertTrue(task >= 0, "Independent reference must have a ready task");
                 double best = Double.POSITIVE_INFINITY;
                 for (int vm = 0; vm < f.m; vm++) {
-                    if (!f.compatible(task, vm)
-                            || (r.path.contains(task) && vm != r.criticalVm)) {
+                    if (!f.compatible(task, vm) || (r.path.contains(task) && vm != r.criticalVm)) {
                         continue;
                     }
                     double arrival = dataReady(f, r, local, task, vm);
@@ -244,8 +245,7 @@ class PlanningDagReferencePropertyAuditTest {
         return r;
     }
 
-    private static boolean higherPriority(Fixture f, Reference r, PlanningAlgorithm algorithm,
-            int first, int second) {
+    private static boolean higherPriority(Fixture f, Reference r, PlanningAlgorithm algorithm, int first, int second) {
         double firstValue = priority(r, algorithm, first);
         double secondValue = priority(r, algorithm, second);
         int comparison = Double.compare(firstValue, secondValue);
@@ -259,12 +259,11 @@ class PlanningDagReferencePropertyAuditTest {
         return kind(algorithm, "PEFT") ? r.rankOct[task] : r.upward[task];
     }
 
-    private static boolean betterPair(Fixture f, Reference r, PlanningAlgorithm algorithm,
-            Choice first, Choice second) {
+    private static boolean betterPair(
+            Fixture f, Reference r, PlanningAlgorithm algorithm, Choice first, Choice second) {
         int comparison;
         if (kind(algorithm, "DLS")) {
-            comparison = Double.compare(r.upward[first.task] - first.start,
-                    r.upward[second.task] - second.start);
+            comparison = Double.compare(r.upward[first.task] - first.start, r.upward[second.task] - second.start);
             if (comparison != 0) {
                 return comparison > 0;
             }
@@ -279,7 +278,8 @@ class PlanningDagReferencePropertyAuditTest {
             }
         }
         return f.ids[first.task] != f.ids[second.task]
-                ? f.ids[first.task] < f.ids[second.task] : f.vmIds[first.vm] < f.vmIds[second.vm];
+                ? f.ids[first.task] < f.ids[second.task]
+                : f.vmIds[first.vm] < f.vmIds[second.vm];
     }
 
     private static boolean ready(Fixture f, Reference r, int task) {
@@ -312,8 +312,8 @@ class PlanningDagReferencePropertyAuditTest {
         if (local) {
             for (int parent = 0; parent < f.n; parent++) {
                 if (f.edge[parent][task]) {
-                    arrival = Math.max(arrival, r.finish[parent]
-                            + communication(f, true, parent, task, r.vm[parent], vm));
+                    arrival = Math.max(
+                            arrival, r.finish[parent] + communication(f, true, parent, task, r.vm[parent], vm));
                 }
             }
             double hold = arrival - dependency;
@@ -361,9 +361,9 @@ class PlanningDagReferencePropertyAuditTest {
         return pairs == 0 ? 0.0 : total / pairs;
     }
 
-    private static double communication(Fixture f, boolean local, int parent, int child,
-            int from, int to) {
-        return !local || from == to ? 0.0
+    private static double communication(Fixture f, boolean local, int parent, int child, int from, int to) {
+        return !local || from == to
+                ? 0.0
                 : f.bytes[parent][child] / 1.0e6 / Math.min(f.bandwidth[from], f.bandwidth[to]);
     }
 
@@ -405,8 +405,10 @@ class PlanningDagReferencePropertyAuditTest {
             for (int parent = 0; parent < f.n; parent++) {
                 root &= !f.edge[parent][task];
             }
-            if (root && (entry < 0 || r.upward[task] > r.upward[entry]
-                    || (Double.compare(r.upward[task], r.upward[entry]) == 0 && f.ids[task] < f.ids[entry]))) {
+            if (root
+                    && (entry < 0
+                            || r.upward[task] > r.upward[entry]
+                            || (Double.compare(r.upward[task], r.upward[entry]) == 0 && f.ids[task] < f.ids[entry]))) {
                 entry = task;
             }
         }
@@ -446,8 +448,8 @@ class PlanningDagReferencePropertyAuditTest {
         prefix.remove(prefix.size() - 1);
     }
 
-    private static boolean earlierPath(Fixture f, Reference r, boolean local,
-            List<Integer> first, List<Integer> second) {
+    private static boolean earlierPath(
+            Fixture f, Reference r, boolean local, List<Integer> first, List<Integer> second) {
         for (int index = 1; index < Math.min(first.size(), second.size()); index++) {
             int a = first.get(index);
             int b = second.get(index);
@@ -492,17 +494,32 @@ class PlanningDagReferencePropertyAuditTest {
         CondorVM[] vms = new CondorVM[f.m];
         PlatformProfile.Builder platform = PlatformProfile.builder("planning-property-audit");
         for (int vm = 0; vm < f.m; vm++) {
-            vms[vm] = new CondorVM(f.vmIds[vm], 0, f.mips[vm], f.vmPes[vm], 512,
-                    f.bandwidth[vm], 10000L, "Xen", new CloudletSchedulerSpaceShared());
-            platform.addHost(new PlatformProfile.HostSpec(vm, f.vmPes[vm], f.mips[vm],
-                    2048, 10000L, 1000000L));
-            platform.addVm(new PlatformProfile.VmSpec(f.vmIds[vm], f.mips[vm], f.vmPes[vm],
-                    512, f.bandwidth[vm], 10000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            vms[vm] = new CondorVM(
+                    f.vmIds[vm],
+                    0,
+                    f.mips[vm],
+                    f.vmPes[vm],
+                    512,
+                    f.bandwidth[vm],
+                    10000L,
+                    "Xen",
+                    new CloudletSchedulerSpaceShared());
+            platform.addHost(new PlatformProfile.HostSpec(vm, f.vmPes[vm], f.mips[vm], 2048, 10000L, 1000000L));
+            platform.addVm(new PlatformProfile.VmSpec(
+                    f.vmIds[vm],
+                    f.mips[vm],
+                    f.vmPes[vm],
+                    512,
+                    f.bandwidth[vm],
+                    10000L,
+                    "Xen",
+                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             platform.pinVmToHost(f.vmIds[vm], vm);
         }
         platform.storage(new PlatformProfile.StorageSpec(1000000L, STORAGE_MB_PER_SECOND));
         SimulationConfig.Builder config = SimulationConfig.builder("planning-property-audit.dax", f.m)
-                .planningAlgorithm(algorithm).schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .planningAlgorithm(algorithm)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
                 .cloudSimMinEventIntervalSeconds(0.1)
                 .fileSystem(local(algorithm) ? ReplicaCatalog.FileSystem.LOCAL : ReplicaCatalog.FileSystem.SHARED);
         if (local(algorithm)) {
@@ -534,8 +551,8 @@ class PlanningDagReferencePropertyAuditTest {
         return new Actual(planner, tasks, vms, local(algorithm) ? null : trace(planner));
     }
 
-    private static void assertReference(Fixture f, PlanningAlgorithm algorithm, Reference r,
-            Actual actual, String subject) {
+    private static void assertReference(
+            Fixture f, PlanningAlgorithm algorithm, Reference r, Actual actual, String subject) {
         if (kind(algorithm, "CPOP")) {
             List<Integer> pathIds = new ArrayList<Integer>();
             for (int task : r.path) {
@@ -561,35 +578,54 @@ class PlanningDagReferencePropertyAuditTest {
                 assertEquals(r.finish[task], local.plannedFinishOf(observed), EPSILON, item + " finish");
                 assertEquals(r.upward[task], local.upwardRankOf(observed), EPSILON, item + " upward rank");
                 if (kind(algorithm, "CPOP")) {
-                    assertEquals(r.downward[task], ((LocalCpopPlanningAlgorithm) local).downwardRankOf(observed),
-                            EPSILON, item + " downward rank");
+                    assertEquals(
+                            r.downward[task],
+                            ((LocalCpopPlanningAlgorithm) local).downwardRankOf(observed),
+                            EPSILON,
+                            item + " downward rank");
                 } else if (kind(algorithm, "PEFT")) {
                     LocalPeftPlanningAlgorithm peft = (LocalPeftPlanningAlgorithm) local;
                     assertEquals(r.rankOct[task], peft.priorityOf(observed), EPSILON, item + " rank OCT");
                     for (int vm = 0; vm < f.m; vm++) {
-                        assertEquals(r.oct[task][vm], peft.optimisticCostOf(observed, actual.vms[vm]),
-                                EPSILON, item + " OCT VM=" + f.vmIds[vm]);
+                        assertEquals(
+                                r.oct[task][vm],
+                                peft.optimisticCostOf(observed, actual.vms[vm]),
+                                EPSILON,
+                                item + " OCT VM=" + f.vmIds[vm]);
                     }
                 }
             } else {
                 SharedStorageDagPlanTrace.TaskPlan plan = actual.trace.getTaskPlan(f.ids[task]);
                 assertEquals(r.finish[task], plan.getPlannedFinishSeconds(), EPSILON, item + " finish");
                 assertEquals(r.upward[task], plan.getUpwardRankSeconds(), EPSILON, item + " upward rank");
-                assertEquals(r.stageIn[task][r.vm[task]], plan.getPlannedDataStageInSeconds(), EPSILON, item + " stage-in");
+                assertEquals(
+                        r.stageIn[task][r.vm[task]], plan.getPlannedDataStageInSeconds(), EPSILON, item + " stage-in");
                 if (kind(algorithm, "CPOP")) {
                     assertEquals(r.downward[task], plan.getCpopDownwardRankSeconds(), EPSILON, item + " downward rank");
                 } else if (kind(algorithm, "DLS")) {
                     assertEquals(Integer.valueOf(r.selectionOrder[task]), plan.getDlsSelectionOrder(), item + " order");
-                    assertEquals(r.upward[task] - r.start[task], plan.getDlsDynamicLevelAtSelection(), EPSILON, item + " level");
+                    assertEquals(
+                            r.upward[task] - r.start[task],
+                            plan.getDlsDynamicLevelAtSelection(),
+                            EPSILON,
+                            item + " level");
                 } else if (kind(algorithm, "ETF")) {
                     assertEquals(Integer.valueOf(r.selectionOrder[task]), plan.getEtfSelectionOrder(), item + " order");
                     assertEquals(r.start[task], plan.getEtfEarliestStartAtSelection(), EPSILON, item + " earliest");
                 } else if (kind(algorithm, "PEFT")) {
-                    assertEquals(Integer.valueOf(r.selectionOrder[task]), plan.getPeftSelectionOrder(), item + " order");
+                    assertEquals(
+                            Integer.valueOf(r.selectionOrder[task]), plan.getPeftSelectionOrder(), item + " order");
                     assertEquals(r.rankOct[task], plan.getPeftRankOctSeconds(), EPSILON, item + " rank OCT");
-                    assertEquals(r.oct[task][r.vm[task]], plan.getPeftOptimisticCostAtSelectedVmSeconds(), EPSILON, item + " OCT");
-                    assertEquals(r.finish[task] + r.oct[task][r.vm[task]],
-                            plan.getPeftEftPlusOptimisticCostSeconds(), EPSILON, item + " OEFT");
+                    assertEquals(
+                            r.oct[task][r.vm[task]],
+                            plan.getPeftOptimisticCostAtSelectedVmSeconds(),
+                            EPSILON,
+                            item + " OCT");
+                    assertEquals(
+                            r.finish[task] + r.oct[task][r.vm[task]],
+                            plan.getPeftEftPlusOptimisticCostSeconds(),
+                            EPSILON,
+                            item + " OEFT");
                 }
             }
             assertTrue(Double.isFinite(observed.getStaticScheduleStartTime()), item + " finite plan");
@@ -634,11 +670,20 @@ class PlanningDagReferencePropertyAuditTest {
                 }
             } else {
                 SharedStorageDagPlanTrace.TaskPlan p = actual.trace.getTaskPlan(task.getCloudletId());
-                result.addAll(Arrays.asList(p.getPlannedFinishSeconds(), p.getUpwardRankSeconds(),
-                        p.getCpopDownwardRankSeconds(), p.getCpopPrioritySeconds(), p.getDlsDynamicLevelAtSelection(),
-                        p.getDlsSelectionOrder(), p.getEtfEarliestStartAtSelection(), p.getEtfSelectionOrder(),
-                        p.getPeftRankOctSeconds(), p.getPeftOptimisticCostAtSelectedVmSeconds(),
-                        p.getPeftEftPlusOptimisticCostSeconds(), p.getPeftSelectionOrder(), p.getPlannedDataStageInSeconds()));
+                result.addAll(Arrays.asList(
+                        p.getPlannedFinishSeconds(),
+                        p.getUpwardRankSeconds(),
+                        p.getCpopDownwardRankSeconds(),
+                        p.getCpopPrioritySeconds(),
+                        p.getDlsDynamicLevelAtSelection(),
+                        p.getDlsSelectionOrder(),
+                        p.getEtfEarliestStartAtSelection(),
+                        p.getEtfSelectionOrder(),
+                        p.getPeftRankOctSeconds(),
+                        p.getPeftOptimisticCostAtSelectedVmSeconds(),
+                        p.getPeftEftPlusOptimisticCostSeconds(),
+                        p.getPeftSelectionOrder(),
+                        p.getPlannedDataStageInSeconds()));
             }
         }
         return result;
@@ -646,23 +691,36 @@ class PlanningDagReferencePropertyAuditTest {
 
     private static BasePlanningAlgorithm planner(PlanningAlgorithm algorithm, PlanningContext context) {
         switch (algorithm) {
-            case LOCAL_HEFT: return new LocalHeftPlanningAlgorithm(context);
-            case LOCAL_CPOP: return new LocalCpopPlanningAlgorithm(context);
-            case LOCAL_PEFT: return new LocalPeftPlanningAlgorithm(context);
-            case SHARED_STORAGE_HEFT: return new SharedStorageHeftPlanningAlgorithm(context);
-            case SHARED_STORAGE_CPOP: return new SharedStorageCpopPlanningAlgorithm(context);
-            case SHARED_STORAGE_DLS: return new SharedStorageDlsPlanningAlgorithm(context);
-            case SHARED_STORAGE_ETF: return new SharedStorageEtfPlanningAlgorithm(context);
-            case SHARED_STORAGE_PEFT: return new SharedStoragePeftPlanningAlgorithm(context);
-            default: throw new AssertionError(algorithm);
+            case LOCAL_HEFT:
+                return new LocalHeftPlanningAlgorithm(context);
+            case LOCAL_CPOP:
+                return new LocalCpopPlanningAlgorithm(context);
+            case LOCAL_PEFT:
+                return new LocalPeftPlanningAlgorithm(context);
+            case SHARED_STORAGE_HEFT:
+                return new SharedStorageHeftPlanningAlgorithm(context);
+            case SHARED_STORAGE_CPOP:
+                return new SharedStorageCpopPlanningAlgorithm(context);
+            case SHARED_STORAGE_DLS:
+                return new SharedStorageDlsPlanningAlgorithm(context);
+            case SHARED_STORAGE_ETF:
+                return new SharedStorageEtfPlanningAlgorithm(context);
+            case SHARED_STORAGE_PEFT:
+                return new SharedStoragePeftPlanningAlgorithm(context);
+            default:
+                throw new AssertionError(algorithm);
         }
     }
 
     private static SharedStorageDagPlanTrace trace(BasePlanningAlgorithm planner) {
-        if (planner instanceof SharedStorageHeftPlanningAlgorithm) return ((SharedStorageHeftPlanningAlgorithm) planner).getLastPlanTrace();
-        if (planner instanceof SharedStorageCpopPlanningAlgorithm) return ((SharedStorageCpopPlanningAlgorithm) planner).getLastPlanTrace();
-        if (planner instanceof SharedStorageDlsPlanningAlgorithm) return ((SharedStorageDlsPlanningAlgorithm) planner).getLastPlanTrace();
-        if (planner instanceof SharedStorageEtfPlanningAlgorithm) return ((SharedStorageEtfPlanningAlgorithm) planner).getLastPlanTrace();
+        if (planner instanceof SharedStorageHeftPlanningAlgorithm)
+            return ((SharedStorageHeftPlanningAlgorithm) planner).getLastPlanTrace();
+        if (planner instanceof SharedStorageCpopPlanningAlgorithm)
+            return ((SharedStorageCpopPlanningAlgorithm) planner).getLastPlanTrace();
+        if (planner instanceof SharedStorageDlsPlanningAlgorithm)
+            return ((SharedStorageDlsPlanningAlgorithm) planner).getLastPlanTrace();
+        if (planner instanceof SharedStorageEtfPlanningAlgorithm)
+            return ((SharedStorageEtfPlanningAlgorithm) planner).getLastPlanTrace();
         return ((SharedStoragePeftPlanningAlgorithm) planner).getLastPlanTrace();
     }
 
@@ -732,9 +790,9 @@ class PlanningDagReferencePropertyAuditTest {
             for (int parent = 0; parent < n; parent++) {
                 for (int child = parent + 1; child < n; child++) {
                     int shape = number % 4;
-                    edge[parent][child] = shape == 0 ? child == parent + 1
-                            : shape == 1 ? parent == 0 || child == n - 1
-                            : shape == 2 && random.nextInt(4) == 0;
+                    edge[parent][child] = shape == 0
+                            ? child == parent + 1
+                            : shape == 1 ? parent == 0 || child == n - 1 : shape == 2 && random.nextInt(4) == 0;
                     if (edge[parent][child] && random.nextBoolean()) {
                         bytes[parent][child] = 1000000L * (1 + random.nextInt(6));
                     }

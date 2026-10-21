@@ -41,8 +41,7 @@ public abstract class BasePlanningAlgorithm implements PlanningAlgorithmInterfac
     /** 可见的数据中心列表。 */
     private List<? extends Datacenter> datacenterList;
     /** 创建规划器基类。 */
-    public BasePlanningAlgorithm() {
-    }
+    public BasePlanningAlgorithm() {}
 
     /** 设置待规划 Task 列表。 */
     @Override
@@ -69,17 +68,15 @@ public abstract class BasePlanningAlgorithm implements PlanningAlgorithmInterfac
     }
 
     /** 返回数据中心列表。 */
-    public List getDatacenterList(){
+    public List getDatacenterList() {
         return this.datacenterList;
     }
-    
+
     /** 设置数据中心列表。 */
-    public void setDatacenterList(List list){
+    public void setDatacenterList(List list) {
         this.datacenterList = list;
     }
-    
+
     /** 执行一次离线规划。 */
     public abstract void run() throws Exception;
-
-    
 }

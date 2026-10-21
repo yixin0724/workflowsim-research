@@ -50,8 +50,8 @@ class LocalCpopPlanningAlgorithmTest {
         assertEquals(BOOTSTRAP + 2.0, middle.getStaticScheduleStartTime(), EPSILON);
         assertEquals(BOOTSTRAP + 5.0, exit.getStaticScheduleStartTime(), EPSILON);
         assertEquals(BOOTSTRAP + 10.0, planner.plannedFinishOf(exit), EPSILON);
-        assertThrows(UnsupportedOperationException.class,
-                () -> planner.getCriticalPathTaskIds().add(Integer.valueOf(99)));
+        assertThrows(UnsupportedOperationException.class, () -> planner.getCriticalPathTaskIds()
+                .add(Integer.valueOf(99)));
     }
 
     @Test
@@ -82,12 +82,9 @@ class LocalCpopPlanningAlgorithmTest {
         LocalCpopPlanningAlgorithm planner = planner(reversed, 2, 0, 1);
 
         // 来自给定矩阵与边权的独立手算；不在测试中复写 rank 的递归算法。
-        double[] upward = {108, 77, 80, 80, 69, 190.0 / 3.0,
-            128.0 / 3.0, 107.0 / 3.0, 133.0 / 3.0, 44.0 / 3.0};
-        double[] downward = {0, 31, 25, 22, 24, 27,
-            187.0 / 3.0, 200.0 / 3.0, 191.0 / 3.0, 280.0 / 3.0};
-        double[] priority = {108, 108, 105, 102, 93, 271.0 / 3.0,
-            105, 307.0 / 3.0, 108, 108};
+        double[] upward = {108, 77, 80, 80, 69, 190.0 / 3.0, 128.0 / 3.0, 107.0 / 3.0, 133.0 / 3.0, 44.0 / 3.0};
+        double[] downward = {0, 31, 25, 22, 24, 27, 187.0 / 3.0, 200.0 / 3.0, 191.0 / 3.0, 280.0 / 3.0};
+        double[] priority = {108, 108, 105, 102, 93, 271.0 / 3.0, 105, 307.0 / 3.0, 108, 108};
         int[] vmByTask = {1, 1, 0, 2, 1, 2, 0, 2, 1, 1};
         double[] relativeStarts = {0, 16, 28, 25, 35, 42, 39, 54, 65, 79};
         double[] relativeFinishes = {16, 35, 39, 42, 48, 51, 46, 68, 77, 86};
@@ -100,10 +97,13 @@ class LocalCpopPlanningAlgorithmTest {
             for (int i = 0; i < tasks.length; i++) {
                 assertRanks(planner, tasks[i], upward[i], downward[i], priority[i]);
                 assertEquals(vmByTask[i], tasks[i].getVmId(), "task " + (i + 1));
-                assertEquals(BOOTSTRAP + relativeStarts[i],
-                        tasks[i].getStaticScheduleStartTime(), EPSILON, "task " + (i + 1));
-                assertEquals(BOOTSTRAP + relativeFinishes[i],
-                        planner.plannedFinishOf(tasks[i]), EPSILON, "task " + (i + 1));
+                assertEquals(
+                        BOOTSTRAP + relativeStarts[i],
+                        tasks[i].getStaticScheduleStartTime(),
+                        EPSILON,
+                        "task " + (i + 1));
+                assertEquals(
+                        BOOTSTRAP + relativeFinishes[i], planner.plannedFinishOf(tasks[i]), EPSILON, "task " + (i + 1));
             }
         }
     }
@@ -119,8 +119,7 @@ class LocalCpopPlanningAlgorithmTest {
         connect(entry, lowerIdBranch, 0.0);
         connect(higherIdBranch, exit, 0.0);
         connect(lowerIdBranch, exit, 0.0);
-        LocalCpopPlanningAlgorithm planner = planner(
-                Arrays.asList(exit, higherIdBranch, entry, lowerIdBranch), 8, 3);
+        LocalCpopPlanningAlgorithm planner = planner(Arrays.asList(exit, higherIdBranch, entry, lowerIdBranch), 8, 3);
 
         planner.run();
 
@@ -131,8 +130,7 @@ class LocalCpopPlanningAlgorithmTest {
         assertEquals(Arrays.asList(10, 20, 40), planner.getCriticalPathTaskIds());
         assertEquals(Integer.valueOf(3), planner.getCriticalProcessorVmId());
         assertEquals(3, lowerIdBranch.getVmId());
-        assertEquals(8, higherIdBranch.getVmId(),
-                "另一个等长分支应按 EFT 使用空闲 VM，不应把所有同优先级节点都固定到关键 VM");
+        assertEquals(8, higherIdBranch.getVmId(), "另一个等长分支应按 EFT 使用空闲 VM，不应把所有同优先级节点都固定到关键 VM");
 
         planner.setTaskList(Arrays.asList(lowerIdBranch, entry, exit, higherIdBranch));
         planner.setVmList(Arrays.asList(vm(3), vm(8)));
@@ -217,12 +215,11 @@ class LocalCpopPlanningAlgorithmTest {
         assertRanks(planner, exit, 3.0, 15.0, 18.0);
         assertEquals(BOOTSTRAP + 4.0, exit.getStaticScheduleStartTime(), EPSILON);
         assertEquals(BOOTSTRAP + 7.0, planner.plannedFinishOf(exit), EPSILON);
-        assertEquals(Arrays.asList(1, 2), firstPath,
-                "已返回的路径快照不应在后续 run 中被清空或修改");
+        assertEquals(Arrays.asList(1, 2), firstPath, "已返回的路径快照不应在后续 run 中被清空或修改");
     }
 
-    private static void assertRanks(LocalCpopPlanningAlgorithm planner, Task task,
-            double upward, double downward, double priority) {
+    private static void assertRanks(
+            LocalCpopPlanningAlgorithm planner, Task task, double upward, double downward, double priority) {
         String subject = "task " + task.getCloudletId();
         assertEquals(upward, planner.upwardRankOf(task), EPSILON, subject + " upward rank");
         assertEquals(downward, planner.downwardRankOf(task), EPSILON, subject + " downward rank");
@@ -248,10 +245,9 @@ class LocalCpopPlanningAlgorithmTest {
         List<CondorVM> vms = new ArrayList<CondorVM>();
         for (int index = 0; index < vmIds.length; index++) {
             int vmId = vmIds[index];
-            platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0,
-                    2048, 10_000L, 1_000_000L));
-            platform.addVm(new PlatformProfile.VmSpec(vmId, 1.0, 1, 512,
-                    1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0, 2048, 10_000L, 1_000_000L));
+            platform.addVm(new PlatformProfile.VmSpec(
+                    vmId, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             vms.add(vm(vmId));
         }
         SimulationConfig config = SimulationConfig.builder("cpop-unit.dax", vmIds.length)
@@ -260,15 +256,14 @@ class LocalCpopPlanningAlgorithmTest {
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
                 .build();
-        LocalCpopPlanningAlgorithm planner = new LocalCpopPlanningAlgorithm(
-                new PlanningContext(config, platform.build()));
+        LocalCpopPlanningAlgorithm planner =
+                new LocalCpopPlanningAlgorithm(new PlanningContext(config, platform.build()));
         planner.setTaskList(tasks);
         planner.setVmList(vms);
         return planner;
     }
 
     private static CondorVM vm(int id) {
-        return new CondorVM(id, 0, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1.0, 1, 512, 1L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 }

@@ -58,7 +58,6 @@ class DataAwareSchedulingAlgorithmTest {
     }
 
     private static CondorVM vm(int id) {
-        return new CondorVM(id, 0, 1000.0, 1, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerTimeShared());
+        return new CondorVM(id, 0, 1000.0, 1, 512, 1000, 10_000, "Xen", new CloudletSchedulerTimeShared());
     }
 }

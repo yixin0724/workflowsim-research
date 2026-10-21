@@ -48,22 +48,22 @@ class LinkContentionSemanticsTest {
 
     /** 论文成本矩阵（与 LocalHeftPaperReproductionTest 相同）。 */
     private static final double[][] PAPER_COST_SECONDS = {
-            {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
-            {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16}};
+        {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
+        {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16}
+    };
 
     @Test
     void contentionMakespanStrictlyExceedsNoContentionBaseline() throws Exception {
         SimulationReport report = runWithContention();
-        assertTrue(report.getMakespan() > NO_CONTENTION_BASELINE,
-                "争用 makespan " + report.getMakespan() + " 应严格大于无争用基线 "
-                        + NO_CONTENTION_BASELINE);
+        assertTrue(
+                report.getMakespan() > NO_CONTENTION_BASELINE,
+                "争用 makespan " + report.getMakespan() + " 应严格大于无争用基线 " + NO_CONTENTION_BASELINE);
     }
 
     @Test
     void contentionGoldenMakespanIsLocked() throws Exception {
         SimulationReport report = runWithContention();
-        assertEquals(CONTENTION_GOLDEN_MAKESPAN, report.getMakespan(), 0.0,
-                "争用黄金值漂移：fixture 或争用模型语义发生变化，须显式审查");
+        assertEquals(CONTENTION_GOLDEN_MAKESPAN, report.getMakespan(), 0.0, "争用黄金值漂移：fixture 或争用模型语义发生变化，须显式审查");
     }
 
     @Test
@@ -72,7 +72,10 @@ class LinkContentionSemanticsTest {
         SimulationReport second = runWithContention();
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
         for (int taskId = 1; taskId <= 10; taskId++) {
-            assertEquals(computeFinish(first, taskId), computeFinish(second, taskId), 0.0,
+            assertEquals(
+                    computeFinish(first, taskId),
+                    computeFinish(second, taskId),
+                    0.0,
                     "task " + taskId + " 的完成时刻在复跑间必须逐位一致");
         }
     }
@@ -86,10 +89,10 @@ class LinkContentionSemanticsTest {
                 continue;
             }
             observed++;
-            assertEquals("PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
+            assertEquals(
+                    "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1",
                     event.getAttributes().get("dataMovementModel"));
-            assertNotNull(event.getAttributes().get("contentionTransferGroupCount"),
-                    "争用模型证据必须携带传输组计数");
+            assertNotNull(event.getAttributes().get("contentionTransferGroupCount"), "争用模型证据必须携带传输组计数");
         }
         // 10 个计算任务全部记录传输证据（与无争用模型证据覆盖一致）。
         assertEquals(10, observed);
@@ -99,22 +102,20 @@ class LinkContentionSemanticsTest {
     void contentionModelConfigurationBoundaries() throws Exception {
         String workflow = resourcePath("/dax/heft-paper-example.dax");
         // INVALID 规划层 + 争用模型：就绪时刻没有目标 VM，无法确定传输端点。
-        IllegalArgumentException unmapped = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException unmapped =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.MINMIN)
                         .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .dataMovementModel(
-                                DataMovementModel.preExecutionTransferDelayWithContentionV1())
+                        .dataMovementModel(DataMovementModel.preExecutionTransferDelayWithContentionV1())
                         .build());
         assertTrue(unmapped.getMessage().contains("INVALID"), unmapped.getMessage());
         // SHARED_STORAGE_HEFT + 争用模型：共享存储轨道要求 legacy 模型对齐。
-        IllegalArgumentException shared = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException shared =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_HEFT)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .fileSystem(ReplicaCatalog.FileSystem.SHARED)
-                        .dataMovementModel(
-                                DataMovementModel.preExecutionTransferDelayWithContentionV1())
+                        .dataMovementModel(DataMovementModel.preExecutionTransferDelayWithContentionV1())
                         .build());
         assertTrue(shared.getMessage().contains("legacyWorkflowsimV1"), shared.getMessage());
         // LOCAL_HEFT + 争用模型：允许（规划侧无争用 AST、运行期公平共享，偏差由文档声明）。
@@ -123,21 +124,18 @@ class LinkContentionSemanticsTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .taskCostMatrix(paperCostMatrix())
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                .dataMovementModel(
-                        DataMovementModel.preExecutionTransferDelayWithContentionV1())
+                .dataMovementModel(DataMovementModel.preExecutionTransferDelayWithContentionV1())
                 .build());
     }
 
     private static SimulationReport runWithContention() throws Exception {
         Log.disable();
-        SimulationConfig config = SimulationConfig.builder(
-                        resourcePath("/dax/heft-paper-example.dax"), 3)
+        SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/heft-paper-example.dax"), 3)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .taskCostMatrix(paperCostMatrix())
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                .dataMovementModel(
-                        DataMovementModel.preExecutionTransferDelayWithContentionV1())
+                .dataMovementModel(DataMovementModel.preExecutionTransferDelayWithContentionV1())
                 .build();
         return new SimulationRunner().run(config, contentionPlatform());
     }
@@ -147,8 +145,8 @@ class LinkContentionSemanticsTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("link-contention-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }

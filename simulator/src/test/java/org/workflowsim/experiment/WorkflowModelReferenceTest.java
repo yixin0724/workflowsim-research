@@ -74,8 +74,8 @@ class WorkflowModelReferenceTest {
         Task twoPeTask = new Task(1, 1000);
         twoPeTask.setNumberOfPes(2);
 
-        WorkflowModelReference.Reference reference = WorkflowModelReference.calculate(
-                Arrays.asList(twoPeTask), controlledConfig(), heterogeneousPlatform());
+        WorkflowModelReference.Reference reference =
+                WorkflowModelReference.calculate(Arrays.asList(twoPeTask), controlledConfig(), heterogeneousPlatform());
 
         assertFalse(reference.isAvailable());
         assertEquals("UNAVAILABLE_NO_COMPATIBLE_VM", reference.getScope());
@@ -92,25 +92,20 @@ class WorkflowModelReferenceTest {
 
     private static PlatformProfile heterogeneousPlatform() {
         return PlatformProfile.builder("reference-metric-platform")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 4000.0,
-                        2048, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 2000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 4000.0, 2048, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 2000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }
 
     private static PlatformProfile oneFastVmPlatform() {
         return PlatformProfile.builder("reference-one-fast-vm-platform")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0,
-                        2048, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 2000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0, 2048, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 2000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }

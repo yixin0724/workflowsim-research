@@ -11,7 +11,7 @@ public final class TaskExecutionModel {
     /** CloudSim stores total work in instructions in a signed long, not merely in MI. */
     public static final long MAX_TOTAL_LENGTH_MI = Long.MAX_VALUE / Consts.MILLION;
 
-    private TaskExecutionModel() { }
+    private TaskExecutionModel() {}
 
     /**
      * Resolve per-PE compute MI without mutating the task's declared input length.
@@ -31,13 +31,13 @@ public final class TaskExecutionModel {
         }
         Double seconds = task.getVmExecutionCostSeconds(vmId);
         if (seconds == null) {
-            throw new IllegalArgumentException("Task " + task.getCloudletId()
-                    + " cost matrix has no entry for VM " + vmId);
+            throw new IllegalArgumentException(
+                    "Task " + task.getCloudletId() + " cost matrix has no entry for VM " + vmId);
         }
         double converted = seconds.doubleValue() * mips;
         if (!Double.isFinite(converted) || converted >= (double) Long.MAX_VALUE) {
-            throw new IllegalArgumentException("Task " + task.getCloudletId()
-                    + " cost matrix overflows compute MI on VM " + vmId);
+            throw new IllegalArgumentException(
+                    "Task " + task.getCloudletId() + " cost matrix overflows compute MI on VM " + vmId);
         }
         return requireRepresentableLength(Math.round(converted), task.getNumberOfPes());
     }

@@ -10,9 +10,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.TreeSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
@@ -40,8 +40,9 @@ class SimulationStochasticModelIntegrationTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}
+                })
                 .maxTotalRetryJobs(16)
                 .build();
         SimulationConfig config = SimulationConfig.builder(workflow(), 1)
@@ -52,10 +53,8 @@ class SimulationStochasticModelIntegrationTest {
 
         Log.disable();
         SimulationRunner runner = new SimulationRunner();
-        SimulationReport first = runner.run(config,
-                PlatformProfiles.homogeneousLocal("failure-retry", 1));
-        SimulationReport second = runner.run(config,
-                PlatformProfiles.homogeneousLocal("failure-retry", 1));
+        SimulationReport first = runner.run(config, PlatformProfiles.homogeneousLocal("failure-retry", 1));
+        SimulationReport second = runner.run(config, PlatformProfiles.homogeneousLocal("failure-retry", 1));
 
         assertTrue(first.getFailedJobs() > 0, "The fixed-seed fixture must exercise a retry");
         assertTrue(first.getMetrics().getFailedComputeJobOutcomeCount() > 0);
@@ -66,24 +65,26 @@ class SimulationStochasticModelIntegrationTest {
         assertRetryJobsRemainComputeAttempts(first);
         assertUniqueJobIds(first);
         assertRetryMetricsMatchRecordedEvidence(first);
-        assertEquals("COMPLETED_SUCCESSFULLY",
-                first.getMetrics().getLogicalTaskCompletionStatus());
+        assertEquals("COMPLETED_SUCCESSFULLY", first.getMetrics().getLogicalTaskCompletionStatus());
         assertTrue(first.getMetrics().getLogicalTaskCompletionSeconds() != null);
         assertTrue(first.getSimulationEndSeconds()
                 >= first.getMetrics().getLogicalTaskCompletionSeconds().doubleValue());
         assertEquals(jobStatusFingerprint(first), jobStatusFingerprint(second));
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
-        assertEquals(first.getMetrics().getRetryJobCreatedCount(),
+        assertEquals(
+                first.getMetrics().getRetryJobCreatedCount(),
                 second.getMetrics().getRetryJobCreatedCount());
-        assertEquals(first.getMetrics().getFailedComputeAttemptEnvelopeSeconds(),
-                second.getMetrics().getFailedComputeAttemptEnvelopeSeconds(), 0.0);
+        assertEquals(
+                first.getMetrics().getFailedComputeAttemptEnvelopeSeconds(),
+                second.getMetrics().getFailedComputeAttemptEnvelopeSeconds(),
+                0.0);
     }
 
     @Test
     void seededQueueOverheadChangesDispatchTimingAndReplaysExactly() throws Exception {
         OverheadModelConfig overhead = OverheadModelConfig.builder()
-                .queueDelays(Collections.singletonMap(0, DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
+                .queueDelays(Collections.singletonMap(
+                        0, DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
                 .build();
         SimulationConfig noOverhead = SimulationConfig.builder(workflow(), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
@@ -97,12 +98,9 @@ class SimulationStochasticModelIntegrationTest {
 
         Log.disable();
         SimulationRunner runner = new SimulationRunner();
-        SimulationReport baseline = runner.run(noOverhead,
-                PlatformProfiles.homogeneousLocal("overhead-baseline", 1));
-        SimulationReport first = runner.run(withOverhead,
-                PlatformProfiles.homogeneousLocal("overhead-delayed", 1));
-        SimulationReport second = runner.run(withOverhead,
-                PlatformProfiles.homogeneousLocal("overhead-delayed", 1));
+        SimulationReport baseline = runner.run(noOverhead, PlatformProfiles.homogeneousLocal("overhead-baseline", 1));
+        SimulationReport first = runner.run(withOverhead, PlatformProfiles.homogeneousLocal("overhead-delayed", 1));
+        SimulationReport second = runner.run(withOverhead, PlatformProfiles.homogeneousLocal("overhead-delayed", 1));
 
         List<Double> firstDelays = queueDelays(first);
         assertFalse(firstDelays.isEmpty());
@@ -121,8 +119,9 @@ class SimulationStochasticModelIntegrationTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}
+                })
                 .maxTotalRetryJobs(16)
                 .build();
         SimulationConfig config = SimulationConfig.builder(dependencyWorkflow(), 1)
@@ -132,8 +131,8 @@ class SimulationStochasticModelIntegrationTest {
                 .build();
 
         Log.disable();
-        SimulationReport report = new SimulationRunner().run(config,
-                PlatformProfiles.homogeneousLocal("failure-dependency", 1));
+        SimulationReport report =
+                new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("failure-dependency", 1));
 
         TreeSet<Integer> sourceTaskIds = new TreeSet<Integer>();
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
@@ -149,7 +148,8 @@ class SimulationStochasticModelIntegrationTest {
         // 以事件序号而非绝对仿真时刻做判定基准：重试创建必须先于成功返回，子任务随后才可就绪。
         assertTrue(retrySequence >= 0, "The fixed seed must retry the parent task");
         assertTrue(successfulParentReturn > retrySequence);
-        assertTrue(childReady > successfulParentReturn,
+        assertTrue(
+                childReady > successfulParentReturn,
                 "A child must wait for the successful parent retry, not only its failed attempt");
         assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully());
     }
@@ -160,8 +160,9 @@ class SimulationStochasticModelIntegrationTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}
+                })
                 .maxTotalRetryJobs(1)
                 .build();
         SimulationConfig config = SimulationConfig.builder(reproducibilityWorkflow(), 1)
@@ -171,12 +172,11 @@ class SimulationStochasticModelIntegrationTest {
                 .build();
 
         Log.disable();
-        RetryLimitExceededException first = assertThrows(RetryLimitExceededException.class,
-                () -> new SimulationRunner().run(config,
-                        PlatformProfiles.homogeneousLocal("retry-budget-first", 1)));
-        RetryLimitExceededException second = assertThrows(RetryLimitExceededException.class,
-                () -> new SimulationRunner().run(config,
-                        PlatformProfiles.homogeneousLocal("retry-budget-second", 1)));
+        RetryLimitExceededException first = assertThrows(RetryLimitExceededException.class, () -> new SimulationRunner()
+                .run(config, PlatformProfiles.homogeneousLocal("retry-budget-first", 1)));
+        RetryLimitExceededException second =
+                assertThrows(RetryLimitExceededException.class, () -> new SimulationRunner()
+                        .run(config, PlatformProfiles.homogeneousLocal("retry-budget-second", 1)));
 
         assertEquals(1, first.getCreatedRetryJobs());
         assertEquals(1, first.getRequestedRetryJobs());
@@ -236,8 +236,7 @@ class SimulationStochasticModelIntegrationTest {
     private static void assertRetryJobsRemainComputeAttempts(SimulationReport report) {
         Set<Integer> retryIds = new HashSet<Integer>();
         for (SimulationEvent event : report.getEvents()) {
-            if (event.getType() == SimulationEventType.RETRY_JOB_CREATED
-                    && event.getJobId() != null) {
+            if (event.getType() == SimulationEventType.RETRY_JOB_CREATED && event.getJobId() != null) {
                 retryIds.add(event.getJobId());
             }
         }
@@ -246,12 +245,15 @@ class SimulationStochasticModelIntegrationTest {
         for (SimulationReport.JobOutcome job : report.getJobs()) {
             if (retryIds.contains(job.getJobId())) {
                 matched++;
-                assertEquals(Parameters.ClassType.COMPUTE.value, job.getClassType(),
+                assertEquals(
+                        Parameters.ClassType.COMPUTE.value,
+                        job.getClassType(),
                         "Retry Job " + job.getJobId() + " lost its compute class type");
             }
         }
         assertEquals(retryIds.size(), matched, "Every retry creation event must have a Job outcome");
-        assertTrue(report.getMetrics().getComputeJobOutcomeCount() >= matched,
+        assertTrue(
+                report.getMetrics().getComputeJobOutcomeCount() >= matched,
                 "Retry compute attempts must be included in compute outcome metrics");
     }
 
@@ -266,12 +268,11 @@ class SimulationStochasticModelIntegrationTest {
         SimulationMetrics metrics = report.getMetrics();
         assertEquals(retryEvents, metrics.getRetryJobCreatedCount());
         assertEquals(retryEvents, metrics.getCompletedRetryComputeJobOutcomeCount());
-        assertEquals(metrics.getComputeJobOutcomeCount(),
-                metrics.getInitialComputeJobOutcomeCount()
-                + metrics.getCompletedRetryComputeJobOutcomeCount());
+        assertEquals(
+                metrics.getComputeJobOutcomeCount(),
+                metrics.getInitialComputeJobOutcomeCount() + metrics.getCompletedRetryComputeJobOutcomeCount());
         assertTrue(metrics.getRetriedLogicalTaskCount() > 0);
-        assertEquals(metrics.getFailedComputeJobOutcomeCount(),
-                countFailedComputeJobs(report));
+        assertEquals(metrics.getFailedComputeJobOutcomeCount(), countFailedComputeJobs(report));
         assertTrue(metrics.getFailedComputeAttemptEnvelopeSeconds() > 0.0);
         assertTrue(metrics.getFailedComputeAttemptModeledProcessingCost() > 0.0);
     }
@@ -279,8 +280,7 @@ class SimulationStochasticModelIntegrationTest {
     private static int countFailedComputeJobs(SimulationReport report) {
         int result = 0;
         for (SimulationReport.JobOutcome job : report.getJobs()) {
-            if (job.getClassType() == Parameters.ClassType.COMPUTE.value
-                    && job.getStatus() == Cloudlet.FAILED) {
+            if (job.getClassType() == Parameters.ClassType.COMPUTE.value && job.getStatus() == Cloudlet.FAILED) {
                 result++;
             }
         }
@@ -302,7 +302,8 @@ class SimulationStochasticModelIntegrationTest {
         for (SimulationEvent event : report.getEvents()) {
             if (event.getType() == SimulationEventType.JOB_RETURNED
                     && event.getTaskIds().contains(taskId)
-                    && Integer.valueOf(Cloudlet.SUCCESS).equals(event.getAttributes().get("jobStatus"))) {
+                    && Integer.valueOf(Cloudlet.SUCCESS)
+                            .equals(event.getAttributes().get("jobStatus"))) {
                 result = event.getSequence();
             }
         }
@@ -311,7 +312,8 @@ class SimulationStochasticModelIntegrationTest {
 
     private static long sequenceOfReadyForTask(SimulationReport report, int taskId) {
         for (SimulationEvent event : report.getEvents()) {
-            if (event.getType() == SimulationEventType.JOB_READY && event.getTaskIds().contains(taskId)) {
+            if (event.getType() == SimulationEventType.JOB_READY
+                    && event.getTaskIds().contains(taskId)) {
                 return event.getSequence();
             }
         }
@@ -319,8 +321,7 @@ class SimulationStochasticModelIntegrationTest {
     }
 
     private static String workflow() throws Exception {
-        URL url = SimulationStochasticModelIntegrationTest.class.getResource(
-                "/wfcommons/minimum-runtime.json");
+        URL url = SimulationStochasticModelIntegrationTest.class.getResource("/wfcommons/minimum-runtime.json");
         if (url == null) {
             throw new IllegalStateException("Missing WfCommons test fixture");
         }
@@ -328,8 +329,7 @@ class SimulationStochasticModelIntegrationTest {
     }
 
     private static String dependencyWorkflow() throws Exception {
-        URL url = SimulationStochasticModelIntegrationTest.class.getResource(
-                "/wfcommons/retry-dependency.json");
+        URL url = SimulationStochasticModelIntegrationTest.class.getResource("/wfcommons/retry-dependency.json");
         if (url == null) {
             throw new IllegalStateException("Missing WfCommons dependency fixture");
         }
@@ -337,8 +337,7 @@ class SimulationStochasticModelIntegrationTest {
     }
 
     private static String reproducibilityWorkflow() throws Exception {
-        URL url = SimulationStochasticModelIntegrationTest.class.getResource(
-                "/dax/reproducibility-workflow.dax");
+        URL url = SimulationStochasticModelIntegrationTest.class.getResource("/dax/reproducibility-workflow.dax");
         if (url == null) {
             throw new IllegalStateException("Missing DAX retry-budget fixture");
         }

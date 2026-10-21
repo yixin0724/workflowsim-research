@@ -21,8 +21,8 @@ import org.workflowsim.failure.FailureParameters;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.DistributionGenerator;
 import org.workflowsim.utils.DistributionSpec;
-import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.Parameters;
+import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
 class DataMovementIntegrationTest {
@@ -33,8 +33,7 @@ class DataMovementIntegrationTest {
     }
 
     @Test
-    void fixedEndpointModelChangesOnlyTheDeclaredStageInTimingAndEvidence(@TempDir Path output)
-            throws Exception {
+    void fixedEndpointModelChangesOnlyTheDeclaredStageInTimingAndEvidence(@TempDir Path output) throws Exception {
         String workflow = resourcePath("/dax/p7-shared-storage.dax");
         PlatformProfile platform = oneVmPlatform();
         SimulationConfig defaultLegacy = SimulationConfig.builder(workflow, 1)
@@ -60,27 +59,38 @@ class DataMovementIntegrationTest {
         assertEquals(1.5, legacyTransferSeconds(defaultReport), 1.0e-12);
         SimulationEvent fixedTransfer = transferEvent(fixedReport);
         assertEquals(3.5, fixedTransfer.getAttributes().get("modeledTransferSeconds"));
-        assertEquals("FIXED_ENDPOINT_NO_CONTENTION_V1",
+        assertEquals(
+                "FIXED_ENDPOINT_NO_CONTENTION_V1",
                 transferEvent(fixedReport).getAttributes().get("dataMovementModel"));
-        assertEquals(1, ((Number) transferEvent(fixedReport).getAttributes()
-                .get("modeledTransferFileCount")).intValue());
-        assertEquals(30_000_000.0, ((Number) transferEvent(fixedReport).getAttributes()
-                .get("requiredFileBytes")).doubleValue(), 0.0);
-        SimulationEvent taskExecution = taskExecutionEvent(fixedReport,
-                fixedTransfer.getTaskIds().get(0).intValue());
-        assertEquals(fixedTransfer.getSimulationTime() + 3.5,
-                ((Number) taskExecution.getAttributes().get("taskStartTime")).doubleValue(), 1.0e-12);
-        assertEquals(3.5, ((Number) taskExecution.getAttributes()
-                .get("modeledStageInSecondsBeforeTask")).doubleValue(), 1.0e-12);
-        assertEquals("MODEL_DERIVED_COMPUTE_WINDOW", taskExecution.getAttributes()
-                .get("taskTimingScope"));
-        SimulationReport.TaskOutcome task = taskOutcome(fixedReport,
-                fixedTransfer.getTaskIds().get(0).intValue());
+        assertEquals(
+                1, ((Number) transferEvent(fixedReport).getAttributes().get("modeledTransferFileCount")).intValue());
+        assertEquals(
+                30_000_000.0,
+                ((Number) transferEvent(fixedReport).getAttributes().get("requiredFileBytes")).doubleValue(),
+                0.0);
+        SimulationEvent taskExecution = taskExecutionEvent(
+                fixedReport, fixedTransfer.getTaskIds().get(0).intValue());
+        assertEquals(
+                fixedTransfer.getSimulationTime() + 3.5,
+                ((Number) taskExecution.getAttributes().get("taskStartTime")).doubleValue(),
+                1.0e-12);
+        assertEquals(
+                3.5,
+                ((Number) taskExecution.getAttributes().get("modeledStageInSecondsBeforeTask")).doubleValue(),
+                1.0e-12);
+        assertEquals(
+                "MODEL_DERIVED_COMPUTE_WINDOW", taskExecution.getAttributes().get("taskTimingScope"));
+        SimulationReport.TaskOutcome task =
+                taskOutcome(fixedReport, fixedTransfer.getTaskIds().get(0).intValue());
         assertFalse(task.hasExactJobTiming());
-        assertEquals(((Number) taskExecution.getAttributes().get("taskStartTime")).doubleValue(),
-                task.getStartTime(), 1.0e-12);
-        assertEquals(((Number) taskExecution.getAttributes().get("taskFinishTime")).doubleValue(),
-                task.getFinishTime(), 1.0e-12);
+        assertEquals(
+                ((Number) taskExecution.getAttributes().get("taskStartTime")).doubleValue(),
+                task.getStartTime(),
+                1.0e-12);
+        assertEquals(
+                ((Number) taskExecution.getAttributes().get("taskFinishTime")).doubleValue(),
+                task.getFinishTime(),
+                1.0e-12);
         assertTrue(fixedReport.getMakespan() > defaultReport.getMakespan());
         assertEquals(1, fixedReport.getMetrics().getDataStageInModelObservationCount());
         assertEquals(1, fixedReport.getMetrics().getModeledDataTransferFileCount());
@@ -119,8 +129,7 @@ class DataMovementIntegrationTest {
     }
 
     @Test
-    void fixedEndpointLocalModelUsesTheParentVmReplicaWhenTheChildMovesToAnotherVm()
-            throws Exception {
+    void fixedEndpointLocalModelUsesTheParentVmReplicaWhenTheChildMovesToAnotherVm() throws Exception {
         SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/local-data-transfer.dax"), 2)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.READY_BATCH_ROUNDROBIN)
@@ -132,8 +141,8 @@ class DataMovementIntegrationTest {
 
         // 子 Job 跨 VM 读取父任务副本时，端点带宽仍受 10 MB/s 访问链路限制：0.5 + 30/10 = 3.5 秒。
         SimulationEvent childTransfer = largestTransferEvent(report);
-        assertEquals(3.5, ((Number) childTransfer.getAttributes()
-                .get("modeledTransferSeconds")).doubleValue(), 1.0e-12);
+        assertEquals(
+                3.5, ((Number) childTransfer.getAttributes().get("modeledTransferSeconds")).doubleValue(), 1.0e-12);
         assertEquals(1, childTransfer.getTaskIds().size());
         assertEquals(1, report.getMetrics().getModeledDataTransferFileCount());
         assertEquals(3.5, report.getMetrics().getTotalModeledDataTransferSeconds(), 1.0e-12);
@@ -146,12 +155,13 @@ class DataMovementIntegrationTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}
+                })
                 .maxTotalRetryJobs(16)
                 .build();
         SimulationConfig config = SimulationConfig.builder(
-                resourcePath("/wfcommons/retry-local-output-transfer.json"), 2)
+                        resourcePath("/wfcommons/retry-local-output-transfer.json"), 2)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.READY_BATCH_ROUNDROBIN)
                 .dataMovementModel(DataMovementModel.fixedEndpointNoContention(10.0, 0.5, 10.0))
@@ -164,22 +174,28 @@ class DataMovementIntegrationTest {
         SimulationEvent retryEvent = firstEvent(report, SimulationEventType.RETRY_JOB_CREATED);
         int failedParentJobId = ((Number) retryEvent.getAttributes().get("failedJobId")).intValue();
         SimulationReport.JobOutcome failedParent = jobOutcome(report, failedParentJobId);
-        SimulationReport.JobOutcome successfulRetry = jobOutcome(report, retryEvent.getJobId().intValue());
+        SimulationReport.JobOutcome successfulRetry =
+                jobOutcome(report, retryEvent.getJobId().intValue());
         SimulationEvent childTransfer = transferEventWithRequiredBytes(report, 30_000_000.0);
-        SimulationReport.JobOutcome child = jobOutcome(report, childTransfer.getJobId().intValue());
+        SimulationReport.JobOutcome child =
+                jobOutcome(report, childTransfer.getJobId().intValue());
 
         assertEquals(org.cloudbus.cloudsim.Cloudlet.FAILED, failedParent.getStatus());
         assertEquals(org.cloudbus.cloudsim.Cloudlet.SUCCESS, successfulRetry.getStatus());
-        assertNotEquals(failedParent.getVmId(), successfulRetry.getVmId(),
+        assertNotEquals(
+                failedParent.getVmId(),
+                successfulRetry.getVmId(),
                 "The fixture requires a failed attempt and successful retry on different VMs");
-        assertEquals(failedParent.getVmId(), child.getVmId(),
+        assertEquals(
+                failedParent.getVmId(),
+                child.getVmId(),
                 "The child intentionally returns to the failed attempt VM to expose replica pollution");
         assertNotEquals(successfulRetry.getVmId(), child.getVmId());
 
         // 失败 parent 曾在 child VM 上执行，但只有成功 retry 的输出可读，故 child 需要跨
         // VM 获取 30 MB：0.5 + 30 / 10 = 3.5 秒；错误目录污染时该值会被低估为零。
-        assertEquals(3.5, ((Number) childTransfer.getAttributes()
-                .get("modeledTransferSeconds")).doubleValue(), 1.0e-12);
+        assertEquals(
+                3.5, ((Number) childTransfer.getAttributes().get("modeledTransferSeconds")).doubleValue(), 1.0e-12);
         assertTrue(report.getMetrics().isWorkflowCompletedSuccessfully());
     }
 
@@ -202,8 +218,9 @@ class DataMovementIntegrationTest {
             if (event.getType() != SimulationEventType.DATA_STAGE_IN_MODELED) {
                 continue;
             }
-            if (result == null || ((Number) event.getAttributes().get("modeledTransferSeconds")).doubleValue()
-                    > ((Number) result.getAttributes().get("modeledTransferSeconds")).doubleValue()) {
+            if (result == null
+                    || ((Number) event.getAttributes().get("modeledTransferSeconds")).doubleValue()
+                            > ((Number) result.getAttributes().get("modeledTransferSeconds")).doubleValue()) {
                 result = event;
             }
         }
@@ -216,8 +233,8 @@ class DataMovementIntegrationTest {
     private static SimulationEvent transferEventWithRequiredBytes(SimulationReport report, double bytes) {
         for (SimulationEvent event : report.getEvents()) {
             if (event.getType() == SimulationEventType.DATA_STAGE_IN_MODELED
-                    && Double.compare(bytes, ((Number) event.getAttributes()
-                            .get("requiredFileBytes")).doubleValue()) == 0) {
+                    && Double.compare(bytes, ((Number) event.getAttributes().get("requiredFileBytes")).doubleValue())
+                            == 0) {
                 return event;
             }
         }
@@ -263,25 +280,20 @@ class DataMovementIntegrationTest {
 
     private static PlatformProfile oneVmPlatform() {
         return PlatformProfile.builder("data-movement-one-vm")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0,
-                        1024, 1_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1_000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0, 1024, 1_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
     }
 
     private static PlatformProfile twoVmPlatform() {
         return PlatformProfile.builder("data-movement-two-vm")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1_000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512,
-                        1_000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 512, 1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
     }

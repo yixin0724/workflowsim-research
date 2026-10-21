@@ -52,32 +52,35 @@ class MetamorphicGapIntegrationTest {
     @Test
     void explicitZeroArrivalsAreBitwiseIdenticalToOmittedArrivals() throws Exception {
         Path workflow = chainDax();
-        SimulationReport explicit = run(workflow,
+        SimulationReport explicit = run(
+                workflow,
                 SimulationConfig.builder(workflow.toString(), 2)
                         .workflowArrivalSeconds(java.util.Arrays.asList(0.0))
                         .build());
-        SimulationReport omitted = run(workflow,
-                SimulationConfig.builder(workflow.toString(), 2)
-                        .build());
+        SimulationReport omitted =
+                run(workflow, SimulationConfig.builder(workflow.toString(), 2).build());
 
         assertEventStreamsIdentical(explicit, omitted);
         assertTaskWindowsIdentical(explicit, omitted);
-        assertEquals(explicit.getMetrics().getMakespanSeconds(),
-                omitted.getMetrics().getMakespanSeconds(), 0.0,
+        assertEquals(
+                explicit.getMetrics().getMakespanSeconds(),
+                omitted.getMetrics().getMakespanSeconds(),
+                0.0,
                 "R5 契约：全零到达与省略到达的 makespan 必须逐位一致");
-        assertEquals(explicit.getActualVmHostAssignments(),
-                omitted.getActualVmHostAssignments(), "VM 放置必须一致");
+        assertEquals(explicit.getActualVmHostAssignments(), omitted.getActualVmHostAssignments(), "VM 放置必须一致");
     }
 
     @Test
     void doublingScaleAndMipsKeepsEveryTaskComputeDurationExact() throws Exception {
         Path workflow = chainDax();
-        SimulationReport base = run(workflow,
+        SimulationReport base = run(
+                workflow,
                 SimulationConfig.builder(workflow.toString(), 2)
                         .runtimeScale(1.0)
                         .runtimeReferenceMips(1000.0)
                         .build());
-        SimulationReport scaled = run(workflow,
+        SimulationReport scaled = run(
+                workflow,
                 SimulationConfig.builder(workflow.toString(), 2)
                         .runtimeScale(2.0)
                         .runtimeReferenceMips(1000.0)
@@ -95,10 +98,8 @@ class MetamorphicGapIntegrationTest {
             double rightDuration = right.getFinishTime() - right.getStartTime();
             long leftMi = left.getLengthMi();
             long rightMi = right.getLengthMi();
-            assertEquals(leftMi * 2, rightMi, "任务 " + left.getTaskId()
-                    + " 的 MI 应随 scale 翻倍（100 s × 1000 × 2）");
-            assertEquals(leftDuration, rightDuration, 0.0, "任务 " + left.getTaskId()
-                    + " 计算时长必须精确不变（MI×2 与 MIPS×2 相消）");
+            assertEquals(leftMi * 2, rightMi, "任务 " + left.getTaskId() + " 的 MI 应随 scale 翻倍（100 s × 1000 × 2）");
+            assertEquals(leftDuration, rightDuration, 0.0, "任务 " + left.getTaskId() + " 计算时长必须精确不变（MI×2 与 MIPS×2 相消）");
         }
     }
 
@@ -113,8 +114,8 @@ class MetamorphicGapIntegrationTest {
         if (mipsFactor == 1.0) {
             platform = PlatformProfiles.homogeneousLocal("metamorphic-base", 2);
         } else {
-            platform = PlatformProfiles.heterogeneousLocal("metamorphic-scaled",
-                    java.util.Arrays.asList(1000.0 * mipsFactor, 1000.0 * mipsFactor));
+            platform = PlatformProfiles.heterogeneousLocal(
+                    "metamorphic-scaled", java.util.Arrays.asList(1000.0 * mipsFactor, 1000.0 * mipsFactor));
         }
         return new SimulationRunner().run(config, platform);
     }
@@ -128,8 +129,7 @@ class MetamorphicGapIntegrationTest {
             SimulationEvent second = b.get(i);
             assertEquals(first.getSequence(), second.getSequence(), "事件序号");
             assertEquals(first.getType(), second.getType(), "事件类型@" + i);
-            assertEquals(first.getSimulationTime(), second.getSimulationTime(), 0.0,
-                    "事件时刻@" + i);
+            assertEquals(first.getSimulationTime(), second.getSimulationTime(), 0.0, "事件时刻@" + i);
             assertEquals(first.getJobId(), second.getJobId(), "事件 Job@" + i);
         }
     }
@@ -140,10 +140,8 @@ class MetamorphicGapIntegrationTest {
         assertEquals(a.size(), b.size());
         for (int i = 0; i < a.size(); i++) {
             assertEquals(a.get(i).getTaskId(), b.get(i).getTaskId());
-            assertEquals(a.get(i).getStartTime(), b.get(i).getStartTime(), 0.0,
-                    "任务开始时刻必须逐位一致");
-            assertEquals(a.get(i).getFinishTime(), b.get(i).getFinishTime(), 0.0,
-                    "任务完成时刻必须逐位一致");
+            assertEquals(a.get(i).getStartTime(), b.get(i).getStartTime(), 0.0, "任务开始时刻必须逐位一致");
+            assertEquals(a.get(i).getFinishTime(), b.get(i).getFinishTime(), 0.0, "任务完成时刻必须逐位一致");
             assertEquals(a.get(i).getVmId(), b.get(i).getVmId(), "任务 VM 派发必须一致");
         }
     }

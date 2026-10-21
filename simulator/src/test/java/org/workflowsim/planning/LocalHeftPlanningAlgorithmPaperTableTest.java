@@ -60,10 +60,12 @@ class LocalHeftPlanningAlgorithmPaperTableTest {
         fixture.planner.run();
 
         // HEFT 向上 rank 的独立手算（与 CPOP 测试共用同一论文表，公式独立推导）。
-        double[] upward = {108, 77, 80, 80, 69, 190.0 / 3.0,
-            128.0 / 3.0, 107.0 / 3.0, 133.0 / 3.0, 44.0 / 3.0};
+        double[] upward = {108, 77, 80, 80, 69, 190.0 / 3.0, 128.0 / 3.0, 107.0 / 3.0, 133.0 / 3.0, 44.0 / 3.0};
         for (int i = 0; i < fixture.tasks.length; i++) {
-            assertEquals(upward[i], fixture.planner.upwardRankOf(fixture.tasks[i]), EPSILON,
+            assertEquals(
+                    upward[i],
+                    fixture.planner.upwardRankOf(fixture.tasks[i]),
+                    EPSILON,
                     "论文表任务 " + (i + 1) + " 的向上 rank 必须等于手推值");
         }
     }
@@ -77,10 +79,8 @@ class LocalHeftPlanningAlgorithmPaperTableTest {
 
         // 入口任务 EST=0；三 VM 成本 14/16/9 → 最小 EFT 在 vm2，finish=9（平凡手算）。
         assertEquals(2, entry.getVmId(), "入口任务应选择最小 EFT 的 vm2（成本 9 秒）");
-        assertEquals(BOOTSTRAP, entry.getStaticScheduleStartTime(), EPSILON,
-                "入口任务的计划开始应为根 stage-in 完成时刻");
-        assertEquals(BOOTSTRAP + 9.0, fixture.planner.plannedFinishOf(entry), EPSILON,
-                "入口任务在 vm2 上的计划完成应为 9 秒");
+        assertEquals(BOOTSTRAP, entry.getStaticScheduleStartTime(), EPSILON, "入口任务的计划开始应为根 stage-in 完成时刻");
+        assertEquals(BOOTSTRAP + 9.0, fixture.planner.plannedFinishOf(entry), EPSILON, "入口任务在 vm2 上的计划完成应为 9 秒");
     }
 
     @Test
@@ -106,7 +106,8 @@ class LocalHeftPlanningAlgorithmPaperTableTest {
             List<double[]> intervals = entry.getValue();
             Collections.sort(intervals, (a, b) -> Double.compare(a[0], b[0]));
             for (int i = 1; i < intervals.size(); i++) {
-                assertTrue(intervals.get(i)[0] >= intervals.get(i - 1)[1] - EPSILON,
+                assertTrue(
+                        intervals.get(i)[0] >= intervals.get(i - 1)[1] - EPSILON,
                         "vm" + entry.getKey() + " 上预留区间重叠: "
                                 + Arrays.toString(intervals.get(i - 1)) + " 与 "
                                 + Arrays.toString(intervals.get(i)));
@@ -119,10 +120,10 @@ class LocalHeftPlanningAlgorithmPaperTableTest {
             double childStart = child.getStaticScheduleStartTime();
             double parentFinish = fixture.planner.plannedFinishOf(parent);
             if (parent.getVmId() == child.getVmId()) {
-                assertTrue(childStart >= parentFinish - EPSILON,
-                        "同 VM 依赖 " + edge[0] + "→" + edge[1] + " 的子任务过早开始");
+                assertTrue(childStart >= parentFinish - EPSILON, "同 VM 依赖 " + edge[0] + "→" + edge[1] + " 的子任务过早开始");
             } else {
-                assertTrue(childStart >= parentFinish + edge[2] - EPSILON,
+                assertTrue(
+                        childStart >= parentFinish + edge[2] - EPSILON,
                         "跨 VM 依赖 " + edge[0] + "→" + edge[1] + " 的子任务开始早于父完成+通信");
             }
         }
@@ -178,10 +179,9 @@ class LocalHeftPlanningAlgorithmPaperTableTest {
         List<CondorVM> vms = new ArrayList<CondorVM>();
         for (int index = 0; index < vmIds.length; index++) {
             int vmId = vmIds[index];
-            platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0,
-                    2048, 10_000L, 1_000_000L));
-            platform.addVm(new PlatformProfile.VmSpec(vmId, 1.0, 1, 512,
-                    1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0, 2048, 10_000L, 1_000_000L));
+            platform.addVm(new PlatformProfile.VmSpec(
+                    vmId, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             vms.add(vm(vmId));
         }
         SimulationConfig config = SimulationConfig.builder("heft-paper.dax", vmIds.length)
@@ -190,15 +190,14 @@ class LocalHeftPlanningAlgorithmPaperTableTest {
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
                 .build();
-        LocalHeftPlanningAlgorithm planner = new LocalHeftPlanningAlgorithm(
-                new PlanningContext(config, platform.build()));
+        LocalHeftPlanningAlgorithm planner =
+                new LocalHeftPlanningAlgorithm(new PlanningContext(config, platform.build()));
         planner.setTaskList(tasks);
         planner.setVmList(vms);
         return planner;
     }
 
     private static CondorVM vm(int id) {
-        return new CondorVM(id, 0, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1.0, 1, 512, 1L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 }

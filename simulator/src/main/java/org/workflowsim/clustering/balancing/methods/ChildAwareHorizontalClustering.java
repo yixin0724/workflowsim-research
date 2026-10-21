@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *  Copyright 2012-2013 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.clustering.balancing.methods;
 
@@ -31,7 +31,7 @@ import org.workflowsim.clustering.TaskSet;
  *
  * <p>当同层两个任务集合共享可合并的父集合时，该策略将其合并，并向后续层传播
  * 检查状态。</p>
- * 
+ *
  * @author Weiwei Chen
  * @since WorkflowSim Toolkit 1.0
  * @date Apr 9, 2013
@@ -67,7 +67,7 @@ public class ChildAwareHorizontalClustering extends BalancingMethod {
         for (AbstractArrayList list : abList) {
             if (!list.hasChecked) {
                 boolean hasClustered = CHBcheckLevel(list.getArrayList());
-                //Log.printLine("Depth:"+list.getDepth());
+                // Log.printLine("Depth:"+list.getDepth());
                 if (hasClustered) {
                     list.hasChecked = true;
                     // 继续检查后续层，传播本次合并带来的关系变化。
@@ -101,7 +101,6 @@ public class ChildAwareHorizontalClustering extends BalancingMethod {
                 return (int) (l2.getArrayList().size() - l1.getArrayList().size());
             }
         });
-
     }
 
     /**
@@ -116,7 +115,7 @@ public class ChildAwareHorizontalClustering extends BalancingMethod {
             setA.hasChecked = false; // 确保本层从干净的遍历状态开始
         }
         for (int i = 0; i < taskList.size(); i++) {
-            TaskSet setA =  taskList.get(i);
+            TaskSet setA = taskList.get(i);
             if (!setA.hasChecked) {
                 for (int j = i + 1; j < taskList.size(); j++) {
                     TaskSet setB = taskList.get(j);
@@ -175,7 +174,7 @@ public class ChildAwareHorizontalClustering extends BalancingMethod {
         }
         return null;
     }
-    
+
     /**
      * 查找两个任务集合的任意共同父集合。
      *

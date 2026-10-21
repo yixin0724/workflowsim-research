@@ -152,7 +152,6 @@ public class BalancedClustering extends BasicClustering {
                     + " " + hrv + "\nIFV " + depth + " "
                     + list.size() + " " + ifv + "\nPRV " + depth
                     + " " + list.size() + " " + prv + "\nDV " + depth + " " + list.size() + " " + dv);
-
         }
     }
 
@@ -174,7 +173,6 @@ public class BalancedClustering extends BasicClustering {
                 }
                 List list = map.get(depth);
                 list.add(set);
-
             }
         }
         mTaskSet2Depth.clear();
@@ -203,9 +201,7 @@ public class BalancedClustering extends BasicClustering {
             depth++;
             mTaskSet2Depth.put(set, depth);
             return depth;
-
         }
-
     }
 
     /**
@@ -226,7 +222,7 @@ public class BalancedClustering extends BasicClustering {
             if (check(ancestor, parent)) {
                 return true;
             } else {
-                //parent.hasChecked = true;
+                // parent.hasChecked = true;
             }
         }
         return false;
@@ -255,10 +251,10 @@ public class BalancedClustering extends BasicClustering {
                                 children.getParentList().remove(set);
                                 i--;
                                 mRecover.put(set, children);
-                                //cleanTaskSetChecked();
+                                // cleanTaskSetChecked();
                                 break;
                             } else {
-                                //cleanTaskSetChecked();
+                                // cleanTaskSetChecked();
                             }
                         }
                         if (another.getDepth() > children.getDepth()) {
@@ -267,17 +263,15 @@ public class BalancedClustering extends BasicClustering {
                                 another.getParentList().remove(set);
                                 i--;
                                 mRecover.put(set, another);
-                                //cleanTaskSetChecked();
+                                // cleanTaskSetChecked();
                                 break;
                             } else {
-                                //cleanTaskSetChecked();
+                                // cleanTaskSetChecked();
                             }
                         }
                     }
-
                 }
             }
-
         }
     }
 
@@ -364,7 +358,6 @@ public class BalancedClustering extends BasicClustering {
         // 清除本轮遍历标记，避免状态泄漏到后续聚类步骤。
         cleanTaskSetChecked();
 
-
         updateDependencies();
         addClustDelay();
 
@@ -382,7 +375,8 @@ public class BalancedClustering extends BasicClustering {
 
                 Log.printLine("Job");
                 for (Task task : set.getTaskList()) {
-                    Log.printLine("Task " + task.getCloudletId() + " " + task.getImpact() + " " + task.getCloudletLength());
+                    Log.printLine(
+                            "Task " + task.getCloudletId() + " " + task.getImpact() + " " + task.getCloudletLength());
                 }
             }
         }

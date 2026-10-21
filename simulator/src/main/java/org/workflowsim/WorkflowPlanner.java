@@ -65,11 +65,12 @@ import org.workflowsim.utils.Parameters.PlanningAlgorithm;
 public final class WorkflowPlanner extends SimEntity {
 
     /** 当前待规划、待聚类的任务列表。 */
-    protected List< Task> taskList;
+    protected List<Task> taskList;
     /** 当前工作流输入解析器。 */
     protected WorkflowParser parser;
     /** 下游聚类引擎实体编号。 */
     private int clusteringEngineId;
+
     private ClusteringEngine clusteringEngine;
     private SimulationEventRecorder eventRecorder = SimulationEventRecorder.disabled();
     private PlanningContext planningContext;
@@ -77,10 +78,15 @@ public final class WorkflowPlanner extends SimEntity {
     private SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
     /** 可选的任务×VM 异构执行成本矩阵；为 null 时平台保持 MI/mips 缩放。 */
     private org.workflowsim.utils.TaskCostMatrix taskCostMatrix;
+
     private org.workflowsim.data.v2.CoherentDataflowRuntime coherentDataflow;
 
     /** @param value run-owned V2 coordinator; installed before parsing */
-    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value){if(value==null||coherentDataflow!=null)throw new IllegalArgumentException("V2 runtime must be installed once");coherentDataflow=value;}
+    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value) {
+        if (value == null || coherentDataflow != null)
+            throw new IllegalArgumentException("V2 runtime must be installed once");
+        coherentDataflow = value;
+    }
 
     /**
      * 创建一个使用单个运行时调度器的工作流规划实体。
@@ -105,8 +111,8 @@ public final class WorkflowPlanner extends SimEntity {
         setTaskList(new ArrayList<>());
         this.clusteringEngine = new ClusteringEngine(name + "_Merger_", schedulers);
         this.clusteringEngineId = this.clusteringEngine.getId();
-        this.parser = new WorkflowParser(getClusteringEngine().getWorkflowEngine().getSchedulerId(0));
-
+        this.parser =
+                new WorkflowParser(getClusteringEngine().getWorkflowEngine().getSchedulerId(0));
     }
 
     /** @return 下游聚类引擎的 CloudSim 实体编号 */
@@ -185,17 +191,27 @@ public final class WorkflowPlanner extends SimEntity {
                 setTaskList(getWorkflowParser().getTaskList());
                 applyTaskCostMatrix();
                 validateFailureModelCoverage();
-                if(coherentDataflow!=null){
-                    java.util.Set<org.workflowsim.data.v2.DataLocation> locations=new java.util.TreeSet<>();locations.add(org.workflowsim.data.v2.CoherentDataflowRuntime.SOURCE);
-                    for(org.cloudbus.cloudsim.Vm vm:getWorkflowEngine().getAllVmList())locations.add(org.workflowsim.data.v2.DataLocation.vm(vm.getId()));
-                    coherentDataflow.initializePlan(org.workflowsim.data.v2.DataflowFilePlan.capture(getTaskList(),getWorkflowParser().getTaskWorkflowIndices()),locations);
+                if (coherentDataflow != null) {
+                    java.util.Set<org.workflowsim.data.v2.DataLocation> locations = new java.util.TreeSet<>();
+                    locations.add(org.workflowsim.data.v2.CoherentDataflowRuntime.SOURCE);
+                    for (org.cloudbus.cloudsim.Vm vm : getWorkflowEngine().getAllVmList())
+                        locations.add(org.workflowsim.data.v2.DataLocation.vm(vm.getId()));
+                    coherentDataflow.initializePlan(
+                            org.workflowsim.data.v2.DataflowFilePlan.capture(
+                                    getTaskList(), getWorkflowParser().getTaskWorkflowIndices()),
+                            locations);
                 }
                 parsedTaskSnapshot = Collections.unmodifiableList(new ArrayList<Task>(getTaskList()));
-                eventRecorder.record(SimulationEventType.WORKFLOW_PARSED, CloudSim.clock(), null,
-                        SimulationEventRecorder.attributes("taskCount", getTaskList().size(),
-                                "inputCount", getWorkflowParser().getInputReports().size()));
-                boolean explicitPlannerDecision = Parameters.getPlanningAlgorithm()
-                        != PlanningAlgorithm.INVALID;
+                eventRecorder.record(
+                        SimulationEventType.WORKFLOW_PARSED,
+                        CloudSim.clock(),
+                        null,
+                        SimulationEventRecorder.attributes(
+                                "taskCount",
+                                getTaskList().size(),
+                                "inputCount",
+                                getWorkflowParser().getInputReports().size()));
+                boolean explicitPlannerDecision = Parameters.getPlanningAlgorithm() != PlanningAlgorithm.INVALID;
                 long planningElapsedNanos = 0L;
                 if (explicitPlannerDecision) {
                     long planningStart = System.nanoTime();
@@ -204,25 +220,38 @@ public final class WorkflowPlanner extends SimEntity {
                 } else {
                     processPlanning();
                 }
-                eventRecorder.record(SimulationEventType.PLANNING_COMPLETED, CloudSim.clock(), null,
-                        SimulationEventRecorder.attributes("planningAlgorithm",
+                eventRecorder.record(
+                        SimulationEventType.PLANNING_COMPLETED,
+                        CloudSim.clock(),
+                        null,
+                        SimulationEventRecorder.attributes(
+                                "planningAlgorithm",
                                 Parameters.getPlanningAlgorithm().name(),
-                                "explicitPlannerDecision", explicitPlannerDecision,
-                                "planningDecisionElapsedNanos", planningElapsedNanos,
-                                "sharedStorageDagPlanTraceAvailable", sharedStorageDagPlanTrace != null,
-                                "plannedTaskCount", sharedStorageDagPlanTrace == null ? 0
-                                        : sharedStorageDagPlanTrace.getTaskPlans().size()));
+                                "explicitPlannerDecision",
+                                explicitPlannerDecision,
+                                "planningDecisionElapsedNanos",
+                                planningElapsedNanos,
+                                "sharedStorageDagPlanTraceAvailable",
+                                sharedStorageDagPlanTrace != null,
+                                "plannedTaskCount",
+                                sharedStorageDagPlanTrace == null
+                                        ? 0
+                                        : sharedStorageDagPlanTrace
+                                                .getTaskPlans()
+                                                .size()));
                 processImpactFactors(getTaskList());
                 // R5 动态到达：把每个输入的提交时刻与任务归属登记给引擎；全部 t=0 时
                 // 引擎行为与历史单时刻提交逐位一致。
-                getWorkflowEngine().setWorkflowArrivals(Parameters.getWorkflowArrivalSeconds(),
-                        getWorkflowParser().getTaskWorkflowIndices());
+                getWorkflowEngine()
+                        .setWorkflowArrivals(
+                                Parameters.getWorkflowArrivalSeconds(),
+                                getWorkflowParser().getTaskWorkflowIndices());
                 sendNow(getClusteringEngineId(), WorkflowSimTags.JOB_SUBMIT, getTaskList());
                 break;
             case CloudSimTags.END_OF_SIMULATION:
                 shutdownEntity();
                 break;
-            // 未识别事件统一进入显式错误处理，避免被静默丢弃。
+                // 未识别事件统一进入显式错误处理，避免被静默丢弃。
             default:
                 processOtherEvent(ev);
                 break;
@@ -235,33 +264,28 @@ public final class WorkflowPlanner extends SimEntity {
             return;
         }
         BasePlanningAlgorithm planner = getPlanningAlgorithm(Parameters.getPlanningAlgorithm());
-        
+
         planner.setTaskList(getTaskList());
         planner.setVmList(getWorkflowEngine().getAllVmList());
         try {
             planner.run();
             if (planner instanceof SharedStorageHeftPlanningAlgorithm) {
-                sharedStorageDagPlanTrace = ((SharedStorageHeftPlanningAlgorithm) planner)
-                        .getLastPlanTrace();
+                sharedStorageDagPlanTrace = ((SharedStorageHeftPlanningAlgorithm) planner).getLastPlanTrace();
             } else if (planner instanceof SharedStorageCpopPlanningAlgorithm) {
-                sharedStorageDagPlanTrace = ((SharedStorageCpopPlanningAlgorithm) planner)
-                        .getLastPlanTrace();
+                sharedStorageDagPlanTrace = ((SharedStorageCpopPlanningAlgorithm) planner).getLastPlanTrace();
             } else if (planner instanceof SharedStorageDlsPlanningAlgorithm) {
-                sharedStorageDagPlanTrace = ((SharedStorageDlsPlanningAlgorithm) planner)
-                        .getLastPlanTrace();
+                sharedStorageDagPlanTrace = ((SharedStorageDlsPlanningAlgorithm) planner).getLastPlanTrace();
             } else if (planner instanceof SharedStorageEtfPlanningAlgorithm) {
-                sharedStorageDagPlanTrace = ((SharedStorageEtfPlanningAlgorithm) planner)
-                        .getLastPlanTrace();
+                sharedStorageDagPlanTrace = ((SharedStorageEtfPlanningAlgorithm) planner).getLastPlanTrace();
             } else if (planner instanceof SharedStoragePeftPlanningAlgorithm) {
-                sharedStorageDagPlanTrace = ((SharedStoragePeftPlanningAlgorithm) planner)
-                        .getLastPlanTrace();
+                sharedStorageDagPlanTrace = ((SharedStoragePeftPlanningAlgorithm) planner).getLastPlanTrace();
             }
         } catch (org.workflowsim.exception.SimulationConfigurationException exception) {
             // R8 审计修复（P1-7）：配置类异常不得被包装成"规划算法失败"的执行语义。
             throw exception;
         } catch (Exception exception) {
-            throw new IllegalStateException("Planning algorithm "
-                    + Parameters.getPlanningAlgorithm() + " failed", exception);
+            throw new IllegalStateException(
+                    "Planning algorithm " + Parameters.getPlanningAlgorithm() + " failed", exception);
         }
     }
 
@@ -299,15 +323,13 @@ public final class WorkflowPlanner extends SimEntity {
             vmIds.add(Integer.valueOf(vm.getId()));
         }
         if (!taskCostMatrix.covers(taskIds, vmIds)) {
-            throw new IllegalStateException("Task cost matrix does not cover every parsed task ID "
-                    + taskIds + " on every VM ID " + vmIds);
+            throw new IllegalStateException(
+                    "Task cost matrix does not cover every parsed task ID " + taskIds + " on every VM ID " + vmIds);
         }
         for (Task task : getTaskList()) {
-            java.util.Map<Integer, Double> perVm =
-                    new java.util.LinkedHashMap<Integer, Double>();
+            java.util.Map<Integer, Double> perVm = new java.util.LinkedHashMap<Integer, Double>();
             for (Integer vmId : vmIds) {
-                perVm.put(vmId, Double.valueOf(
-                        taskCostMatrix.getCostSeconds(task.getCloudletId(), vmId.intValue())));
+                perVm.put(vmId, Double.valueOf(taskCostMatrix.getCostSeconds(task.getCloudletId(), vmId.intValue())));
             }
             task.setVmExecutionCostSeconds(perVm);
         }
@@ -329,7 +351,7 @@ public final class WorkflowPlanner extends SimEntity {
 
         // 新增规划器时必须同步维护 Parameters 中可报告的枚举契约。
         switch (name) {
-            // INVALID 不会调用此方法，保留 null 以维持历史 fail-fast 边界。
+                // INVALID 不会调用此方法，保留 null 以维持历史 fail-fast 边界。
             case INVALID:
                 planner = null;
                 break;
@@ -479,8 +501,7 @@ public final class WorkflowPlanner extends SimEntity {
             return;
         }
 
-        Log.printLine(getName() + ".processOtherEvent(): "
-                + "Error - event unknown by this DatacenterBroker.");
+        Log.printLine(getName() + ".processOtherEvent(): " + "Error - event unknown by this DatacenterBroker.");
     }
 
     /** 预留的仿真结束通知入口；当前历史实现不发送额外事件。 */

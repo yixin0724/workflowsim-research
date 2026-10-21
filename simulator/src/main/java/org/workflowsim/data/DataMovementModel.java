@@ -53,42 +53,70 @@ public final class DataMovementModel {
         COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3
     }
 
-    private static final DataMovementModel LEGACY = new DataMovementModel(
-            Kind.LEGACY_WORKFLOWSIM_V1, 0.0, 0.0, 0.0);
-    private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY = new DataMovementModel(
-            Kind.PRE_EXECUTION_TRANSFER_DELAY_V1, 0.0, 0.0, 0.0);
+    private static final DataMovementModel LEGACY = new DataMovementModel(Kind.LEGACY_WORKFLOWSIM_V1, 0.0, 0.0, 0.0);
+    private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY =
+            new DataMovementModel(Kind.PRE_EXECUTION_TRANSFER_DELAY_V1, 0.0, 0.0, 0.0);
     private static final DataMovementModel PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION =
-            new DataMovementModel(
-                    Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1, 0.0, 0.0, 0.0);
-    private static final DataMovementModel FAT_TREE_CONTENTION = new DataMovementModel(
-            Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1, 0.0, 0.0, 0.0);
+            new DataMovementModel(Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1, 0.0, 0.0, 0.0);
+    private static final DataMovementModel FAT_TREE_CONTENTION =
+            new DataMovementModel(Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1, 0.0, 0.0, 0.0);
 
-    private static final DataMovementModel COHERENT_SHARED=new DataMovementModel(Kind.COHERENT_FILE_DATAFLOW_V2,0,0,0);
-    private static final DataMovementModel COHERENT_ISOLATED=new DataMovementModel(Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2,0,0,0);
+    private static final DataMovementModel COHERENT_SHARED =
+            new DataMovementModel(Kind.COHERENT_FILE_DATAFLOW_V2, 0, 0, 0);
+    private static final DataMovementModel COHERENT_ISOLATED =
+            new DataMovementModel(Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2, 0, 0, 0);
 
     /** @return per-file V2 lifecycle with checked shared resource service */
-    public static DataMovementModel coherentFileDataflowV2(){return COHERENT_SHARED;}
+    public static DataMovementModel coherentFileDataflowV2() {
+        return COHERENT_SHARED;
+    }
     /** @return the same V2 lifecycle with isolated single-flow route bottlenecks */
-    public static DataMovementModel coherentFileDataflowNoContentionV2(){return COHERENT_ISOLATED;}
+    public static DataMovementModel coherentFileDataflowNoContentionV2() {
+        return COHERENT_ISOLATED;
+    }
     /** @return whether the dedicated V2 run coordinator is required */
-    public boolean isCoherentFileDataflowV2(){return kind==Kind.COHERENT_FILE_DATAFLOW_V2||kind==Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2;}
+    public boolean isCoherentFileDataflowV2() {
+        return kind == Kind.COHERENT_FILE_DATAFLOW_V2 || kind == Kind.COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2;
+    }
     /** @return whether V2 resources share capacity between active file copies */
-    public boolean isCoherentShared(){return kind==Kind.COHERENT_FILE_DATAFLOW_V2;}
+    public boolean isCoherentShared() {
+        return kind == Kind.COHERENT_FILE_DATAFLOW_V2;
+    }
 
-    private static final DataMovementModel STORAGE_SHARED=new DataMovementModel(Kind.COHERENT_STORAGE_DATAFLOW_V3,0,0,0),STORAGE_ISOLATED=new DataMovementModel(Kind.COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3,0,0,0);
-    /** @return bounded storage and successful-output writeback model */ public static DataMovementModel coherentStorageDataflowV3(){return STORAGE_SHARED;}
-    /** @return same storage lifecycle without inter-flow sharing */ public static DataMovementModel coherentStorageDataflowNoContentionV3(){return STORAGE_ISOLATED;}
-    /** @return exact storage-version predicate */ public boolean isCoherentStorageDataflowV3(){return kind==Kind.COHERENT_STORAGE_DATAFLOW_V3||kind==Kind.COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3;}
-    /** @return dedicated per-file coordinator required, with its explicitly selected contract */ public boolean usesCoherentDataflowRuntime(){return isCoherentFileDataflowV2()||isCoherentStorageDataflowV3();}
-    /** @return active copies share capacity under their selected coherent contract */ public boolean usesSharedDataflowResources(){return isCoherentShared()||kind==Kind.COHERENT_STORAGE_DATAFLOW_V3;}
+    private static final DataMovementModel
+            STORAGE_SHARED = new DataMovementModel(Kind.COHERENT_STORAGE_DATAFLOW_V3, 0, 0, 0),
+            STORAGE_ISOLATED = new DataMovementModel(Kind.COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3, 0, 0, 0);
+    /** @return bounded storage and successful-output writeback model */
+    public static DataMovementModel coherentStorageDataflowV3() {
+        return STORAGE_SHARED;
+    }
+    /** @return same storage lifecycle without inter-flow sharing */
+    public static DataMovementModel coherentStorageDataflowNoContentionV3() {
+        return STORAGE_ISOLATED;
+    }
+    /** @return exact storage-version predicate */
+    public boolean isCoherentStorageDataflowV3() {
+        return kind == Kind.COHERENT_STORAGE_DATAFLOW_V3 || kind == Kind.COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3;
+    }
+    /** @return dedicated per-file coordinator required, with its explicitly selected contract */
+    public boolean usesCoherentDataflowRuntime() {
+        return isCoherentFileDataflowV2() || isCoherentStorageDataflowV3();
+    }
+    /** @return active copies share capacity under their selected coherent contract */
+    public boolean usesSharedDataflowResources() {
+        return isCoherentShared() || kind == Kind.COHERENT_STORAGE_DATAFLOW_V3;
+    }
 
     private final Kind kind;
     private final double accessLinkBandwidthMbPerSecond;
     private final double accessLinkLatencySeconds;
     private final double sourceEndpointBandwidthMbPerSecond;
 
-    private DataMovementModel(Kind kind, double accessLinkBandwidthMbPerSecond,
-            double accessLinkLatencySeconds, double sourceEndpointBandwidthMbPerSecond) {
+    private DataMovementModel(
+            Kind kind,
+            double accessLinkBandwidthMbPerSecond,
+            double accessLinkLatencySeconds,
+            double sourceEndpointBandwidthMbPerSecond) {
         this.kind = kind;
         this.accessLinkBandwidthMbPerSecond = accessLinkBandwidthMbPerSecond;
         this.accessLinkLatencySeconds = accessLinkLatencySeconds;
@@ -156,7 +184,8 @@ public final class DataMovementModel {
      * @throws IllegalArgumentException 当带宽非正/非有限，或时延为负/非有限时抛出
      */
     public static DataMovementModel fixedEndpointNoContention(
-            double accessLinkBandwidthMbPerSecond, double accessLinkLatencySeconds,
+            double accessLinkBandwidthMbPerSecond,
+            double accessLinkLatencySeconds,
             double sourceEndpointBandwidthMbPerSecond) {
         if (!positiveFinite(accessLinkBandwidthMbPerSecond)
                 || !nonNegativeFinite(accessLinkLatencySeconds)
@@ -164,8 +193,10 @@ public final class DataMovementModel {
             throw new IllegalArgumentException("Fixed endpoint data movement requires positive finite access and "
                     + "source bandwidths and a finite non-negative latency");
         }
-        return new DataMovementModel(Kind.FIXED_ENDPOINT_NO_CONTENTION_V1,
-                accessLinkBandwidthMbPerSecond, accessLinkLatencySeconds,
+        return new DataMovementModel(
+                Kind.FIXED_ENDPOINT_NO_CONTENTION_V1,
+                accessLinkBandwidthMbPerSecond,
+                accessLinkLatencySeconds,
                 sourceEndpointBandwidthMbPerSecond);
     }
 
@@ -177,15 +208,34 @@ public final class DataMovementModel {
         return value >= 0.0 && !Double.isNaN(value) && !Double.isInfinite(value);
     }
 
-    public Kind getKind() { return kind; }
-    public double getAccessLinkBandwidthMbPerSecond() { return accessLinkBandwidthMbPerSecond; }
-    public double getAccessLinkLatencySeconds() { return accessLinkLatencySeconds; }
-    public double getSourceEndpointBandwidthMbPerSecond() { return sourceEndpointBandwidthMbPerSecond; }
-    public boolean isLegacyWorkflowsimV1() { return kind == Kind.LEGACY_WORKFLOWSIM_V1; }
-    public boolean isPreExecutionTransferDelayV1() { return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_V1; }
+    public Kind getKind() {
+        return kind;
+    }
+
+    public double getAccessLinkBandwidthMbPerSecond() {
+        return accessLinkBandwidthMbPerSecond;
+    }
+
+    public double getAccessLinkLatencySeconds() {
+        return accessLinkLatencySeconds;
+    }
+
+    public double getSourceEndpointBandwidthMbPerSecond() {
+        return sourceEndpointBandwidthMbPerSecond;
+    }
+
+    public boolean isLegacyWorkflowsimV1() {
+        return kind == Kind.LEGACY_WORKFLOWSIM_V1;
+    }
+
+    public boolean isPreExecutionTransferDelayV1() {
+        return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_V1;
+    }
+
     public boolean isPreExecutionTransferDelayWithContentionV1() {
         return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1;
     }
+
     public boolean isFatTreeContentionV1() {
         return kind == Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1;
     }

@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 import org.workflowsim.data.TransferContentionEngine;
 
@@ -36,8 +35,7 @@ public class FatTreeTopologyTest {
     /** k=2 最小结构：2 主机、5 交换机（1 core + 2 Pod × 2 台）、12 个链路资源键。 */
     @Test
     public void minimalK2StructureMatchesHandComputedCounts() {
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(2, 100.0), hosts(2));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(2, 100.0), hosts(2));
         assertEquals(2, topology.getK());
         assertEquals(1, topology.getCoreSwitchCount());
         assertEquals(5, topology.getSwitchCount());
@@ -48,8 +46,7 @@ public class FatTreeTopologyTest {
         assertEquals(12, topology.getLinkResourceCount());
         // 单位契约：声明 100 MB/s = 100×10⁶ 字节/秒（与 VM 端点容量
         // vm.getBw()×10⁶ 同一惯例，无 ÷8；R8 审计回归测试）。
-        assertEquals(100.0 * 1_000_000.0,
-                topology.getLinkBandwidthBytesPerSecond(), 1.0e-6);
+        assertEquals(100.0 * 1_000_000.0, topology.getLinkBandwidthBytesPerSecond(), 1.0e-6);
         // 默认轮转放置：host0 → Pod0，host1 → Pod1（各 1 台 edge）。
         Map<Integer, int[]> placements = topology.getHostPlacements();
         assertEquals(0, placements.get(Integer.valueOf(0))[0]);
@@ -59,15 +56,16 @@ public class FatTreeTopologyTest {
     /** k=2 跨 Pod 路由黄金值：6 个资源键，经唯一 core。 */
     @Test
     public void crossPodRouteOnMinimalTopology() {
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(2, 100.0), hosts(2));
-        assertEquals(Arrays.asList(
-                "LINK:ACC:0->EDGE:0:0",
-                "LINK:EDGE:0:0->AGG:0:0",
-                "LINK:AGG:0:0->CORE:0",
-                "LINK:CORE:0->AGG:1:0",
-                "LINK:AGG:1:0->EDGE:1:0",
-                "LINK:EDGE:1:0->ACC:1"), topology.route(0, 1));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(2, 100.0), hosts(2));
+        assertEquals(
+                Arrays.asList(
+                        "LINK:ACC:0->EDGE:0:0",
+                        "LINK:EDGE:0:0->AGG:0:0",
+                        "LINK:AGG:0:0->CORE:0",
+                        "LINK:CORE:0->AGG:1:0",
+                        "LINK:AGG:1:0->EDGE:1:0",
+                        "LINK:EDGE:1:0->ACC:1"),
+                topology.route(0, 1));
         // 同主机：本地交换，不占拓扑链路。
         assertEquals(Collections.emptyList(), topology.route(0, 0));
     }
@@ -75,8 +73,7 @@ public class FatTreeTopologyTest {
     /** k=4 满配结构：20 交换机、16 主机容量、80 链路资源键（8 主机放置）。 */
     @Test
     public void fullK4StructureMatchesHandComputedCounts() {
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(8));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(8));
         assertEquals(4, topology.getCoreSwitchCount());
         assertEquals(20, topology.getSwitchCount());
         assertEquals(16, topology.getHostCapacity());
@@ -95,36 +92,35 @@ public class FatTreeTopologyTest {
     @Test
     public void routeClassesOnK4() {
         // 9 台主机 → host0 与 host8 轮转到同一 edge (0,0)。
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(9));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(9));
         // 同 edge（2 键）。
-        assertEquals(Arrays.asList(
-                "LINK:ACC:0->EDGE:0:0",
-                "LINK:EDGE:0:0->ACC:8"), topology.route(0, 8));
+        assertEquals(Arrays.asList("LINK:ACC:0->EDGE:0:0", "LINK:EDGE:0:0->ACC:8"), topology.route(0, 8));
         // 同 Pod 跨 edge：host0 (0,0) → host1 (0,1)，agg = 0%2 = 0（4 键）。
-        assertEquals(Arrays.asList(
-                "LINK:ACC:0->EDGE:0:0",
-                "LINK:EDGE:0:0->AGG:0:0",
-                "LINK:AGG:0:0->EDGE:0:1",
-                "LINK:EDGE:0:1->ACC:1"), topology.route(0, 1));
+        assertEquals(
+                Arrays.asList(
+                        "LINK:ACC:0->EDGE:0:0",
+                        "LINK:EDGE:0:0->AGG:0:0",
+                        "LINK:AGG:0:0->EDGE:0:1",
+                        "LINK:EDGE:0:1->ACC:1"),
+                topology.route(0, 1));
         // 跨 Pod：host0 (0,0) → host2 (1,0)。agg = 0；uplinks = min(2, 4−0) = 2；
         // j = (0+0+0+1) mod 2 = 1 → core 1（6 键）。
-        assertEquals(Arrays.asList(
-                "LINK:ACC:0->EDGE:0:0",
-                "LINK:EDGE:0:0->AGG:0:0",
-                "LINK:AGG:0:0->CORE:1",
-                "LINK:CORE:1->AGG:1:0",
-                "LINK:AGG:1:0->EDGE:1:0",
-                "LINK:EDGE:1:0->ACC:2"), topology.route(0, 2));
+        assertEquals(
+                Arrays.asList(
+                        "LINK:ACC:0->EDGE:0:0",
+                        "LINK:EDGE:0:0->AGG:0:0",
+                        "LINK:AGG:0:0->CORE:1",
+                        "LINK:CORE:1->AGG:1:0",
+                        "LINK:AGG:1:0->EDGE:1:0",
+                        "LINK:EDGE:1:0->ACC:2"),
+                topology.route(0, 2));
     }
 
     /** 路由确定性：同参数两次构造给出逐位相同的路径。 */
     @Test
     public void routingIsDeterministicAcrossConstructions() {
-        FatTreeTopology first = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(9));
-        FatTreeTopology second = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(9));
+        FatTreeTopology first = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(9));
+        FatTreeTopology second = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(9));
         for (int src = 0; src < 9; src++) {
             for (int dst = 0; dst < 9; dst++) {
                 assertEquals(first.route(src, dst), second.route(src, dst));
@@ -132,9 +128,11 @@ public class FatTreeTopologyTest {
                 TransferContentionEngine engine = new TransferContentionEngine();
                 first.registerCapacities(engine);
                 engine.addTransfer(1L, 1000L, first.route(src, dst), 1.0e12, 0.0);
-                double expected = src == dst ? 1.0e12
-                        : Math.min(1.0e12, 100.0 * 1_000_000.0);
-                assertEquals(expected, engine.currentRateBytesPerSecond(1L), 1.0e-6,
+                double expected = src == dst ? 1.0e12 : Math.min(1.0e12, 100.0 * 1_000_000.0);
+                assertEquals(
+                        expected,
+                        engine.currentRateBytesPerSecond(1L),
+                        1.0e-6,
                         "route " + src + "->" + dst + " 的单流速率应为链路带宽（无共享）");
             }
         }
@@ -144,8 +142,7 @@ public class FatTreeTopologyTest {
     @Test
     public void oversubscribedCoreReduction() {
         // k=4, m=3：availA = ceil(2×3/4) = 2；agg0 有 core {0,1}，agg1 有 core {2}。
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0, 3), hosts(8));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, 3), hosts(8));
         assertEquals(4.0 / 3.0, topology.getOversubscriptionRatio(), 1.0e-12);
         // 交换机 = core 3 + k Pod × k 台 = 19。
         assertEquals(19, topology.getSwitchCount());
@@ -154,16 +151,17 @@ public class FatTreeTopologyTest {
         assertEquals(72, topology.getLinkResourceCount());
         // host1 (0,1) → host3 (1,1)：agg = 1%2 = 1；uplinks(1) = min(2, 3−2) = 1；
         // j = (1+1+0+1) mod 1 = 0 → core 2。
-        assertEquals(Arrays.asList(
-                "LINK:ACC:1->EDGE:0:1",
-                "LINK:EDGE:0:1->AGG:0:1",
-                "LINK:AGG:0:1->CORE:2",
-                "LINK:CORE:2->AGG:1:1",
-                "LINK:AGG:1:1->EDGE:1:1",
-                "LINK:EDGE:1:1->ACC:3"), topology.route(1, 3));
+        assertEquals(
+                Arrays.asList(
+                        "LINK:ACC:1->EDGE:0:1",
+                        "LINK:EDGE:0:1->AGG:0:1",
+                        "LINK:AGG:0:1->CORE:2",
+                        "LINK:CORE:2->AGG:1:1",
+                        "LINK:AGG:1:1->EDGE:1:1",
+                        "LINK:EDGE:1:1->ACC:3"),
+                topology.route(1, 3));
         // k=4, m=2：availA = ceil(4/4) = 1 → 全部流量走 agg0；收敛比 2.0。
-        FatTreeTopology heavy = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(8));
+        FatTreeTopology heavy = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(8));
         assertEquals(2.0, heavy.getOversubscriptionRatio(), 0.0);
         assertEquals("LINK:EDGE:0:1->AGG:0:0", heavy.route(1, 3).get(1));
     }
@@ -178,37 +176,32 @@ public class FatTreeTopologyTest {
     public void structuralVariantsReshapeCrossFlowSharingOnFourHosts() {
         // 基线 k=4 满配：轮转放置 (0,0),(0,1),(1,0),(1,1)；交叉流各走各的
         // aggregate/core，路径完全不相交。
-        FatTreeTopology baseline = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(4));
+        FatTreeTopology baseline = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(4));
         List<String> cross02 = baseline.route(0, 2);
         List<String> cross13 = baseline.route(1, 3);
         assertEquals(6, cross02.size());
         assertEquals(6, cross13.size());
-        assertTrue(Collections.disjoint(cross02, cross13),
-                "基线下交叉流 0→2 与 1→3 不应共享链路");
+        assertTrue(Collections.disjoint(cross02, cross13), "基线下交叉流 0→2 与 1→3 不应共享链路");
 
         // A1：k=4、m=2（2× 超收敛）→ availA = ceil(2×2/4) = 1，全部流量走
         // agg0；交叉流在 AGG:0:0↔CORE:1 两条链路上共享。
-        FatTreeTopology oversub = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(4));
+        FatTreeTopology oversub = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(4));
         List<String> shared = new ArrayList<String>(oversub.route(0, 2));
         shared.retainAll(oversub.route(1, 3));
-        assertEquals(Arrays.asList(
-                "LINK:AGG:0:0->CORE:1",
-                "LINK:CORE:1->AGG:1:0"), shared);
+        assertEquals(Arrays.asList("LINK:AGG:0:0->CORE:1", "LINK:CORE:1->AGG:1:0"), shared);
 
         // A2：k=8 → 4 台主机轮转索引 0..3 全落 pod0（halfK=4），无跨 Pod
         // 流量，交叉流变为 4 链路同 Pod 路径且互不共享。
-        FatTreeTopology k8 = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(8, 100.0), hosts(4));
+        FatTreeTopology k8 = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(8, 100.0), hosts(4));
         List<String> k8Cross02 = k8.route(0, 2);
-        assertEquals(Arrays.asList(
-                "LINK:ACC:0->EDGE:0:0",
-                "LINK:EDGE:0:0->AGG:0:0",
-                "LINK:AGG:0:0->EDGE:0:2",
-                "LINK:EDGE:0:2->ACC:2"), k8Cross02);
-        assertTrue(Collections.disjoint(k8Cross02, k8.route(1, 3)),
-                "k=8 单 Pod 下交叉流仍不应共享链路");
+        assertEquals(
+                Arrays.asList(
+                        "LINK:ACC:0->EDGE:0:0",
+                        "LINK:EDGE:0:0->AGG:0:0",
+                        "LINK:AGG:0:0->EDGE:0:2",
+                        "LINK:EDGE:0:2->ACC:2"),
+                k8Cross02);
+        assertTrue(Collections.disjoint(k8Cross02, k8.route(1, 3)), "k=8 单 Pod 下交叉流仍不应共享链路");
 
         // A5：同 edge 主机对 {0→0,1→0,2→2,3→2}：0→1 缩短为 2 链路同 edge
         // 路径；交叉流 0→2 与 1→3 除两端 ACC 接入链路外共享中间全部 4 条链路。
@@ -217,18 +210,18 @@ public class FatTreeTopologyTest {
         pairs.put(Integer.valueOf(1), Integer.valueOf(0));
         pairs.put(Integer.valueOf(2), Integer.valueOf(2));
         pairs.put(Integer.valueOf(3), Integer.valueOf(2));
-        FatTreeTopology clustered = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0, null, pairs), hosts(4));
-        assertEquals(Arrays.asList(
-                "LINK:ACC:0->EDGE:0:0",
-                "LINK:EDGE:0:0->ACC:1"), clustered.route(0, 1));
+        FatTreeTopology clustered =
+                FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, null, pairs), hosts(4));
+        assertEquals(Arrays.asList("LINK:ACC:0->EDGE:0:0", "LINK:EDGE:0:0->ACC:1"), clustered.route(0, 1));
         List<String> pairShared = new ArrayList<String>(clustered.route(0, 2));
         pairShared.retainAll(clustered.route(1, 3));
-        assertEquals(Arrays.asList(
-                "LINK:EDGE:0:0->AGG:0:0",
-                "LINK:AGG:0:0->CORE:1",
-                "LINK:CORE:1->AGG:1:0",
-                "LINK:AGG:1:0->EDGE:1:0"), pairShared,
+        assertEquals(
+                Arrays.asList(
+                        "LINK:EDGE:0:0->AGG:0:0",
+                        "LINK:AGG:0:0->CORE:1",
+                        "LINK:CORE:1->AGG:1:0",
+                        "LINK:AGG:1:0->EDGE:1:0"),
+                pairShared,
                 "同 edge 主机对下交叉流应共享两端 ACC 之外的全部中间链路");
     }
 
@@ -239,32 +232,32 @@ public class FatTreeTopologyTest {
         Map<Integer, Integer> placement = new LinkedHashMap<Integer, Integer>();
         placement.put(Integer.valueOf(0), Integer.valueOf(0));
         placement.put(Integer.valueOf(1), Integer.valueOf(0));
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0, null, placement), hosts(2));
+        FatTreeTopology topology =
+                FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, null, placement), hosts(2));
         assertEquals(0, topology.getHostPlacements().get(Integer.valueOf(1))[1]);
         // 同 edge 路由（2 键）。
         assertEquals(2, topology.route(0, 1).size());
         // 缺失主机覆盖 → 拒绝。
         Map<Integer, Integer> partial = new LinkedHashMap<Integer, Integer>();
         partial.put(Integer.valueOf(0), Integer.valueOf(0));
-        IllegalArgumentException missing = assertThrows(IllegalArgumentException.class,
-                () -> FatTreeTopology.fromSpec(
-                        NetworkTopologySpec.fatTree(4, 100.0, null, partial), hosts(2)));
+        IllegalArgumentException missing = assertThrows(
+                IllegalArgumentException.class,
+                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, null, partial), hosts(2)));
         assertTrue(missing.getMessage().contains("must cover host 1"), missing.getMessage());
         // 未知主机 → 拒绝。
         Map<Integer, Integer> unknown = new LinkedHashMap<Integer, Integer>(placement);
         unknown.put(Integer.valueOf(99), Integer.valueOf(0));
-        IllegalArgumentException unknownEx = assertThrows(IllegalArgumentException.class,
-                () -> FatTreeTopology.fromSpec(
-                        NetworkTopologySpec.fatTree(4, 100.0, null, unknown), hosts(2)));
+        IllegalArgumentException unknownEx = assertThrows(
+                IllegalArgumentException.class,
+                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, null, unknown), hosts(2)));
         assertTrue(unknownEx.getMessage().contains("unknown host 99"), unknownEx.getMessage());
         // k=2 每 edge 容量 1：两台主机同 edge → 拒绝。
         Map<Integer, Integer> overCapacity = new LinkedHashMap<Integer, Integer>();
         overCapacity.put(Integer.valueOf(0), Integer.valueOf(0));
         overCapacity.put(Integer.valueOf(1), Integer.valueOf(0));
-        IllegalArgumentException over = assertThrows(IllegalArgumentException.class,
-                () -> FatTreeTopology.fromSpec(
-                        NetworkTopologySpec.fatTree(2, 100.0, null, overCapacity), hosts(2)));
+        IllegalArgumentException over = assertThrows(
+                IllegalArgumentException.class,
+                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(2, 100.0, null, overCapacity), hosts(2)));
         assertTrue(over.getMessage().contains("at most k/2"), over.getMessage());
     }
 
@@ -282,10 +275,9 @@ public class FatTreeTopologyTest {
         pairs.put(Integer.valueOf(2), Integer.valueOf(2));
         pairs.put(Integer.valueOf(3), Integer.valueOf(2));
         FatTreeTopology[] topologies = {
-                FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(9)),
-                FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(8)),
-                FatTreeTopology.fromSpec(
-                        NetworkTopologySpec.fatTree(4, 100.0, null, pairs), hosts(4)),
+            FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(9)),
+            FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, 2), hosts(8)),
+            FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0, null, pairs), hosts(4)),
         };
         for (FatTreeTopology topology : topologies) {
             java.util.Set<String> linkIds = topology.getLinkIds();
@@ -293,18 +285,17 @@ public class FatTreeTopologyTest {
             for (Integer src : topology.getHostPlacements().keySet()) {
                 for (Integer dst : topology.getHostPlacements().keySet()) {
                     for (String link : topology.route(src.intValue(), dst.intValue())) {
-                        assertTrue(linkIds.contains(link),
-                                "route " + src + "->" + dst + " 使用未注册链路键 " + link);
+                        assertTrue(linkIds.contains(link), "route " + src + "->" + dst + " 使用未注册链路键 " + link);
                     }
                 }
             }
         }
     }
 
-    /** 引擎级组合：重叠路径公平共享半速，不相交路径零干扰（无阻塞性质）。 */    @Test
+    /** 引擎级组合：重叠路径公平共享半速，不相交路径零干扰（无阻塞性质）。 */
+    @Test
     public void sharedAndDisjointRoutesFairSharing() {
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(8));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(8));
         TransferContentionEngine engine = new TransferContentionEngine();
         topology.registerCapacities(engine);
         double linkBw = 100.0 * 1_000_000.0;
@@ -329,55 +320,52 @@ public class FatTreeTopologyTest {
         assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(0, 100.0));
         assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, 0.0));
         assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, -1.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(4, Double.NaN));
-        assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(4, Double.POSITIVE_INFINITY));
-        assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(4, 100.0, 0));
-        assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(4, 100.0, 5));
-        assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(2, 100.0, null,
-                        Collections.singletonMap(Integer.valueOf(0), Integer.valueOf(2))));
+        assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, Double.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, 100.0, 0));
+        assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(4, 100.0, 5));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(
+                        2, 100.0, null, Collections.singletonMap(Integer.valueOf(0), Integer.valueOf(2))));
         // 显式放置：null 键/值与负索引 → 拒绝。
         Map<Integer, Integer> nullValue = new LinkedHashMap<Integer, Integer>();
         nullValue.put(Integer.valueOf(0), null);
-        IllegalArgumentException nullEntry = assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(2, 100.0, null, nullValue));
+        IllegalArgumentException nullEntry = assertThrows(
+                IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(2, 100.0, null, nullValue));
         assertTrue(nullEntry.getMessage().contains("cannot contain null"), nullEntry.getMessage());
         Map<Integer, Integer> nullKey = new LinkedHashMap<Integer, Integer>();
         nullKey.put(null, Integer.valueOf(0));
-        assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(2, 100.0, null, nullKey));
-        IllegalArgumentException negativeIdx = assertThrows(IllegalArgumentException.class,
-                () -> NetworkTopologySpec.fatTree(2, 100.0, null,
-                        Collections.singletonMap(Integer.valueOf(0), Integer.valueOf(-1))));
+        assertThrows(IllegalArgumentException.class, () -> NetworkTopologySpec.fatTree(2, 100.0, null, nullKey));
+        IllegalArgumentException negativeIdx = assertThrows(
+                IllegalArgumentException.class,
+                () -> NetworkTopologySpec.fatTree(
+                        2, 100.0, null, Collections.singletonMap(Integer.valueOf(0), Integer.valueOf(-1))));
         assertTrue(negativeIdx.getMessage().contains("k*k/2"), negativeIdx.getMessage());
         // 主机数超过 k³/4 → 拒绝。
-        IllegalArgumentException tooMany = assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException tooMany = assertThrows(
+                IllegalArgumentException.class,
                 () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(2, 100.0), hosts(3)));
         assertTrue(tooMany.getMessage().contains("k^3/4"), tooMany.getMessage());
         // 重复主机 ID → 拒绝；空/null 主机列表 → 拒绝。
-        assertThrows(IllegalArgumentException.class,
-                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0),
-                        Arrays.asList(0, 0, 1)));
-        assertThrows(IllegalArgumentException.class,
-                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0),
-                        Collections.<Integer>emptyList()));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), Arrays.asList(0, 0, 1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FatTreeTopology.fromSpec(
+                        NetworkTopologySpec.fatTree(4, 100.0), Collections.<Integer>emptyList()));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), null));
         // 未放置主机的路由 → 拒绝。
-        FatTreeTopology topology = FatTreeTopology.fromSpec(
-                NetworkTopologySpec.fatTree(4, 100.0), hosts(4));
-        IllegalArgumentException unplaced = assertThrows(IllegalArgumentException.class,
-                () -> topology.route(0, 77));
+        FatTreeTopology topology = FatTreeTopology.fromSpec(NetworkTopologySpec.fatTree(4, 100.0), hosts(4));
+        IllegalArgumentException unplaced = assertThrows(IllegalArgumentException.class, () -> topology.route(0, 77));
         assertTrue(unplaced.getMessage().contains("not placed"), unplaced.getMessage());
         // 非 FAT_TREE 声明 / null → 拒绝；null 引擎注册 → 拒绝。
-        assertThrows(IllegalArgumentException.class,
-                () -> FatTreeTopology.fromSpec(null, hosts(2)));
-        IllegalArgumentException nullEngine = assertThrows(IllegalArgumentException.class,
-                () -> topology.registerCapacities(null));
+        assertThrows(IllegalArgumentException.class, () -> FatTreeTopology.fromSpec(null, hosts(2)));
+        IllegalArgumentException nullEngine =
+                assertThrows(IllegalArgumentException.class, () -> topology.registerCapacities(null));
         assertTrue(nullEngine.getMessage().contains("cannot be null"), nullEngine.getMessage());
     }
 }

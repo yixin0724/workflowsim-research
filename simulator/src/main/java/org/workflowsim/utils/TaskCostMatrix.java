@@ -35,11 +35,10 @@ public final class TaskCostMatrix {
     private final Map<Integer, Map<Integer, Double>> costSecondsByTaskAndVm;
 
     private TaskCostMatrix(Map<Integer, Map<Integer, Double>> source) {
-        Map<Integer, Map<Integer, Double>> deepCopy =
-                new LinkedHashMap<Integer, Map<Integer, Double>>();
+        Map<Integer, Map<Integer, Double>> deepCopy = new LinkedHashMap<Integer, Map<Integer, Double>>();
         for (Map.Entry<Integer, Map<Integer, Double>> entry : source.entrySet()) {
-            deepCopy.put(entry.getKey(),
-                    Collections.unmodifiableMap(new LinkedHashMap<Integer, Double>(entry.getValue())));
+            deepCopy.put(
+                    entry.getKey(), Collections.unmodifiableMap(new LinkedHashMap<Integer, Double>(entry.getValue())));
         }
         this.costSecondsByTaskAndVm = Collections.unmodifiableMap(deepCopy);
     }
@@ -68,8 +67,7 @@ public final class TaskCostMatrix {
         }
         Double seconds = perVm.get(Integer.valueOf(vmId));
         if (seconds == null) {
-            throw new IllegalArgumentException("Task cost matrix has no entry for task " + taskId
-                    + " on VM " + vmId);
+            throw new IllegalArgumentException("Task cost matrix has no entry for task " + taskId + " on VM " + vmId);
         }
         return seconds.doubleValue();
     }
@@ -106,11 +104,9 @@ public final class TaskCostMatrix {
      * @return 任务 ID 到 VM 成本映射的不可变快照
      */
     public Map<Integer, Map<Integer, Double>> asMap() {
-        Map<Integer, Map<Integer, Double>> copy =
-                new LinkedHashMap<Integer, Map<Integer, Double>>();
+        Map<Integer, Map<Integer, Double>> copy = new LinkedHashMap<Integer, Map<Integer, Double>>();
         for (Map.Entry<Integer, Map<Integer, Double>> entry : costSecondsByTaskAndVm.entrySet()) {
-            copy.put(entry.getKey(), Collections.unmodifiableMap(
-                    new LinkedHashMap<Integer, Double>(entry.getValue())));
+            copy.put(entry.getKey(), Collections.unmodifiableMap(new LinkedHashMap<Integer, Double>(entry.getValue())));
         }
         return Collections.unmodifiableMap(copy);
     }
@@ -152,11 +148,9 @@ public final class TaskCostMatrix {
     /** TaskCostMatrix 的可变构建器。 */
     public static final class Builder {
 
-        private final Map<Integer, Map<Integer, Double>> entries =
-                new LinkedHashMap<Integer, Map<Integer, Double>>();
+        private final Map<Integer, Map<Integer, Double>> entries = new LinkedHashMap<Integer, Map<Integer, Double>>();
 
-        private Builder() {
-        }
+        private Builder() {}
 
         /**
          * 登记一个条目。
@@ -169,8 +163,8 @@ public final class TaskCostMatrix {
          */
         public Builder put(int taskId, int vmId, double costSeconds) {
             if (!(costSeconds > 0.0) || Double.isNaN(costSeconds) || Double.isInfinite(costSeconds)) {
-                throw new IllegalArgumentException("Task cost matrix entry must be positive finite seconds: "
-                        + "task " + taskId + " on VM " + vmId + " got " + costSeconds);
+                throw new IllegalArgumentException("Task cost matrix entry must be positive finite seconds: " + "task "
+                        + taskId + " on VM " + vmId + " got " + costSeconds);
             }
             Map<Integer, Double> perVm = entries.get(Integer.valueOf(taskId));
             if (perVm == null) {
@@ -178,8 +172,8 @@ public final class TaskCostMatrix {
                 entries.put(Integer.valueOf(taskId), perVm);
             }
             if (perVm.put(Integer.valueOf(vmId), Double.valueOf(costSeconds)) != null) {
-                throw new IllegalArgumentException("Duplicate task cost matrix entry for task " + taskId
-                        + " on VM " + vmId);
+                throw new IllegalArgumentException(
+                        "Duplicate task cost matrix entry for task " + taskId + " on VM " + vmId);
             }
             return this;
         }

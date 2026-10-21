@@ -52,15 +52,14 @@ public class DataAwareSchedulingAlgorithm extends BaseSchedulingAlgorithm {
 
     @Override
     public void run() {
-        if (ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.SHARED
-                && !sharedModeWarningShown) {
+        if (ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.SHARED && !sharedModeWarningShown) {
             sharedModeWarningShown = true;
             Log.printLine("Warning: DataAwareSchedulingAlgorithm requires LOCAL filesystem mode; "
                     + "under SHARED mode replica sites are datacenter names that never match VM ids, "
                     + "so locality scoring is ineffective and dispatch degenerates to first-fit-idle");
         }
         validateCloudletCompatibility();
-        
+
         int size = getCloudletList().size();
 
         for (int i = 0; i < size; i++) {
@@ -72,17 +71,16 @@ public class DataAwareSchedulingAlgorithm extends BaseSchedulingAlgorithm {
             List<CondorVM> vms = sortedVmsById();
             for (CondorVM vm : vms) {
                 if (vm.getState() == WorkflowSimTags.VM_STATUS_IDLE && isCompatible(cloudlet, vm)) {
-                    Job job = (Job)cloudlet;
+                    Job job = (Job) cloudlet;
                     double nonLocalBytes = dataTransferTime(job.getFileList(), cloudlet, vm.getId());
-                    if(nonLocalBytes < minimumNonLocalBytes){
+                    if (nonLocalBytes < minimumNonLocalBytes) {
                         minimumNonLocalBytes = nonLocalBytes;
                         closestVm = vm;
                     }
-                    
                 }
             }
 
-            if(closestVm!=null){
+            if (closestVm != null) {
                 closestVm.setState(WorkflowSimTags.VM_STATUS_BUSY);
                 cloudlet.setVmId(closestVm.getId());
                 getScheduledList().add(cloudlet);
@@ -100,8 +98,7 @@ public class DataAwareSchedulingAlgorithm extends BaseSchedulingAlgorithm {
      * @param vmId 候选 VM ID
      * @return 候选 VM 未记录为本地副本的真实输入字节数
      */
-
-    protected double dataTransferTime(List<FileItem> requiredFiles, Cloudlet cl, int vmId)  {
+    protected double dataTransferTime(List<FileItem> requiredFiles, Cloudlet cl, int vmId) {
         double time = 0.0;
 
         for (FileItem file : requiredFiles) {
@@ -112,18 +109,17 @@ public class DataAwareSchedulingAlgorithm extends BaseSchedulingAlgorithm {
                 boolean hasFile = false;
                 if (siteList != null) {
                     for (String site : siteList) {
-                        if(site.equals(Integer.toString(vmId))){
+                        if (site.equals(Integer.toString(vmId))) {
                             hasFile = true;
                             break;
                         }
                     }
                 }
-                if(!hasFile){
-                    time += file.getSize() ;
+                if (!hasFile) {
+                    time += file.getSize();
                 }
             }
         }
         return time;
     }
-
 }

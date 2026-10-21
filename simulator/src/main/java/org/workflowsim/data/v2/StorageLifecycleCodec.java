@@ -26,9 +26,10 @@ public final class StorageLifecycleCodec {
     static final String LOCAL_INPUT_ACCESS = "LOCAL_VISIBLE_REPLICA_V3";
     static final String STORE_INPUT_ACCESS = "COMMITTED_STORE_THEN_VM_READ_CACHE_V3";
     static final String OUTPUT_COMMIT = "ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3";
-    private static final Gson JSON = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
+    private static final Gson JSON =
+            new GsonBuilder().serializeNulls().setPrettyPrinting().create();
 
-    private StorageLifecycleCodec() { }
+    private StorageLifecycleCodec() {}
 
     /** Immutable reconstructed evidence and independently recomputed lifecycle counts. */
     public static final class Decoded {
@@ -43,27 +44,49 @@ public final class StorageLifecycleCodec {
         }
 
         /** @return immutable reconstructed storage-version capture */
-        public StorageLifecycleEvidence getEvidence() { return evidence; }
+        public StorageLifecycleEvidence getEvidence() {
+            return evidence;
+        }
         /** @return detached validated transport tree */
-        public JsonObject getDocument() { return document.deepCopy(); }
+        public JsonObject getDocument() {
+            return document.deepCopy();
+        }
         /** @return terminal requested Jobs, no active copies/store waits, and all successful outputs at SOURCE */
-        public boolean isQuiescent() { return result.quiescent; }
+        public boolean isQuiescent() {
+            return result.quiescent;
+        }
         /** @return distinct requested Job attempts, not logical Tasks */
-        public int getRequestedJobCount() { return result.requestedJobs; }
+        public int getRequestedJobCount() {
+            return result.requestedJobs;
+        }
         /** @return terminal Job attempts, including failures */
-        public int getCompletedJobCount() { return result.completedJobs; }
+        public int getCompletedJobCount() {
+            return result.completedJobs;
+        }
         /** @return admitted positive input and output copies */
-        public long getCopyCount() { return result.copies; }
+        public long getCopyCount() {
+            return result.copies;
+        }
         /** @return observed positive-copy settlements */
-        public long getCompletedCopyCount() { return result.completedCopies; }
+        public long getCompletedCopyCount() {
+            return result.completedCopies;
+        }
         /** @return admitted positive copies without a settlement */
-        public int getActiveCopyCount() { return result.activeCopies; }
+        public int getActiveCopyCount() {
+            return result.activeCopies;
+        }
         /** @return immutable logical Task IDs with at least one successful terminal attempt */
-        public Set<Integer> getSuccessfullyCompletedTaskIds() { return result.successfulTasks; }
+        public Set<Integer> getSuccessfullyCompletedTaskIds() {
+            return result.successfulTasks;
+        }
         /** @return distinct successful output file IDs not yet visible at SOURCE, including unused outputs */
-        public int getPendingOutputFileCount() { return result.pendingOutputFiles; }
+        public int getPendingOutputFileCount() {
+            return result.pendingOutputFiles;
+        }
         /** @return unresolved normalized (Job, file) store waits, not reference multiplicity or VM-copy waits */
-        public int getWaitingStoreInputCount() { return result.waitingStoreInputs; }
+        public int getWaitingStoreInputCount() {
+            return result.waitingStoreInputs;
+        }
     }
 
     /**
@@ -74,11 +97,14 @@ public final class StorageLifecycleCodec {
      */
     public static JsonObject document(StorageLifecycleEvidence evidence) {
         if (evidence == null) throw new IllegalArgumentException("Storage lifecycle evidence is required");
-        return FileLifecycleCodec.document(evidence.getCapture(), LifecycleContract.STORAGE_V3, evidence.isStoreBackedInputs());
+        return FileLifecycleCodec.document(
+                evidence.getCapture(), LifecycleContract.STORAGE_V3, evidence.isStoreBackedInputs());
     }
 
     /** @param evidence complete capture @return strict JSON with explicit nullable fields */
-    public static String encode(StorageLifecycleEvidence evidence) { return JSON.toJson(document(evidence)); }
+    public static String encode(StorageLifecycleEvidence evidence) {
+        return JSON.toJson(document(evidence));
+    }
 
     /**
      * Parse strict JSON with duplicate-key, nesting and exact-number checks, then validate V3.
@@ -86,7 +112,9 @@ public final class StorageLifecycleCodec {
      * @return immutable evidence and independently checked counts
      * @throws IllegalArgumentException for malformed, unsupported or unverifiable input
      */
-    public static Decoded decode(String json) { return decodeDocument(NetworkLedgerCodec.parseDocument(json)); }
+    public static Decoded decode(String json) {
+        return decodeDocument(NetworkLedgerCodec.parseDocument(json));
+    }
 
     /**
      * Validate a V3 tree before taking defensive snapshots; never populate private DTO fields.
@@ -104,5 +132,7 @@ public final class StorageLifecycleCodec {
      * @param plan standalone filePlan object, including scopes, writers and control ancestry
      * @throws IllegalArgumentException for malformed or unsupported logical plans
      */
-    public static void validatePlanDocument(JsonObject plan) { FileLifecycleCodec.validatePlanDocument(plan); }
+    public static void validatePlanDocument(JsonObject plan) {
+        FileLifecycleCodec.validatePlanDocument(plan);
+    }
 }

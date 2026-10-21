@@ -65,8 +65,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void distinctInsertionsCrossOneTwoFourEightAndSixteenWriteBoundaries()
-            throws ReflectiveOperationException {
+    void distinctInsertionsCrossOneTwoFourEightAndSixteenWriteBoundaries() throws ReflectiveOperationException {
         List<PersistentHistoryMap<Integer, Integer>> roots = new ArrayList<>();
         PersistentHistoryMap<Integer, Integer> map = PersistentHistoryMap.empty();
         roots.add(map);
@@ -94,8 +93,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void mixedInsertionsAndOverwritesHaveFixedDistinctSizesAcrossCarries()
-            throws ReflectiveOperationException {
+    void mixedInsertionsAndOverwritesHaveFixedDistinctSizesAcrossCarries() throws ReflectiveOperationException {
         String[] keys = {"a", "b", "a", "c", "b", "d", "a", "e", "f", "c", "g", "a", "h", "b", "i", "a", "j"};
         int[] distinctSizes = {1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10};
         List<String> probes = Arrays.asList("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "missing");
@@ -145,8 +143,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void identicalKeyAndValueStillConsumeWritesWithoutGrowingLogicalSize()
-            throws ReflectiveOperationException {
+    void identicalKeyAndValueStillConsumeWritesWithoutGrowingLogicalSize() throws ReflectiveOperationException {
         ImmutableValue value = new ImmutableValue(7, "unchanged");
         PersistentHistoryMap<String, ImmutableValue> map = PersistentHistoryMap.empty();
         for (int write = 1; write <= 65; write++) {
@@ -161,38 +158,53 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void parentChildrenSiblingsAndNestedRootsRemainIsolatedInBothDirections()
-            throws ReflectiveOperationException {
-        PersistentHistoryMap<String, String> parent = PersistentHistoryMap.<String, String>empty()
-                .with("shared", "parent");
+    void parentChildrenSiblingsAndNestedRootsRemainIsolatedInBothDirections() throws ReflectiveOperationException {
+        PersistentHistoryMap<String, String> parent =
+                PersistentHistoryMap.<String, String>empty().with("shared", "parent");
         Map<String, String> parentExpected = stringSnapshot(Collections.emptyMap(), "shared", "parent");
-        List<String> probes = new ArrayList<>(Arrays.asList("shared", "child-only", "sibling-only", "nested-only",
-                "parent-only", "child-next", "sibling-next", "nested-next", "missing"));
+        List<String> probes = new ArrayList<>(Arrays.asList(
+                "shared",
+                "child-only",
+                "sibling-only",
+                "nested-only",
+                "parent-only",
+                "child-next",
+                "sibling-next",
+                "nested-next",
+                "missing"));
         for (int i = 0; i < 6; i++) {
             parent = parent.with("stable-" + i, "value-" + i);
             parentExpected.put("stable-" + i, "value-" + i);
             probes.add("stable-" + i);
         }
         // Each branch crosses the full carry from seven writes to eight.
-        PersistentHistoryMap<String, String> child = parent.with("shared", "child").with("child-only", "C");
-        PersistentHistoryMap<String, String> sibling = parent.with("shared", "sibling").with("sibling-only", "S");
-        PersistentHistoryMap<String, String> nested = child.with("shared", "nested").with("nested-only", "N");
+        PersistentHistoryMap<String, String> child =
+                parent.with("shared", "child").with("child-only", "C");
+        PersistentHistoryMap<String, String> sibling =
+                parent.with("shared", "sibling").with("sibling-only", "S");
+        PersistentHistoryMap<String, String> nested =
+                child.with("shared", "nested").with("nested-only", "N");
         Map<String, String> childExpected = stringSnapshot(parentExpected, "shared", "child", "child-only", "C");
         Map<String, String> siblingExpected = stringSnapshot(parentExpected, "shared", "sibling", "sibling-only", "S");
         Map<String, String> nestedExpected = stringSnapshot(childExpected, "shared", "nested", "nested-only", "N");
 
         // Advance ancestors and siblings after descendants already exist, then advance descendants too.
-        PersistentHistoryMap<String, String> parentNext = parent.with("shared", "parent-next").with("parent-only", "P");
-        PersistentHistoryMap<String, String> childNext = child.with("child-only", "C2").with("child-next", "CN");
-        PersistentHistoryMap<String, String> siblingNext = sibling.with("sibling-only", "S2").with("sibling-next", "SN");
-        PersistentHistoryMap<String, String> nestedNext = nested.with("nested-only", "N2").with("nested-next", "NN");
+        PersistentHistoryMap<String, String> parentNext =
+                parent.with("shared", "parent-next").with("parent-only", "P");
+        PersistentHistoryMap<String, String> childNext =
+                child.with("child-only", "C2").with("child-next", "CN");
+        PersistentHistoryMap<String, String> siblingNext =
+                sibling.with("sibling-only", "S2").with("sibling-next", "SN");
+        PersistentHistoryMap<String, String> nestedNext =
+                nested.with("nested-only", "N2").with("nested-next", "NN");
         assertContents(parent, parentExpected, probes);
         assertContents(child, childExpected, probes);
         assertContents(sibling, siblingExpected, probes);
         assertContents(nested, nestedExpected, probes);
         assertContents(parentNext, stringSnapshot(parentExpected, "shared", "parent-next", "parent-only", "P"), probes);
         assertContents(childNext, stringSnapshot(childExpected, "child-only", "C2", "child-next", "CN"), probes);
-        assertContents(siblingNext, stringSnapshot(siblingExpected, "sibling-only", "S2", "sibling-next", "SN"), probes);
+        assertContents(
+                siblingNext, stringSnapshot(siblingExpected, "sibling-only", "S2", "sibling-next", "SN"), probes);
         assertContents(nestedNext, stringSnapshot(nestedExpected, "nested-only", "N2", "nested-next", "NN"), probes);
         assertShape(parent, 7L, 7);
         assertShape(child, 9L, 8);
@@ -201,15 +213,14 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void equalButNonidenticalKeysOverwriteOneLogicalEntryAcrossMerges()
-            throws ReflectiveOperationException {
+    void equalButNonidenticalKeysOverwriteOneLogicalEntryAcrossMerges() throws ReflectiveOperationException {
         String firstKey = new String("equal");
         String equalKey = new String("equal");
         assertNotSame(firstKey, equalKey);
         assertEquals(firstKey, equalKey);
         ImmutableValue original = new ImmutableValue(1, "equal-key");
-        PersistentHistoryMap<String, ImmutableValue> first = PersistentHistoryMap.<String, ImmutableValue>empty()
-                .with(firstKey, original);
+        PersistentHistoryMap<String, ImmutableValue> first =
+                PersistentHistoryMap.<String, ImmutableValue>empty().with(firstKey, original);
         PersistentHistoryMap<String, ImmutableValue> map = first;
         Map<String, ImmutableValue> expected = new HashMap<>();
         expected.put("equal", original);
@@ -234,8 +245,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void constantHashCollisionsDoNotLoseKeysOrOverwriteTheirNeighbors()
-            throws ReflectiveOperationException {
+    void constantHashCollisionsDoNotLoseKeysOrOverwriteTheirNeighbors() throws ReflectiveOperationException {
         PersistentHistoryMap<CollisionKey, ImmutableValue> map = PersistentHistoryMap.empty();
         Map<CollisionKey, ImmutableValue> expected = new HashMap<>();
         List<CollisionKey> probes = new ArrayList<>();
@@ -267,12 +277,28 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void negativeAndExtremeIntegerAndLongKeysRetainTheirFullIdentity()
-            throws ReflectiveOperationException {
-        List<Number> keys = Arrays.<Number>asList(Integer.MIN_VALUE, -1_000_000_007, -65_536, -1, 0, 1,
-                65_536, 1_000_000_007, Integer.MAX_VALUE, Long.MIN_VALUE, Long.MIN_VALUE + 1,
-                -(1L << 40), (long) Integer.MIN_VALUE - 1, -1L, 0L, 1L, 1L << 32,
-                (long) Integer.MAX_VALUE + 1, Long.MAX_VALUE - 1, Long.MAX_VALUE);
+    void negativeAndExtremeIntegerAndLongKeysRetainTheirFullIdentity() throws ReflectiveOperationException {
+        List<Number> keys = Arrays.<Number>asList(
+                Integer.MIN_VALUE,
+                -1_000_000_007,
+                -65_536,
+                -1,
+                0,
+                1,
+                65_536,
+                1_000_000_007,
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Long.MIN_VALUE + 1,
+                -(1L << 40),
+                (long) Integer.MIN_VALUE - 1,
+                -1L,
+                0L,
+                1L,
+                1L << 32,
+                (long) Integer.MAX_VALUE + 1,
+                Long.MAX_VALUE - 1,
+                Long.MAX_VALUE);
         List<Number> probes = new ArrayList<>(keys);
         probes.add(Integer.MIN_VALUE + 1);
         probes.add(Long.MIN_VALUE + 2);
@@ -298,8 +324,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void oldRootsRemainUnchangedAfterThousandsOfInsertionsAndOverwrites()
-            throws ReflectiveOperationException {
+    void oldRootsRemainUnchangedAfterThousandsOfInsertionsAndOverwrites() throws ReflectiveOperationException {
         PersistentHistoryMap<Integer, ImmutableValue> map = PersistentHistoryMap.empty();
         Map<Integer, ImmutableValue> expected = new HashMap<>();
         List<PersistentHistoryMap<Integer, ImmutableValue>> roots = new ArrayList<>();
@@ -329,8 +354,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void fixedSeedBranchingOperationsMatchIndependentHashMapSnapshots()
-            throws ReflectiveOperationException {
+    void fixedSeedBranchingOperationsMatchIndependentHashMapSnapshots() throws ReflectiveOperationException {
         Random random = new Random(0x4E46303036L);
         List<Integer> keys = integerKeys(-64, 64);
         keys.add(Integer.MIN_VALUE);
@@ -349,7 +373,8 @@ class PersistentHistoryMapTest {
             ImmutableValue value = new ImmutableValue(random.nextLong(), "operation-" + operation);
             Map<Integer, ImmutableValue> expected = new HashMap<>(snapshots.get(baseIndex));
             expected.put(key, value);
-            PersistentHistoryMap<Integer, ImmutableValue> next = roots.get(baseIndex).with(key, value);
+            PersistentHistoryMap<Integer, ImmutableValue> next =
+                    roots.get(baseIndex).with(key, value);
             long writes = writeCounts.get(baseIndex) + 1L;
             assertShape(next, writes, expected.size());
             assertContents(next, expected, probes);
@@ -359,8 +384,12 @@ class PersistentHistoryMapTest {
 
             int queriedRoot = random.nextInt(roots.size());
             Integer queriedKey = probes.get(random.nextInt(probes.size()));
-            assertEquals(snapshots.get(queriedRoot).get(queriedKey), roots.get(queriedRoot).get(queriedKey));
-            assertEquals(snapshots.get(queriedRoot).containsKey(queriedKey), roots.get(queriedRoot).containsKey(queriedKey));
+            assertEquals(
+                    snapshots.get(queriedRoot).get(queriedKey),
+                    roots.get(queriedRoot).get(queriedKey));
+            assertEquals(
+                    snapshots.get(queriedRoot).containsKey(queriedKey),
+                    roots.get(queriedRoot).containsKey(queriedKey));
             if (operation % 37 == 0) {
                 assertContents(roots.get(baseIndex), snapshots.get(baseIndex), probes);
             }
@@ -374,7 +403,9 @@ class PersistentHistoryMapTest {
     @Test
     void rootCollectionsChunksAndTheirViewsAreUnmodifiable() throws ReflectiveOperationException {
         PersistentHistoryMap<String, String> map = PersistentHistoryMap.<String, String>empty()
-                .with("a", "A").with("b", "B").with("c", "C");
+                .with("a", "A")
+                .with("b", "B")
+                .with("c", "C");
         List<Map<String, String>> chunks = chunksOf(map);
         assertThrows(UnsupportedOperationException.class, () -> chunks.add(null));
         assertThrows(UnsupportedOperationException.class, () -> chunks.set(0, null));
@@ -387,14 +418,18 @@ class PersistentHistoryMapTest {
             assertThrows(UnsupportedOperationException.class, () -> chunk.put("intruder", "changed"));
             assertThrows(UnsupportedOperationException.class, () -> chunk.remove(entry.getKey()));
             assertThrows(UnsupportedOperationException.class, chunk::clear);
-            assertThrows(UnsupportedOperationException.class, () -> chunk.keySet().remove(entry.getKey()));
-            assertThrows(UnsupportedOperationException.class, () -> chunk.values().remove(entry.getValue()));
+            assertThrows(
+                    UnsupportedOperationException.class, () -> chunk.keySet().remove(entry.getKey()));
+            assertThrows(
+                    UnsupportedOperationException.class, () -> chunk.values().remove(entry.getValue()));
             assertThrows(UnsupportedOperationException.class, () -> entry.setValue("changed"));
             Iterator<Map.Entry<String, String>> iterator = chunk.entrySet().iterator();
             iterator.next();
             assertThrows(UnsupportedOperationException.class, iterator::remove);
         }
-        assertContents(map, stringSnapshot(Collections.emptyMap(), "a", "A", "b", "B", "c", "C"),
+        assertContents(
+                map,
+                stringSnapshot(Collections.emptyMap(), "a", "A", "b", "B", "c", "C"),
                 Arrays.asList("a", "b", "c", "intruder"));
         assertShape(map, 3L, 3);
         List<Map<String, String>> emptyChunks = chunksOf(PersistentHistoryMap.<String, String>empty());
@@ -402,8 +437,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void unaffectedChunksAreSharedWhileCarryChunksAndRootListsAreFresh()
-            throws ReflectiveOperationException {
+    void unaffectedChunksAreSharedWhileCarryChunksAndRootListsAreFresh() throws ReflectiveOperationException {
         PersistentHistoryMap<Integer, Integer> base = PersistentHistoryMap.empty();
         Map<Integer, Integer> baseExpected = new HashMap<>();
         for (int key = 0; key < 12; key++) {
@@ -445,8 +479,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void binaryCarryWorkShapeHasSmallRootsAndOccasionalLinearMerges()
-            throws ReflectiveOperationException {
+    void binaryCarryWorkShapeHasSmallRootsAndOccasionalLinearMerges() throws ReflectiveOperationException {
         // Count newly published chunk entries, not timing or hidden temporary allocations.
         // For 1024 distinct writes the binary carry geometry gives exactly 6144 such entries.
         PersistentHistoryMap<Integer, Integer> map = PersistentHistoryMap.empty();
@@ -479,11 +512,10 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void longWriteCountIsCheckedForBothInsertsAndOverwritesBeforeCarrying()
-            throws ReflectiveOperationException {
+    void longWriteCountIsCheckedForBothInsertsAndOverwritesBeforeCarrying() throws ReflectiveOperationException {
         // Repeated equal writes can legitimately compress every level to one entry.
-        List<Map<String, String>> levels = new ArrayList<>(Collections.nCopies(63,
-                Collections.singletonMap("same", "original")));
+        List<Map<String, String>> levels =
+                new ArrayList<>(Collections.nCopies(63, Collections.singletonMap("same", "original")));
         PersistentHistoryMap<String, String> exhausted = syntheticMap(levels, Long.MAX_VALUE, 1);
         Object exhaustedRoot = rootOf(exhausted);
         assertShape(exhausted, Long.MAX_VALUE, 1);
@@ -506,8 +538,7 @@ class PersistentHistoryMapTest {
     }
 
     @Test
-    void intDistinctSizeOverflowRejectsNewKeysButStillAllowsOverwrites()
-            throws ReflectiveOperationException {
+    void intDistinctSizeOverflowRejectsNewKeysButStillAllowsOverwrites() throws ReflectiveOperationException {
         // Synthetic cached size avoids allocating billions of keys. No existing final fields are changed.
         List<Map<String, String>> levels = new ArrayList<>(Collections.<Map<String, String>>nCopies(32, null));
         levels.set(31, Collections.singletonMap("present", "original"));
@@ -531,8 +562,8 @@ class PersistentHistoryMapTest {
         assertShape(almost, writes, Integer.MAX_VALUE - 1);
     }
 
-    private static <K, V> void assertContents(PersistentHistoryMap<K, V> actual, Map<K, V> expected,
-            Iterable<K> probes) {
+    private static <K, V> void assertContents(
+            PersistentHistoryMap<K, V> actual, Map<K, V> expected, Iterable<K> probes) {
         assertEquals(expected.size(), actual.size());
         for (K key : probes) {
             assertEquals(expected.get(key), actual.get(key), "value for key=" + key);
@@ -563,8 +594,7 @@ class PersistentHistoryMapTest {
         return field.get(map);
     }
 
-    private static Object rootField(PersistentHistoryMap<?, ?> map, String name)
-            throws ReflectiveOperationException {
+    private static Object rootField(PersistentHistoryMap<?, ?> map, String name) throws ReflectiveOperationException {
         Object root = rootOf(map);
         Field field = root.getClass().getDeclaredField(name);
         field.setAccessible(true);
@@ -572,8 +602,7 @@ class PersistentHistoryMapTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static <K, V> List<Map<K, V>> chunksOf(PersistentHistoryMap<K, V> map)
-            throws ReflectiveOperationException {
+    private static <K, V> List<Map<K, V>> chunksOf(PersistentHistoryMap<K, V> map) throws ReflectiveOperationException {
         return (List<Map<K, V>>) rootField(map, "chunks");
     }
 
@@ -597,8 +626,8 @@ class PersistentHistoryMapTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static <K, V> PersistentHistoryMap<K, V> syntheticMap(List<Map<K, V>> chunks,
-            long writes, int distinctSize) throws ReflectiveOperationException {
+    private static <K, V> PersistentHistoryMap<K, V> syntheticMap(List<Map<K, V>> chunks, long writes, int distinctSize)
+            throws ReflectiveOperationException {
         Class<?> rootClass = rootOf(PersistentHistoryMap.empty()).getClass();
         Constructor<?> rootConstructor = rootClass.getDeclaredConstructor(List.class, long.class, int.class);
         rootConstructor.setAccessible(true);
@@ -616,15 +645,18 @@ class PersistentHistoryMapTest {
             this.id = id;
         }
 
-        @Override public boolean equals(Object other) {
+        @Override
+        public boolean equals(Object other) {
             return other instanceof CollisionKey && id == ((CollisionKey) other).id;
         }
 
-        @Override public int hashCode() {
+        @Override
+        public int hashCode() {
             return 7;
         }
 
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return "collision-" + id;
         }
     }
@@ -639,7 +671,8 @@ class PersistentHistoryMapTest {
             this.tag = tag;
         }
 
-        @Override public boolean equals(Object other) {
+        @Override
+        public boolean equals(Object other) {
             if (!(other instanceof ImmutableValue)) {
                 return false;
             }
@@ -647,11 +680,13 @@ class PersistentHistoryMapTest {
             return sequence == value.sequence && tag.equals(value.tag);
         }
 
-        @Override public int hashCode() {
+        @Override
+        public int hashCode() {
             return 31 * Long.hashCode(sequence) + tag.hashCode();
         }
 
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return tag + "@" + sequence;
         }
     }

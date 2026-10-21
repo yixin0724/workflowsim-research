@@ -51,7 +51,7 @@ import org.workflowsim.utils.SimulationConstants;
 public final class ClusteringEngine extends SimEntity {
 
     /** 待聚类的原始任务列表。 */
-    protected List< Task> taskList;
+    protected List<Task> taskList;
     /** 聚类后待执行的作业列表。 */
     protected List<Job> jobList;
     /** 已提交任务列表。 */
@@ -66,6 +66,7 @@ public final class ClusteringEngine extends SimEntity {
     private final int workflowEngineId;
     /** 下游工作流引擎。 */
     private final WorkflowEngine workflowEngine;
+
     private SimulationEventRecorder eventRecorder = SimulationEventRecorder.disabled();
 
     /**
@@ -129,7 +130,7 @@ public final class ClusteringEngine extends SimEntity {
         // 聚类方法和粒度均来自本次会话的显式配置。
         ClusteringParameters params = Parameters.getClusteringParameters();
         switch (params.getClusteringMethod()) {
-            // 水平聚类按同一 DAG 层级分组合并。
+                // 水平聚类按同一 DAG 层级分组合并。
             case HORIZONTAL:
                 // 优先按每层目标作业数构造。
                 if (params.getClustersNum() != 0) {
@@ -139,20 +140,20 @@ public final class ClusteringEngine extends SimEntity {
                     this.engine = new HorizontalClustering(0, params.getClustersSize());
                 }
                 break;
-            // 垂直聚类沿 DAG 边合并，当前入口从第一层开始。
+                // 垂直聚类沿 DAG 边合并，当前入口从第一层开始。
             case VERTICAL:
                 int depth = 1;
                 this.engine = new VerticalClustering(depth);
                 break;
-            // 块聚类由实现类按数量和大小参数解释。
+                // 块聚类由实现类按数量和大小参数解释。
             case BLOCK:
                 this.engine = new BlockClustering(params.getClustersNum(), params.getClustersSize());
                 break;
-            // 平衡聚类使用规划阶段计算的任务影响度。
+                // 平衡聚类使用规划阶段计算的任务影响度。
             case BALANCED:
                 this.engine = new BalancedClustering(params.getClustersNum());
                 break;
-            // 默认不合并任务，保留一任务一作业的执行粒度。
+                // 默认不合并任务，保留一任务一作业的执行粒度。
             default:
                 this.engine = new BasicClustering();
                 break;
@@ -160,9 +161,16 @@ public final class ClusteringEngine extends SimEntity {
         engine.setTaskList(getTaskList());
         engine.run();
         setJobList(engine.getJobList());
-        eventRecorder.record(SimulationEventType.JOBS_CLUSTERED, CloudSim.clock(), null,
-                SimulationEventRecorder.attributes("sourceTaskCount", getTaskList().size(),
-                        "jobCount", getJobList().size(), "clusteringMethod",
+        eventRecorder.record(
+                SimulationEventType.JOBS_CLUSTERED,
+                CloudSim.clock(),
+                null,
+                SimulationEventRecorder.attributes(
+                        "sourceTaskCount",
+                        getTaskList().size(),
+                        "jobCount",
+                        getJobList().size(),
+                        "clusteringMethod",
                         params.getClusteringMethod().name()));
     }
 
@@ -218,9 +226,11 @@ public final class ClusteringEngine extends SimEntity {
             }
             inputBytes += bytes;
         }
-        eventRecorder.record(SimulationEventType.STAGE_IN_JOB_CREATED, CloudSim.clock(), job,
-                SimulationEventRecorder.attributes("inputFileCount", fileList.size(),
-                        "inputBytes", inputBytes));
+        eventRecorder.record(
+                SimulationEventType.STAGE_IN_JOB_CREATED,
+                CloudSim.clock(),
+                job,
+                SimulationEventRecorder.attributes("inputFileCount", fileList.size(), "inputBytes", inputBytes));
     }
 
     /**
@@ -264,8 +274,7 @@ public final class ClusteringEngine extends SimEntity {
             return;
         }
 
-        Log.printLine(getName() + ".processOtherEvent(): "
-                + "Error - event unknown by this DatacenterBroker.");
+        Log.printLine(getName() + ".processOtherEvent(): " + "Error - event unknown by this DatacenterBroker.");
     }
 
     /** 预留的仿真结束通知入口；当前历史实现不发送额外事件。 */

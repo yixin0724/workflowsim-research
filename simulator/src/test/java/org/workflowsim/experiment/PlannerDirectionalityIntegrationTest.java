@@ -39,8 +39,9 @@ class PlannerDirectionalityIntegrationTest {
 
     /** 论文成本矩阵（与 LocalHeftPaperReproductionTest 相同）。 */
     private static final double[][] PAPER_COST_SECONDS = {
-            {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
-            {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16}};
+        {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
+        {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16}
+    };
 
     @Test
     void heftAndCpopAreNeverWorseThanSameSeedRandom() throws Exception {
@@ -48,21 +49,19 @@ class PlannerDirectionalityIntegrationTest {
         double heftMakespan = runWithPlanner(Parameters.PlanningAlgorithm.LOCAL_HEFT);
         double cpopMakespan = runWithPlanner(Parameters.PlanningAlgorithm.LOCAL_CPOP);
 
-        assertEquals(HEFT_GOLDEN_MAKESPAN, heftMakespan, 0.0,
-                "LOCAL_HEFT 黄金值漂移：方向性测试的前提装置已变化");
-        assertTrue(heftMakespan <= randomMakespan,
-                "LOCAL_HEFT makespan " + heftMakespan + " 不得劣于同种子 RANDOM "
-                        + randomMakespan + "（启发式失去优势=方向性回归）");
-        assertTrue(cpopMakespan <= randomMakespan,
-                "LOCAL_CPOP makespan " + cpopMakespan + " 不得劣于同种子 RANDOM "
-                        + randomMakespan + "（启发式失去优势=方向性回归）");
+        assertEquals(HEFT_GOLDEN_MAKESPAN, heftMakespan, 0.0, "LOCAL_HEFT 黄金值漂移：方向性测试的前提装置已变化");
+        assertTrue(
+                heftMakespan <= randomMakespan,
+                "LOCAL_HEFT makespan " + heftMakespan + " 不得劣于同种子 RANDOM " + randomMakespan + "（启发式失去优势=方向性回归）");
+        assertTrue(
+                cpopMakespan <= randomMakespan,
+                "LOCAL_CPOP makespan " + cpopMakespan + " 不得劣于同种子 RANDOM " + randomMakespan + "（启发式失去优势=方向性回归）");
     }
 
     private static double runWithPlanner(Parameters.PlanningAlgorithm planner) throws Exception {
         Log.disable();
         SimulationRandom.reset(91L);
-        SimulationConfig config = SimulationConfig.builder(
-                        resourcePath("/dax/heft-paper-example.dax"), 3)
+        SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/heft-paper-example.dax"), 3)
                 .planningAlgorithm(planner)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .taskCostMatrix(paperCostMatrix())
@@ -76,8 +75,7 @@ class PlannerDirectionalityIntegrationTest {
                 computeJobs++;
             }
         }
-        assertEquals(10, computeJobs,
-                planner + ": 论文例必须完整执行 10 个 COMPUTE Job");
+        assertEquals(10, computeJobs, planner + ": 论文例必须完整执行 10 个 COMPUTE Job");
         return report.getMakespan();
     }
 
@@ -85,8 +83,8 @@ class PlannerDirectionalityIntegrationTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("directionality-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }

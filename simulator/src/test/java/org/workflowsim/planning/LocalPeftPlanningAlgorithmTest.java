@@ -160,11 +160,21 @@ class LocalPeftPlanningAlgorithmTest {
         LocalPeftPlanningAlgorithm planner = planner(taskList, p1, p2, p3);
 
         double[][] expectedOct = {
-            {}, {48, 38, 53}, {35, 19, 35}, {28, 22, 27}, {38, 19, 36},
-            {32, 19, 32}, {23, 18, 30}, {21, 7, 16}, {18, 7, 16}, {20, 7, 16}, {0, 0, 0}
+            {},
+            {48, 38, 53},
+            {35, 19, 35},
+            {28, 22, 27},
+            {38, 19, 36},
+            {32, 19, 32},
+            {23, 18, 30},
+            {21, 7, 16},
+            {18, 7, 16},
+            {20, 7, 16},
+            {0, 0, 0}
         };
-        double[] expectedRanks = {0, 139.0 / 3.0, 89.0 / 3.0, 77.0 / 3.0, 31,
-            83.0 / 3.0, 71.0 / 3.0, 44.0 / 3.0, 41.0 / 3.0, 43.0 / 3.0, 0};
+        double[] expectedRanks = {
+            0, 139.0 / 3.0, 89.0 / 3.0, 77.0 / 3.0, 31, 83.0 / 3.0, 71.0 / 3.0, 44.0 / 3.0, 41.0 / 3.0, 43.0 / 3.0, 0
+        };
         int[] expectedVm = {-1, 1, 1, 0, 1, 2, 0, 0, 0, 1, 1};
         double[] expectedStarts = {0, 0, 24, 28, 16, 27, 39, 52, 62, 50, 78};
         double[] expectedFinishes = {0, 16, 43, 39, 24, 37, 52, 59, 67, 62, 85};
@@ -174,15 +184,21 @@ class LocalPeftPlanningAlgorithmTest {
             planner.run();
             for (int id = 1; id <= 10; id++) {
                 for (int vm = 0; vm < 3; vm++) {
-                    assertEquals(expectedOct[id][vm], planner.optimisticCostOf(tasks[id], machines[vm]),
-                            EPSILON, "HEFT-origin OCT n" + id + " VM" + vm);
+                    assertEquals(
+                            expectedOct[id][vm],
+                            planner.optimisticCostOf(tasks[id], machines[vm]),
+                            EPSILON,
+                            "HEFT-origin OCT n" + id + " VM" + vm);
                 }
                 assertEquals(expectedRanks[id], planner.priorityOf(tasks[id]), EPSILON);
                 assertEquals(expectedVm[id], tasks[id].getVmId());
                 assertEquals(110.1 + expectedStarts[id], tasks[id].getStaticScheduleStartTime(), EPSILON);
                 assertEquals(110.1 + expectedFinishes[id], planner.plannedFinishOf(tasks[id]), EPSILON);
             }
-            assertEquals(195.1, planner.plannedFinishOf(tasks[10]), EPSILON,
+            assertEquals(
+                    195.1,
+                    planner.plannedFinishOf(tasks[10]),
+                    EPSILON,
                     "independent Eq7 result85 plus bootstrap, not PEFT article makespan122");
         }
     }
@@ -251,16 +267,24 @@ class LocalPeftPlanningAlgorithmTest {
         PlatformProfile.Builder platform = PlatformProfile.builder("local-peft-unit");
         for (int index = 0; index < machines.length; index++) {
             platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0, 2048, 10000L, 1000000L));
-            platform.addVm(new PlatformProfile.VmSpec(machines[index].getId(), machines[index].getMips(),
-                    1, 512, machines[index].getBw(), 10000L, "Xen",
+            platform.addVm(new PlatformProfile.VmSpec(
+                    machines[index].getId(),
+                    machines[index].getMips(),
+                    1,
+                    512,
+                    machines[index].getBw(),
+                    10000L,
+                    "Xen",
                     PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         SimulationConfig config = SimulationConfig.builder("peft-unit.dax", machines.length)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_PEFT)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1()).build();
-        LocalPeftPlanningAlgorithm planner = new LocalPeftPlanningAlgorithm(new PlanningContext(config, platform.build()));
+                .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
+                .build();
+        LocalPeftPlanningAlgorithm planner =
+                new LocalPeftPlanningAlgorithm(new PlanningContext(config, platform.build()));
         planner.setTaskList(new ArrayList<Task>(tasks));
         planner.setVmList(new ArrayList<CondorVM>(Arrays.asList(machines)));
         return planner;

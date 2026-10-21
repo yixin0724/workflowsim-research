@@ -33,41 +33,52 @@ class OverheadModelConfigTest {
     @Test
     void builderRejectsNegativeIntervalAndNonFiniteOrNegativeBandwidth() {
         assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .workflowEngineDelayInterval(-1).build());
+                .workflowEngineDelayInterval(-1)
+                .build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OverheadModelConfig.builder().bandwidth(Double.NaN).build());
         assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .bandwidth(Double.NaN).build());
-        assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .bandwidth(Double.POSITIVE_INFINITY).build());
-        assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .bandwidth(-0.001).build());
+                .bandwidth(Double.POSITIVE_INFINITY)
+                .build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OverheadModelConfig.builder().bandwidth(-0.001).build());
         // 边界接受：零间隔与零带宽合法。
         OverheadModelConfig zero = OverheadModelConfig.builder()
-                .workflowEngineDelayInterval(0).bandwidth(0.0).build();
+                .workflowEngineDelayInterval(0)
+                .bandwidth(0.0)
+                .build();
         assertEquals(0, zero.getWorkflowEngineDelayInterval());
         assertEquals(0.0, zero.getBandwidth(), 0.0);
     }
 
     @Test
     void delayMapValidationCoversNullMapNullKeyNegativeDepthAndNullSpec() {
-        assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .workflowEngineDelays(null).build());
-        assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .postDelays(null).build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OverheadModelConfig.builder().workflowEngineDelays(null).build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OverheadModelConfig.builder().postDelays(null).build());
 
         Map<Integer, DistributionSpec> nullKey = new HashMap<>();
         nullKey.put(null, weibull(1.0));
-        assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .queueDelays(nullKey).build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OverheadModelConfig.builder().queueDelays(nullKey).build());
 
         Map<Integer, DistributionSpec> negativeDepth = new HashMap<>();
         negativeDepth.put(-1, weibull(1.0));
         assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .clusteringDelays(negativeDepth).build());
+                .clusteringDelays(negativeDepth)
+                .build());
 
         Map<Integer, DistributionSpec> nullSpec = new HashMap<>();
         nullSpec.put(0, null);
         assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.builder()
-                .workflowEngineDelays(nullSpec).build());
+                .workflowEngineDelays(nullSpec)
+                .build());
     }
 
     @Test
@@ -75,8 +86,7 @@ class OverheadModelConfigTest {
         assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.fromLegacy(null));
 
         Map<Integer, DistributionGenerator> wed = new LinkedHashMap<>();
-        wed.put(0, new DistributionGenerator(DistributionFamily.WEIBULL, 9.0, 2.0,
-                "audit.wed"));
+        wed.put(0, new DistributionGenerator(DistributionFamily.WEIBULL, 9.0, 2.0, "audit.wed"));
         OverheadParameters legacy = new OverheadParameters(3, wed, null, null, null, 1.5);
         OverheadModelConfig config = OverheadModelConfig.fromLegacy(legacy);
         assertEquals(3, config.getWorkflowEngineDelayInterval());
@@ -92,10 +102,9 @@ class OverheadModelConfigTest {
 
         Map<Integer, DistributionGenerator> nullGenerator = new LinkedHashMap<>();
         nullGenerator.put(0, null);
-        OverheadParameters broken = new OverheadParameters(1, nullGenerator, null, null, null,
-                1.0);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> OverheadModelConfig.fromLegacy(broken));
+        OverheadParameters broken = new OverheadParameters(1, nullGenerator, null, null, null, 1.0);
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> OverheadModelConfig.fromLegacy(broken));
         assertTrue(ex.getMessage().contains("depth 0"), ex.getMessage());
     }
 
@@ -130,15 +139,14 @@ class OverheadModelConfigTest {
     void configIsImmutableAndDecoupledFromBuilderInput() {
         Map<Integer, DistributionSpec> mutableInput = new LinkedHashMap<>();
         mutableInput.put(0, weibull(3.0));
-        OverheadModelConfig config = OverheadModelConfig.builder()
-                .postDelays(mutableInput)
-                .build();
+        OverheadModelConfig config =
+                OverheadModelConfig.builder().postDelays(mutableInput).build();
         // 构建后修改输入映射不影响已构建配置。
         mutableInput.put(5, weibull(99.0));
         assertEquals(1, config.getPostDelays().size());
         // 返回的映射不可修改。
-        assertThrows(UnsupportedOperationException.class,
-                () -> config.getPostDelays().put(1, weibull(1.0)));
+        assertThrows(UnsupportedOperationException.class, () -> config.getPostDelays()
+                .put(1, weibull(1.0)));
     }
 
     @Test

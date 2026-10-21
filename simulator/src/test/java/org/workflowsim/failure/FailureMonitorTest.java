@@ -24,9 +24,11 @@ class FailureMonitorTest {
 
     @Test
     void vmJobMonitorUsesTheVmAndDepthCompositeKey() {
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
                 FailureParameters.FTCMonitor.MONITOR_VM_JOB,
-                FailureParameters.FTCFailure.FAILURE_NONE, null);
+                FailureParameters.FTCFailure.FAILURE_NONE,
+                null);
         FailureMonitor.init();
         FailureMonitor.postFailureRecord(new FailureRecord(1.0, 2, 3, 4, 7, 10, 0));
         FailureMonitor.postFailureRecord(new FailureRecord(1.0, 0, 4, 2, 7, 11, 0));
@@ -36,20 +38,20 @@ class FailureMonitorTest {
         assertEquals(0.0, FailureMonitor.analyzeVmDepth(7, 4), 0.0);
         assertEquals(0.0, FailureMonitor.analyzeVmDepth(8, 3), 0.0);
         assertEquals(0.0, FailureMonitor.analyzeVmDepth(9, 3), 0.0);
-        assertEquals(1, FailureMonitor.getClusteringFactor(
-                new FailureRecord(1.0, 0, 3, 4, 7, 13, 0)));
+        assertEquals(1, FailureMonitor.getClusteringFactor(new FailureRecord(1.0, 0, 3, 4, 7, 13, 0)));
     }
 
     @Test
     void dcRecoveryReadsTheActualFailedJobVmRatherThanVmZero() throws Exception {
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_DC,
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_DC,
                 FailureParameters.FTCMonitor.MONITOR_VM,
-                FailureParameters.FTCFailure.FAILURE_NONE, null);
+                FailureParameters.FTCFailure.FAILURE_NONE,
+                null);
         FailureMonitor.init();
         // VM 0 已有失败观测；VM 2 没有。DC 必须为 VM 2 保持一整个三任务重试簇。
         FailureMonitor.postFailureRecord(new FailureRecord(1.0, 1, 1, 3, 0, 0, 0));
-        Job failed = computeJob(40, 2,
-                task(1, 100L), task(2, 200L), task(3, 300L));
+        Job failed = computeJob(40, 2, task(1, 100L), task(2, 200L), task(3, 300L));
 
         List<Job> retries = ReclusteringEngine.process(failed, 100);
 

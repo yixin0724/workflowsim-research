@@ -35,8 +35,7 @@ class CrossConfigurationContaminationIntegrationTest {
 
     @Test
     void alternatingUnrelatedConfigurationsDoNotContaminateEachOther() throws Exception {
-        SimulationConfig dagPlanner = SimulationConfig
-                .builder(resourcePath("/dax/heft-paper-example.dax"), 3)
+        SimulationConfig dagPlanner = SimulationConfig.builder(resourcePath("/dax/heft-paper-example.dax"), 3)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -45,8 +44,7 @@ class CrossConfigurationContaminationIntegrationTest {
                 .build();
         PlatformProfile dagPlatform = PlatformProfiles.homogeneousLocal("audit-cross-a", 3);
 
-        SimulationConfig randomPlanner = SimulationConfig
-                .builder(resourcePath("/dax/independent-tasks.dax"), 2)
+        SimulationConfig randomPlanner = SimulationConfig.builder(resourcePath("/dax/independent-tasks.dax"), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -55,8 +53,8 @@ class CrossConfigurationContaminationIntegrationTest {
                 .build();
         PlatformProfile randomPlatform = PlatformProfiles.homogeneousLocal("audit-cross-b", 2);
 
-        SimulationConfig onlineScheduler = SimulationConfig
-                .builder(resourcePath("/dax/reproducibility-workflow.dax"), 3)
+        SimulationConfig onlineScheduler = SimulationConfig.builder(
+                        resourcePath("/dax/reproducibility-workflow.dax"), 3)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.READY_BATCH_MINMIN)
                 .randomSeed(7L)
                 .build();
@@ -81,7 +79,8 @@ class CrossConfigurationContaminationIntegrationTest {
         assertEquals(first.getMakespan(), again.getMakespan(), 0.0);
         assertEquals(first.getSuccessfulJobs(), again.getSuccessfulJobs());
         assertEquals(first.getFailedJobs(), again.getFailedJobs());
-        assertEquals(first.getInputs().get(0).getSha256(), again.getInputs().get(0).getSha256());
+        assertEquals(
+                first.getInputs().get(0).getSha256(), again.getInputs().get(0).getSha256());
         assertEquals(jobFingerprint(first), jobFingerprint(again));
         assertEquals(taskFingerprint(first), taskFingerprint(again));
         assertEquals(logicalEventFingerprint(first), logicalEventFingerprint(again));
@@ -100,10 +99,20 @@ class CrossConfigurationContaminationIntegrationTest {
     private static String jobFingerprint(SimulationReport report) {
         StringBuilder result = new StringBuilder();
         for (SimulationReport.JobOutcome job : report.getJobs()) {
-            result.append(job.getJobId()).append('|').append(job.getVmId()).append('|')
-                    .append(job.getStatus()).append('|').append(job.getStartTime()).append('|')
-                    .append(job.getFinishTime()).append('|').append(job.getCpuTime()).append('|')
-                    .append(job.getTaskCount()).append('\n');
+            result.append(job.getJobId())
+                    .append('|')
+                    .append(job.getVmId())
+                    .append('|')
+                    .append(job.getStatus())
+                    .append('|')
+                    .append(job.getStartTime())
+                    .append('|')
+                    .append(job.getFinishTime())
+                    .append('|')
+                    .append(job.getCpuTime())
+                    .append('|')
+                    .append(job.getTaskCount())
+                    .append('\n');
         }
         return result.toString();
     }
@@ -111,9 +120,18 @@ class CrossConfigurationContaminationIntegrationTest {
     private static String taskFingerprint(SimulationReport report) {
         StringBuilder result = new StringBuilder();
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
-            result.append(task.getTaskId()).append('|').append(task.getJobId()).append('|')
-                    .append(task.getVmId()).append('|').append(task.getTaskStatus()).append('|')
-                    .append(task.getStartTime()).append('|').append(task.getFinishTime()).append('\n');
+            result.append(task.getTaskId())
+                    .append('|')
+                    .append(task.getJobId())
+                    .append('|')
+                    .append(task.getVmId())
+                    .append('|')
+                    .append(task.getTaskStatus())
+                    .append('|')
+                    .append(task.getStartTime())
+                    .append('|')
+                    .append(task.getFinishTime())
+                    .append('\n');
         }
         return result.toString();
     }
@@ -125,10 +143,20 @@ class CrossConfigurationContaminationIntegrationTest {
             Map<String, Object> attributes = new TreeMap<String, Object>(event.getAttributes());
             attributes.remove("decisionElapsedNanos");
             attributes.remove("planningDecisionElapsedNanos");
-            result.append(event.getSequence()).append('|').append(event.getSimulationTime()).append('|')
-                    .append(event.getType()).append('|').append(event.getJobId()).append('|')
-                    .append(event.getVmId()).append('|').append(event.getTaskIds()).append('|')
-                    .append(attributes).append('\n');
+            result.append(event.getSequence())
+                    .append('|')
+                    .append(event.getSimulationTime())
+                    .append('|')
+                    .append(event.getType())
+                    .append('|')
+                    .append(event.getJobId())
+                    .append('|')
+                    .append(event.getVmId())
+                    .append('|')
+                    .append(event.getTaskIds())
+                    .append('|')
+                    .append(attributes)
+                    .append('\n');
         }
         return result.toString();
     }
@@ -136,19 +164,33 @@ class CrossConfigurationContaminationIntegrationTest {
     private static String logicalMetricsFingerprint(SimulationReport report) {
         SimulationMetrics metrics = report.getMetrics();
         StringBuilder result = new StringBuilder();
-        result.append(metrics.getMakespanSeconds()).append('|')
-                .append(metrics.getComputeJobOutcomeCount()).append('|')
-                .append(metrics.getSuccessfulComputeJobOutcomeRate()).append('|')
-                .append(metrics.getMeanComputeJobRunTimeSeconds()).append('|')
-                .append(metrics.getMeanComputeReadyToDecisionDelaySeconds()).append('|')
-                .append(metrics.getMeanComputeDecisionToStartDelaySeconds()).append('|')
-                .append(metrics.getVmModeledBusyTimeCoefficientOfVariation()).append('|');
+        result.append(metrics.getMakespanSeconds())
+                .append('|')
+                .append(metrics.getComputeJobOutcomeCount())
+                .append('|')
+                .append(metrics.getSuccessfulComputeJobOutcomeRate())
+                .append('|')
+                .append(metrics.getMeanComputeJobRunTimeSeconds())
+                .append('|')
+                .append(metrics.getMeanComputeReadyToDecisionDelaySeconds())
+                .append('|')
+                .append(metrics.getMeanComputeDecisionToStartDelaySeconds())
+                .append('|')
+                .append(metrics.getVmModeledBusyTimeCoefficientOfVariation())
+                .append('|');
         for (SimulationMetrics.VmMetrics vm : metrics.getVmMetrics().values()) {
-            result.append(vm.getVmId()).append('|').append(vm.getJobOutcomeCount()).append('|')
-                    .append(vm.getReportedCpuTimeSeconds()).append('|')
-                    .append(vm.getModeledBusyIntervalSeconds()).append('|')
-                    .append(vm.getModeledIntervalUtilization()).append('|')
-                    .append(vm.getReportedCpuTimeOverMakespan()).append('\n');
+            result.append(vm.getVmId())
+                    .append('|')
+                    .append(vm.getJobOutcomeCount())
+                    .append('|')
+                    .append(vm.getReportedCpuTimeSeconds())
+                    .append('|')
+                    .append(vm.getModeledBusyIntervalSeconds())
+                    .append('|')
+                    .append(vm.getModeledIntervalUtilization())
+                    .append('|')
+                    .append(vm.getReportedCpuTimeOverMakespan())
+                    .append('\n');
         }
         return result.toString();
     }

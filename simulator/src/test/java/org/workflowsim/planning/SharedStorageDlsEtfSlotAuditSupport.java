@@ -23,22 +23,27 @@ final class SharedStorageDlsEtfSlotAuditSupport {
     static final double BOOTSTRAP = 0.11 + 0.1;
     static final int STORAGE_MB_PER_SECOND = 8;
 
-    private SharedStorageDlsEtfSlotAuditSupport() {
-    }
+    private SharedStorageDlsEtfSlotAuditSupport() {}
 
     static CondorVM vm(int id, double mips, int pes) {
-        return new CondorVM(id, 0, mips, pes, 512, 1000L, 10000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, pes, 512, 1000L, 10000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     static PlanningContext context(SharedStorageDagPlanner.Strategy strategy, List<CondorVM> vms) {
         PlatformProfile.Builder platform = PlatformProfile.builder("shared-dls-etf-slot-audit");
         for (int index = 0; index < vms.size(); index++) {
             CondorVM vm = vms.get(index);
-            platform.addHost(new PlatformProfile.HostSpec(index, vm.getNumberOfPes(), vm.getMips(),
-                    4096, 10000L, 1000000L));
-            platform.addVm(new PlatformProfile.VmSpec(vm.getId(), vm.getMips(), vm.getNumberOfPes(),
-                    512, 1000L, 10000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            platform.addHost(
+                    new PlatformProfile.HostSpec(index, vm.getNumberOfPes(), vm.getMips(), 4096, 10000L, 1000000L));
+            platform.addVm(new PlatformProfile.VmSpec(
+                    vm.getId(),
+                    vm.getMips(),
+                    vm.getNumberOfPes(),
+                    512,
+                    1000L,
+                    10000L,
+                    "Xen",
+                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             platform.pinVmToHost(vm.getId(), index);
         }
         platform.storage(new PlatformProfile.StorageSpec(1000000L, STORAGE_MB_PER_SECOND));
@@ -46,14 +51,16 @@ final class SharedStorageDlsEtfSlotAuditSupport {
                 ? Parameters.PlanningAlgorithm.SHARED_STORAGE_DLS
                 : Parameters.PlanningAlgorithm.SHARED_STORAGE_ETF;
         SimulationConfig config = SimulationConfig.builder("shared-dls-etf-slot-audit.dax", vms.size())
-                .planningAlgorithm(algorithm).schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
+                .planningAlgorithm(algorithm)
+                .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.SHARED)
-                .cloudSimMinEventIntervalSeconds(0.1).build();
+                .cloudSimMinEventIntervalSeconds(0.1)
+                .build();
         return new PlanningContext(config, platform.build());
     }
 
-    static BasePlanningAlgorithm publicPlanner(SharedStorageDagPlanner.Strategy strategy,
-            List<Task> tasks, List<CondorVM> vms) {
+    static BasePlanningAlgorithm publicPlanner(
+            SharedStorageDagPlanner.Strategy strategy, List<Task> tasks, List<CondorVM> vms) {
         PlanningContext context = context(strategy, vms);
         BasePlanningAlgorithm planner = strategy == SharedStorageDagPlanner.Strategy.DLS
                 ? new SharedStorageDlsPlanningAlgorithm(context)
@@ -99,8 +106,14 @@ final class SharedStorageDlsEtfSlotAuditSupport {
     }
 
     static double rawSlot(List<?> schedule, double ready, double duration) throws Exception {
-        return ((Double) invoke(null, "earliestStart",
-                new Class<?>[] {List.class, double.class, double.class}, schedule, ready, duration)).doubleValue();
+        return ((Double) invoke(
+                        null,
+                        "earliestStart",
+                        new Class<?>[] {List.class, double.class, double.class},
+                        schedule,
+                        ready,
+                        duration))
+                .doubleValue();
     }
 
     /** Frozen c62c6b8 slot semantics, including zero-width and sub-ULP boundaries. */
@@ -153,8 +166,7 @@ final class SharedStorageDlsEtfSlotAuditSupport {
         return values;
     }
 
-    private static Object invoke(Object target, String name, Class<?>[] types, Object... arguments)
-            throws Exception {
+    private static Object invoke(Object target, String name, Class<?>[] types, Object... arguments) throws Exception {
         Method method = SharedStorageDagPlanner.class.getDeclaredMethod(name, types);
         method.setAccessible(true);
         return method.invoke(target, arguments);
@@ -221,8 +233,7 @@ final class SharedStorageDlsEtfSlotAuditSupport {
         private int artificialReservations;
 
         @SuppressWarnings("unchecked")
-        Kernel(SharedStorageDagPlanner.Strategy strategy, List<Task> tasks, List<CondorVM> vms)
-                throws Exception {
+        Kernel(SharedStorageDagPlanner.Strategy strategy, List<Task> tasks, List<CondorVM> vms) throws Exception {
             this.strategy = strategy;
             this.tasks = tasks;
             this.vms = vms;
@@ -243,29 +254,51 @@ final class SharedStorageDlsEtfSlotAuditSupport {
         }
 
         SharedStorageDagPlanTrace schedule() throws Exception {
-            invoke(planner, strategy == SharedStorageDagPlanner.Strategy.DLS ? "scheduleDls" : "scheduleEtf",
-                    new Class<?>[] {List.class, List.class, double.class}, tasks, vms, BOOTSTRAP);
-            return (SharedStorageDagPlanTrace) invoke(planner, "trace",
+            invoke(
+                    planner,
+                    strategy == SharedStorageDagPlanner.Strategy.DLS ? "scheduleDls" : "scheduleEtf",
+                    new Class<?>[] {List.class, List.class, double.class},
+                    tasks,
+                    vms,
+                    BOOTSTRAP);
+            return (SharedStorageDagPlanTrace) invoke(
+                    planner,
+                    "trace",
                     new Class<?>[] {List.class, double.class, List.class, CondorVM.class},
-                    tasks, BOOTSTRAP, Collections.emptyList(), null);
+                    tasks,
+                    BOOTSTRAP,
+                    Collections.emptyList(),
+                    null);
         }
 
         double candidateMetric(Task task, CondorVM vm, double ready) throws Exception {
-            Object candidate = invoke(planner,
+            Object candidate = invoke(
+                    planner,
                     strategy == SharedStorageDagPlanner.Strategy.DLS ? "nextDlsCandidate" : "nextEtfCandidate",
                     new Class<?>[] {List.class, List.class, Set.class, double.class},
-                    Collections.singletonList(task), Collections.singletonList(vm), Collections.emptySet(), ready);
+                    Collections.singletonList(task),
+                    Collections.singletonList(vm),
+                    Collections.emptySet(),
+                    ready);
             if (candidate == null || field(candidate, "task") != task || field(candidate, "vm") != vm) {
                 throw new AssertionError("Single compatible root/VM query must select that pair");
             }
-            return ((Double) field(candidate,
-                    strategy == SharedStorageDagPlanner.Strategy.DLS ? "dynamicLevel" : "earliestStart")).doubleValue();
+            return ((Double) field(
+                            candidate,
+                            strategy == SharedStorageDagPlanner.Strategy.DLS ? "dynamicLevel" : "earliestStart"))
+                    .doubleValue();
         }
 
         void reserve(CondorVM vm, double start, double finish) throws Exception {
             Task marker = new Task(Integer.MAX_VALUE - artificialReservations++, 1L);
-            invoke(planner, "reserve", new Class<?>[] {Task.class, CondorVM.class, double.class, double.class},
-                    marker, vm, start, finish);
+            invoke(
+                    planner,
+                    "reserve",
+                    new Class<?>[] {Task.class, CondorVM.class, double.class, double.class},
+                    marker,
+                    vm,
+                    start,
+                    finish);
         }
 
         long visits() {

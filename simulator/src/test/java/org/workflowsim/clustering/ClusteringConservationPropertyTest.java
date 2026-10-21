@@ -22,9 +22,9 @@ import org.workflowsim.clustering.balancing.BalancedClustering;
 import org.workflowsim.utils.ClusteringParameters;
 import org.workflowsim.utils.OverheadParameters;
 import org.workflowsim.utils.Parameters;
-import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
-import org.workflowsim.utils.Parameters.PlanningAlgorithm;
 import org.workflowsim.utils.Parameters.FileType;
+import org.workflowsim.utils.Parameters.PlanningAlgorithm;
+import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.SimulationRandom;
 
 /**
@@ -59,8 +59,7 @@ class ClusteringConservationPropertyTest {
         logWasDisabled = Log.isDisabled();
         Log.disable();
         Parameters.reset();
-        initLegacy(new ClusteringParameters(0, 0,
-                ClusteringParameters.ClusteringMethod.NONE, null));
+        initLegacy(new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null));
         SimulationRandom.reset(STREAM_SEED);
     }
 
@@ -72,9 +71,17 @@ class ClusteringConservationPropertyTest {
     }
 
     private static void initLegacy(ClusteringParameters parameters) {
-        Parameters.init(2, "conservation.dax", null, null,
+        Parameters.init(
+                2,
+                "conservation.dax",
+                null,
+                null,
                 new OverheadParameters(0, null, null, null, null, 0.0),
-                parameters, SchedulingAlgorithm.FCFS, PlanningAlgorithm.INVALID, null, 0L);
+                parameters,
+                SchedulingAlgorithm.FCFS,
+                PlanningAlgorithm.INVALID,
+                null,
+                0L);
         SimulationRandom.reset(STREAM_SEED);
     }
 
@@ -216,8 +223,7 @@ class ClusteringConservationPropertyTest {
     }
 
     private void horizontalConserves(int clusterNum, int clusterSize) {
-        initLegacy(new ClusteringParameters(clusterNum, clusterSize,
-                ClusteringParameters.ClusteringMethod.NONE, null));
+        initLegacy(new ClusteringParameters(clusterNum, clusterSize, ClusteringParameters.ClusteringMethod.NONE, null));
         List<Job> jobs = runEngine(new HorizontalClustering(clusterNum, clusterSize), true);
         for (Job job : jobs) {
             int depth = Integer.MIN_VALUE;
@@ -229,8 +235,7 @@ class ClusteringConservationPropertyTest {
                 }
             }
         }
-        assertTrue(jobs.size() < layeredDag(true).tasks.size(),
-                "启用聚类时应产生少于任务数的 Job");
+        assertTrue(jobs.size() < layeredDag(true).tasks.size(), "启用聚类时应产生少于任务数的 Job");
     }
 
     @Test
@@ -241,9 +246,10 @@ class ClusteringConservationPropertyTest {
             for (int i = 1; i < members.size(); i++) {
                 Task left = members.get(i - 1);
                 Task right = members.get(i);
-                assertTrue(left.getChildList().contains(right) || left.getParentList().contains(right),
-                        "垂直聚类相邻成员必须有任务级父子边: " + left.getCloudletId()
-                                + " 与 " + right.getCloudletId());
+                assertTrue(
+                        left.getChildList().contains(right)
+                                || left.getParentList().contains(right),
+                        "垂直聚类相邻成员必须有任务级父子边: " + left.getCloudletId() + " 与 " + right.getCloudletId());
             }
         }
     }
@@ -264,8 +270,7 @@ class ClusteringConservationPropertyTest {
     }
 
     private void balancedConserves(String code) {
-        initLegacy(new ClusteringParameters(3, 0,
-                ClusteringParameters.ClusteringMethod.BALANCED, code));
+        initLegacy(new ClusteringParameters(3, 0, ClusteringParameters.ClusteringMethod.BALANCED, code));
         Dag dag = layeredDag(true);
         Map<Integer, Set<Integer>> parentsBefore = dependencySnapshot(dag.tasks);
         Map<Integer, Set<Integer>> childrenBefore = dependencySnapshotChildren(dag.tasks);
@@ -278,16 +283,19 @@ class ClusteringConservationPropertyTest {
         for (Task task : dag.tasks) {
             Set<Integer> parents = dependencySnapshot(dag.tasks).get(task.getCloudletId());
             Set<Integer> children = dependencySnapshotChildren(dag.tasks).get(task.getCloudletId());
-            assertEquals(parentsBefore.get(task.getCloudletId()), parents,
+            assertEquals(
+                    parentsBefore.get(task.getCloudletId()),
+                    parents,
                     "BALANCED(" + code + ") 执行后父集合必须恢复: task " + task.getCloudletId());
-            assertEquals(childrenBefore.get(task.getCloudletId()), children,
+            assertEquals(
+                    childrenBefore.get(task.getCloudletId()),
+                    children,
                     "BALANCED(" + code + ") 执行后子集合必须恢复: task " + task.getCloudletId());
         }
     }
 
     /** 对任意引擎的完整守恒断言：分区、依赖投影、无环、文件、长度。 */
-    private static void assertPartitionDependenciesFilesLength(List<Job> jobs, Dag dag,
-            List<FileItem> taskFiles) {
+    private static void assertPartitionDependenciesFilesLength(List<Job> jobs, Dag dag, List<FileItem> taskFiles) {
         Map<Integer, Job> membership = taskMembership(jobs, dag);
         // ② 时长守恒（零聚类开销）。
         long jobTotal = 0L;
@@ -349,8 +357,8 @@ class ClusteringConservationPropertyTest {
         // 输出引用至少登记一次（可能按引用重复，保底是并集语义）。
     }
 
-    private static void assertPartitionAndLength(List<Job> jobs, Dag dag, Map<Integer, Job> membership,
-            List<FileItem> taskFiles) {
+    private static void assertPartitionAndLength(
+            List<Job> jobs, Dag dag, Map<Integer, Job> membership, List<FileItem> taskFiles) {
         assertPartitionDependenciesFilesLength(jobs, dag, taskFiles);
     }
 
@@ -373,8 +381,8 @@ class ClusteringConservationPropertyTest {
                         for (Object childObject : current.getChildList()) {
                             Job child = (Job) childObject;
                             if (state.getOrDefault(Integer.valueOf(child.getCloudletId()), 0) == 1) {
-                                throw new AssertionError("Job 图出现环: " + current.getCloudletId()
-                                        + " -> " + child.getCloudletId());
+                                throw new AssertionError(
+                                        "Job 图出现环: " + current.getCloudletId() + " -> " + child.getCloudletId());
                             }
                             if (state.getOrDefault(Integer.valueOf(child.getCloudletId()), 0) == 0) {
                                 stack.push(child);

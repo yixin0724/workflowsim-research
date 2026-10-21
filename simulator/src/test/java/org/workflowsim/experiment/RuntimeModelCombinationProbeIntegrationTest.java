@@ -50,8 +50,8 @@ class RuntimeModelCombinationProbeIntegrationTest {
     @Test
     void seededPostDelayOverheadExtendsJobReturnTimingAndReplaysExactly() throws Exception {
         OverheadModelConfig overhead = OverheadModelConfig.builder()
-                .postDelays(Collections.singletonMap(0, DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
+                .postDelays(Collections.singletonMap(
+                        0, DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
                 .build();
         SimulationConfig noOverhead = SimulationConfig.builder(workflow(), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
@@ -65,12 +65,9 @@ class RuntimeModelCombinationProbeIntegrationTest {
 
         Log.disable();
         SimulationRunner runner = new SimulationRunner();
-        SimulationReport baseline = runner.run(noOverhead,
-                PlatformProfiles.homogeneousLocal("post-delay-baseline", 1));
-        SimulationReport first = runner.run(withOverhead,
-                PlatformProfiles.homogeneousLocal("post-delay-probe", 1));
-        SimulationReport second = runner.run(withOverhead,
-                PlatformProfiles.homogeneousLocal("post-delay-probe", 1));
+        SimulationReport baseline = runner.run(noOverhead, PlatformProfiles.homogeneousLocal("post-delay-baseline", 1));
+        SimulationReport first = runner.run(withOverhead, PlatformProfiles.homogeneousLocal("post-delay-probe", 1));
+        SimulationReport second = runner.run(withOverhead, PlatformProfiles.homogeneousLocal("post-delay-probe", 1));
 
         List<Double> firstDelays = postDelays(first);
         assertFalse(firstDelays.isEmpty(), "每个返回的 compute 作业都应记录后处理延迟");
@@ -80,8 +77,7 @@ class RuntimeModelCombinationProbeIntegrationTest {
         for (Double delay : postDelays(baseline)) {
             assertEquals(0.0, delay.doubleValue(), 0.0, "无开销配置的后处理延迟必须为零");
         }
-        assertTrue(first.getMakespan() > baseline.getMakespan(),
-                "后处理延迟延后作业回传，makespan 必须增大");
+        assertTrue(first.getMakespan() > baseline.getMakespan(), "后处理延迟延后作业回传，makespan 必须增大");
         assertEquals(postDelays(first), postDelays(second), "固定种子下延迟采样必须逐位重放");
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
     }
@@ -92,13 +88,14 @@ class RuntimeModelCombinationProbeIntegrationTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 0.1, 1.0)}
+                })
                 .maxTotalRetryJobs(16)
                 .build();
         OverheadModelConfig overhead = OverheadModelConfig.builder()
-                .queueDelays(Collections.singletonMap(0, DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
+                .queueDelays(Collections.singletonMap(
+                        0, DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
                 .build();
         SimulationConfig combined = SimulationConfig.builder(workflow(), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
@@ -109,22 +106,19 @@ class RuntimeModelCombinationProbeIntegrationTest {
 
         Log.disable();
         SimulationRunner runner = new SimulationRunner();
-        SimulationReport first = runner.run(combined,
-                PlatformProfiles.homogeneousLocal("failure-overhead", 1));
-        SimulationReport second = runner.run(combined,
-                PlatformProfiles.homogeneousLocal("failure-overhead", 1));
+        SimulationReport first = runner.run(combined, PlatformProfiles.homogeneousLocal("failure-overhead", 1));
+        SimulationReport second = runner.run(combined, PlatformProfiles.homogeneousLocal("failure-overhead", 1));
 
         assertTrue(first.getFailedJobs() > 0, "固定种子 fixture 必须触发至少一次重试");
         assertEquals(3, first.getFailedJobs(), "种子扫描实测黄金值：3 个失败 compute 作业");
-        assertEquals(3, first.getMetrics().getRetryJobCreatedCount(),
-                "种子扫描实测黄金值：3 次重试");
-        assertEquals(5.600810343783252, first.getMakespan(), 1.0e-9,
-                "种子扫描实测黄金值：组合配置 makespan");
+        assertEquals(3, first.getMetrics().getRetryJobCreatedCount(), "种子扫描实测黄金值：3 次重试");
+        assertEquals(5.600810343783252, first.getMakespan(), 1.0e-9, "种子扫描实测黄金值：组合配置 makespan");
         for (Double delay : queueDelays(first)) {
             assertTrue(delay.doubleValue() > 0.0, "故障与开销叠加时队列延迟仍必须生效");
         }
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
-        assertEquals(first.getMetrics().getRetryJobCreatedCount(),
+        assertEquals(
+                first.getMetrics().getRetryJobCreatedCount(),
                 second.getMetrics().getRetryJobCreatedCount());
         assertEquals(queueDelays(first), queueDelays(second));
     }
@@ -133,8 +127,8 @@ class RuntimeModelCombinationProbeIntegrationTest {
     void vmCostModelCombinesWithPostDelayOverheadWithoutDistortingBilling() throws Exception {
         PlatformProfile platform = pricedPlatform();
         OverheadModelConfig overhead = OverheadModelConfig.builder()
-                .postDelays(Collections.singletonMap(0, DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
+                .postDelays(Collections.singletonMap(
+                        0, DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0)))
                 .build();
         SimulationConfig vmCostOnly = SimulationConfig.builder(workflow(), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
@@ -156,8 +150,7 @@ class RuntimeModelCombinationProbeIntegrationTest {
         assertEquals(costOnly.getJobs().size(), withOverhead.getJobs().size());
         // 后处理开销只延后回传，不改变作业在 VM 上的 CPU 占用与计费速率。
         for (SimulationReport.JobOutcome job : withOverhead.getJobs()) {
-            assertEquals(job.getCpuTime() * 5.0, job.getModeledProcessingCost(), 1.0e-12,
-                    "VM 计费速率必须保持 5.0，不受开销模型影响");
+            assertEquals(job.getCpuTime() * 5.0, job.getModeledProcessingCost(), 1.0e-12, "VM 计费速率必须保持 5.0，不受开销模型影响");
         }
         for (Double delay : postDelays(withOverhead)) {
             assertTrue(delay.doubleValue() > 0.0);
@@ -169,18 +162,23 @@ class RuntimeModelCombinationProbeIntegrationTest {
         PlatformProfile.CostSpec vmCosts = new PlatformProfile.CostSpec(5.0, 0.0, 0.0, 0.0);
         PlatformProfile.CostSpec datacenterCosts = new PlatformProfile.CostSpec(2.0, 0.0, 0.0, 0.0);
         return PlatformProfile.builder("priced-probe-platform")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED, vmCosts))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0,
+                        1000.0,
+                        1,
+                        512,
+                        1000L,
+                        10_000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                        vmCosts))
                 .costs(datacenterCosts)
                 .build();
     }
 
     private static String workflow() throws Exception {
-        URL url = RuntimeModelCombinationProbeIntegrationTest.class.getResource(
-                "/wfcommons/minimum-runtime.json");
+        URL url = RuntimeModelCombinationProbeIntegrationTest.class.getResource("/wfcommons/minimum-runtime.json");
         if (url == null) {
             throw new IllegalStateException("Missing WfCommons test fixture");
         }

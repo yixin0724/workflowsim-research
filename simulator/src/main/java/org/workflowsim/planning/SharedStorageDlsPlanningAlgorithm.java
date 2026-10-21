@@ -24,8 +24,8 @@ public final class SharedStorageDlsPlanningAlgorithm extends BasePlanningAlgorit
     @Override
     public void run() {
         lastPlanTrace = null;
-        lastPlanTrace = SharedStorageDagPlanner.plan(getTaskList(), getVmList(), context,
-                SharedStorageDagPlanner.Strategy.DLS);
+        lastPlanTrace =
+                SharedStorageDagPlanner.plan(getTaskList(), getVmList(), context, SharedStorageDagPlanner.Strategy.DLS);
     }
 
     /** 返回最近一次成功规划的不可变决策轨迹。 */

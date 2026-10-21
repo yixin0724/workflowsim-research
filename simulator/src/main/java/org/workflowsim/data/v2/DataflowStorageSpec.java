@@ -22,7 +22,8 @@ public final class DataflowStorageSpec {
     private final double writeBandwidthMbPerSecond;
     private final double networkBandwidthMbPerSecond;
 
-    private DataflowStorageSpec(int attachmentHostId,
+    private DataflowStorageSpec(
+            int attachmentHostId,
             double readBandwidthMbPerSecond,
             double writeBandwidthMbPerSecond,
             double networkBandwidthMbPerSecond) {
@@ -47,7 +48,8 @@ public final class DataflowStorageSpec {
      *         is not finite and strictly positive, or its conversion to bytes
      *         per second is not finite or is below {@link Double#MIN_NORMAL}
      */
-    public static DataflowStorageSpec of(int attachmentHostId,
+    public static DataflowStorageSpec of(
+            int attachmentHostId,
             double readBandwidthMbPerSecond,
             double writeBandwidthMbPerSecond,
             double networkBandwidthMbPerSecond) {
@@ -57,20 +59,17 @@ public final class DataflowStorageSpec {
         validateBandwidth("readBandwidthMbPerSecond", readBandwidthMbPerSecond);
         validateBandwidth("writeBandwidthMbPerSecond", writeBandwidthMbPerSecond);
         validateBandwidth("networkBandwidthMbPerSecond", networkBandwidthMbPerSecond);
-        return new DataflowStorageSpec(attachmentHostId, readBandwidthMbPerSecond,
-                writeBandwidthMbPerSecond, networkBandwidthMbPerSecond);
+        return new DataflowStorageSpec(
+                attachmentHostId, readBandwidthMbPerSecond, writeBandwidthMbPerSecond, networkBandwidthMbPerSecond);
     }
 
     private static void validateBandwidth(String name, double bandwidthMbPerSecond) {
         if (!Double.isFinite(bandwidthMbPerSecond) || bandwidthMbPerSecond <= 0.0) {
-            throw new IllegalArgumentException(name
-                    + " must be finite and greater than zero (decimal MB/s)");
+            throw new IllegalArgumentException(name + " must be finite and greater than zero (decimal MB/s)");
         }
         double capacityBytesPerSecond = bandwidthMbPerSecond * BYTES_PER_DECIMAL_MEGABYTE;
-        if (!Double.isFinite(capacityBytesPerSecond)
-                || capacityBytesPerSecond < Double.MIN_NORMAL) {
-            throw new IllegalArgumentException(name
-                    + " must convert to a finite normal bytes-per-second capacity");
+        if (!Double.isFinite(capacityBytesPerSecond) || capacityBytesPerSecond < Double.MIN_NORMAL) {
+            throw new IllegalArgumentException(name + " must convert to a finite normal bytes-per-second capacity");
         }
     }
 

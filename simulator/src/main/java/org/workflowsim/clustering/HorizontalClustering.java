@@ -61,7 +61,6 @@ public class HorizontalClustering extends BasicClustering {
         this.clusterNum = clusterNum;
         this.clusterSize = clusterSize;
         this.mDepth2Task = new HashMap<>();
-
     }
 
     /**
@@ -70,7 +69,7 @@ public class HorizontalClustering extends BasicClustering {
     @Override
     public void run() {
         if (clusterNum > 0 || clusterSize > 0) {
-            for (Iterator it = getTaskList().iterator(); it.hasNext();) {
+            for (Iterator it = getTaskList().iterator(); it.hasNext(); ) {
                 Task task = (Task) it.next();
                 int depth = task.getDepth();
                 if (!mDepth2Task.containsKey(depth)) {
@@ -80,7 +79,6 @@ public class HorizontalClustering extends BasicClustering {
                 if (!list.contains(task)) {
                     list.add(task);
                 }
-
             }
         }
         /**
@@ -133,9 +131,7 @@ public class HorizontalClustering extends BasicClustering {
                 } else {
                     // 使用常规分组大小。
                     end = start + avg_a - 1;
-
                 }
-
 
                 if (end >= num) {
                     end = num - 1;
@@ -145,8 +141,6 @@ public class HorizontalClustering extends BasicClustering {
                 }
                 addTasks2Job(list.subList(start, end + 1));
             }
-
-
         }
     }
 
@@ -175,7 +169,6 @@ public class HorizontalClustering extends BasicClustering {
                 }
                 Job job = addTasks2Job(list.subList(start, end + 1));
             } while (end < num - 1);
-
         }
     }
 }

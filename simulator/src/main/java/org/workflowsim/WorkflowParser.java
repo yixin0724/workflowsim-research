@@ -25,11 +25,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.cloudbus.cloudsim.Log;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
-import org.cloudbus.cloudsim.Log;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.FileType;
 import org.workflowsim.utils.ReplicaCatalog;
@@ -139,9 +139,7 @@ public final class WorkflowParser {
             }
             boolean isolateInputFiles = this.daxPaths.size() > 1;
             for (int inputIndex = 0; inputIndex < this.daxPaths.size(); inputIndex++) {
-                String fileNamespace = isolateInputFiles
-                        ? "workflow-" + inputIndex
-                        : null;
+                String fileNamespace = isolateInputFiles ? "workflow-" + inputIndex : null;
                 parseInputWithWorkflowIndex(this.daxPaths.get(inputIndex), fileNamespace, inputIndex);
             }
         } else {
@@ -212,11 +210,8 @@ public final class WorkflowParser {
      */
     private void parseWfCommonsJsonFile(String path, String fileNamespace) {
         try {
-            WfCommonsJsonParser.ParseResult result = new WfCommonsJsonParser().parse(
-                    path,
-                    this.userId,
-                    this.jobIdStartsFrom,
-                    fileNamespace);
+            WfCommonsJsonParser.ParseResult result =
+                    new WfCommonsJsonParser().parse(path, this.userId, this.jobIdStartsFrom, fileNamespace);
             this.getTaskList().addAll(result.getTasks());
             this.jobIdStartsFrom = result.getNextTaskId();
             this.inputReports.add(result.getInputReport());
@@ -255,8 +250,8 @@ public final class WorkflowParser {
             Element root = dom.getRootElement();
             List<Element> list = root.getChildren();
 
-            WorkflowInputReport report = new WorkflowInputReport(path,
-                    WorkflowInputReport.Format.DAX_XML, root.getAttributeValue("version"));
+            WorkflowInputReport report = new WorkflowInputReport(
+                    path, WorkflowInputReport.Format.DAX_XML, root.getAttributeValue("version"));
             List<Task> parsedTasks = new ArrayList<>();
             Map<String, FileItem> firstDeclaredInputs = new LinkedHashMap<>();
             mName2Task.clear();
@@ -295,17 +290,15 @@ public final class WorkflowParser {
         }
     }
 
-    private Task parseDaxJob(Element node, WorkflowInputReport report, String fileNamespace,
-            Map<String, FileItem> firstDeclaredInputs) {
+    private Task parseDaxJob(
+            Element node, WorkflowInputReport report, String fileNamespace, Map<String, FileItem> firstDeclaredInputs) {
         String nodeName = requiredAttribute(node, "id", "DAX job");
         if (mName2Task.containsKey(nodeName)) {
             throw new WorkflowValidationException("Duplicate DAX job ID " + nodeName);
         }
         String runtimeAttribute = requiredAttribute(node, "runtime", "DAX job " + nodeName);
-        double runtimeSeconds = parseNonNegativeFinite(runtimeAttribute,
-                "runtime for DAX job " + nodeName);
-        double convertedLength = runtimeSeconds * Parameters.getRuntimeReferenceMips()
-                * Parameters.getRuntimeScale();
+        double runtimeSeconds = parseNonNegativeFinite(runtimeAttribute, "runtime for DAX job " + nodeName);
+        double convertedLength = runtimeSeconds * Parameters.getRuntimeReferenceMips() * Parameters.getRuntimeScale();
         long length = toCloudletLength(convertedLength, nodeName, report);
 
         List<FileItem> files = new ArrayList<>();
@@ -326,8 +319,8 @@ public final class WorkflowParser {
         return task;
     }
 
-    private FileItem parseDaxFile(Element file, String taskId, String fileNamespace,
-            Map<String, FileItem> firstDeclaredInputs) {
+    private FileItem parseDaxFile(
+            Element file, String taskId, String fileNamespace, Map<String, FileItem> firstDeclaredInputs) {
         String originalFileName = file.getAttributeValue("name");
         if (originalFileName == null || originalFileName.trim().isEmpty()) {
             originalFileName = file.getAttributeValue("file");
@@ -344,8 +337,8 @@ public final class WorkflowParser {
         } else if ("output".equalsIgnoreCase(link)) {
             type = FileType.OUTPUT;
         } else {
-            throw new WorkflowValidationException("DAX file " + originalFileName
-                    + " has unsupported link type " + link);
+            throw new WorkflowValidationException(
+                    "DAX file " + originalFileName + " has unsupported link type " + link);
         }
         double size = parseNonNegativeFinite(
                 requiredAttribute(file, "size", "DAX file " + originalFileName),
@@ -354,7 +347,8 @@ public final class WorkflowParser {
         // F-009：INPUT 声明只与"本地首轮表 + 既有全局目录"交互，不再直接写入全局目录；
         // 三种来源中取首个：既有目录（历史跨解析语义）> 本轮先声明 > 新建条目。
         FileItem registered = ReplicaCatalog.containsFile(fileName)
-                ? ReplicaCatalog.getFile(fileName) : firstDeclaredInputs.get(fileName);
+                ? ReplicaCatalog.getFile(fileName)
+                : firstDeclaredInputs.get(fileName);
         if (type == FileType.INPUT && registered != null) {
             item = registered;
             if (Double.compare(item.getSize(), size) != 0) {
@@ -371,8 +365,7 @@ public final class WorkflowParser {
             if (type == FileType.INPUT) {
                 // 解析期先入本地首轮表；通过 DAG 校验后统一提交（见 parseXmlFile 尾部）。
                 firstDeclaredInputs.putIfAbsent(fileName, item);
-            } else if (registered != null
-                    && Double.compare(registered.getSize(), size) != 0) {
+            } else if (registered != null && Double.compare(registered.getSize(), size) != 0) {
                 // R8 审计修复（架构通道 P1-4）：OUTPUT 与已注册同名 INPUT 尺寸不一致
                 // 原为完全静默——中间文件（上游 output = 下游 input）两处声明分叉时，
                 // 传输字节数取决于解析顺序。与 INPUT 分支对齐记录警告。
@@ -418,8 +411,7 @@ public final class WorkflowParser {
             if (parentTask == null) {
                 throw new WorkflowValidationException("DAX dependency references missing parent " + parentName);
             }
-            long edge = ((long) parentTask.getCloudletId() << 32)
-                    | (childTask.getCloudletId() & 0xffffffffL);
+            long edge = ((long) parentTask.getCloudletId() << 32) | (childTask.getCloudletId() & 0xffffffffL);
             if (daxDependencyEdges.add(edge)) {
                 parentTask.addChild(childTask);
                 childTask.addParent(parentTask);
@@ -447,16 +439,16 @@ public final class WorkflowParser {
         }
     }
 
-    private static long toCloudletLength(double convertedLength, String taskId,
-            WorkflowInputReport report) {
-        if (Double.isNaN(convertedLength) || Double.isInfinite(convertedLength)
-                || convertedLength > Long.MAX_VALUE) {
+    private static long toCloudletLength(double convertedLength, String taskId, WorkflowInputReport report) {
+        if (Double.isNaN(convertedLength) || Double.isInfinite(convertedLength) || convertedLength > Long.MAX_VALUE) {
             throw new WorkflowValidationException("Invalid converted runtime for task " + taskId);
         }
         if (convertedLength < MIN_CLOUDLET_LENGTH) {
             report.recordNormalization(
                     WorkflowInputReport.NormalizationKind.TASK_RUNTIME_FLOORED_TO_MINIMUM,
-                    taskId, convertedLength, MIN_CLOUDLET_LENGTH);
+                    taskId,
+                    convertedLength,
+                    MIN_CLOUDLET_LENGTH);
             return MIN_CLOUDLET_LENGTH;
         }
         return (long) convertedLength;

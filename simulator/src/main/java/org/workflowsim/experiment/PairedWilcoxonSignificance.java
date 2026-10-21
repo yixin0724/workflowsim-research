@@ -50,8 +50,13 @@ public final class PairedWilcoxonSignificance {
     private final int effectiveSampleCount;
     private final Double medianDifference;
 
-    private PairedWilcoxonSignificance(String status, Double pValue, boolean significant,
-            int pairedSampleCount, int effectiveSampleCount, Double medianDifference) {
+    private PairedWilcoxonSignificance(
+            String status,
+            Double pValue,
+            boolean significant,
+            int pairedSampleCount,
+            int effectiveSampleCount,
+            Double medianDifference) {
         this.status = status;
         this.pValue = pValue;
         this.significantAtDefaultAlpha = significant;
@@ -86,8 +91,7 @@ public final class PairedWilcoxonSignificance {
         int pairedCount = baseline.size();
         if (pairedCount < 2) {
             return new PairedWilcoxonSignificance(
-                    "UNAVAILABLE_FEWER_THAN_TWO_PAIRED_SAMPLES", null, false,
-                    pairedCount, 0, null);
+                    "UNAVAILABLE_FEWER_THAN_TWO_PAIRED_SAMPLES", null, false, pairedCount, 0, null);
         }
         List<Double> differences = new ArrayList<Double>(pairedCount);
         for (int index = 0; index < pairedCount; index++) {
@@ -103,13 +107,21 @@ public final class PairedWilcoxonSignificance {
         }
         if (nonzeroIndices.isEmpty()) {
             return new PairedWilcoxonSignificance(
-                    "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO", null, false,
-                    pairedCount, 0, Double.valueOf(medianDifference));
+                    "UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
+                    null,
+                    false,
+                    pairedCount,
+                    0,
+                    Double.valueOf(medianDifference));
         }
         if (nonzeroIndices.size() == 1) {
             return new PairedWilcoxonSignificance(
-                    "UNAVAILABLE_SINGLE_NONZERO_PAIRED_DIFFERENCE", null, false,
-                    pairedCount, 1, Double.valueOf(medianDifference));
+                    "UNAVAILABLE_SINGLE_NONZERO_PAIRED_DIFFERENCE",
+                    null,
+                    false,
+                    pairedCount,
+                    1,
+                    Double.valueOf(medianDifference));
         }
         // R8 审计修复（P1）：只把非零差值配对传入秩检验——commons-math3 不剔除
         // 零差值（零差值会占据最低秩并抬高 N），直接传全数组会使 p 值与
@@ -130,10 +142,12 @@ public final class PairedWilcoxonSignificance {
         // 在并列或 W 恰居中时可以略大于 1；按 p 值定义域钳制到 [0,1]。
         pValue = Math.min(pValue, 1.0);
         return new PairedWilcoxonSignificance(
-                exact ? "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT"
-                        : "AVAILABLE_WILCOXON_SIGNED_RANK_NORMAL_APPROXIMATION",
-                Double.valueOf(pValue), pValue < DEFAULT_ALPHA,
-                pairedCount, nonzeroIndices.size(), Double.valueOf(medianDifference));
+                exact ? "AVAILABLE_WILCOXON_SIGNED_RANK_EXACT" : "AVAILABLE_WILCOXON_SIGNED_RANK_NORMAL_APPROXIMATION",
+                Double.valueOf(pValue),
+                pValue < DEFAULT_ALPHA,
+                pairedCount,
+                nonzeroIndices.size(),
+                Double.valueOf(medianDifference));
     }
 
     private static void validateSamples(List<Double> baseline, List<Double> candidate) {
@@ -141,8 +155,8 @@ public final class PairedWilcoxonSignificance {
             throw new IllegalArgumentException("Both paired sample series are required");
         }
         if (baseline.size() != candidate.size()) {
-            throw new IllegalArgumentException("Paired sample series must have identical length: "
-                    + baseline.size() + " vs " + candidate.size());
+            throw new IllegalArgumentException(
+                    "Paired sample series must have identical length: " + baseline.size() + " vs " + candidate.size());
         }
         for (Double value : baseline) {
             requireFinite(value);
@@ -153,8 +167,7 @@ public final class PairedWilcoxonSignificance {
     }
 
     private static void requireFinite(Double value) {
-        if (value == null || Double.isNaN(value.doubleValue())
-                || Double.isInfinite(value.doubleValue())) {
+        if (value == null || Double.isNaN(value.doubleValue()) || Double.isInfinite(value.doubleValue())) {
             throw new IllegalArgumentException("Paired samples must be finite");
         }
     }
@@ -177,23 +190,37 @@ public final class PairedWilcoxonSignificance {
      * {@code UNAVAILABLE_SINGLE_NONZERO_PAIRED_DIFFERENCE} 或
      * {@code UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO}
      */
-    public String getStatus() { return status; }
+    public String getStatus() {
+        return status;
+    }
 
     /** @return 双侧 p 值；不可用状态时为 {@code null} */
-    public Double getPValue() { return pValue; }
+    public Double getPValue() {
+        return pValue;
+    }
 
     /** @return 在 {@link #DEFAULT_ALPHA} 下是否拒绝零假设 */
-    public boolean isSignificantAtDefaultAlpha() { return significantAtDefaultAlpha; }
+    public boolean isSignificantAtDefaultAlpha() {
+        return significantAtDefaultAlpha;
+    }
 
     /** @return 按种子对齐的配对总数 */
-    public int getPairedSampleCount() { return pairedSampleCount; }
+    public int getPairedSampleCount() {
+        return pairedSampleCount;
+    }
 
     /** @return 参与秩统计的非零差值数 */
-    public int getEffectiveSampleCount() { return effectiveSampleCount; }
+    public int getEffectiveSampleCount() {
+        return effectiveSampleCount;
+    }
 
     /** @return 配对差值（候选减基线）的中位数；配对数不足时为 {@code null} */
-    public Double getMedianDifference() { return medianDifference; }
+    public Double getMedianDifference() {
+        return medianDifference;
+    }
 
     /** @return 本检验使用的默认显著性水平 */
-    public double getAlpha() { return DEFAULT_ALPHA; }
+    public double getAlpha() {
+        return DEFAULT_ALPHA;
+    }
 }

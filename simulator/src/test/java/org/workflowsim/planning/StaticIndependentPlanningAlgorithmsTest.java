@@ -52,7 +52,9 @@ class StaticIndependentPlanningAlgorithmsTest {
         Task second = task(2, 1000);
         Task third = task(3, 1000);
 
-        run(new StaticRoundRobinPlanningAlgorithm(), Arrays.asList(first, second, third),
+        run(
+                new StaticRoundRobinPlanningAlgorithm(),
+                Arrays.asList(first, second, third),
                 vms(vm(5, 1000), vm(2, 1000)));
 
         assertEquals(2, first.getVmId());
@@ -80,8 +82,7 @@ class StaticIndependentPlanningAlgorithmsTest {
         Task highPenalty = task(1, 20);
         Task lowPenalty = task(2, 3);
 
-        run(new StaticSufferagePlanningAlgorithm(), Arrays.asList(highPenalty, lowPenalty),
-                vms(vm(0, 10), vm(1, 2)));
+        run(new StaticSufferagePlanningAlgorithm(), Arrays.asList(highPenalty, lowPenalty), vms(vm(0, 10), vm(1, 2)));
 
         assertEquals(0, highPenalty.getVmId());
         assertEquals(1, lowPenalty.getVmId());
@@ -99,7 +100,8 @@ class StaticIndependentPlanningAlgorithmsTest {
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, planner::run);
 
-        assertEquals("STATIC_MINMIN supports independent tasks only; use a DAG planner for workflows with dependencies",
+        assertEquals(
+                "STATIC_MINMIN supports independent tasks only; use a DAG planner for workflows with dependencies",
                 exception.getMessage());
     }
 
@@ -129,21 +131,18 @@ class StaticIndependentPlanningAlgorithmsTest {
     void minMinAndMaxMinUseTaskAndVmIdsToBreakEqualCompletionTies() throws Exception {
         Task minHighId = task(9, 1000);
         Task minLowId = task(2, 1000);
-        run(new StaticMinMinPlanningAlgorithm(), Arrays.asList(minHighId, minLowId),
-                vms(vm(8, 1000), vm(3, 1000)));
+        run(new StaticMinMinPlanningAlgorithm(), Arrays.asList(minHighId, minLowId), vms(vm(8, 1000), vm(3, 1000)));
         assertEquals(3, minLowId.getVmId());
         assertEquals(8, minHighId.getVmId());
 
         Task maxHighId = task(9, 1000);
         Task maxLowId = task(2, 1000);
-        run(new StaticMaxMinPlanningAlgorithm(), Arrays.asList(maxHighId, maxLowId),
-                vms(vm(8, 1000), vm(3, 1000)));
+        run(new StaticMaxMinPlanningAlgorithm(), Arrays.asList(maxHighId, maxLowId), vms(vm(8, 1000), vm(3, 1000)));
         assertEquals(3, maxLowId.getVmId());
         assertEquals(8, maxHighId.getVmId());
     }
 
-    private static void assertMapsTwoPeTaskToCompatibleVm(BasePlanningAlgorithm algorithm)
-            throws Exception {
+    private static void assertMapsTwoPeTaskToCompatibleVm(BasePlanningAlgorithm algorithm) throws Exception {
         Task twoPeTask = task(7, 1000);
         twoPeTask.setNumberOfPes(2);
 
@@ -163,8 +162,7 @@ class StaticIndependentPlanningAlgorithmsTest {
         assertTrue(exception.getMessage().contains("no VM has sufficient processing elements"));
     }
 
-    private static void run(BasePlanningAlgorithm algorithm, List<Task> tasks, List<CondorVM> vms)
-            throws Exception {
+    private static void run(BasePlanningAlgorithm algorithm, List<Task> tasks, List<CondorVM> vms) throws Exception {
         algorithm.setTaskList(tasks);
         algorithm.setVmList(vms);
         algorithm.run();
@@ -183,7 +181,6 @@ class StaticIndependentPlanningAlgorithmsTest {
     }
 
     private static CondorVM vm(int id, double mips, int pes) {
-        return new CondorVM(id, 0, mips, pes, 512, 1000, 10000, "Xen",
-                new CloudletSchedulerTimeShared());
+        return new CondorVM(id, 0, mips, pes, 512, 1000, 10000, "Xen", new CloudletSchedulerTimeShared());
     }
 }

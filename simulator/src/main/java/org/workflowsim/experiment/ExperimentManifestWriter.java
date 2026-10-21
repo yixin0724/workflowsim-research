@@ -7,12 +7,12 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.workflowsim.failure.FailureModelConfig;
+import org.workflowsim.WorkflowInputReport;
 import org.workflowsim.data.DataMovementModel;
+import org.workflowsim.failure.FailureModelConfig;
+import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.DistributionSpec;
 import org.workflowsim.utils.OverheadModelConfig;
-import org.workflowsim.WorkflowInputReport;
-import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.SimulationConfig;
 
 /** 仅在调用方显式指定输出路径时，将报告写为 manifest。 */
@@ -23,34 +23,62 @@ public final class ExperimentManifestWriter {
     /** 当前证据 manifest schema，包含完整到达、成本矩阵和拓扑声明。 */
     static final String SCHEMA_V4 = "workflowsim-experiment-manifest-v4";
 
-    private ExperimentManifestWriter() {
-    }
+    private ExperimentManifestWriter() {}
 
     /** Standalone manifests must not silently drop requested network evidence. */
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
-        if(report.getConfig().getDataflowAssignmentConfig().isEnabled()&&(!report.getConfig().getNetworkEvidenceConfig().isEnabled()||report.getDataflowComputeRequests()==null))throw new UnsupportedOperationException("Online assignment certification requires complete lifecycle capture and frozen compute requests; use an enabled lifecycle mode");
-        org.workflowsim.data.DataMovementModel model=report.getConfig().getDataMovementModel();if(model.isCoherentStorageDataflowV3()!=(report.getPlatform().getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage presence differs from its declared model");
-        org.workflowsim.data.NetworkEvidenceConfig option=report.getConfig().getNetworkEvidenceConfig();org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model,option);
-        String expected=org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);Map<String,Integer> counts=new LinkedHashMap<>();for(String role:new String[]{"network-ledger","file-lifecycle","storage-lifecycle"})counts.put(role,0);
-        for(Map<String,Object> artifact:artifacts){Object role=artifact.get("role");if(counts.containsKey(role))counts.put((String)role,counts.get(role)+1);}
-        if(expected!=null&&counts.get(expected)==0)throw new UnsupportedOperationException("Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
-        for(Map.Entry<String,Integer> count:counts.entrySet())if(count.getValue()>1||(count.getValue()>0&&!count.getKey().equals(expected)))throw new IllegalArgumentException("Network evidence artifact roles disagree with recording configuration");
-        if(model.usesCoherentDataflowRuntime()!=(report.getDataflowPlan()!=null))throw new IllegalArgumentException("Coherent core file plan presence disagrees with model");
+        if (report.getConfig().getDataflowAssignmentConfig().isEnabled()
+                && (!report.getConfig().getNetworkEvidenceConfig().isEnabled()
+                        || report.getDataflowComputeRequests() == null))
+            throw new UnsupportedOperationException(
+                    "Online assignment certification requires complete lifecycle capture and frozen compute requests; use an enabled lifecycle mode");
+        org.workflowsim.data.DataMovementModel model = report.getConfig().getDataMovementModel();
+        if (model.isCoherentStorageDataflowV3() != (report.getPlatform().getSourceStorage() != null))
+            throw new IllegalArgumentException("sourceStorage presence differs from its declared model");
+        org.workflowsim.data.NetworkEvidenceConfig option = report.getConfig().getNetworkEvidenceConfig();
+        org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model, option);
+        String expected = org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (String role : new String[] {"network-ledger", "file-lifecycle", "storage-lifecycle"}) counts.put(role, 0);
+        for (Map<String, Object> artifact : artifacts) {
+            Object role = artifact.get("role");
+            if (counts.containsKey(role)) counts.put((String) role, counts.get(role) + 1);
+        }
+        if (expected != null && counts.get(expected) == 0)
+            throw new UnsupportedOperationException(
+                    "Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
+        for (Map.Entry<String, Integer> count : counts.entrySet())
+            if (count.getValue() > 1 || (count.getValue() > 0 && !count.getKey().equals(expected)))
+                throw new IllegalArgumentException(
+                        "Network evidence artifact roles disagree with recording configuration");
+        if (model.usesCoherentDataflowRuntime() != (report.getDataflowPlan() != null))
+            throw new IllegalArgumentException("Coherent core file plan presence disagrees with model");
     }
 
     /** Minimal no-I/O context for the same preflight checks used by artifact readers. */
-    static Map<String,Object> networkContextSnapshot(SimulationReport report) {
-        Map<String,Object> root=new LinkedHashMap<String,Object>();
-        root.put("configuration",configuration(report.getConfig()));root.put("platform",platform(report.getPlatform()));
-        Map<String,Object> result=new LinkedHashMap<String,Object>();
-        result.put("simulationEndSeconds",report.getSimulationEndSeconds());result.put("jobs",report.getJobs());
-        result.put("actualVmHostAssignments",report.getActualVmHostAssignments());root.put("result",result);return root;
+    static Map<String, Object> networkContextSnapshot(SimulationReport report) {
+        Map<String, Object> root = new LinkedHashMap<String, Object>();
+        root.put("configuration", configuration(report.getConfig()));
+        root.put("platform", platform(report.getPlatform()));
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("simulationEndSeconds", report.getSimulationEndSeconds());
+        result.put("jobs", report.getJobs());
+        result.put("actualVmHostAssignments", report.getActualVmHostAssignments());
+        root.put("result", result);
+        return root;
     }
 
     /** No-I/O V2 context; uses the same frozen report rather than rereading a manifest path. */
-    static Map<String,Object> fileLifecycleContextSnapshot(SimulationReport report){
-        Map<String,Object> root=new LinkedHashMap<String,Object>();root.put("configuration",configuration(report.getConfig()));root.put("platform",platform(report.getPlatform()));
-        root.put("workflowGraph",report.getWorkflowGraph());root.put("dataflowPlan",report.getDataflowPlan());if(report.getConfig().getDataflowAssignmentConfig().isEnabled())root.put("dataflowComputeRequests",report.getDataflowComputeRequests());root.put("result",result(report));return root;
+    static Map<String, Object> fileLifecycleContextSnapshot(SimulationReport report) {
+        Map<String, Object> root = new LinkedHashMap<String, Object>();
+        root.put("configuration", configuration(report.getConfig()));
+        root.put("platform", platform(report.getPlatform()));
+        root.put("workflowGraph", report.getWorkflowGraph());
+        root.put("dataflowPlan", report.getDataflowPlan());
+        if (report.getConfig().getDataflowAssignmentConfig().isEnabled())
+            root.put("dataflowComputeRequests", report.getDataflowComputeRequests());
+        root.put("result", result(report));
+        return root;
     }
 
     /**
@@ -83,21 +111,24 @@ public final class ExperimentManifestWriter {
      * @throws IllegalArgumentException 当报告或输出路径为空时抛出
      * @throws UnsupportedOperationException if ON network evidence is exported without a complete bundle reference
      */
-    public static void writeJson(SimulationReport report, Path outputFile,
-            ExperimentEvidenceContext evidenceContext) throws IOException {
+    public static void writeJson(SimulationReport report, Path outputFile, ExperimentEvidenceContext evidenceContext)
+            throws IOException {
         if (report == null || outputFile == null) {
             throw new IllegalArgumentException("Report and output path are required");
         }
         writeJson(report, outputFile, Collections.<Map<String, Object>>emptyList(), evidenceContext);
     }
 
-    static void writeJson(SimulationReport report, Path outputFile,
-            List<Map<String, Object>> artifacts) throws IOException {
+    static void writeJson(SimulationReport report, Path outputFile, List<Map<String, Object>> artifacts)
+            throws IOException {
         writeJson(report, outputFile, artifacts, null);
     }
 
-    static void writeJson(SimulationReport report, Path outputFile,
-            List<Map<String, Object>> artifacts, ExperimentEvidenceContext evidenceContext)
+    static void writeJson(
+            SimulationReport report,
+            Path outputFile,
+            List<Map<String, Object>> artifacts,
+            ExperimentEvidenceContext evidenceContext)
             throws IOException {
         if (report == null || outputFile == null) {
             throw new IllegalArgumentException("Report and output path are required");
@@ -106,13 +137,12 @@ public final class ExperimentManifestWriter {
         ExperimentArtifactWriter.writeJson(outputFile, toManifest(report, artifacts, evidenceContext));
     }
 
-    static Map<String, Object> toManifest(SimulationReport report,
-            List<Map<String, Object>> artifacts) {
+    static Map<String, Object> toManifest(SimulationReport report, List<Map<String, Object>> artifacts) {
         return toManifest(report, artifacts, null);
     }
 
-    static Map<String, Object> toManifest(SimulationReport report,
-            List<Map<String, Object>> artifacts, ExperimentEvidenceContext evidenceContext) {
+    static Map<String, Object> toManifest(
+            SimulationReport report, List<Map<String, Object>> artifacts, ExperimentEvidenceContext evidenceContext) {
         Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("schema", SCHEMA_V4);
         manifest.put("configuration", configuration(report.getConfig()));
@@ -120,8 +150,10 @@ public final class ExperimentManifestWriter {
         manifest.put("inputs", inputs(report));
         manifest.put("workflowProfile", report.getWorkflowProfile());
         manifest.put("workflowGraph", report.getWorkflowGraph());
-        if(report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())manifest.put("dataflowPlan",report.getDataflowPlan());
-        if(report.getConfig().getDataflowAssignmentConfig().isEnabled())manifest.put("dataflowComputeRequests",report.getDataflowComputeRequests());
+        if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())
+            manifest.put("dataflowPlan", report.getDataflowPlan());
+        if (report.getConfig().getDataflowAssignmentConfig().isEnabled())
+            manifest.put("dataflowComputeRequests", report.getDataflowComputeRequests());
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
         manifest.put("events", eventSummary(report));
@@ -139,7 +171,9 @@ public final class ExperimentManifestWriter {
      * @return the same configuration representation used in new manifests
      */
     public static Map<String, Object> configurationSnapshot(SimulationConfig config) {
-        if (config == null) { throw new IllegalArgumentException("Configuration is required"); }
+        if (config == null) {
+            throw new IllegalArgumentException("Configuration is required");
+        }
         return configuration(config);
     }
 
@@ -150,7 +184,9 @@ public final class ExperimentManifestWriter {
      * @return the same platform representation used in new manifests
      */
     public static Map<String, Object> platformSnapshot(PlatformProfile profile) {
-        if (profile == null) { throw new IllegalArgumentException("Platform is required"); }
+        if (profile == null) {
+            throw new IllegalArgumentException("Platform is required");
+        }
         return platform(profile);
     }
 
@@ -178,26 +214,35 @@ public final class ExperimentManifestWriter {
         values.put("algorithmContract", AlgorithmCatalog.forConfiguration(config));
         values.put("reduceMethod", config.getReduceMethod());
         values.put("deadline", config.getDeadline());
-        values.put("deadlineSemantics",
-                "OBSERVATION_ONLY_FROM_SIMULATION_TIME_ZERO_AGAINST_SIMULATION_END_SECONDS_"
-                + "NO_SCHEDULING_EFFECT");
+        values.put(
+                "deadlineSemantics",
+                "OBSERVATION_ONLY_FROM_SIMULATION_TIME_ZERO_AGAINST_SIMULATION_END_SECONDS_" + "NO_SCHEDULING_EFFECT");
         values.put("fileSystem", config.getFileSystem().name());
         values.put("rootSeed", config.getRandomSeed());
         values.put("runtimeScale", config.getRuntimeScale());
         values.put("runtimeReferenceMips", config.getRuntimeReferenceMips());
         values.put("cloudSimMinEventIntervalSeconds", config.getCloudSimMinEventIntervalSeconds());
         values.put("costModel", config.getCostModel().name());
-        values.put("modeledProcessingCostScope",
+        values.put(
+                "modeledProcessingCostScope",
                 "ABSTRACT_COST_UNITS;CPU_ENVELOPE_MAY_INCLUDE_MODELED_STAGE_IN;"
-                + "DECLARED_FILE_BYTES_ALL_JOB_FILE_ITEMS;DECIMAL_MB_1_000_000_BYTES;"
-                + "NO_INTERNAL_BILLING_ROUNDING;"
-                + "MEMORY_AND_STORAGE_PRICES_ARE_DECLARED_BUT_NOT_CHARGED_BY_THIS_MODEL");
+                        + "DECLARED_FILE_BYTES_ALL_JOB_FILE_ITEMS;DECIMAL_MB_1_000_000_BYTES;"
+                        + "NO_INTERNAL_BILLING_ROUNDING;"
+                        + "MEMORY_AND_STORAGE_PRICES_ARE_DECLARED_BUT_NOT_CHARGED_BY_THIS_MODEL");
         values.put("dataMovementModel", dataMovementModel(config.getDataMovementModel()));
-        if(config.getDataflowAssignmentConfig().isEnabled()){Map<String,Object> assignment=new LinkedHashMap<>();assignment.put("mode",config.getDataflowAssignmentConfig().getMode().name());assignment.put("policy",config.getDataflowAssignmentConfig().getPolicy());values.put("dataflowAssignment",assignment);}
+        if (config.getDataflowAssignmentConfig().isEnabled()) {
+            Map<String, Object> assignment = new LinkedHashMap<>();
+            assignment.put(
+                    "mode", config.getDataflowAssignmentConfig().getMode().name());
+            assignment.put("policy", config.getDataflowAssignmentConfig().getPolicy());
+            values.put("dataflowAssignment", assignment);
+        }
         if (config.getNetworkEvidenceConfig().isEnabled()) {
             Map<String, Object> networkEvidence = new LinkedHashMap<String, Object>();
-            networkEvidence.put("mode", config.getNetworkEvidenceConfig().getMode().name());
-            networkEvidence.put("maxTraceRecords", config.getNetworkEvidenceConfig().getMaxTraceRecords());
+            networkEvidence.put(
+                    "mode", config.getNetworkEvidenceConfig().getMode().name());
+            networkEvidence.put(
+                    "maxTraceRecords", config.getNetworkEvidenceConfig().getMaxTraceRecords());
             values.put("networkEvidence", networkEvidence);
         }
         values.put("overheadModel", overheadModel(config.getOverheadModel()));
@@ -211,8 +256,7 @@ public final class ExperimentManifestWriter {
         values.put("kind", model.getKind().name());
         values.put("accessLinkBandwidthMbPerSecond", model.getAccessLinkBandwidthMbPerSecond());
         values.put("accessLinkLatencySeconds", model.getAccessLinkLatencySeconds());
-        values.put("sourceEndpointBandwidthMbPerSecond",
-                model.getSourceEndpointBandwidthMbPerSecond());
+        values.put("sourceEndpointBandwidthMbPerSecond", model.getSourceEndpointBandwidthMbPerSecond());
         values.put("contentionSemantics", contentionSemantics(model));
         values.put("transferStartSemantics", transferStartSemantics(model));
         values.put("bandwidthUnit", "DECIMAL_MB_PER_SECOND");
@@ -235,16 +279,20 @@ public final class ExperimentManifestWriter {
                 return "COHERENT_FILES_CHECKED_SHARED_MAX_MIN_V2";
             case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:
                 return "COHERENT_FILES_ISOLATED_PATH_BOTTLENECK_V2";
-            case COHERENT_STORAGE_DATAFLOW_V3:return "STORAGE_FILES_CHECKED_SHARED_MAX_MIN_V3";
-            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:return "STORAGE_FILES_ISOLATED_PATH_BOTTLENECK_V3";
+            case COHERENT_STORAGE_DATAFLOW_V3:
+                return "STORAGE_FILES_CHECKED_SHARED_MAX_MIN_V3";
+            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:
+                return "STORAGE_FILES_ISOLATED_PATH_BOTTLENECK_V3";
             default:
                 throw new IllegalArgumentException("Unknown data movement model " + model.getKind());
         }
     }
 
     static String transferStartSemantics(DataMovementModel model) {
-        if(model.isCoherentStorageDataflowV3())return "CONTROL_READY_REQUEST;STORE_COMMIT_GATE_IF_SHARED;ASYNC_ALL_SUCCESSFUL_OUTPUTS_V3";
-        if(model.isCoherentFileDataflowV2())return "DEPENDENCY_READY_AT_OBSERVATION_V2;PER_FILE_SETTLEMENT_OBSERVATION_V2;COALESCED_FILE_DESTINATION";
+        if (model.isCoherentStorageDataflowV3())
+            return "CONTROL_READY_REQUEST;STORE_COMMIT_GATE_IF_SHARED;ASYNC_ALL_SUCCESSFUL_OUTPUTS_V3";
+        if (model.isCoherentFileDataflowV2())
+            return "DEPENDENCY_READY_AT_OBSERVATION_V2;PER_FILE_SETTLEMENT_OBSERVATION_V2;COALESCED_FILE_DESTINATION";
         if (model.isPreExecutionTransferDelayV1()) {
             return "PARENT_FINISH_BASED_ARRIVAL_ESTIMATE;EXTERNAL_AT_JOB_READY";
         }
@@ -266,8 +314,7 @@ public final class ExperimentManifestWriter {
                 new java.util.TreeMap<Integer, java.util.Map<Integer, Double>>(
                         config.getTaskCostMatrix().asMap());
         for (Map.Entry<Integer, java.util.Map<Integer, Double>> task : sorted.entrySet()) {
-            for (Map.Entry<Integer, Double> vm : new java.util.TreeMap<Integer, Double>(
-                    task.getValue()).entrySet()) {
+            for (Map.Entry<Integer, Double> vm : new java.util.TreeMap<Integer, Double>(task.getValue()).entrySet()) {
                 Map<String, Object> entry = new LinkedHashMap<String, Object>();
                 entry.put("taskId", task.getKey());
                 entry.put("vmId", vm.getKey());
@@ -292,7 +339,8 @@ public final class ExperimentManifestWriter {
 
     private static Map<String, Object> clustering(SimulationConfig config) {
         Map<String, Object> values = new LinkedHashMap<>();
-        values.put("method", config.getClusteringParameters().getClusteringMethod().name());
+        values.put(
+                "method", config.getClusteringParameters().getClusteringMethod().name());
         values.put("clustersNum", config.getClusteringParameters().getClustersNum());
         values.put("clustersSize", config.getClusteringParameters().getClustersSize());
         values.put("code", config.getClusteringParameters().getCode());
@@ -322,17 +370,17 @@ public final class ExperimentManifestWriter {
         values.put("generatorMode", model.getGeneratorMode().name());
         values.put("distributionFamily", model.getDistributionFamily().name());
         values.put("maxTotalRetryJobs", model.getMaxTotalRetryJobs());
-        values.put("generatorAddressing", model.usesVmIdKeyedGeneratorRows()
-                ? "VM_ID_KEYED_ROWS" : "DENSE_VM_ID_MATRIX");
+        values.put(
+                "generatorAddressing", model.usesVmIdKeyedGeneratorRows() ? "VM_ID_KEYED_ROWS" : "DENSE_VM_ID_MATRIX");
         List<List<Map<String, Object>>> matrix = new ArrayList<>();
         for (DistributionSpec[] row : model.getGeneratorSpecs()) {
             matrix.add(failureGeneratorRow(row));
         }
         values.put("generators", matrix);
         Map<String, List<Map<String, Object>>> keyedRows = new LinkedHashMap<>();
-        for (Map.Entry<Integer, DistributionSpec[]> entry : model.getGeneratorSpecsByVmId().entrySet()) {
-            keyedRows.put(Integer.toString(entry.getKey().intValue()),
-                    failureGeneratorRow(entry.getValue()));
+        for (Map.Entry<Integer, DistributionSpec[]> entry :
+                model.getGeneratorSpecsByVmId().entrySet()) {
+            keyedRows.put(Integer.toString(entry.getKey().intValue()), failureGeneratorRow(entry.getValue()));
         }
         values.put("generatorsByVmId", keyedRows);
         return values;
@@ -392,12 +440,22 @@ public final class ExperimentManifestWriter {
         storage.put("maxTransferRateMbPerSecond", profile.getStorage().getMaxTransferRateMbPerSecond());
         values.put("storage", storage);
         values.put("costs", costs(profile.getCosts()));
-        values.put("networkTopology", networkTopology(profile.getNetworkTopology(),profile.getSourceStorage()!=null));
-        if(profile.getSourceStorage()!=null){org.workflowsim.data.v2.DataflowStorageSpec spec=profile.getSourceStorage();Map<String,Object> source=new LinkedHashMap<>();source.put("attachmentHostId",spec.getAttachmentHostId());source.put("readBandwidthMbPerSecond",spec.getReadBandwidthMbPerSecond());source.put("writeBandwidthMbPerSecond",spec.getWriteBandwidthMbPerSecond());source.put("networkBandwidthMbPerSecond",spec.getNetworkBandwidthMbPerSecond());values.put("sourceStorage",source);}
+        values.put(
+                "networkTopology", networkTopology(profile.getNetworkTopology(), profile.getSourceStorage() != null));
+        if (profile.getSourceStorage() != null) {
+            org.workflowsim.data.v2.DataflowStorageSpec spec = profile.getSourceStorage();
+            Map<String, Object> source = new LinkedHashMap<>();
+            source.put("attachmentHostId", spec.getAttachmentHostId());
+            source.put("readBandwidthMbPerSecond", spec.getReadBandwidthMbPerSecond());
+            source.put("writeBandwidthMbPerSecond", spec.getWriteBandwidthMbPerSecond());
+            source.put("networkBandwidthMbPerSecond", spec.getNetworkBandwidthMbPerSecond());
+            values.put("sourceStorage", source);
+        }
         return values;
     }
 
-    private static Map<String, Object> networkTopology(org.workflowsim.network.NetworkTopologySpec spec,boolean boundedStore) {
+    private static Map<String, Object> networkTopology(
+            org.workflowsim.network.NetworkTopologySpec spec, boolean boundedStore) {
         if (spec == null) {
             return null;
         }
@@ -406,12 +464,17 @@ public final class ExperimentManifestWriter {
         values.put("k", spec.getK());
         values.put("linkBandwidthMbPerSecond", spec.getLinkBandwidthMbPerSecond());
         values.put("coreSwitchCount", spec.getCoreSwitchCount());
-        values.put("hostEdgePlacements", spec.getHostEdgePlacements() == null ? null
-                : new java.util.TreeMap<Integer, Integer>(spec.getHostEdgePlacements()));
+        values.put(
+                "hostEdgePlacements",
+                spec.getHostEdgePlacements() == null
+                        ? null
+                        : new java.util.TreeMap<Integer, Integer>(spec.getHostEdgePlacements()));
         values.put("defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES");
         values.put("routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1");
         values.put("linkDirectionality", "INDEPENDENT_DIRECTED_LINKS");
-        values.put("externalSourceRouting", boundedStore?"BOUNDED_STORAGE_HOST_ATTACHMENT_V3":"BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
+        values.put(
+                "externalSourceRouting",
+                boundedStore ? "BOUNDED_STORAGE_HOST_ATTACHMENT_V3" : "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
         return values;
     }
 
@@ -477,7 +540,9 @@ public final class ExperimentManifestWriter {
         values.put("eventCount", report.getEvents().size());
         if (!report.getEvents().isEmpty()) {
             values.put("firstSequence", report.getEvents().get(0).getSequence());
-            values.put("lastSequence", report.getEvents().get(report.getEvents().size() - 1).getSequence());
+            values.put(
+                    "lastSequence",
+                    report.getEvents().get(report.getEvents().size() - 1).getSequence());
         }
         return values;
     }

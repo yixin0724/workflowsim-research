@@ -36,7 +36,9 @@ class FastestVmMipsSelectionTest {
         scheduler.run();
 
         assertEquals(1, scheduler.getScheduledList().size());
-        assertEquals(FAST_SINGLE_PE_VM_ID, job.getVmId(),
+        assertEquals(
+                FAST_SINGLE_PE_VM_ID,
+                job.getVmId(),
                 "FastestVm must compare per-PE getMips(): 1PE@800 beats 2PE@500 for a 1-PE Job");
     }
 
@@ -54,8 +56,8 @@ class FastestVmMipsSelectionTest {
 
         assertEquals(2, scheduler.getScheduledList().size());
         assertEquals(shortJob, scheduler.getScheduledList().get(0));
-        assertEquals(FAST_SINGLE_PE_VM_ID, shortJob.getVmId(),
-                "SPT must place the shortest Job on the fastest per-PE VM");
+        assertEquals(
+                FAST_SINGLE_PE_VM_ID, shortJob.getVmId(), "SPT must place the shortest Job on the fastest per-PE VM");
     }
 
     @Test
@@ -72,8 +74,8 @@ class FastestVmMipsSelectionTest {
 
         assertEquals(2, scheduler.getScheduledList().size());
         assertEquals(longJob, scheduler.getScheduledList().get(0));
-        assertEquals(FAST_SINGLE_PE_VM_ID, longJob.getVmId(),
-                "LJF must place the longest Job on the fastest per-PE VM");
+        assertEquals(
+                FAST_SINGLE_PE_VM_ID, longJob.getVmId(), "LJF must place the longest Job on the fastest per-PE VM");
     }
 
     @Test
@@ -88,7 +90,9 @@ class FastestVmMipsSelectionTest {
         scheduler.run();
 
         assertEquals(1, scheduler.getScheduledList().size());
-        assertEquals(MANY_PE_SLOW_VM_ID, job.getVmId(),
+        assertEquals(
+                MANY_PE_SLOW_VM_ID,
+                job.getVmId(),
                 "Idle-only dispatch contract: a busy VM must be skipped regardless of speed");
     }
 
@@ -99,12 +103,12 @@ class FastestVmMipsSelectionTest {
     }
 
     private static CondorVM manyPeSlowVm() {
-        return new CondorVM(MANY_PE_SLOW_VM_ID, 0, 500.0, 2, 512, 1000L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(
+                MANY_PE_SLOW_VM_ID, 0, 500.0, 2, 512, 1000L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static CondorVM fastSinglePeVm() {
-        return new CondorVM(FAST_SINGLE_PE_VM_ID, 0, 800.0, 1, 512, 1000L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(
+                FAST_SINGLE_PE_VM_ID, 0, 800.0, 1, 512, 1000L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 }

@@ -1,11 +1,11 @@
 package org.workflowsim.data;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * 流体链路争用引擎的语义测试：公平共享速率、完成结算、速率随并发变化。
@@ -16,8 +16,7 @@ public class TransferContentionEngineTest {
     @Test
     public void uncongestedTransferCompletesAtNominalRate() {
         TransferContentionEngine engine = new TransferContentionEngine();
-        TransferContentionEngine.AdvanceResult result =
-                engine.addTransfer(1L, 1000L, "SOURCE", "VM:0", 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult result = engine.addTransfer(1L, 1000L, "SOURCE", "VM:0", 100.0, 0.0);
         assertEquals(10.0, result.getNextCompletionTime(), 1.0e-9);
         TransferContentionEngine.AdvanceResult done = engine.advance(10.0);
         assertEquals(1, done.getCompletedTransferIds().size());
@@ -32,8 +31,7 @@ public class TransferContentionEngineTest {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("VM:0", 100.0);
         engine.addTransfer(1L, 1000L, "SOURCE", "VM:0", 100.0, 0.0);
-        TransferContentionEngine.AdvanceResult second =
-                engine.addTransfer(2L, 1000L, "SOURCE", "VM:0", 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L, "SOURCE", "VM:0", 100.0, 0.0);
         // 名义 10 秒；共享后各 50 字节/秒 → 20 秒。
         assertEquals(20.0, second.getNextCompletionTime(), 1.0e-9);
         assertEquals(50.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
@@ -77,8 +75,7 @@ public class TransferContentionEngineTest {
         // VM:0→VM:1 单独传输：名义 100，目标容量 100 → 速率 100。
         engine.addTransfer(1L, 1000L, "VM:0", "VM:1", 100.0, 0.0);
         // 再传 VM:0→VM:2（VM:2 无容量上限）：占用 VM:0 源端 → VM:0 负载 2。
-        TransferContentionEngine.AdvanceResult second =
-                engine.addTransfer(2L, 1000L, "VM:0", "VM:2", 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L, "VM:0", "VM:2", 100.0, 0.0);
         // 传输 1：min(100, VM:0 份额 100, VM:1 份额 100) = 100。
         // 传输 2：min(100, VM:0 份额 100, ∞) = 100。
         assertEquals(100.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
@@ -93,8 +90,7 @@ public class TransferContentionEngineTest {
         engine.setEndpointCapacity("VM:0", 100.0);
         engine.addTransfer(1L, 1000L, "SOURCE", "VM:0", 100.0, 0.0);
         // t=4 加入传输 2：传输 1 已传 400 字节剩 600。
-        TransferContentionEngine.AdvanceResult second =
-                engine.addTransfer(2L, 1000L, "SOURCE", "VM:0", 100.0, 4.0);
+        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L, "SOURCE", "VM:0", 100.0, 4.0);
         assertTrue(second.getCompletedTransferIds().isEmpty());
         // 共享 50 字节/秒：传输 1 剩 600 → 再需 12 秒（t=16 完成）；
         // 传输 2 剩 1000 → 再需 20 秒（t=24 完成）。最早预测 16。
@@ -117,8 +113,7 @@ public class TransferContentionEngineTest {
         engine.setEndpointCapacity("VM:0", 90.0);
         engine.addTransfer(1L, 900L, "SOURCE", "VM:0", 90.0, 0.0);
         engine.addTransfer(2L, 900L, "SOURCE", "VM:0", 90.0, 0.0);
-        TransferContentionEngine.AdvanceResult third =
-                engine.addTransfer(3L, 900L, "SOURCE", "VM:0", 90.0, 0.0);
+        TransferContentionEngine.AdvanceResult third = engine.addTransfer(3L, 900L, "SOURCE", "VM:0", 90.0, 0.0);
         // 各 30 字节/秒 → 30 秒完成。
         assertEquals(30.0, third.getNextCompletionTime(), 1.0e-9);
         assertEquals(30.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
@@ -142,10 +137,9 @@ public class TransferContentionEngineTest {
         engine.setEndpointCapacity("LINK:CORE:0", 100.0);
         engine.setEndpointCapacity("VM:0", 1000.0);
         engine.setEndpointCapacity("VM:1", 1000.0);
-        engine.addTransfer(1L, 1000L,
-                java.util.Arrays.asList("VM:0", "VM:1", "LINK:CORE:0"), 100.0, 0.0);
-        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L,
-                java.util.Arrays.asList("VM:2", "VM:3", "LINK:CORE:0"), 100.0, 0.0);
+        engine.addTransfer(1L, 1000L, java.util.Arrays.asList("VM:0", "VM:1", "LINK:CORE:0"), 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult second =
+                engine.addTransfer(2L, 1000L, java.util.Arrays.asList("VM:2", "VM:3", "LINK:CORE:0"), 100.0, 0.0);
         // 链路 100/2 = 50 字节/秒（端点份额 1000 不构成瓶颈）→ 各 20 秒。
         assertEquals(50.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
         assertEquals(50.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
@@ -158,8 +152,7 @@ public class TransferContentionEngineTest {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("VM:1", 60.0);
         engine.setEndpointCapacity("LINK:CORE:0", 100.0);
-        engine.addTransfer(1L, 600L,
-                java.util.Arrays.asList("VM:0", "VM:1", "LINK:CORE:0"), 100.0, 0.0);
+        engine.addTransfer(1L, 600L, java.util.Arrays.asList("VM:0", "VM:1", "LINK:CORE:0"), 100.0, 0.0);
         // min(名义 100, VM:0 ∞, VM:1 60, 链路 100) = 60 → 10 秒。
         assertEquals(60.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
         assertEquals(10.0, engine.advance(0.0).getNextCompletionTime(), 1.0e-9);
@@ -171,10 +164,9 @@ public class TransferContentionEngineTest {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("LINK:A", 100.0);
         engine.setEndpointCapacity("LINK:B", 100.0);
-        engine.addTransfer(1L, 1000L,
-                java.util.Collections.singletonList("LINK:A"), 100.0, 0.0);
-        TransferContentionEngine.AdvanceResult second = engine.addTransfer(2L, 1000L,
-                java.util.Collections.singletonList("LINK:B"), 100.0, 0.0);
+        engine.addTransfer(1L, 1000L, java.util.Collections.singletonList("LINK:A"), 100.0, 0.0);
+        TransferContentionEngine.AdvanceResult second =
+                engine.addTransfer(2L, 1000L, java.util.Collections.singletonList("LINK:B"), 100.0, 0.0);
         assertEquals(100.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
         assertEquals(100.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
         assertEquals(10.0, second.getNextCompletionTime(), 1.0e-9);
@@ -185,17 +177,16 @@ public class TransferContentionEngineTest {
     public void emptyOrUnregisteredResourcesLeaveNominalRate() {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.addTransfer(1L, 1000L, java.util.Collections.<String>emptyList(), 100.0, 0.0);
-        engine.addTransfer(2L, 1000L,
-                java.util.Collections.singletonList("LINK:UNREGISTERED"), 100.0, 0.0);
+        engine.addTransfer(2L, 1000L, java.util.Collections.singletonList("LINK:UNREGISTERED"), 100.0, 0.0);
         assertEquals(100.0, engine.currentRateBytesPerSecond(1L), 1.0e-9);
         assertEquals(100.0, engine.currentRateBytesPerSecond(2L), 1.0e-9);
-        assertThrows(IllegalArgumentException.class, () ->
-                engine.addTransfer(3L, 1000L, (java.util.List<String>) null, 100.0, 0.0));
-        IllegalArgumentException nullElement = assertThrows(IllegalArgumentException.class, () ->
-                engine.addTransfer(4L, 1000L,
-                        java.util.Arrays.asList("VM:0", null), 100.0, 0.0));
-        assertTrue(nullElement.getMessage().contains("cannot contain null"),
-                nullElement.getMessage());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> engine.addTransfer(3L, 1000L, (java.util.List<String>) null, 100.0, 0.0));
+        IllegalArgumentException nullElement = assertThrows(
+                IllegalArgumentException.class,
+                () -> engine.addTransfer(4L, 1000L, java.util.Arrays.asList("VM:0", null), 100.0, 0.0));
+        assertTrue(nullElement.getMessage().contains("cannot contain null"), nullElement.getMessage());
     }
 
     /** 参数校验：重复 ID、非正字节、时间倒流、非正速率、非正容量。 */
@@ -204,16 +195,11 @@ public class TransferContentionEngineTest {
         TransferContentionEngine engine = new TransferContentionEngine();
         engine.setEndpointCapacity("VM:0", 100.0);
         engine.addTransfer(1L, 100L, "SOURCE", "VM:0", 100.0, 0.0);
-        assertThrows(IllegalArgumentException.class, () ->
-                engine.addTransfer(1L, 100L, "SOURCE", "VM:0", 100.0, 0.0));
-        assertThrows(IllegalArgumentException.class, () ->
-                engine.addTransfer(2L, 0L, "SOURCE", "VM:0", 100.0, 0.0));
-        assertThrows(IllegalArgumentException.class, () ->
-                engine.addTransfer(2L, 100L, "SOURCE", "VM:0", -1.0, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(1L, 100L, "SOURCE", "VM:0", 100.0, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(2L, 0L, "SOURCE", "VM:0", 100.0, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(2L, 100L, "SOURCE", "VM:0", -1.0, 0.0));
         assertThrows(IllegalArgumentException.class, () -> engine.advance(-1.0));
-        assertThrows(IllegalArgumentException.class, () ->
-                engine.setEndpointCapacity("VM:1", 0.0));
-        assertThrows(IllegalArgumentException.class, () ->
-                engine.currentRateBytesPerSecond(999L));
+        assertThrows(IllegalArgumentException.class, () -> engine.setEndpointCapacity("VM:1", 0.0));
+        assertThrows(IllegalArgumentException.class, () -> engine.currentRateBytesPerSecond(999L));
     }
 }

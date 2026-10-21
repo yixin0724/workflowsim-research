@@ -34,8 +34,11 @@ public class ClusteringParameters {
 
     /** 支持的聚类方法。 */
     public enum ClusteringMethod {
-
-        HORIZONTAL, VERTICAL, NONE, BLOCK, BALANCED
+        HORIZONTAL,
+        VERTICAL,
+        NONE,
+        BLOCK,
+        BALANCED
     }
     /** 平衡聚类变体代码。 */
     private final String code;

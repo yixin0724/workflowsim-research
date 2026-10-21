@@ -33,24 +33,31 @@ import org.cloudbus.cloudsim.Log;
  */
 public class Parameters {
 
-    
     /** 在线（局部）调度算法。 */
-
     public enum SchedulingAlgorithm {
 
         // 适配 WorkflowSim 事件生命周期的在线就绪批次变体。
-        READY_BATCH_MINMIN, READY_BATCH_MAXMIN, READY_BATCH_MCT, READY_BATCH_ROUNDROBIN,
+        READY_BATCH_MINMIN,
+        READY_BATCH_MAXMIN,
+        READY_BATCH_MCT,
+        READY_BATCH_ROUNDROBIN,
         // 原始实现已改名，以下枚举值仅保留二进制/配置兼容性。
         /** @deprecated 实际行为是 SPT-fastest-idle,非经典 Min-Min。用 READY_BATCH_MINMIN 替代 */
-        @Deprecated MINMIN,
+        @Deprecated
+        MINMIN,
         /** @deprecated 实际行为是 LJF-fastest-idle,非经典 Max-Min。用 READY_BATCH_MAXMIN 替代 */
-        @Deprecated MAXMIN,
+        @Deprecated
+        MAXMIN,
         /** @deprecated 实际行为是贪心最快 VM,非经典 MCT。用 READY_BATCH_MCT 替代 */
-        @Deprecated MCT,
+        @Deprecated
+        MCT,
         /** @deprecated vmIndex 死代码,实际 First-Fit-Idle。用 READY_BATCH_ROUNDROBIN 替代 */
-        @Deprecated ROUNDROBIN,
+        @Deprecated
+        ROUNDROBIN,
         // 以下枚举值保留其现有调度语义。
-        DATA, STATIC, FCFS,
+        DATA,
+        STATIC,
+        FCFS,
         /**
          * R4 RL 轨道：策略驱动的在线调度。每次 ready-batch 更新向经
          * {@code RlPolicyRegistry} 注册的 {@code RlPolicy} 请求 Job→VM 动作；
@@ -60,21 +67,30 @@ public class Parameters {
         RL_POLICY,
         INVALID
     }
-    
+
     /** 离线（全局）规划算法。 */
-    public enum PlanningAlgorithm{
-        INVALID, RANDOM,
+    public enum PlanningAlgorithm {
+        INVALID,
+        RANDOM,
         /**
          * 面向独立任务集合的离线基线算法。它们拒绝含依赖边的工作流；DAG 工作流应使用
          * 专用 DAG 规划器。
          */
-        STATIC_OLB, STATIC_MET, STATIC_MCT, STATIC_MINMIN, STATIC_MAXMIN,
-        STATIC_SUFFERAGE, STATIC_ROUND_ROBIN,
+        STATIC_OLB,
+        STATIC_MET,
+        STATIC_MCT,
+        STATIC_MINMIN,
+        STATIC_MAXMIN,
+        STATIC_SUFFERAGE,
+        STATIC_ROUND_ROBIN,
         /**
          * 静态 DAG 映射算法，其估计器刻意与当前“共享存储、无聚类”的 WorkflowSim 执行
          * 模型对齐。
          */
-        SHARED_STORAGE_HEFT, SHARED_STORAGE_CPOP, SHARED_STORAGE_DLS, SHARED_STORAGE_ETF,
+        SHARED_STORAGE_HEFT,
+        SHARED_STORAGE_CPOP,
+        SHARED_STORAGE_DLS,
+        SHARED_STORAGE_ETF,
         SHARED_STORAGE_PEFT,
         /**
          * PSO（粒子群优化）映射规划器——论文复现实现（Pandey et al., AINA 2010；
@@ -109,56 +125,65 @@ public class Parameters {
          */
         LOCAL_PEFT
     }
-    
+
     /** 工作流文件类型。 */
-    public enum FileType{
-        NONE(0), INPUT(1), OUTPUT(2);
+    public enum FileType {
+        NONE(0),
+        INPUT(1),
+        OUTPUT(2);
         public final int value;
-        private FileType(int fType){
+
+        private FileType(int fType) {
             this.value = fType;
         }
     }
-    
+
     /** 任务执行阶段类型。 */
-    public enum ClassType{
-        STAGE_IN(1), COMPUTE(2), STAGE_OUT(3), CLEAN_UP(4);
+    public enum ClassType {
+        STAGE_IN(1),
+        COMPUTE(2),
+        STAGE_OUT(3),
+        CLEAN_UP(4);
         public final int value;
-        private ClassType(int cType){
+
+        private ClassType(int cType) {
             this.value = cType;
         }
     }
-    
+
     /**
      * 成本模型。
      *
      * <p>{@code DATACENTER} 使用数据中心级成本，{@code VM} 使用虚拟机级成本。</p>
      */
-    public enum CostModel{
-        DATACENTER(1), VM(2);
+    public enum CostModel {
+        DATACENTER(1),
+        VM(2);
         public final int value;
-        private CostModel(int model){
+
+        private CostModel(int model) {
             this.value = model;
         }
     }
-    
+
     /** 源主机（提交主机）的逻辑名称。 */
     public static String SOURCE = "source";
-    
+
     public static final int BASE = 0;
-    
+
     /** 当前调度模式。 */
     private static SchedulingAlgorithm schedulingAlgorithm;
-    
+
     /** 当前规划模式。 */
     private static PlanningAlgorithm planningAlgorithm;
-    
+
     /** 当前作业规约模式。 */
     private static String reduceMethod;
     /** 可用虚拟机数量。 */
     private static int vmNum;
     /** 单个 DAX 或 JSON 工作流输入的物理路径。 */
     private static String daxPath;
-    
+
     /** 多个 DAX 或 JSON 工作流输入的物理路径。 */
     private static List<String> daxPaths;
     /**
@@ -185,17 +210,16 @@ public class Parameters {
     private static ClusteringParameters cParams;
     /** 工作流截止时间；0 表示未请求截止时间。 */
     private static long deadline;
-    
+
     /** 虚拟机之间的逻辑带宽矩阵。 */
     private static double[][] bandwidths;
-    
-    
+
     /** 最大 DAG 深度，由解析/配置路径初始化，供 {@code FailureGenerator} 使用。 */
     private static int maxDepth;
-    
+
     /** 未设置字符串参数时的历史占位值。 */
     private static final String INVALID = "Invalid";
-    
+
     /** 输入运行时间转换为模型任务长度后的缩放系数。 */
     private static double runtime_scale = 1.0;
 
@@ -208,7 +232,7 @@ public class Parameters {
      * <p>默认值使不变配置可重复运行，但研究实验仍应显式设置种子并记录到结果清单中。</p>
      */
     private static long randomSeed = 0L;
-    
+
     /** 默认使用与 CloudSim 一致的数据中心级成本模型。 */
     private static CostModel costModel = CostModel.DATACENTER;
 
@@ -218,7 +242,7 @@ public class Parameters {
      * <p>{@code null} 或全零表示全部输入在 t=0 提交（历史行为）。</p>
      */
     private static List<Double> workflowArrivalSeconds;
-    
+
     /**
      * 初始化单输入工作流的历史全局参数。
      *
@@ -237,9 +261,15 @@ public class Parameters {
      * @param dl 工作流截止时间
      */
     public static void init(
-            int vm, String dax, String runtime, String datasize,
-            OverheadParameters op, ClusteringParameters cp,
-            SchedulingAlgorithm scheduler, PlanningAlgorithm planner, String rMethod,
+            int vm,
+            String dax,
+            String runtime,
+            String datasize,
+            OverheadParameters op,
+            ClusteringParameters cp,
+            SchedulingAlgorithm scheduler,
+            PlanningAlgorithm planner,
+            String rMethod,
             long dl) {
 
         cParams = cp;
@@ -257,7 +287,7 @@ public class Parameters {
         maxDepth = 0;
         SimulationRandom.reset(randomSeed);
     }
-    
+
     /**
      * 初始化多输入工作流的历史全局参数。
      *
@@ -273,9 +303,15 @@ public class Parameters {
      * @param dl 工作流截止时间
      */
     public static void init(
-            int vm, List<String> dax, String runtime, String datasize,
-            OverheadParameters op, ClusteringParameters cp,
-            SchedulingAlgorithm scheduler, PlanningAlgorithm planner, String rMethod,
+            int vm,
+            List<String> dax,
+            String runtime,
+            String datasize,
+            OverheadParameters op,
+            ClusteringParameters cp,
+            SchedulingAlgorithm scheduler,
+            PlanningAlgorithm planner,
+            String rMethod,
             long dl) {
 
         cParams = cp;
@@ -299,18 +335,14 @@ public class Parameters {
         return oParams;
     }
 
-    
-
     /** @return 当前作业规约模式；未设置时返回历史占位值 {@code Invalid} */
     public static String getReduceMethod() {
-        if(reduceMethod!=null){
+        if (reduceMethod != null) {
             return reduceMethod;
-        }else{
+        } else {
             return INVALID;
         }
     }
-
-   
 
     /** @return 单个 DAX 或 JSON 工作流路径；多输入配置时为 {@code null} */
     public static String getDaxPath() {
@@ -327,18 +359,16 @@ public class Parameters {
         return datasizePath;
     }
 
-    
     /** @return 当前可用虚拟机数量 */
     public static int getVmNum() {
         return vmNum;
     }
 
-    
     /** @return 当前成本模型 */
-    public static CostModel getCostModel(){
+    public static CostModel getCostModel() {
         return costModel;
     }
-    
+
     /**
      * 设置当前可用虚拟机数量。
      *
@@ -357,13 +387,13 @@ public class Parameters {
     public static SchedulingAlgorithm getSchedulingAlgorithm() {
         return schedulingAlgorithm;
     }
-    
+
     /** @return 当前规划算法 */
     public static PlanningAlgorithm getPlanningAlgorithm() {
         return planningAlgorithm;
     }
     /** @return 工具包版本号 */
-    public static String getVersion(){
+    public static String getVersion() {
         return version;
     }
 
@@ -372,50 +402,50 @@ public class Parameters {
         Log.printLine("Change Note: " + note);
     }
     /** @return 当前工作流截止时间；0 表示未请求 */
-    public static long getDeadline(){
-    	return deadline;
+    public static long getDeadline() {
+        return deadline;
     }
-    
+
     /** @return 当前记录的最大 DAG 深度 */
-    public static int getMaxDepth(){
+    public static int getMaxDepth() {
         return maxDepth;
     }
-    
+
     /**
      * 设置当前记录的最大 DAG 深度。
      *
      * @param depth 最大深度
      */
-    public static void setMaxDepth(int depth){
+    public static void setMaxDepth(int depth) {
         maxDepth = depth;
     }
-    
+
     /**
      * 设置运行时间缩放系数。
      *
      * @param scale 有限正数缩放系数
      */
-    public static void setRuntimeScale(double scale){
+    public static void setRuntimeScale(double scale) {
         if (scale <= 0.0 || Double.isInfinite(scale) || Double.isNaN(scale)) {
             throw new IllegalArgumentException("Runtime scale must be finite and positive");
         }
         runtime_scale = scale;
     }
-    
+
     /**
      * 设置成本模型。
      *
      * @param model 数据中心级或虚拟机级成本模型
      */
-    public static void setCostModel(CostModel model){
+    public static void setCostModel(CostModel model) {
         if (model == null) {
             throw new IllegalArgumentException("Cost model cannot be null");
         }
         costModel = model;
     }
-    
+
     /** @return 当前运行时间缩放系数 */
-    public static double getRuntimeScale(){
+    public static double getRuntimeScale() {
         return runtime_scale;
     }
 
@@ -481,7 +511,7 @@ public class Parameters {
         workflowArrivalSeconds = null;
         SimulationRandom.reset(randomSeed);
     }
-    
+
     /** @return 不可修改的多输入路径列表；单输入配置时为 {@code null} */
     public static List<String> getDAXPaths() {
         return daxPaths == null ? null : Collections.unmodifiableList(daxPaths);
@@ -493,13 +523,11 @@ public class Parameters {
      * @param arrivalSeconds 每个输入的提交时刻；{@code null} 表示全部 t=0
      */
     public static void setWorkflowArrivalSeconds(List<Double> arrivalSeconds) {
-        workflowArrivalSeconds = arrivalSeconds == null
-                ? null : new ArrayList<>(arrivalSeconds);
+        workflowArrivalSeconds = arrivalSeconds == null ? null : new ArrayList<>(arrivalSeconds);
     }
 
     /** @return 每个输入的提交时刻列表（模拟秒）；未配置时为 {@code null} */
     public static List<Double> getWorkflowArrivalSeconds() {
-        return workflowArrivalSeconds == null
-                ? null : Collections.unmodifiableList(workflowArrivalSeconds);
+        return workflowArrivalSeconds == null ? null : Collections.unmodifiableList(workflowArrivalSeconds);
     }
 }

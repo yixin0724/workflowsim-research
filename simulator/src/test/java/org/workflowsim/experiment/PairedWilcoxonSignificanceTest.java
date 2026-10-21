@@ -24,8 +24,8 @@ class PairedWilcoxonSignificanceTest {
 
     @Test
     void identicalPairedSeriesAreUnavailableAllZero() {
-        List<Double> same = Arrays.asList(Double.valueOf(3.0), Double.valueOf(5.5),
-                Double.valueOf(7.25), Double.valueOf(9.0));
+        List<Double> same =
+                Arrays.asList(Double.valueOf(3.0), Double.valueOf(5.5), Double.valueOf(7.25), Double.valueOf(9.0));
         PairedWilcoxonSignificance result = PairedWilcoxonSignificance.evaluate(same, same);
 
         assertEquals("UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO", result.getStatus());
@@ -45,8 +45,7 @@ class PairedWilcoxonSignificanceTest {
         assertEquals(1, single.getPairedSampleCount());
 
         PairedWilcoxonSignificance empty = PairedWilcoxonSignificance.evaluate(
-                java.util.Collections.<Double>emptyList(),
-                java.util.Collections.<Double>emptyList());
+                java.util.Collections.<Double>emptyList(), java.util.Collections.<Double>emptyList());
         assertEquals("UNAVAILABLE_FEWER_THAN_TWO_PAIRED_SAMPLES", empty.getStatus());
     }
 
@@ -79,8 +78,7 @@ class PairedWilcoxonSignificanceTest {
         assertTrue(result.getPValue().doubleValue() < 0.05);
         assertTrue(result.isSignificantAtDefaultAlpha());
         assertEquals(20, result.getEffectiveSampleCount());
-        assertTrue(result.getMedianDifference().doubleValue() < 0.0,
-                "差值中位数应为负（候选更快）");
+        assertTrue(result.getMedianDifference().doubleValue() < 0.0, "差值中位数应为负（候选更快）");
     }
 
     @Test
@@ -127,8 +125,7 @@ class PairedWilcoxonSignificanceTest {
             nonzeroY[index] = candidate.get(6 + index).doubleValue();
         }
         double subset = new WilcoxonSignedRankTest().wilcoxonSignedRankTest(nonzeroX, nonzeroY, true);
-        assertEquals(subset, result.getPValue().doubleValue(), 0.0,
-                "p 值必须等于剔零子样本的直接检验结果");
+        assertEquals(subset, result.getPValue().doubleValue(), 0.0, "p 值必须等于剔零子样本的直接检验结果");
     }
 
     @Test
@@ -223,17 +220,20 @@ class PairedWilcoxonSignificanceTest {
 
     @Test
     void invalidInputsAreRejected() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> PairedWilcoxonSignificance.evaluate(null, Arrays.asList(Double.valueOf(1.0))));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> PairedWilcoxonSignificance.evaluate(
-                        Arrays.asList(Double.valueOf(1.0), Double.valueOf(2.0)),
-                        Arrays.asList(Double.valueOf(1.0))));
-        assertThrows(IllegalArgumentException.class,
+                        Arrays.asList(Double.valueOf(1.0), Double.valueOf(2.0)), Arrays.asList(Double.valueOf(1.0))));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> PairedWilcoxonSignificance.evaluate(
                         Arrays.asList(Double.NaN, Double.valueOf(2.0)),
                         Arrays.asList(Double.valueOf(1.0), Double.valueOf(2.0))));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> PairedWilcoxonSignificance.evaluate(
                         Arrays.asList(Double.valueOf(1.0), Double.valueOf(2.0)),
                         Arrays.asList(Double.valueOf(1.0), Double.POSITIVE_INFINITY)));

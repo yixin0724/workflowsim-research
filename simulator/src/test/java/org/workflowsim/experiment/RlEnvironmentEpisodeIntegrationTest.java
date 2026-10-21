@@ -45,10 +45,8 @@ class RlEnvironmentEpisodeIntegrationTest {
     void rlEpisodeIsDeterministicAndRewardIsNegativeMakespan() throws Exception {
         RlEpisodeResult first = runEpisode(new EarliestFinishGreedyPolicy());
         RlEpisodeResult second = runEpisode(new EarliestFinishGreedyPolicy());
-        assertEquals(first.getMakespan(), second.getMakespan(), 0.0,
-                "确定性策略的 episode 必须逐位可复现");
-        assertEquals(GREEDY_EPISODE_GOLDEN_MAKESPAN, first.getMakespan(), 0.0,
-                "贪心 episode 黄金 makespan");
+        assertEquals(first.getMakespan(), second.getMakespan(), 0.0, "确定性策略的 episode 必须逐位可复现");
+        assertEquals(GREEDY_EPISODE_GOLDEN_MAKESPAN, first.getMakespan(), 0.0, "贪心 episode 黄金 makespan");
         assertEquals(-first.getMakespan(), first.getReward(), 0.0, "奖励契约 reward = −makespan");
         assertTrue(first.getStepCount() >= 1, "至少一次策略查询");
         assertNotNull(first.getReport(), "episode 必须携带完整证据报告");
@@ -59,15 +57,12 @@ class RlEnvironmentEpisodeIntegrationTest {
         RlEpisodeResult episode = runEpisode(new EarliestFinishGreedyPolicy());
         SimulationReport report = episode.getReport();
         // 每个 Job 恰好被分派一次，且决策轨迹与报告中的最终 VM 分配逐一致。
-        assertEquals(report.getTotalJobs(), episode.getDecisions().size(),
-                "决策轨迹必须覆盖每个 Job 恰好一次");
+        assertEquals(report.getTotalJobs(), episode.getDecisions().size(), "决策轨迹必须覆盖每个 Job 恰好一次");
         Set<Integer> seen = new HashSet<Integer>();
         for (RlDecision decision : episode.getDecisions()) {
-            assertTrue(seen.add(decision.getJobId()),
-                    "Job " + decision.getJobId() + " 被重复分派");
+            assertTrue(seen.add(decision.getJobId()), "Job " + decision.getJobId() + " 被重复分派");
             SimulationReport.JobOutcome outcome = jobById(report, decision.getJobId());
-            assertEquals(decision.getVmId(), outcome.getVmId(),
-                    "Job " + decision.getJobId() + " 的决策 VM 必须等于最终分配");
+            assertEquals(decision.getVmId(), outcome.getVmId(), "Job " + decision.getJobId() + " 的决策 VM 必须等于最终分配");
             assertTrue(decision.getTime() >= 0.0, "决策时刻非负");
         }
     }
@@ -79,9 +74,9 @@ class RlEnvironmentEpisodeIntegrationTest {
         // 包装成"调度算法失败"的 IllegalStateException，而是以
         // SimulationConfigurationException 直达调用方。
         SimulationConfigurationException failure = assertThrows(
-                SimulationConfigurationException.class,
-                () -> new SimulationRunner().run(rlConfig(), paperPlatform()));
-        assertTrue(chainMentions(failure, SimulationConfigurationException.class, "RlEnvironment"),
+                SimulationConfigurationException.class, () -> new SimulationRunner().run(rlConfig(), paperPlatform()));
+        assertTrue(
+                chainMentions(failure, SimulationConfigurationException.class, "RlEnvironment"),
                 "失败链必须指向 RlEnvironment.runEpisode，实际: " + failure);
     }
 
@@ -90,49 +85,47 @@ class RlEnvironmentEpisodeIntegrationTest {
         SimulationConfig fcfs = SimulationConfig.builder(workflowPath(), 3)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
                 .build();
-        SimulationConfigurationException rejected = assertThrows(
-                SimulationConfigurationException.class,
-                () -> new RlEnvironment().runEpisode(fcfs, paperPlatform(),
-                        new EarliestFinishGreedyPolicy()));
+        SimulationConfigurationException rejected =
+                assertThrows(SimulationConfigurationException.class, () -> new RlEnvironment()
+                        .runEpisode(fcfs, paperPlatform(), new EarliestFinishGreedyPolicy()));
         assertTrue(rejected.getMessage().contains("RL_POLICY"), rejected.getMessage());
     }
 
     @Test
     void policyContractViolationsAbortTheEpisode() {
         // 动作数组长度错误：契约违反必须中止（调度器包为统一 ISE，真实原因在 cause 链）。
-        IllegalStateException wrongLength = assertThrows(IllegalStateException.class,
-                () -> new RlEnvironment().runEpisode(rlConfig(), paperPlatform(),
-                        observation -> new int[0]));
-        assertTrue(chainMentions(wrongLength, IllegalStateException.class, "action(s)"),
-                wrongLength.toString());
+        IllegalStateException wrongLength = assertThrows(IllegalStateException.class, () -> new RlEnvironment()
+                .runEpisode(rlConfig(), paperPlatform(), observation -> new int[0]));
+        assertTrue(chainMentions(wrongLength, IllegalStateException.class, "action(s)"), wrongLength.toString());
         // 动作越界：显式失败。
         RlPolicy outOfRange = observation -> {
             int[] actions = new int[observation.getReadyJobs().size()];
             java.util.Arrays.fill(actions, observation.getVms().size());
             return actions;
         };
-        IllegalStateException range = assertThrows(IllegalStateException.class,
-                () -> new RlEnvironment().runEpisode(rlConfig(), paperPlatform(), outOfRange));
-        assertTrue(chainMentions(range, IllegalStateException.class, "out-of-range"),
-                range.toString());
+        IllegalStateException range = assertThrows(IllegalStateException.class, () -> new RlEnvironment()
+                .runEpisode(rlConfig(), paperPlatform(), outOfRange));
+        assertTrue(chainMentions(range, IllegalStateException.class, "out-of-range"), range.toString());
         // 永不分配：停滞由平台看门狗显式拦截，而非静默残缺报告。
-        SimulationExecutionException stalled = assertThrows(SimulationExecutionException.class,
-                () -> new RlEnvironment().runEpisode(rlConfig(), paperPlatform(),
-                        observation -> {
+        SimulationExecutionException stalled =
+                assertThrows(SimulationExecutionException.class, () -> new RlEnvironment()
+                        .runEpisode(rlConfig(), paperPlatform(), observation -> {
                             int[] actions = new int[observation.getReadyJobs().size()];
                             java.util.Arrays.fill(actions, RlPolicy.NO_ASSIGNMENT);
                             return actions;
                         }));
-        assertTrue(stalled.getMessage().contains("terminated")
-                || stalled.getMessage().contains("stalled"), stalled.getMessage());
+        assertTrue(
+                stalled.getMessage().contains("terminated")
+                        || stalled.getMessage().contains("stalled"),
+                stalled.getMessage());
     }
 
     /** cause 链中是否存在指定类型且消息包含关键词的异常。 */
-    private static boolean chainMentions(Throwable top, Class<? extends Throwable> type,
-            String keyword) {
+    private static boolean chainMentions(Throwable top, Class<? extends Throwable> type, String keyword) {
         Throwable current = top;
         while (current != null) {
-            if (type.isInstance(current) && current.getMessage() != null
+            if (type.isInstance(current)
+                    && current.getMessage() != null
                     && current.getMessage().contains(keyword)) {
                 return true;
             }
@@ -157,8 +150,8 @@ class RlEnvironmentEpisodeIntegrationTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("rl-episode-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }
@@ -173,8 +166,7 @@ class RlEnvironmentEpisodeIntegrationTest {
     }
 
     private static String workflowPath() throws Exception {
-        java.net.URL url = RlEnvironmentEpisodeIntegrationTest.class
-                .getResource("/dax/heft-paper-example.dax");
+        java.net.URL url = RlEnvironmentEpisodeIntegrationTest.class.getResource("/dax/heft-paper-example.dax");
         if (url == null) {
             throw new IllegalStateException("Missing test resource /dax/heft-paper-example.dax");
         }

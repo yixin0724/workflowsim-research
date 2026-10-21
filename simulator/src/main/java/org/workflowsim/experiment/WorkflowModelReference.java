@@ -43,17 +43,13 @@ final class WorkflowModelReference {
 
     static final String CONTROLLED_SHARED_STORAGE_SCOPE =
             "SHARED_STORAGE_NO_CLUSTERING_NO_FAILURE_NO_OVERHEAD_SPACE_SHARED";
-    static final String UNAVAILABLE_SCOPE =
-            "UNAVAILABLE_OUTSIDE_CONTROLLED_SHARED_STORAGE_SCOPE";
-    private static final String UNREPRESENTABLE_EXECUTION_COST_SCOPE =
-            "UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST";
+    static final String UNAVAILABLE_SCOPE = "UNAVAILABLE_OUTSIDE_CONTROLLED_SHARED_STORAGE_SCOPE";
+    private static final String UNREPRESENTABLE_EXECUTION_COST_SCOPE = "UNAVAILABLE_UNREPRESENTABLE_EXECUTION_COST";
     private static final long STAGE_IN_JOB_LENGTH_MI = 110L;
 
-    private WorkflowModelReference() {
-    }
+    private WorkflowModelReference() {}
 
-    static Reference calculate(List<Task> sourceTasks, SimulationConfig config,
-            PlatformProfile platform) {
+    static Reference calculate(List<Task> sourceTasks, SimulationConfig config, PlatformProfile platform) {
         if (!supportsControlledSharedStorage(config, platform)) {
             return Reference.unavailable(UNAVAILABLE_SCOPE);
         }
@@ -105,9 +101,8 @@ final class WorkflowModelReference {
         }
         // 根计算 Job 在 stage-in 事件完成后的一个 CloudSim 内核间隔才释放，
         // 与 WorkflowEngine/WorkflowScheduler 的实际行为保持一致。
-        double stageInSeconds = SimulationTiming.earliestCloudletCompletionTime(0.0,
-                STAGE_IN_JOB_LENGTH_MI / fastestMips,
-                config.getCloudSimMinEventIntervalSeconds())
+        double stageInSeconds = SimulationTiming.earliestCloudletCompletionTime(
+                        0.0, STAGE_IN_JOB_LENGTH_MI / fastestMips, config.getCloudSimMinEventIntervalSeconds())
                 + config.getCloudSimMinEventIntervalSeconds();
         Map<Task, Double> finishTimes = new HashMap<Task, Double>();
         Deque<Task> ready = new ArrayDeque<Task>();
@@ -126,8 +121,8 @@ final class WorkflowModelReference {
             }
             double duration;
             try {
-                duration = fastestCompatibleDuration(task, vms,
-                        platform.getStorage().getMaxTransferRateMbPerSecond());
+                duration = fastestCompatibleDuration(
+                        task, vms, platform.getStorage().getMaxTransferRateMbPerSecond());
             } catch (IllegalArgumentException | ArithmeticException unrepresentableCost) {
                 // This catches only the optional per-task candidate-cost calculation, never
                 // actual dispatch/execution or planner validation. A bad alternative invalidates
@@ -166,8 +161,8 @@ final class WorkflowModelReference {
         return Reference.available(CONTROLLED_SHARED_STORAGE_SCOPE, lowerBound, tasks.size());
     }
 
-    private static double fastestCompatibleDuration(Task task, List<PlatformProfile.VmSpec> vms,
-            int transferRateMbPerSecond) {
+    private static double fastestCompatibleDuration(
+            Task task, List<PlatformProfile.VmSpec> vms, int transferRateMbPerSecond) {
         double best = Double.POSITIVE_INFINITY;
         // Shared-storage input demand is independent of the candidate VM; scan the files once.
         double transferSeconds = transferSeconds(task, transferRateMbPerSecond);
@@ -182,7 +177,8 @@ final class WorkflowModelReference {
             double transferWorkMi = vm.getMips() * transferSeconds;
             // 2^63 is the first positive double outside long's range; casting it would saturate.
             if (!Double.isFinite(transferWorkMi) || transferWorkMi < 0.0 || transferWorkMi >= 0x1.0p63) {
-                throw new IllegalArgumentException("Reference transfer MI cannot be represented as a non-negative long");
+                throw new IllegalArgumentException(
+                        "Reference transfer MI cannot be represented as a non-negative long");
             }
             long transferMi = (long) transferWorkMi;
             long envelopeMi = Math.addExact(computeMi, transferMi);
@@ -207,8 +203,7 @@ final class WorkflowModelReference {
         return result;
     }
 
-    private static boolean supportsControlledSharedStorage(SimulationConfig config,
-            PlatformProfile platform) {
+    private static boolean supportsControlledSharedStorage(SimulationConfig config, PlatformProfile platform) {
         if (config.getFileSystem() != ReplicaCatalog.FileSystem.SHARED
                 || config.getClusteringParameters().getClusteringMethod() != ClusteringMethod.NONE
                 || config.getFailureModel().isEnabled()
@@ -223,8 +218,7 @@ final class WorkflowModelReference {
             return false;
         }
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
-            if (vm.getSchedulerMode() != PlatformProfile.CloudletSchedulerMode.SPACE_SHARED
-                    || vm.getMips() <= 0.0) {
+            if (vm.getSchedulerMode() != PlatformProfile.CloudletSchedulerMode.SPACE_SHARED || vm.getMips() <= 0.0) {
                 return false;
             }
         }
@@ -246,8 +240,7 @@ final class WorkflowModelReference {
         private final double criticalPathLowerBoundSeconds;
         private final int sourceTaskCount;
 
-        private Reference(boolean available, String scope, double criticalPathLowerBoundSeconds,
-                int sourceTaskCount) {
+        private Reference(boolean available, String scope, double criticalPathLowerBoundSeconds, int sourceTaskCount) {
             this.available = available;
             this.scope = scope;
             this.criticalPathLowerBoundSeconds = criticalPathLowerBoundSeconds;
@@ -262,9 +255,20 @@ final class WorkflowModelReference {
             return new Reference(false, scope, 0.0, 0);
         }
 
-        boolean isAvailable() { return available; }
-        String getScope() { return scope; }
-        double getCriticalPathLowerBoundSeconds() { return criticalPathLowerBoundSeconds; }
-        int getSourceTaskCount() { return sourceTaskCount; }
+        boolean isAvailable() {
+            return available;
+        }
+
+        String getScope() {
+            return scope;
+        }
+
+        double getCriticalPathLowerBoundSeconds() {
+            return criticalPathLowerBoundSeconds;
+        }
+
+        int getSourceTaskCount() {
+            return sourceTaskCount;
+        }
     }
 }

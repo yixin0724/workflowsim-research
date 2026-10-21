@@ -33,8 +33,8 @@ class SharedStorageHeftPlanningAlgorithmTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = oneVmPlatform(20);
-        SharedStorageHeftPlanningAlgorithm planner = new SharedStorageHeftPlanningAlgorithm(
-                new PlanningContext(config, platform));
+        SharedStorageHeftPlanningAlgorithm planner =
+                new SharedStorageHeftPlanningAlgorithm(new PlanningContext(config, platform));
         planner.setTaskList(Arrays.asList(root, middle, tail));
         planner.setVmList(Arrays.asList(vm(0, 1000.0)));
 
@@ -60,8 +60,8 @@ class SharedStorageHeftPlanningAlgorithmTest {
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_HEFT)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
-        SharedStorageHeftPlanningAlgorithm planner = new SharedStorageHeftPlanningAlgorithm(
-                new PlanningContext(config, twoVmPlatform()));
+        SharedStorageHeftPlanningAlgorithm planner =
+                new SharedStorageHeftPlanningAlgorithm(new PlanningContext(config, twoVmPlatform()));
         planner.setTaskList(Arrays.asList(root, constrainedChild, independent));
         planner.setVmList(Arrays.asList(vm(1, 1000.0, 2), vm(0, 1000.0, 1)));
 
@@ -105,33 +105,26 @@ class SharedStorageHeftPlanningAlgorithmTest {
     }
 
     private static CondorVM vm(int id, double mips, int pes) {
-        return new CondorVM(id, 0, mips, pes, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, pes, 512, 1000, 10_000, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static PlatformProfile oneVmPlatform(int transferRate) {
         return PlatformProfile.builder("shared-storage-heft-unit")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, transferRate))
                 .build();
     }
 
     private static PlatformProfile twoVmPlatform() {
         return PlatformProfile.builder("shared-storage-heft-insertion-unit")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 2, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 2, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 2, 1000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 2, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .pinVmToHost(0, 0)
                 .pinVmToHost(1, 1)
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))

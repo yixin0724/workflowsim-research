@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *   Copyright 2013-2014 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.utils;
 
@@ -49,13 +49,11 @@ public class PeriodicalSignal {
      * @param portion 起始状态在一个周期中所占比例
      * @param direction {@code true} 时起始状态为上界
      */
-    public PeriodicalSignal(double period, double upperbound, double lowerbound, double portion,
-            boolean direction) {
+    public PeriodicalSignal(double period, double upperbound, double lowerbound, double portion, boolean direction) {
         validatePositiveFinite("Period", period);
         validatePositiveFinite("Upper bound", upperbound);
         validatePositiveFinite("Lower bound", lowerbound);
-        if (Double.isNaN(portion) || Double.isInfinite(portion)
-                || portion < 0.0 || portion > 1.0) {
+        if (Double.isNaN(portion) || Double.isInfinite(portion) || portion < 0.0 || portion > 1.0) {
             throw new IllegalArgumentException("Period portion must be finite and between zero and one");
         }
         this.lowerbound = lowerbound;
@@ -133,9 +131,9 @@ public class PeriodicalSignal {
     public double getPortion() {
         return portion;
     }
-    
+
     /** @return {@code true} 表示周期起始于上界 */
-    public boolean getDirection(){
+    public boolean getDirection() {
         return direction;
     }
 

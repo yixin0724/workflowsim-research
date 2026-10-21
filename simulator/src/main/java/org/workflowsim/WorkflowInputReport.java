@@ -85,8 +85,8 @@ public final class WorkflowInputReport {
      * @param originalValue 原始数值
      * @param normalizedValue 进入模型的数值
      */
-    public void recordNormalization(NormalizationKind kind, String subject,
-            double originalValue, double normalizedValue) {
+    public void recordNormalization(
+            NormalizationKind kind, String subject, double originalValue, double normalizedValue) {
         normalizations.add(new Normalization(kind, subject, originalValue, normalizedValue));
     }
 
@@ -103,8 +103,7 @@ public final class WorkflowInputReport {
         private final double originalValue;
         private final double normalizedValue;
 
-        private Normalization(NormalizationKind kind, String subject,
-                double originalValue, double normalizedValue) {
+        private Normalization(NormalizationKind kind, String subject, double originalValue, double normalizedValue) {
             this.kind = kind;
             this.subject = subject;
             this.originalValue = originalValue;

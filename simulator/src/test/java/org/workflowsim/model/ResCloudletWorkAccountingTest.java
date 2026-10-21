@@ -19,7 +19,8 @@ class ResCloudletWorkAccountingTest {
 
     @BeforeEach
     void initializeKernel() {
-        session = SimulationSession.open(SimulationConfig.builder("not-parsed.dax", 1).build());
+        session = SimulationSession.open(
+                SimulationConfig.builder("not-parsed.dax", 1).build());
         session.initializeCloudSim(1, Calendar.getInstance(), false);
     }
 

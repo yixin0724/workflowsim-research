@@ -52,16 +52,17 @@ class AddTaskSet2TaskSetAdjacencyTest {
         assertTrue(taskMap.get(tailTask) == head, "任务映射必须改指 head");
 
         // 邻居必须解除对 tail 的引用（M7 变异丢失该解除——本组断言即杀手）。
-        assertFalse(child.getParentList().contains(tail),
-                "child 的父表不得残留 tail（丢失 remove(tail) 的变异在此暴露）");
-        assertFalse(grandparent.getChildList().contains(tail),
-                "grandparent 的子表不得残留 tail");
+        assertFalse(child.getParentList().contains(tail), "child 的父表不得残留 tail（丢失 remove(tail) 的变异在此暴露）");
+        assertFalse(grandparent.getChildList().contains(tail), "grandparent 的子表不得残留 tail");
         assertTrue(child.getParentList().contains(head));
         assertTrue(grandparent.getChildList().contains(head));
 
         // tail 三表清空。
-        assertTrue(tail.getTaskList().isEmpty() && tail.getParentList().isEmpty()
-                && tail.getChildList().isEmpty(), "被并集合的三张表必须清空");
+        assertTrue(
+                tail.getTaskList().isEmpty()
+                        && tail.getParentList().isEmpty()
+                        && tail.getChildList().isEmpty(),
+                "被并集合的三张表必须清空");
     }
 
     @Test

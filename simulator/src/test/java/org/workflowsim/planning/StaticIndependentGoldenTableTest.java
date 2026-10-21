@@ -87,16 +87,15 @@ class StaticIndependentGoldenTableTest {
         return tasks;
     }
 
-    private static void run(StaticIndependentPlanningSupport planner, List<Task> tasks,
-            List<CondorVM> vms) throws Exception {
+    private static void run(StaticIndependentPlanningSupport planner, List<Task> tasks, List<CondorVM> vms)
+            throws Exception {
         planner.setTaskList(tasks);
         planner.setVmList(vms);
         planner.run();
     }
 
     private static CondorVM vm(int id) {
-        return new CondorVM(id, 0, 1000.0, 1, 512, 1L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1000.0, 1, 512, 1L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static List<CondorVM> vms(CondorVM... array) {

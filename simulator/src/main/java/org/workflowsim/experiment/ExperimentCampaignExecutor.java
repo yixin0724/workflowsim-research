@@ -27,8 +27,7 @@ public final class ExperimentCampaignExecutor {
             List<Long> seeds = cell.getSeedPlan().getSeeds();
             for (int replication = 0; replication < seeds.size(); replication++) {
                 long seed = seeds.get(replication).longValue();
-                SimulationReport report = runner.run(cell.getConfig().withRandomSeed(seed),
-                        cell.getPlatform());
+                SimulationReport report = runner.run(cell.getConfig().withRandomSeed(seed), cell.getPlatform());
                 runs.add(new ExperimentCampaignResult.Run(cell, replication, seed, report));
             }
         }

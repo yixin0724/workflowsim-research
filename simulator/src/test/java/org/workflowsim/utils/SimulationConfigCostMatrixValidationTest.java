@@ -21,17 +21,18 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 class SimulationConfigCostMatrixValidationTest {
 
     private static final PlanningAlgorithm[] SHARED_STORAGE_PLANNERS = {
-            PlanningAlgorithm.SHARED_STORAGE_HEFT,
-            PlanningAlgorithm.SHARED_STORAGE_CPOP,
-            PlanningAlgorithm.SHARED_STORAGE_DLS,
-            PlanningAlgorithm.SHARED_STORAGE_ETF,
-            PlanningAlgorithm.SHARED_STORAGE_PEFT,
+        PlanningAlgorithm.SHARED_STORAGE_HEFT,
+        PlanningAlgorithm.SHARED_STORAGE_CPOP,
+        PlanningAlgorithm.SHARED_STORAGE_DLS,
+        PlanningAlgorithm.SHARED_STORAGE_ETF,
+        PlanningAlgorithm.SHARED_STORAGE_PEFT,
     };
 
     @Test
     void rejectsCostMatrixWithEverySharedStoragePlanner() {
         for (PlanningAlgorithm planner : SHARED_STORAGE_PLANNERS) {
-            IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+            IllegalArgumentException failure = assertThrows(
+                    IllegalArgumentException.class,
                     () -> SimulationConfig.builder(Collections.singletonList("workflow.dax"), 2)
                             .planningAlgorithm(planner)
                             .schedulingAlgorithm(SchedulingAlgorithm.STATIC)

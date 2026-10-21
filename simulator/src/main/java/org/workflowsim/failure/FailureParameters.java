@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *   Copyright 2012-2013 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.failure;
 
@@ -46,25 +46,34 @@ public class FailureParameters {
      * 容错聚类算法。
      */
     public enum FTCluteringAlgorithm {
-
-        FTCLUSTERING_DC, FTCLUSTERING_SR, FTCLUSTERING_DR, FTCLUSTERING_NOOP,
-        FTCLUSTERING_BLOCK, FTCLUSTERING_VERTICAL
+        FTCLUSTERING_DC,
+        FTCLUSTERING_SR,
+        FTCLUSTERING_DR,
+        FTCLUSTERING_NOOP,
+        FTCLUSTERING_BLOCK,
+        FTCLUSTERING_VERTICAL
     }
     /*
      * 容错监控模式。
      */
 
     public enum FTCMonitor {
-
-        MONITOR_NONE, MONITOR_ALL, MONITOR_VM, MONITOR_JOB, MONITOR_VM_JOB
+        MONITOR_NONE,
+        MONITOR_ALL,
+        MONITOR_VM,
+        MONITOR_JOB,
+        MONITOR_VM_JOB
     }
     /*
      * 失效生成器模式。
      */
 
     public enum FTCFailure {
-
-        FAILURE_NONE, FAILURE_ALL, FAILURE_VM, FAILURE_JOB, FAILURE_VM_JOB
+        FAILURE_NONE,
+        FAILURE_ALL,
+        FAILURE_VM,
+        FAILURE_JOB,
+        FAILURE_VM_JOB
     }
 
     /**
@@ -79,7 +88,7 @@ public class FailureParameters {
      * 当前失效生成模式。
      */
     private static FTCFailure failureMode = FTCFailure.FAILURE_NONE;
-    
+
     /**
      * 失效到达时间使用的分布族。
      */
@@ -101,8 +110,11 @@ public class FailureParameters {
      * @param failure 失效生成器模式
      * @param failureGenerators 失效生成器矩阵
      */
-    public static void init(FTCluteringAlgorithm fMethod, FTCMonitor monitor, 
-            FTCFailure failure, DistributionGenerator[][] failureGenerators) {
+    public static void init(
+            FTCluteringAlgorithm fMethod,
+            FTCMonitor monitor,
+            FTCFailure failure,
+            DistributionGenerator[][] failureGenerators) {
         initInternal(fMethod, monitor, failure, failureGenerators, null, -1, 0L);
     }
 
@@ -117,9 +129,14 @@ public class FailureParameters {
      * @param retryBudget 最大 retry Job 总数；禁用模型为 0
      * @param seed 当前运行根种子
      */
-    public static void init(FTCluteringAlgorithm fMethod, FTCMonitor monitor,
-            FTCFailure failure, DistributionGenerator[][] failureGenerators,
-            DistributionFamily dist, int retryBudget, long seed) {
+    public static void init(
+            FTCluteringAlgorithm fMethod,
+            FTCMonitor monitor,
+            FTCFailure failure,
+            DistributionGenerator[][] failureGenerators,
+            DistributionFamily dist,
+            int retryBudget,
+            long seed) {
         if (dist == null) {
             throw new IllegalArgumentException("Failure distribution cannot be null");
         }
@@ -138,9 +155,14 @@ public class FailureParameters {
      * @param retryBudget 最大 retry Job 总数
      * @param seed 当前运行根种子
      */
-    public static void init(FTCluteringAlgorithm fMethod, FTCMonitor monitor,
-            FTCFailure failure, Map<Integer, DistributionGenerator[]> failureGeneratorsByVmId,
-            DistributionFamily dist, int retryBudget, long seed) {
+    public static void init(
+            FTCluteringAlgorithm fMethod,
+            FTCMonitor monitor,
+            FTCFailure failure,
+            Map<Integer, DistributionGenerator[]> failureGeneratorsByVmId,
+            DistributionFamily dist,
+            int retryBudget,
+            long seed) {
         if (dist == null) {
             throw new IllegalArgumentException("Failure distribution cannot be null");
         }
@@ -148,10 +170,14 @@ public class FailureParameters {
         initInternal(fMethod, monitor, failure, null, failureGeneratorsByVmId, retryBudget, seed);
     }
 
-    private static void initInternal(FTCluteringAlgorithm fMethod, FTCMonitor monitor,
-            FTCFailure failure, DistributionGenerator[][] failureGenerators,
+    private static void initInternal(
+            FTCluteringAlgorithm fMethod,
+            FTCMonitor monitor,
+            FTCFailure failure,
+            DistributionGenerator[][] failureGenerators,
             Map<Integer, DistributionGenerator[]> failureGeneratorsByVmId,
-            int retryBudget, long seed) {
+            int retryBudget,
+            long seed) {
         if (fMethod == null || monitor == null || failure == null) {
             throw new IllegalArgumentException("Failure configuration values cannot be null");
         }
@@ -162,8 +188,8 @@ public class FailureParameters {
             throw new IllegalArgumentException("Disabled failure mode cannot define a positive retry budget");
         }
         if (failure != FTCFailure.FAILURE_NONE && retryBudget == 0) {
-            throw new IllegalArgumentException("Enabled failure mode requires a positive retry budget or "
-                    + "legacy unbounded mode");
+            throw new IllegalArgumentException(
+                    "Enabled failure mode requires a positive retry budget or " + "legacy unbounded mode");
         }
         validateGenerators(failure, failureGenerators, failureGeneratorsByVmId);
         FTClusteringAlgorithm = fMethod;
@@ -184,8 +210,11 @@ public class FailureParameters {
      * @param failureGenerators 失效生成器矩阵
      * @param dist 失效到达时间的分布族
      */
-    public static void init(FTCluteringAlgorithm fMethod, FTCMonitor monitor, 
-            FTCFailure failure, DistributionGenerator[][] failureGenerators, 
+    public static void init(
+            FTCluteringAlgorithm fMethod,
+            FTCMonitor monitor,
+            FTCFailure failure,
+            DistributionGenerator[][] failureGenerators,
             DistributionFamily dist) {
         if (dist == null) {
             throw new IllegalArgumentException("Failure distribution cannot be null");
@@ -219,31 +248,30 @@ public class FailureParameters {
         }
         return generators;
     }
-    
+
     /**
      * 获取生成器矩阵第一维的长度。
      * @return 第一维长度
      */
-    public static int getFailureGeneratorsMaxFirstIndex(){
+    public static int getFailureGeneratorsMaxFirstIndex() {
         requireGenerators();
         if (generatorsByVmId != null) {
             throw new IllegalStateException("VM-ID-keyed generator rows do not have a dense first dimension");
         }
         return generators.length;
     }
-    
+
     /**
      * 获取生成器矩阵第二维的长度。
      * @return 第二维长度
      */
-    public static int getFailureGeneratorsMaxSecondIndex(){
+    public static int getFailureGeneratorsMaxSecondIndex() {
         requireGenerators();
         if (generatorsByVmId != null) {
             throw new IllegalStateException("VM-ID-keyed generator rows do not have a shared dense second dimension");
         }
         return generators[0].length;
     }
-    
 
     /**
      * 按 VM 标识和任务深度获取对应的失效生成器。
@@ -260,8 +288,7 @@ public class FailureParameters {
             }
             return row[taskDepth];
         }
-        if (vmIndex < 0 || vmIndex >= generators.length || taskDepth < 0
-                || taskDepth >= generators[vmIndex].length) {
+        if (vmIndex < 0 || vmIndex >= generators.length || taskDepth < 0 || taskDepth >= generators[vmIndex].length) {
             throw missingGenerator(vmIndex, taskDepth);
         }
         return generators[vmIndex][taskDepth];
@@ -289,8 +316,8 @@ public class FailureParameters {
                 return getGenerator(vmId, taskDepth);
             case FAILURE_NONE:
             default:
-                throw new IllegalStateException("Failure generator is unavailable because failure mode is "
-                        + failureMode);
+                throw new IllegalStateException(
+                        "Failure generator is unavailable because failure mode is " + failureMode);
         }
     }
 
@@ -303,8 +330,7 @@ public class FailureParameters {
      * @param tasks 已通过 DAG 校验并已写入深度的任务
      * @param vmIds 平台声明的真实 VM ID
      */
-    public static void validateRuntimeCoverage(Collection<Task> tasks,
-            Collection<Integer> vmIds) {
+    public static void validateRuntimeCoverage(Collection<Task> tasks, Collection<Integer> vmIds) {
         if (failureMode == FTCFailure.FAILURE_NONE) {
             return;
         }
@@ -314,7 +340,8 @@ public class FailureParameters {
         TreeSet<Integer> observedDepths = new TreeSet<Integer>();
         for (Task task : tasks) {
             if (task == null || task.getDepth() <= 0) {
-                throw new IllegalStateException("Failure coverage validation requires parsed tasks with positive DAG depths");
+                throw new IllegalStateException(
+                        "Failure coverage validation requires parsed tasks with positive DAG depths");
             }
             observedDepths.add(Integer.valueOf(task.getDepth()));
         }
@@ -347,8 +374,7 @@ public class FailureParameters {
                 requireObservedDepths(observedDepths);
                 for (Integer vmId : declaredVmIds) {
                     for (Integer depth : observedDepths) {
-                        validateCoverageCoordinate(vmId.intValue(), depth.intValue(),
-                                declaredVmIds, observedDepths);
+                        validateCoverageCoordinate(vmId.intValue(), depth.intValue(), declaredVmIds, observedDepths);
                     }
                 }
                 return;
@@ -358,29 +384,30 @@ public class FailureParameters {
         }
     }
 
-    private static void validateCoverageCoordinate(int vmId, int depth,
-            TreeSet<Integer> declaredVmIds, TreeSet<Integer> observedDepths) {
+    private static void validateCoverageCoordinate(
+            int vmId, int depth, TreeSet<Integer> declaredVmIds, TreeSet<Integer> observedDepths) {
         try {
             getGenerator(vmId, depth);
         } catch (IllegalStateException exception) {
-            throw new IllegalStateException("Failure generator coverage validation failed before job dispatch: "
-                    + "mode=" + failureMode + ", required=[vm=" + vmId + ", depth=" + depth
-                    + "], declaredVmIds=" + declaredVmIds + ", observedDepths=" + observedDepths,
+            throw new IllegalStateException(
+                    "Failure generator coverage validation failed before job dispatch: "
+                            + "mode=" + failureMode + ", required=[vm=" + vmId + ", depth=" + depth
+                            + "], declaredVmIds=" + declaredVmIds + ", observedDepths=" + observedDepths,
                     exception);
         }
     }
 
     private static void requireDeclaredVmIds(TreeSet<Integer> vmIds) {
         if (vmIds.isEmpty()) {
-            throw new IllegalStateException("Failure generator coverage validation requires at least one VM ID for "
-                    + failureMode);
+            throw new IllegalStateException(
+                    "Failure generator coverage validation requires at least one VM ID for " + failureMode);
         }
     }
 
     private static void requireObservedDepths(TreeSet<Integer> depths) {
         if (depths.isEmpty()) {
-            throw new IllegalStateException("Failure generator coverage validation requires at least one parsed task for "
-                    + failureMode);
+            throw new IllegalStateException(
+                    "Failure generator coverage validation requires at least one parsed task for " + failureMode);
         }
     }
 
@@ -389,7 +416,7 @@ public class FailureParameters {
         return new IllegalStateException("Failure generator " + addressing + " does not cover vm=" + vmIndex
                 + ", taskDepth=" + taskDepth + " for mode " + failureMode);
     }
-    
+
     /**
      * 获取当前失效生成模式。
      *
@@ -422,12 +449,12 @@ public class FailureParameters {
     public static FTCluteringAlgorithm getFTCluteringAlgorithm() {
         return FTClusteringAlgorithm;
     }
-    
+
     /**
      * 获取当前失效到达时间的分布族。
      * @return 分布族
      */
-    public static DistributionFamily getFailureDistribution(){
+    public static DistributionFamily getFailureDistribution() {
         return distribution;
     }
 
@@ -441,7 +468,8 @@ public class FailureParameters {
         return rootSeed;
     }
 
-    private static void validateGenerators(FTCFailure failure,
+    private static void validateGenerators(
+            FTCFailure failure,
             DistributionGenerator[][] failureGenerators,
             Map<Integer, DistributionGenerator[]> failureGeneratorsByVmId) {
         if (failure == FTCFailure.FAILURE_NONE) {
@@ -454,8 +482,7 @@ public class FailureParameters {
             return;
         }
         boolean hasDenseMatrix = failureGenerators != null && failureGenerators.length != 0;
-        boolean hasVmIdKeyedRows = failureGeneratorsByVmId != null
-                && !failureGeneratorsByVmId.isEmpty();
+        boolean hasVmIdKeyedRows = failureGeneratorsByVmId != null && !failureGeneratorsByVmId.isEmpty();
         if (hasDenseMatrix == hasVmIdKeyedRows) {
             throw new IllegalArgumentException("Enabled failure mode requires exactly one generator layout");
         }
@@ -464,14 +491,16 @@ public class FailureParameters {
                 throw new IllegalArgumentException("VM-ID-keyed generators require FAILURE_VM or FAILURE_VM_JOB");
             }
             for (Map.Entry<Integer, DistributionGenerator[]> entry : failureGeneratorsByVmId.entrySet()) {
-                if (entry.getKey() == null || entry.getKey().intValue() < 0
-                        || entry.getValue() == null || entry.getValue().length == 0) {
+                if (entry.getKey() == null
+                        || entry.getKey().intValue() < 0
+                        || entry.getValue() == null
+                        || entry.getValue().length == 0) {
                     throw new IllegalArgumentException("VM-ID-keyed failure generator row is invalid");
                 }
                 for (int column = 0; column < entry.getValue().length; column++) {
                     if (entry.getValue()[column] == null) {
-                        throw new IllegalArgumentException("Failure generator for VM " + entry.getKey()
-                                + " at depth " + column + " is null");
+                        throw new IllegalArgumentException(
+                                "Failure generator for VM " + entry.getKey() + " at depth " + column + " is null");
                     }
                 }
             }

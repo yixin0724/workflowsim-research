@@ -43,11 +43,9 @@ class TransferAdmissionOrdinalTest {
     void reuseGetsANewOrdinalAndRejectedAdmissionsDoNotConsumeOne() {
         TransferContentionEngine engine = new TransferContentionEngine(100);
         engine.addTransfer(71L, 1.0, "A", "B", 1.0, 0.0);
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.addTransfer(71L, 1.0, "A", "B", 1.0, 5.0));
+        assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(71L, 1.0, "A", "B", 1.0, 5.0));
         assertEquals(1L, engine.getActiveTransferAdmissionOrdinal(71L));
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.addTransfer(80L, 0.0, "A", "B", 1.0, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(80L, 0.0, "A", "B", 1.0, 0.0));
         TransferTraceSnapshot firstAdmission = engine.getTraceSnapshot();
         engine.advance(1.0);
         engine.addTransfer(71L, 1.0, "A", "B", 1.0, 1.0);
@@ -64,7 +62,9 @@ class TransferAdmissionOrdinalTest {
             assertEquals(i + 1L, engine.getActiveTransferAdmissionOrdinal(10_000L + i));
             engine.advance(i + 1.0);
         }
-        assertEquals(TransferTraceSnapshot.Status.TRUNCATED, engine.getTraceSnapshot().getStatus());
+        assertEquals(
+                TransferTraceSnapshot.Status.TRUNCATED,
+                engine.getTraceSnapshot().getStatus());
         assertEquals(1, engine.getTraceSnapshot().getEvents().size());
         assertTrue(engine.getTraceSnapshot().getDroppedCount() > 20L);
     }

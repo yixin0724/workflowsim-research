@@ -28,8 +28,12 @@ public final class NetworkTopologySpec {
     private final Integer coreSwitchCount;
     private final Map<Integer, Integer> hostEdgePlacements;
 
-    private NetworkTopologySpec(Kind kind, int k, double linkBandwidthMbPerSecond,
-            Integer coreSwitchCount, Map<Integer, Integer> hostEdgePlacements) {
+    private NetworkTopologySpec(
+            Kind kind,
+            int k,
+            double linkBandwidthMbPerSecond,
+            Integer coreSwitchCount,
+            Map<Integer, Integer> hostEdgePlacements) {
         this.kind = kind;
         this.k = k;
         this.linkBandwidthMbPerSecond = linkBandwidthMbPerSecond;
@@ -57,8 +61,7 @@ public final class NetworkTopologySpec {
      * @param coreSwitchCount core 交换机数量，1 ≤ m ≤ k²/4；m &lt; k²/4 即超收敛
      * @return 不可变拓扑声明
      */
-    public static NetworkTopologySpec fatTree(int k, double linkBandwidthMbPerSecond,
-            int coreSwitchCount) {
+    public static NetworkTopologySpec fatTree(int k, double linkBandwidthMbPerSecond, int coreSwitchCount) {
         return fatTree(k, linkBandwidthMbPerSecond, Integer.valueOf(coreSwitchCount), null);
     }
 
@@ -73,21 +76,22 @@ public final class NetworkTopologySpec {
      *        显式提供时必须覆盖全部主机且每台 edge 至多 k/2 台主机
      * @return 不可变拓扑声明
      */
-    public static NetworkTopologySpec fatTree(int k, double linkBandwidthMbPerSecond,
-            Integer coreSwitchCount, Map<Integer, Integer> hostEdgePlacements) {
+    public static NetworkTopologySpec fatTree(
+            int k, double linkBandwidthMbPerSecond, Integer coreSwitchCount, Map<Integer, Integer> hostEdgePlacements) {
         if (k < 2 || k % 2 != 0) {
             throw new IllegalArgumentException("Fat-tree k must be an even integer >= 2: " + k);
         }
-        if (!(linkBandwidthMbPerSecond > 0.0) || Double.isInfinite(linkBandwidthMbPerSecond)
+        if (!(linkBandwidthMbPerSecond > 0.0)
+                || Double.isInfinite(linkBandwidthMbPerSecond)
                 || Double.isNaN(linkBandwidthMbPerSecond)) {
-            throw new IllegalArgumentException("Fat-tree link bandwidth must be positive and finite: "
-                    + linkBandwidthMbPerSecond);
+            throw new IllegalArgumentException(
+                    "Fat-tree link bandwidth must be positive and finite: " + linkBandwidthMbPerSecond);
         }
         int maxCore = k * k / 4;
         if (coreSwitchCount != null) {
             if (coreSwitchCount.intValue() < 1 || coreSwitchCount.intValue() > maxCore) {
-                throw new IllegalArgumentException("Fat-tree core switch count must be in [1, k*k/4="
-                        + maxCore + "]: " + coreSwitchCount);
+                throw new IllegalArgumentException(
+                        "Fat-tree core switch count must be in [1, k*k/4=" + maxCore + "]: " + coreSwitchCount);
             }
         }
         Map<Integer, Integer> placements = null;
@@ -106,8 +110,7 @@ public final class NetworkTopologySpec {
             }
             placements = Collections.unmodifiableMap(placements);
         }
-        return new NetworkTopologySpec(Kind.FAT_TREE, k, linkBandwidthMbPerSecond,
-                coreSwitchCount, placements);
+        return new NetworkTopologySpec(Kind.FAT_TREE, k, linkBandwidthMbPerSecond, coreSwitchCount, placements);
     }
 
     public Kind getKind() {

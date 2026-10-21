@@ -36,16 +36,19 @@ public final class PlanningContext {
     /** 验证维护的静态 DAG 规划器实际估计的执行模型子集。 */
     public void validateSharedStorageStaticDag() {
         if (config.getFileSystem() != ReplicaCatalog.FileSystem.SHARED) {
-            throw new IllegalArgumentException("Shared-storage static DAG planning requires ReplicaCatalog.FileSystem.SHARED");
+            throw new IllegalArgumentException(
+                    "Shared-storage static DAG planning requires ReplicaCatalog.FileSystem.SHARED");
         }
         if (config.getClusteringParameters().getClusteringMethod() != ClusteringMethod.NONE) {
             throw new IllegalArgumentException("Shared-storage static DAG planning requires clustering method NONE");
         }
         if (config.getFailureModel().isEnabled()) {
-            throw new IllegalArgumentException("Shared-storage static DAG planning requires the failure model to be disabled");
+            throw new IllegalArgumentException(
+                    "Shared-storage static DAG planning requires the failure model to be disabled");
         }
         if (!isNoOverhead()) {
-            throw new IllegalArgumentException("Shared-storage static DAG planning requires OverheadModelConfig.none()");
+            throw new IllegalArgumentException(
+                    "Shared-storage static DAG planning requires OverheadModelConfig.none()");
         }
         for (PlatformProfile.VmSpec vm : platform.getVms()) {
             if (vm.getSchedulerMode() != PlatformProfile.CloudletSchedulerMode.SPACE_SHARED) {

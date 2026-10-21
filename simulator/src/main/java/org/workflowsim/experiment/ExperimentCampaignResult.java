@@ -23,9 +23,17 @@ public final class ExperimentCampaignResult {
         this.summary = ExperimentCampaignSummary.calculate(plan, this.runs);
     }
 
-    public ExperimentPlan getPlan() { return plan; }
-    public List<Run> getRuns() { return runs; }
-    public ExperimentCampaignSummary getSummary() { return summary; }
+    public ExperimentPlan getPlan() {
+        return plan;
+    }
+
+    public List<Run> getRuns() {
+        return runs;
+    }
+
+    public ExperimentCampaignSummary getSummary() {
+        return summary;
+    }
 
     private static void validateRuns(ExperimentPlan plan, List<Run> runs) {
         Set<String> plannedCellIds = new HashSet<String>();
@@ -45,8 +53,8 @@ public final class ExperimentCampaignResult {
                 throw new IllegalArgumentException("Campaign run seed does not match its declared cell seed plan");
             }
             if (!seen.add(cellId + "\u0000" + run.getReplicationIndex())) {
-                throw new IllegalArgumentException("Campaign result has duplicate cell/replication run "
-                        + cellId + "/" + run.getReplicationIndex());
+                throw new IllegalArgumentException("Campaign result has duplicate cell/replication run " + cellId + "/"
+                        + run.getReplicationIndex());
             }
         }
     }
@@ -68,9 +76,20 @@ public final class ExperimentCampaignResult {
             this.report = report;
         }
 
-        public ExperimentPlan.Cell getCell() { return cell; }
-        public int getReplicationIndex() { return replicationIndex; }
-        public long getSeed() { return seed; }
-        public SimulationReport getReport() { return report; }
+        public ExperimentPlan.Cell getCell() {
+            return cell;
+        }
+
+        public int getReplicationIndex() {
+            return replicationIndex;
+        }
+
+        public long getSeed() {
+            return seed;
+        }
+
+        public SimulationReport getReport() {
+            return report;
+        }
     }
 }

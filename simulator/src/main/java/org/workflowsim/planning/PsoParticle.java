@@ -53,15 +53,25 @@ public class PsoParticle {
     }
 
     /** @return 当前位置（Task→VM 下标映射） */
-    public int[] getPosition() { return position; }
+    public int[] getPosition() {
+        return position;
+    }
     /** @return 粒子历史最优位置 */
-    public int[] getBestPosition() { return bestPosition; }
+    public int[] getBestPosition() {
+        return bestPosition;
+    }
     /** 记录粒子历史最优位置。 */
-    public void setBestPosition(int[] p) { this.bestPosition = p.clone(); }
+    public void setBestPosition(int[] p) {
+        this.bestPosition = p.clone();
+    }
     /** @return 粒子历史最优适应度 */
-    public double getBestFitness() { return bestFitness; }
+    public double getBestFitness() {
+        return bestFitness;
+    }
     /** 记录粒子历史最优适应度。 */
-    public void setBestFitness(double f) { this.bestFitness = f; }
+    public void setBestFitness(double f) {
+        this.bestFitness = f;
+    }
 
     /**
      * 标准 PSO 速度更新。

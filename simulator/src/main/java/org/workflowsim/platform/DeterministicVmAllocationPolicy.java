@@ -12,8 +12,7 @@ final class DeterministicVmAllocationPolicy extends VmAllocationPolicySimple {
 
     private final Map<Integer, Integer> hostByVmId;
 
-    DeterministicVmAllocationPolicy(List<? extends Host> hosts,
-            Map<Integer, Integer> assignments) {
+    DeterministicVmAllocationPolicy(List<? extends Host> hosts, Map<Integer, Integer> assignments) {
         super(hosts);
         this.hostByVmId = new LinkedHashMap<Integer, Integer>(assignments);
     }

@@ -44,8 +44,8 @@ class ReadyBatchMinMinSchedulingAlgorithmTest {
     }
 
     private CondorVM createVm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10000, "Xen",
-                new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
+        return new CondorVM(
+                id, 0, mips, 1, 512, 1000, 10000, "Xen", new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
     }
 
     @Test
@@ -77,7 +77,7 @@ class ReadyBatchMinMinSchedulingAlgorithmTest {
         // 与 SPT 变体的关键区别:ready-batch Min-Min 比较的是 ECT(长度/mips),
         // 不是纯任务长度。短任务在快 VM 上 ECT 最小。
         cloudlets.add(new Task(1, 5000)); // 长任务
-        cloudlets.add(new Task(2, 500));  // 短任务
+        cloudlets.add(new Task(2, 500)); // 短任务
         vms.add(createVm(0, 100));
         vms.add(createVm(1, 1000));
 

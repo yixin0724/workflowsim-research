@@ -24,8 +24,8 @@ public final class SharedStorageCpopPlanningAlgorithm extends BasePlanningAlgori
     @Override
     public void run() {
         lastPlanTrace = null;
-        lastPlanTrace = SharedStorageDagPlanner.plan(getTaskList(), getVmList(), context,
-                SharedStorageDagPlanner.Strategy.CPOP);
+        lastPlanTrace = SharedStorageDagPlanner.plan(
+                getTaskList(), getVmList(), context, SharedStorageDagPlanner.Strategy.CPOP);
     }
 
     /** 返回最近一次成功规划的不可变决策轨迹。 */

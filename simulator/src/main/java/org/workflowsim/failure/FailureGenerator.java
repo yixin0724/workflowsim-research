@@ -21,12 +21,12 @@ import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.LogNormalDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.distribution.RealDistribution;
+import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.workflowsim.Job;
 import org.workflowsim.Task;
-import org.apache.commons.math3.distribution.WeibullDistribution;
-import org.workflowsim.utils.SimulationRandom;
 import org.workflowsim.utils.DistributionGenerator;
+import org.workflowsim.utils.SimulationRandom;
 
 /**
  * 在任务的执行时间窗内，根据已配置的失效到达时间样本判定 Job 是否失败。
@@ -46,8 +46,9 @@ public class FailureGenerator {
      */
     private static final int maxFailureSizeExtension = 50;
     /** 每个生成器独立记录的样本缓存扩展次数，避免多个故障流相互消耗安全额度。 */
-    private static final Map<DistributionGenerator, Integer> failureSizeExtensions
-            = new IdentityHashMap<DistributionGenerator, Integer>();
+    private static final Map<DistributionGenerator, Integer> failureSizeExtensions =
+            new IdentityHashMap<DistributionGenerator, Integer>();
+
     private static final boolean hasChangeTime = false;
     /**
      * 按当前配置的分布族创建随机分布。
@@ -61,23 +62,31 @@ public class FailureGenerator {
         switch (FailureParameters.getFailureDistribution()) {
             case LOGNORMAL:
                 distribution = new LogNormalDistribution(
-                        SimulationRandom.newApacheRandom("failure.distribution"), 1.0 / alpha, beta,
+                        SimulationRandom.newApacheRandom("failure.distribution"),
+                        1.0 / alpha,
+                        beta,
                         LogNormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             case WEIBULL:
                 distribution = new WeibullDistribution(
-                        SimulationRandom.newApacheRandom("failure.distribution"), beta, 1.0 / alpha,
+                        SimulationRandom.newApacheRandom("failure.distribution"),
+                        beta,
+                        1.0 / alpha,
                         WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             case GAMMA:
                 distribution = new GammaDistribution(
-                        SimulationRandom.newApacheRandom("failure.distribution"), beta, 1.0 / alpha,
+                        SimulationRandom.newApacheRandom("failure.distribution"),
+                        beta,
+                        1.0 / alpha,
                         GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             case NORMAL:
                 // NORMAL 分布中 beta 为标准差，1.0 / alpha 为均值。
                 distribution = new NormalDistribution(
-                        SimulationRandom.newApacheRandom("failure.distribution"), 1.0 / alpha, beta,
+                        SimulationRandom.newApacheRandom("failure.distribution"),
+                        1.0 / alpha,
+                        beta,
                         NormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             default:
@@ -86,8 +95,7 @@ public class FailureGenerator {
         return distribution;
     }
 
-    protected static void initFailureSamples() {
-    }
+    protected static void initFailureSamples() {}
 
     /**
      * 初始化一次模拟运行的失效生成计数器。
@@ -104,21 +112,20 @@ public class FailureGenerator {
 
     protected static boolean checkFailureStatus(Task task, int vmId) throws Exception {
 
-
-        if (FailureParameters.getFailureGeneratorMode()
-                == FailureParameters.FTCFailure.FAILURE_NONE) {
+        if (FailureParameters.getFailureGeneratorMode() == FailureParameters.FTCFailure.FAILURE_NONE) {
             return false;
         }
         // 故障判定与 DR 重聚类共享同一坐标解释，避免模式名称被不同路径重新解释。
-        DistributionGenerator generator = FailureParameters.getGeneratorForFailureScope(
-                vmId, task.getDepth());
-        
+        DistributionGenerator generator = FailureParameters.getGeneratorForFailureScope(vmId, task.getDepth());
+
         double start = task.getExecStartTime();
         double end = task.getTaskFinishTime();
-        
-        
-        if (Double.isNaN(start) || Double.isInfinite(start) || Double.isNaN(end)
-                || Double.isInfinite(end) || end < start) {
+
+        if (Double.isNaN(start)
+                || Double.isInfinite(start)
+                || Double.isNaN(end)
+                || Double.isInfinite(end)
+                || end < start) {
             throw new IllegalStateException("Task " + task.getCloudletId()
                     + " has an invalid failure-observation window [" + start + ", " + end + "]");
         }
@@ -150,15 +157,14 @@ public class FailureGenerator {
     private static void ensureUnconsumedArrivalCoverage(DistributionGenerator generator, double start)
             throws Exception {
         double[] samples = generator.getCumulativeSamples();
-        while (generator.getConsumedSampleCount() >= samples.length
-                || samples[samples.length - 1] < start) {
+        while (generator.getConsumedSampleCount() >= samples.length || samples[samples.length - 1] < start) {
             generator.extendSamples();
             samples = generator.getCumulativeSamples();
             int extensions = extensionCount(generator) + 1;
             failureSizeExtensions.put(generator, extensions);
             if (extensions >= maxFailureSizeExtension) {
-                throw new Exception("Failure arrival sample extension limit "
-                        + maxFailureSizeExtension + " exceeded while covering task start " + start);
+                throw new Exception("Failure arrival sample extension limit " + maxFailureSizeExtension
+                        + " exceeded while covering task start " + start);
             }
         }
     }
@@ -186,8 +192,8 @@ public class FailureGenerator {
                 job.setCloudletStatus(Cloudlet.SUCCESS);
                 return false;
             } catch (Exception exception) {
-                throw new IllegalStateException("Could not mark failure-disabled job "
-                        + job.getCloudletId() + " as successful", exception);
+                throw new IllegalStateException(
+                        "Could not mark failure-disabled job " + job.getCloudletId() + " as successful", exception);
             }
         }
         try {
@@ -202,7 +208,8 @@ public class FailureGenerator {
                 } else {
                     task.setCloudletStatus(Cloudlet.SUCCESS);
                 }
-                FailureRecord record = new FailureRecord(0, failedTaskSum, task.getDepth(), 1, job.getVmId(), task.getCloudletId(), job.getUserId());
+                FailureRecord record = new FailureRecord(
+                        0, failedTaskSum, task.getDepth(), 1, job.getVmId(), task.getCloudletId(), job.getUserId());
                 FailureMonitor.postFailureRecord(record);
             }
 
@@ -212,8 +219,8 @@ public class FailureGenerator {
                 job.setCloudletStatus(Cloudlet.SUCCESS);
             }
         } catch (Exception exception) {
-            throw new IllegalStateException("Failure generation failed for job " + job.getCloudletId()
-                    + " on VM " + job.getVmId(), exception);
+            throw new IllegalStateException(
+                    "Failure generation failed for job " + job.getCloudletId() + " on VM " + job.getVmId(), exception);
         }
         return jobFailed;
     }

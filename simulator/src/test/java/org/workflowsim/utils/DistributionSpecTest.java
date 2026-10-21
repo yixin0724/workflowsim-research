@@ -16,20 +16,16 @@ class DistributionSpecTest {
 
     @Test
     void rejectsNullFamilyAndNonFiniteOrNonPositiveParameters() {
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.of(null, 1.0, 1.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.of(DistributionFamily.WEIBULL, Double.NaN, 1.0));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(IllegalArgumentException.class, () -> DistributionSpec.of(null, 1.0, 1.0));
+        assertThrows(
+                IllegalArgumentException.class, () -> DistributionSpec.of(DistributionFamily.WEIBULL, Double.NaN, 1.0));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> DistributionSpec.of(DistributionFamily.WEIBULL, 1.0, Double.POSITIVE_INFINITY));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.of(DistributionFamily.WEIBULL, 1.0, 0.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.of(DistributionFamily.WEIBULL, 1.0, -0.5));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.of(DistributionFamily.GAMMA, 0.0, 1.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.of(DistributionFamily.GAMMA, -1.0, 1.0));
+        assertThrows(IllegalArgumentException.class, () -> DistributionSpec.of(DistributionFamily.WEIBULL, 1.0, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> DistributionSpec.of(DistributionFamily.WEIBULL, 1.0, -0.5));
+        assertThrows(IllegalArgumentException.class, () -> DistributionSpec.of(DistributionFamily.GAMMA, 0.0, 1.0));
+        assertThrows(IllegalArgumentException.class, () -> DistributionSpec.of(DistributionFamily.GAMMA, -1.0, 1.0));
     }
 
     @Test
@@ -44,18 +40,19 @@ class DistributionSpecTest {
     void priorsMustBeSuppliedTogetherAndBeFinite() {
         // 公开 API 的 withPriors 接收 primitive，"部分先验"分支不可达；
         // 可达的拒绝路径是"全有但非有限"。
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.withPriors(DistributionFamily.GAMMA, 1.0, 1.0,
-                        Double.NaN, 3.0, 1.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.withPriors(DistributionFamily.GAMMA, 1.0, 1.0,
-                        2.0, Double.POSITIVE_INFINITY, 1.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DistributionSpec.withPriors(DistributionFamily.GAMMA, 1.0, 1.0,
-                        2.0, 3.0, Double.NEGATIVE_INFINITY));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DistributionSpec.withPriors(DistributionFamily.GAMMA, 1.0, 1.0, Double.NaN, 3.0, 1.0));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DistributionSpec.withPriors(
+                        DistributionFamily.GAMMA, 1.0, 1.0, 2.0, Double.POSITIVE_INFINITY, 1.0));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DistributionSpec.withPriors(
+                        DistributionFamily.GAMMA, 1.0, 1.0, 2.0, 3.0, Double.NEGATIVE_INFINITY));
         // 全有且有限 → 接受并原样读出。
-        DistributionSpec spec = DistributionSpec.withPriors(DistributionFamily.GAMMA,
-                1.5, 2.5, 3.5, 4.5, 0.25);
+        DistributionSpec spec = DistributionSpec.withPriors(DistributionFamily.GAMMA, 1.5, 2.5, 3.5, 4.5, 0.25);
         assertEquals(3.5, spec.getPriorShape(), 0.0);
         assertEquals(4.5, spec.getPriorScale(), 0.0);
         assertEquals(0.25, spec.getLikelihoodPrior(), 0.0);
@@ -73,8 +70,7 @@ class DistributionSpecTest {
         assertEquals(12.0, plainGenerator.getScale(), 0.0);
         assertEquals(2.0, plainGenerator.getShape(), 0.0);
 
-        DistributionSpec priored = DistributionSpec.withPriors(DistributionFamily.GAMMA,
-                7.0, 3.0, 1.0, 2.0, 0.5);
+        DistributionSpec priored = DistributionSpec.withPriors(DistributionFamily.GAMMA, 7.0, 3.0, 1.0, 2.0, 0.5);
         DistributionGenerator prioredGenerator = priored.createGenerator("audit.priored");
         assertNotNull(prioredGenerator);
         assertEquals(DistributionFamily.GAMMA, prioredGenerator.getFamily());

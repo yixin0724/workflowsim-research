@@ -28,20 +28,24 @@ class WorkflowInputIsolationIntegrationTest {
 
     @Test
     void multipleDaxAndWfCommonsInputsHaveUniqueTaskIdsAndCompleteTogether() throws Exception {
-        SimulationConfig config = SimulationConfig.builder(Arrays.asList(
-                        resourcePath("/dax/dependency-before-jobs.dax"),
-                        resourcePath("/wfcommons/minimum-runtime.json")), 2)
+        SimulationConfig config = SimulationConfig.builder(
+                        Arrays.asList(
+                                resourcePath("/dax/dependency-before-jobs.dax"),
+                                resourcePath("/wfcommons/minimum-runtime.json")),
+                        2)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
                 .build();
 
         Log.disable();
-        SimulationReport report = new SimulationRunner().run(config,
-                PlatformProfiles.homogeneousLocal("mixed-inputs", 2));
+        SimulationReport report =
+                new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("mixed-inputs", 2));
 
         assertEquals(2, report.getInputReports().size());
-        assertEquals(WorkflowInputReport.Format.DAX_XML,
+        assertEquals(
+                WorkflowInputReport.Format.DAX_XML,
                 report.getInputReports().get(0).getFormat());
-        assertEquals(WorkflowInputReport.Format.WFCOMMONS_JSON,
+        assertEquals(
+                WorkflowInputReport.Format.WFCOMMONS_JSON,
                 report.getInputReports().get(1).getFormat());
         assertEquals(3, report.getTasks().size());
         assertEquals(3, report.getMetrics().getLogicalTaskCount());
@@ -60,17 +64,14 @@ class WorkflowInputIsolationIntegrationTest {
         SimulationRunner runner = new SimulationRunner();
 
         Log.disable();
-        assertThrows(Exception.class, () -> runner.run(invalid,
-                PlatformProfiles.homogeneousLocal("failed-input", 1)));
+        assertThrows(Exception.class, () -> runner.run(invalid, PlatformProfiles.homogeneousLocal("failed-input", 1)));
         assertNull(Parameters.getDaxPath());
         assertThrows(IllegalStateException.class, ReplicaCatalog::getFileSystem);
 
-        SimulationConfig valid = SimulationConfig.builder(
-                        resourcePath("/wfcommons/minimum-runtime.json"), 1)
+        SimulationConfig valid = SimulationConfig.builder(resourcePath("/wfcommons/minimum-runtime.json"), 1)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
                 .build();
-        SimulationReport report = runner.run(valid,
-                PlatformProfiles.homogeneousLocal("recovered-input", 1));
+        SimulationReport report = runner.run(valid, PlatformProfiles.homogeneousLocal("recovered-input", 1));
         assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully());
     }
 

@@ -89,14 +89,20 @@ public class Task extends Cloudlet {
      * @param taskId 任务唯一编号
      * @param taskLength 待执行长度，单位为百万条指令（MI）
      */
-    public Task(
-            final int taskId,
-            final long taskLength) {
+    public Task(final int taskId, final long taskLength) {
         /*
          * 文件依赖由 fileList 单独表达，因此不使用 Cloudlet 的单个输入/输出文件大小字段。
          * CPU、内存和带宽利用率模型使用 CloudSim 的默认全利用率实现。
          */
-        super(taskId, taskLength, 1, 0, 0, new UtilizationModelFull(), new UtilizationModelFull(), new UtilizationModelFull());
+        super(
+                taskId,
+                taskLength,
+                1,
+                0,
+                0,
+                new UtilizationModelFull(),
+                new UtilizationModelFull(),
+                new UtilizationModelFull());
 
         this.childList = new ArrayList<>();
         this.parentList = new ArrayList<>();
@@ -131,10 +137,9 @@ public class Task extends Cloudlet {
         java.util.Map<Integer, Double> copy = new java.util.LinkedHashMap<Integer, Double>();
         for (java.util.Map.Entry<Integer, Double> entry : value.entrySet()) {
             Double seconds = entry.getValue();
-            if (seconds == null || !(seconds.doubleValue() > 0.0)
-                    || seconds.isNaN() || seconds.isInfinite()) {
-                throw new IllegalArgumentException("VM execution cost seconds must be positive finite: "
-                        + "task " + getCloudletId() + " on VM " + entry.getKey() + " got " + seconds);
+            if (seconds == null || !(seconds.doubleValue() > 0.0) || seconds.isNaN() || seconds.isInfinite()) {
+                throw new IllegalArgumentException("VM execution cost seconds must be positive finite: " + "task "
+                        + getCloudletId() + " on VM " + entry.getKey() + " got " + seconds);
             }
             copy.put(entry.getKey(), seconds);
         }
@@ -166,7 +171,8 @@ public class Task extends Cloudlet {
     /** @return immutable matrix projection; empty when no matrix was declared */
     public java.util.Map<Integer, Double> getVmExecutionCostSeconds() {
         return vmExecutionCostSeconds == null
-                ? java.util.Collections.<Integer, Double>emptyMap() : vmExecutionCostSeconds;
+                ? java.util.Collections.<Integer, Double>emptyMap()
+                : vmExecutionCostSeconds;
     }
 
     /**
@@ -176,8 +182,7 @@ public class Task extends Cloudlet {
      * @return per-PE compute MI for this attempt
      */
     public long getEffectiveExecutionLengthMi() {
-        return effectiveExecutionLengthMi == null ? getCloudletLength()
-                : effectiveExecutionLengthMi.longValue();
+        return effectiveExecutionLengthMi == null ? getCloudletLength() : effectiveExecutionLengthMi.longValue();
     }
 
     /**

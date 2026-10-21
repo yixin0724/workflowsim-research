@@ -28,8 +28,8 @@ class SharedStorageCpopPlanningAlgorithmTest {
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_CPOP)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
-        SharedStorageCpopPlanningAlgorithm planner = new SharedStorageCpopPlanningAlgorithm(
-                new PlanningContext(config, platform()));
+        SharedStorageCpopPlanningAlgorithm planner =
+                new SharedStorageCpopPlanningAlgorithm(new PlanningContext(config, platform()));
         planner.setTaskList(Arrays.asList(root, criticalMiddle, tail, side));
         planner.setVmList(Arrays.asList(vm(0, 1000.0), vm(1, 2000.0)));
 
@@ -70,8 +70,8 @@ class SharedStorageCpopPlanningAlgorithmTest {
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_CPOP)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
-        SharedStorageCpopPlanningAlgorithm planner = new SharedStorageCpopPlanningAlgorithm(
-                new PlanningContext(config, equalMipsPlatform()));
+        SharedStorageCpopPlanningAlgorithm planner =
+                new SharedStorageCpopPlanningAlgorithm(new PlanningContext(config, equalMipsPlatform()));
         planner.setTaskList(Arrays.asList(secondTail, firstTail, secondRoot, firstRoot));
         planner.setVmList(Arrays.asList(vm(8, 1000.0), vm(3, 1000.0)));
 
@@ -92,36 +92,28 @@ class SharedStorageCpopPlanningAlgorithmTest {
     }
 
     private static CondorVM vm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static PlatformProfile platform() {
         return PlatformProfile.builder("shared-storage-cpop-unit")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 4000.0,
-                        2048, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 2000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 4000.0, 2048, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 2000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }
 
     private static PlatformProfile equalMipsPlatform() {
         return PlatformProfile.builder("shared-storage-cpop-tie-unit")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(3, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(8, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        3, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        8, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }

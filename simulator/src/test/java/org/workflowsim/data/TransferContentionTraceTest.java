@@ -21,8 +21,8 @@ class TransferContentionTraceTest {
 
     @Test
     void constructorsMakeCaptureExplicitAndRejectNegativeBudgets() {
-        for (TransferContentionEngine engine : Arrays.asList(new TransferContentionEngine(),
-                new TransferContentionEngine(0))) {
+        for (TransferContentionEngine engine :
+                Arrays.asList(new TransferContentionEngine(), new TransferContentionEngine(0))) {
             assertSnapshot(engine.getTraceSnapshot(), DISABLED, 0, 0, 0);
         }
         TransferContentionEngine enabled = new TransferContentionEngine(16);
@@ -42,8 +42,7 @@ class TransferContentionTraceTest {
         assertSnapshot(engine.getTraceSnapshot(), CAPTURE_COMPLETE, 0, 0, 7.5);
         assertThrows(IllegalArgumentException.class, () -> engine.setEndpointCapacity(null, 100));
         assertThrows(IllegalArgumentException.class, () -> engine.setEndpointCapacity("", 100));
-        for (double bad : new double[] {0, -1, Double.NaN,
-                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+        for (double bad : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
             assertThrows(IllegalArgumentException.class, () -> engine.setEndpointCapacity("A", bad));
         }
         assertEquals(0, engine.getTraceSnapshot().getEvents().size());
@@ -61,8 +60,7 @@ class TransferContentionTraceTest {
         add(engine, 1, 60, 100, 7.5, "A");
         assertBits(60, engine.currentRateBytesPerSecond(1));
         assertThrows(IllegalStateException.class, () -> engine.setEndpointCapacity("A", 80));
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.setEndpointCapacity("A", Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> engine.setEndpointCapacity("A", Double.NaN));
         assertSnapshot(engine.getTraceSnapshot(), CAPTURE_COMPLETE, 4, 0, 7.5);
         engine.advance(9.5);
         engine.setEndpointCapacity("A", 80);
@@ -117,7 +115,8 @@ class TransferContentionTraceTest {
         assertRateChange(events.get(6), 1, 1, 60, 70, 0, 0);
         assertRateChange(events.get(7), 2, 2, 40, 30, 0, 0);
         engine.advance(1);
-        List<TransferTraceEvent> services = engine.getTraceSnapshot().getEvents().subList(8, 11);
+        List<TransferTraceEvent> services =
+                engine.getTraceSnapshot().getEvents().subList(8, 11);
         assertService(services.get(0), 1, 1, 0, 1, 1, 70, 1000, 930, 1);
         assertService(services.get(1), 2, 2, 0, 1, 1, 30, 1000, 970, 1);
         assertService(services.get(2), 3, 3, 0, 1, 1, 10, 1000, 990, 1);
@@ -139,7 +138,8 @@ class TransferContentionTraceTest {
         assertBits(80, engine.currentRateBytesPerSecond(2));
         TransferTraceEvent start = before.getEvents().get(1);
         assertStart(start, 1, 1, 1000, 10, 10, Arrays.asList("A", "UNREGISTERED", "A"));
-        assertThrows(UnsupportedOperationException.class,
+        assertThrows(
+                UnsupportedOperationException.class,
                 () -> start.getStart().getOccupiedResources().set(0, "B"));
         engine.advance(1);
         List<TransferTraceEvent> events = engine.getTraceSnapshot().getEvents();
@@ -163,8 +163,18 @@ class TransferContentionTraceTest {
         TransferTraceSnapshot snapshot = engine.getTraceSnapshot();
         assertSnapshot(snapshot, CAPTURE_COMPLETE, 10, 0, 20);
         List<TransferTraceEvent> events = snapshot.getEvents();
-        assertTypes(events, CAPACITY, START, START, RATE_CHANGE,
-                SERVICE_SEGMENT, SERVICE_SEGMENT, COMPLETE, RATE_CHANGE, SERVICE_SEGMENT, COMPLETE);
+        assertTypes(
+                events,
+                CAPACITY,
+                START,
+                START,
+                RATE_CHANGE,
+                SERVICE_SEGMENT,
+                SERVICE_SEGMENT,
+                COMPLETE,
+                RATE_CHANGE,
+                SERVICE_SEGMENT,
+                COMPLETE);
         assertStart(events.get(2), 2, 2, 1000, 100, 50, Arrays.asList("A"));
         assertRateChange(events.get(3), 1, 1, 100, 50, 0, 0);
         assertService(events.get(4), 1, 1, 0, 10, 10, 50, 500, 0, 20);
@@ -192,8 +202,18 @@ class TransferContentionTraceTest {
         // At 1.5 the older flow has 180 - 90*1 - 100*0.5 = 40 bytes left.
         assertBits(2.3, result.getNextCompletionTime());
         List<TransferTraceEvent> events = engine.getTraceSnapshot().getEvents();
-        assertTypes(events, CAPACITY, START, START, SERVICE_SEGMENT, SERVICE_SEGMENT,
-                COMPLETE, RATE_CHANGE, SERVICE_SEGMENT, START, RATE_CHANGE);
+        assertTypes(
+                events,
+                CAPACITY,
+                START,
+                START,
+                SERVICE_SEGMENT,
+                SERVICE_SEGMENT,
+                COMPLETE,
+                RATE_CHANGE,
+                SERVICE_SEGMENT,
+                START,
+                RATE_CHANGE);
         assertService(events.get(3), 1, 1, 0, 1, 1, 10, 10, 0, 1.5);
         assertService(events.get(4), 2, 2, 0, 1, 1, 90, 180, 90, 1.5);
         assertCompletion(events.get(5), 1, 1, 1, 1.5, 0);
@@ -219,8 +239,8 @@ class TransferContentionTraceTest {
         List<TransferTraceEvent> all = engine.getTraceSnapshot().getEvents();
         assertSequences(all);
         List<TransferTraceEvent> boundary = all.subList(before, all.size());
-        assertTypesWithoutSequence(boundary, SERVICE_SEGMENT, SERVICE_SEGMENT, SERVICE_SEGMENT,
-                COMPLETE, COMPLETE, RATE_CHANGE);
+        assertTypesWithoutSequence(
+                boundary, SERVICE_SEGMENT, SERVICE_SEGMENT, SERVICE_SEGMENT, COMPLETE, COMPLETE, RATE_CHANGE);
         assertService(boundary.get(0), 9, 1, 0, 1, 1, 30, 30, 0, 1);
         assertService(boundary.get(1), 3, 2, 0, 1, 1, 30, 30, 0, 1);
         assertService(boundary.get(2), -4, 3, 0, 1, 1, 30, 90, 60, 1);
@@ -271,8 +291,7 @@ class TransferContentionTraceTest {
     @Test
     void halfByteEndpointDemandIsNotRoundedInStartOrService() {
         TransferContentionEngine engine = new TransferContentionEngine(16);
-        TransferContentionEngine.AdvanceResult start =
-                engine.addTransfer(1, 0.5, "SOURCE", "VM:0", 1_000_000.0, 0.0);
+        TransferContentionEngine.AdvanceResult start = engine.addTransfer(1, 0.5, "SOURCE", "VM:0", 1_000_000.0, 0.0);
         double duration = 0.5 / 1_000_000.0;
         assertBits(duration, start.getNextCompletionTime());
         assertEquals(Collections.singletonList(1L), engine.advance(0.000002).getCompletedTransferIds());
@@ -292,13 +311,32 @@ class TransferContentionTraceTest {
         assertEquals(2, engine.activeTransferCount());
         assertTrue(engine.advance(0).getCompletedTransferIds().isEmpty());
         double smallDuration = 1.0e-12 / 1.0e-9;
-        assertEquals(Collections.singletonList(2L), engine.advance(smallDuration).getCompletedTransferIds());
+        assertEquals(
+                Collections.singletonList(2L), engine.advance(smallDuration).getCompletedTransferIds());
         List<TransferTraceEvent> small = engine.getTraceSnapshot().getEvents();
         assertTypes(small, START, START, SERVICE_SEGMENT, SERVICE_SEGMENT, COMPLETE);
-        assertService(small.get(2), 1, 1, 0, smallDuration, smallDuration,
-                1.0e-9, 5.0e-10, 5.0e-10 - 1.0e-9 * smallDuration, smallDuration);
-        assertService(small.get(3), 2, 2, 0, smallDuration, smallDuration,
-                1.0e-9, 1.0e-12, Math.max(0.0, 1.0e-12 - 1.0e-9 * smallDuration), smallDuration);
+        assertService(
+                small.get(2),
+                1,
+                1,
+                0,
+                smallDuration,
+                smallDuration,
+                1.0e-9,
+                5.0e-10,
+                5.0e-10 - 1.0e-9 * smallDuration,
+                smallDuration);
+        assertService(
+                small.get(3),
+                2,
+                2,
+                0,
+                smallDuration,
+                smallDuration,
+                1.0e-9,
+                1.0e-12,
+                Math.max(0.0, 1.0e-12 - 1.0e-9 * smallDuration),
+                smallDuration);
         assertTrue(engine.advance(0.499).getCompletedTransferIds().isEmpty());
         assertEquals(Collections.singletonList(1L), engine.advance(0.5).getCompletedTransferIds());
         List<TransferTraceEvent> completions = eventsOfType(engine.getTraceSnapshot(), COMPLETE);
@@ -362,8 +400,10 @@ class TransferContentionTraceTest {
         assertTypes(events, START, SERVICE_SEGMENT, COMPLETE);
         assertService(events.get(1), 1, 1, start, start, elapsed, 49, 1, residual, observed);
         assertTrue(events.get(1).getServiceSegment().getElapsed() > 0);
-        assertBits(0, events.get(1).getServiceSegment().getIntervalEnd()
-                - events.get(1).getServiceSegment().getIntervalStart());
+        assertBits(
+                0,
+                events.get(1).getServiceSegment().getIntervalEnd()
+                        - events.get(1).getServiceSegment().getIntervalStart());
         assertCompletion(events.get(2), 1, 1, start, observed, residual);
         assertBits(1, serviceArea(events, 1, 1) + residual);
         assertSnapshot(engine.getTraceSnapshot(), CAPTURE_COMPLETE, 3, 0, observed);
@@ -393,42 +433,37 @@ class TransferContentionTraceTest {
     void duplicateActiveIdAtFutureTimeStillFailsBeforeAdvance() {
         TransferContentionEngine engine = new TransferContentionEngine(16);
         add(engine, 7, 1, 1, 0);
-        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
-                () -> add(engine, 7, 2, 1, 100));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> add(engine, 7, 2, 1, 100));
         assertEquals("Duplicate transfer id: 7", failure.getMessage());
-        IllegalArgumentException beforeOtherValidation = assertThrows(IllegalArgumentException.class,
-                () -> add(engine, 7, Double.NaN, 1, 100));
+        IllegalArgumentException beforeOtherValidation =
+                assertThrows(IllegalArgumentException.class, () -> add(engine, 7, Double.NaN, 1, 100));
         assertEquals(failure.getMessage(), beforeOtherValidation.getMessage());
         assertSnapshot(engine.getTraceSnapshot(), CAPTURE_COMPLETE, 1, 0, 0);
         assertEquals(1, engine.activeTransferCount());
         assertBits(1, engine.advance(0).getNextCompletionTime());
         assertEquals(Collections.singletonList(7L), engine.advance(1).getCompletedTransferIds());
         add(engine, 7, 1, 1, 1);
-        assertStart(engine.getTraceSnapshot().getEvents().get(3), 7, 2, 1, 1, 1,
-                Collections.<String>emptyList());
+        assertStart(engine.getTraceSnapshot().getEvents().get(3), 7, 2, 1, 1, 1, Collections.<String>emptyList());
     }
 
     @Test
     void rejectedAdmissionsAndInvalidTimesEmitNothingAndConsumeNoOrdinal() {
         TransferContentionEngine engine = new TransferContentionEngine(32);
         engine.advance(2);
-        for (double bytes : new double[] {0, -0.5, Double.NaN,
-                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+        for (double bytes : new double[] {0, -0.5, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
             assertThrows(IllegalArgumentException.class, () -> add(engine, 1, bytes, 1, 3));
         }
-        for (double rate : new double[] {0, -1, Double.NaN,
-                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+        for (double rate : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
             assertThrows(IllegalArgumentException.class, () -> add(engine, 1, 1, rate, 3));
         }
         assertThrows(IllegalArgumentException.class, () -> add(engine, 1, Double.MIN_VALUE, 1_000_000, 3));
         assertThrows(IllegalArgumentException.class, () -> add(engine, 1, Double.MAX_VALUE, Double.MIN_VALUE, 3));
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.addTransfer(1, 1.0, (List<String>) null, 1, 3));
+        assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(1, 1.0, (List<String>) null, 1, 3));
         assertThrows(IllegalArgumentException.class, () -> add(engine, 1, 1, 1, 3, "A", null));
         assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(1, 1.0, null, "A", 1, 3));
         assertThrows(IllegalArgumentException.class, () -> engine.addTransfer(1, 1L, "A", null, 1, 3));
-        for (double time : new double[] {1, Double.NaN,
-                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+        for (double time : new double[] {1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
             assertThrows(IllegalArgumentException.class, () -> engine.advance(time));
             assertThrows(IllegalArgumentException.class, () -> add(engine, 1, 1, 1, time));
         }
@@ -477,14 +512,20 @@ class TransferContentionTraceTest {
 
     @Test
     void newPublicDtosAndEveryTypedPayloadHaveOnlyPrivateFinalInstanceFields() {
-        for (Class<?> type : Arrays.<Class<?>>asList(TransferTraceSnapshot.class, TransferTraceEvent.class,
-                TransferTraceEvent.Capacity.class, TransferTraceEvent.Start.class,
-                TransferTraceEvent.RateChange.class, TransferTraceEvent.ServiceSegment.class,
+        for (Class<?> type : Arrays.<Class<?>>asList(
+                TransferTraceSnapshot.class,
+                TransferTraceEvent.class,
+                TransferTraceEvent.Capacity.class,
+                TransferTraceEvent.Start.class,
+                TransferTraceEvent.RateChange.class,
+                TransferTraceEvent.ServiceSegment.class,
                 TransferTraceEvent.Complete.class)) {
             assertTrue(Modifier.isPublic(type.getModifiers()), type.getName());
             assertTrue(Modifier.isFinal(type.getModifiers()), type.getName());
             for (Field field : type.getDeclaredFields()) {
-                if (Modifier.isStatic(field.getModifiers())) { continue; }
+                if (Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
                 assertTrue(Modifier.isPrivate(field.getModifiers()), field.toString());
                 assertTrue(Modifier.isFinal(field.getModifiers()), field.toString());
                 assertFalse(Map.class.isAssignableFrom(field.getType()), field.toString());
@@ -533,11 +574,12 @@ class TransferContentionTraceTest {
 
     @Test
     void zeroAndDefaultBudgetsStayDisabledAcrossAWholeHistory() {
-        for (TransferContentionEngine engine : Arrays.asList(new TransferContentionEngine(),
-                new TransferContentionEngine(0))) {
+        for (TransferContentionEngine engine :
+                Arrays.asList(new TransferContentionEngine(), new TransferContentionEngine(0))) {
             runBudgetScenario(engine);
             assertSnapshot(engine.getTraceSnapshot(), DISABLED, 0, 0, 24);
-            assertThrows(UnsupportedOperationException.class,
+            assertThrows(
+                    UnsupportedOperationException.class,
                     () -> engine.getTraceSnapshot().getEvents().add(null));
         }
     }
@@ -572,8 +614,8 @@ class TransferContentionTraceTest {
     void offEnginesHaveNoTraceStateEvenAfterOperationsAndSnapshotRequests() throws Exception {
         Field state = TransferContentionEngine.class.getDeclaredField("traceState");
         state.setAccessible(true);
-        for (TransferContentionEngine engine : Arrays.asList(new TransferContentionEngine(),
-                new TransferContentionEngine(0))) {
+        for (TransferContentionEngine engine :
+                Arrays.asList(new TransferContentionEngine(), new TransferContentionEngine(0))) {
             assertNull(state.get(engine));
             runBudgetScenario(engine);
             engine.getTraceSnapshot();
@@ -605,19 +647,39 @@ class TransferContentionTraceTest {
     @Test
     void everyOperationHasRawBitParityForDefaultZeroEnabledAndTruncatedModes() {
         Parity parity = new Parity();
-        parity.step(0, e -> { e.setEndpointCapacity("A", 100); return null; });
-        parity.step(0, e -> { e.setEndpointCapacity("B", 40); return null; });
-        parity.step(0, e -> { e.setEndpointCapacity("A", 100); return null; });
+        parity.step(0, e -> {
+            e.setEndpointCapacity("A", 100);
+            return null;
+        });
+        parity.step(0, e -> {
+            e.setEndpointCapacity("B", 40);
+            return null;
+        });
+        parity.step(0, e -> {
+            e.setEndpointCapacity("A", 100);
+            return null;
+        });
         parity.step(0, e -> add(e, 9, 1000, 100, 0, "A"));
         parity.step(0, e -> add(e, 3, 1000, 100, 0, "A", "B"));
         parity.step(0, e -> add(e, 2, 1000, 10, 0, "B"));
         parity.step(0, e -> add(e, 9, 1, 1, 100, "A"));
-        parity.step(0, e -> { e.setEndpointCapacity("C", 100); return null; });
-        parity.step(0, e -> { e.setEndpointCapacity(null, 100); return null; });
-        parity.step(0, e -> { e.setEndpointCapacity("", 100); return null; });
-        for (double bad : new double[] {0, -1, Double.NaN,
-                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
-            parity.step(0, e -> { e.setEndpointCapacity("A", bad); return null; });
+        parity.step(0, e -> {
+            e.setEndpointCapacity("C", 100);
+            return null;
+        });
+        parity.step(0, e -> {
+            e.setEndpointCapacity(null, 100);
+            return null;
+        });
+        parity.step(0, e -> {
+            e.setEndpointCapacity("", 100);
+            return null;
+        });
+        for (double bad : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+            parity.step(0, e -> {
+                e.setEndpointCapacity("A", bad);
+                return null;
+            });
             parity.step(0, e -> add(e, 4, bad, 1, 100));
             parity.step(0, e -> add(e, 4, 1, bad, 100));
         }
@@ -627,8 +689,7 @@ class TransferContentionTraceTest {
         parity.step(0, e -> add(e, 4, 1, 1, 100, "A", null));
         parity.step(0, e -> e.addTransfer(4, 1.0, null, "A", 1, 100));
         parity.step(0, e -> e.addTransfer(4, 1L, "A", null, 1, 100));
-        for (double time : new double[] {-1, Double.NaN,
-                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+        for (double time : new double[] {-1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
             parity.step(0, e -> e.advance(time));
             parity.step(0, e -> add(e, 4, 1, 1, time));
         }
@@ -651,25 +712,34 @@ class TransferContentionTraceTest {
         parity.step(large, e -> e.advance(large));
         parity.step(large, e -> add(e, 4, 1, 49, large));
         parity.step(Math.nextUp(large), e -> e.advance(Math.nextUp(large)));
-        parity.step(Math.nextUp(large), e -> { e.setEndpointCapacity("B", 200); return null; });
+        parity.step(Math.nextUp(large), e -> {
+            e.setEndpointCapacity("B", 200);
+            return null;
+        });
         assertEquals(DISABLED, parity.engines[0].getTraceSnapshot().getStatus());
         assertEquals(DISABLED, parity.engines[1].getTraceSnapshot().getStatus());
         assertEquals(CAPTURE_COMPLETE, parity.engines[2].getTraceSnapshot().getStatus());
         assertEquals(TRUNCATED, parity.engines[3].getTraceSnapshot().getStatus());
     }
 
-    private static TransferContentionEngine.AdvanceResult add(TransferContentionEngine engine,
-            long id, double bytes, double nominal, double now, String... resources) {
+    private static TransferContentionEngine.AdvanceResult add(
+            TransferContentionEngine engine, long id, double bytes, double nominal, double now, String... resources) {
         return engine.addTransfer(id, bytes, Arrays.asList(resources), nominal, now);
     }
 
     private static void assertBits(double expected, double actual) {
-        assertEquals(Double.doubleToRawLongBits(expected), Double.doubleToRawLongBits(actual),
+        assertEquals(
+                Double.doubleToRawLongBits(expected),
+                Double.doubleToRawLongBits(actual),
                 "raw double bits for expected " + expected + " and actual " + actual);
     }
 
-    private static void assertSnapshot(TransferTraceSnapshot snapshot, TransferTraceSnapshot.Status status,
-            int count, long dropped, double engineTime) {
+    private static void assertSnapshot(
+            TransferTraceSnapshot snapshot,
+            TransferTraceSnapshot.Status status,
+            int count,
+            long dropped,
+            double engineTime) {
         assertEquals(status, snapshot.getStatus());
         assertEquals(count, snapshot.getEvents().size());
         assertEquals(dropped, snapshot.getDroppedCount());
@@ -678,7 +748,9 @@ class TransferContentionTraceTest {
     }
 
     private static void assertSequences(List<TransferTraceEvent> events) {
-        for (int i = 0; i < events.size(); i++) { assertEquals(i + 1L, events.get(i).getSequence()); }
+        for (int i = 0; i < events.size(); i++) {
+            assertEquals(i + 1L, events.get(i).getSequence());
+        }
     }
 
     private static void assertTypes(List<TransferTraceEvent> events, TransferTraceEvent.Type... types) {
@@ -699,8 +771,14 @@ class TransferContentionTraceTest {
         }
     }
 
-    private static void assertCommon(TransferTraceEvent event, long sequence, TransferTraceEvent.Type type,
-            Long id, Long ordinal, double effective, double observed) {
+    private static void assertCommon(
+            TransferTraceEvent event,
+            long sequence,
+            TransferTraceEvent.Type type,
+            Long id,
+            Long ordinal,
+            double effective,
+            double observed) {
         assertEquals(sequence, event.getSequence());
         assertEquals(type, event.getType());
         assertEquals(id, event.getTransferId());
@@ -715,8 +793,14 @@ class TransferContentionTraceTest {
         assertEquals(Long.valueOf(ordinal), event.getAdmissionOrdinal());
     }
 
-    private static void assertStart(TransferTraceEvent event, long id, long ordinal, double bytes,
-            double nominal, double initial, List<String> resources) {
+    private static void assertStart(
+            TransferTraceEvent event,
+            long id,
+            long ordinal,
+            double bytes,
+            double nominal,
+            double initial,
+            List<String> resources) {
         assertFlow(event, START, id, ordinal);
         assertBits(bytes, event.getStart().getBytes());
         assertBits(nominal, event.getStart().getNominalRateBytesPerSecond());
@@ -724,8 +808,14 @@ class TransferContentionTraceTest {
         assertEquals(resources, event.getStart().getOccupiedResources());
     }
 
-    private static void assertRateChange(TransferTraceEvent event, long id, long ordinal,
-            double previous, double rate, double effective, double observed) {
+    private static void assertRateChange(
+            TransferTraceEvent event,
+            long id,
+            long ordinal,
+            double previous,
+            double rate,
+            double effective,
+            double observed) {
         assertFlow(event, RATE_CHANGE, id, ordinal);
         assertBits(previous, event.getRateChange().getPreviousRateBytesPerSecond());
         assertBits(rate, event.getRateChange().getRateBytesPerSecond());
@@ -733,8 +823,17 @@ class TransferContentionTraceTest {
         assertBits(observed, event.getObservedTime());
     }
 
-    private static void assertService(TransferTraceEvent event, long id, long ordinal,
-            double start, double end, double elapsed, double rate, double before, double after, double observed) {
+    private static void assertService(
+            TransferTraceEvent event,
+            long id,
+            long ordinal,
+            double start,
+            double end,
+            double elapsed,
+            double rate,
+            double before,
+            double after,
+            double observed) {
         assertFlow(event, SERVICE_SEGMENT, id, ordinal);
         TransferTraceEvent.ServiceSegment service = event.getServiceSegment();
         assertBits(start, service.getIntervalStart());
@@ -747,8 +846,8 @@ class TransferContentionTraceTest {
         assertBits(observed, event.getObservedTime());
     }
 
-    private static void assertCompletion(TransferTraceEvent event, long id, long ordinal,
-            double effective, double observed, double residual) {
+    private static void assertCompletion(
+            TransferTraceEvent event, long id, long ordinal, double effective, double observed, double residual) {
         assertFlow(event, COMPLETE, id, ordinal);
         assertBits(effective, event.getEffectiveTime());
         assertBits(observed, event.getObservedTime());
@@ -758,9 +857,11 @@ class TransferContentionTraceTest {
     private static double serviceArea(List<TransferTraceEvent> events, long id, long ordinal) {
         double area = 0;
         for (TransferTraceEvent event : events) {
-            if (event.getType() == SERVICE_SEGMENT && event.getTransferId().longValue() == id
+            if (event.getType() == SERVICE_SEGMENT
+                    && event.getTransferId().longValue() == id
                     && event.getAdmissionOrdinal().longValue() == ordinal) {
-                area += event.getServiceSegment().getRateBytesPerSecond() * event.getServiceSegment().getElapsed();
+                area += event.getServiceSegment().getRateBytesPerSecond()
+                        * event.getServiceSegment().getElapsed();
             }
         }
         return area;
@@ -769,38 +870,74 @@ class TransferContentionTraceTest {
     private static List<TransferTraceEvent> eventsOfType(TransferTraceSnapshot snapshot, TransferTraceEvent.Type type) {
         List<TransferTraceEvent> selected = new ArrayList<TransferTraceEvent>();
         for (TransferTraceEvent event : snapshot.getEvents()) {
-            if (event.getType() == type) { selected.add(event); }
+            if (event.getType() == type) {
+                selected.add(event);
+            }
         }
         return selected;
     }
 
     private static void assertSameEvent(TransferTraceEvent expected, TransferTraceEvent actual) {
-        assertCommon(actual, expected.getSequence(), expected.getType(), expected.getTransferId(),
-                expected.getAdmissionOrdinal(), expected.getEffectiveTime(), expected.getObservedTime());
+        assertCommon(
+                actual,
+                expected.getSequence(),
+                expected.getType(),
+                expected.getTransferId(),
+                expected.getAdmissionOrdinal(),
+                expected.getEffectiveTime(),
+                expected.getObservedTime());
         switch (expected.getType()) {
             case CAPACITY:
-                assertEquals(expected.getCapacity().getResourceKey(), actual.getCapacity().getResourceKey());
-                assertBits(expected.getCapacity().getCapacityBytesPerSecond(), actual.getCapacity().getCapacityBytesPerSecond());
+                assertEquals(
+                        expected.getCapacity().getResourceKey(),
+                        actual.getCapacity().getResourceKey());
+                assertBits(
+                        expected.getCapacity().getCapacityBytesPerSecond(),
+                        actual.getCapacity().getCapacityBytesPerSecond());
                 break;
             case START:
                 TransferTraceEvent.Start start = expected.getStart();
-                assertStart(actual, expected.getTransferId(), expected.getAdmissionOrdinal(), start.getBytes(),
-                        start.getNominalRateBytesPerSecond(), start.getInitialRateBytesPerSecond(), start.getOccupiedResources());
+                assertStart(
+                        actual,
+                        expected.getTransferId(),
+                        expected.getAdmissionOrdinal(),
+                        start.getBytes(),
+                        start.getNominalRateBytesPerSecond(),
+                        start.getInitialRateBytesPerSecond(),
+                        start.getOccupiedResources());
                 break;
             case RATE_CHANGE:
-                assertRateChange(actual, expected.getTransferId(), expected.getAdmissionOrdinal(),
-                        expected.getRateChange().getPreviousRateBytesPerSecond(), expected.getRateChange().getRateBytesPerSecond(),
-                        expected.getEffectiveTime(), expected.getObservedTime());
+                assertRateChange(
+                        actual,
+                        expected.getTransferId(),
+                        expected.getAdmissionOrdinal(),
+                        expected.getRateChange().getPreviousRateBytesPerSecond(),
+                        expected.getRateChange().getRateBytesPerSecond(),
+                        expected.getEffectiveTime(),
+                        expected.getObservedTime());
                 break;
             case SERVICE_SEGMENT:
                 TransferTraceEvent.ServiceSegment segment = expected.getServiceSegment();
-                assertService(actual, expected.getTransferId(), expected.getAdmissionOrdinal(),
-                        segment.getIntervalStart(), segment.getIntervalEnd(), segment.getElapsed(), segment.getRateBytesPerSecond(),
-                        segment.getRemainingBefore(), segment.getRemainingAfter(), expected.getObservedTime());
+                assertService(
+                        actual,
+                        expected.getTransferId(),
+                        expected.getAdmissionOrdinal(),
+                        segment.getIntervalStart(),
+                        segment.getIntervalEnd(),
+                        segment.getElapsed(),
+                        segment.getRateBytesPerSecond(),
+                        segment.getRemainingBefore(),
+                        segment.getRemainingAfter(),
+                        expected.getObservedTime());
                 break;
             case COMPLETE:
-                assertCompletion(actual, expected.getTransferId(), expected.getAdmissionOrdinal(),
-                        expected.getEffectiveTime(), expected.getObservedTime(), expected.getComplete().getRemainingAfterService());
+                assertCompletion(
+                        actual,
+                        expected.getTransferId(),
+                        expected.getAdmissionOrdinal(),
+                        expected.getEffectiveTime(),
+                        expected.getObservedTime(),
+                        expected.getComplete().getRemainingAfterService());
                 break;
             default:
                 fail("Unhandled event type " + expected.getType());
@@ -834,9 +971,22 @@ class TransferContentionTraceTest {
             this.values = new ArrayList<String>(Arrays.asList(values));
         }
 
-        @Override public String get(int index) { getCalls++; return values.get(index); }
-        @Override public int size() { return values.size(); }
-        @Override public Object[] toArray() { toArrayCalls++; return values.toArray(); }
+        @Override
+        public String get(int index) {
+            getCalls++;
+            return values.get(index);
+        }
+
+        @Override
+        public int size() {
+            return values.size();
+        }
+
+        @Override
+        public Object[] toArray() {
+            toArrayCalls++;
+            return values.toArray();
+        }
     }
 
     private interface Operation {
@@ -853,18 +1003,25 @@ class TransferContentionTraceTest {
         }
 
         private static Outcome capture(TransferContentionEngine engine, Operation operation) {
-            try { return new Outcome(operation.apply(engine), null); }
-            catch (RuntimeException failure) { return new Outcome(null, failure); }
+            try {
+                return new Outcome(operation.apply(engine), null);
+            } catch (RuntimeException failure) {
+                return new Outcome(null, failure);
+            }
         }
     }
 
-    private static void assertSameResult(TransferContentionEngine.AdvanceResult expected,
-            TransferContentionEngine.AdvanceResult actual) {
-        if (expected == null) { assertNull(actual); return; }
+    private static void assertSameResult(
+            TransferContentionEngine.AdvanceResult expected, TransferContentionEngine.AdvanceResult actual) {
+        if (expected == null) {
+            assertNull(actual);
+            return;
+        }
         assertNotNull(actual);
         assertEquals(expected.getCompletedTransferIds(), actual.getCompletedTransferIds());
-        if (expected.getNextCompletionTime() == null) { assertNull(actual.getNextCompletionTime()); }
-        else {
+        if (expected.getNextCompletionTime() == null) {
+            assertNull(actual.getNextCompletionTime());
+        } else {
             assertNotNull(actual.getNextCompletionTime());
             assertBits(expected.getNextCompletionTime(), actual.getNextCompletionTime());
         }
@@ -872,8 +1029,12 @@ class TransferContentionTraceTest {
 
     /** Parity supplements the independent, bounded physical expectations above. */
     private static final class Parity {
-        private final TransferContentionEngine[] engines = {new TransferContentionEngine(),
-                new TransferContentionEngine(0), new TransferContentionEngine(1024), new TransferContentionEngine(1)};
+        private final TransferContentionEngine[] engines = {
+            new TransferContentionEngine(),
+            new TransferContentionEngine(0),
+            new TransferContentionEngine(1024),
+            new TransferContentionEngine(1)
+        };
         private final long[] ids = {9, 3, 2, -5, 4, 999};
 
         private void step(double expectedClock, Operation operation) {
@@ -892,8 +1053,11 @@ class TransferContentionTraceTest {
             }
             for (long id : ids) {
                 Double baselineRate;
-                try { baselineRate = engines[0].currentRateBytesPerSecond(id); }
-                catch (IllegalArgumentException unknown) { baselineRate = null; }
+                try {
+                    baselineRate = engines[0].currentRateBytesPerSecond(id);
+                } catch (IllegalArgumentException unknown) {
+                    baselineRate = null;
+                }
                 for (int mode = 1; mode < engines.length; mode++) {
                     final TransferContentionEngine engine = engines[mode];
                     if (baselineRate == null) {

@@ -38,8 +38,7 @@ class MultiWorkflowArrivalIntegrationTest {
     @Test
     void simultaneousArrivalsShareVmsAndReportPerWorkflowOutcomes() throws Exception {
         SimulationReport report = run(Arrays.asList(0.0, 0.0));
-        assertEquals(SIMULTANEOUS_GOLDEN_MAKESPAN, report.getMakespan(), 0.0,
-                "全零到达黄金 makespan");
+        assertEquals(SIMULTANEOUS_GOLDEN_MAKESPAN, report.getMakespan(), 0.0, "全零到达黄金 makespan");
         List<SimulationReport.WorkflowOutcome> outcomes = report.getWorkflowOutcomes();
         assertEquals(2, outcomes.size(), "两个输入各产生一份每工作流结果");
         assertEquals(10, outcomes.get(0).getTaskCount());
@@ -51,8 +50,8 @@ class MultiWorkflowArrivalIntegrationTest {
         assertEquals(0.0, outcomes.get(0).getArrivalSecond(), 0.0);
         assertEquals(0.0, outcomes.get(1).getArrivalSecond(), 0.0);
         // 全零到达时流时等于最大成功完成时刻。
-        assertEquals(outcomes.get(0).getLastSuccessFinishSecond(),
-                outcomes.get(0).getFlowTimeSeconds(), 0.0);
+        assertEquals(
+                outcomes.get(0).getLastSuccessFinishSecond(), outcomes.get(0).getFlowTimeSeconds(), 0.0);
         assertTrue(outcomes.get(0).getFlowTimeSeconds() > 0.0);
         assertTrue(outcomes.get(1).getFlowTimeSeconds() > 0.0);
     }
@@ -61,29 +60,30 @@ class MultiWorkflowArrivalIntegrationTest {
     void staggeredArrivalGatesSecondWorkflowAndReportsFlowTime() throws Exception {
         SimulationReport report = run(Arrays.asList(0.0, 50.0));
         List<SimulationReport.WorkflowOutcome> outcomes = report.getWorkflowOutcomes();
-        assertEquals(STAGGERED_GOLDEN_MAKESPAN, report.getMakespan(), 0.0,
-                "错峰到达黄金 makespan");
+        assertEquals(STAGGERED_GOLDEN_MAKESPAN, report.getMakespan(), 0.0, "错峰到达黄金 makespan");
         assertEquals(50.0, outcomes.get(1).getArrivalSecond(), 0.0);
-        assertEquals(STAGGERED_GOLDEN_FLOW_W1, outcomes.get(1).getFlowTimeSeconds(), 0.0,
-                "工作流 1 黄金流时");
-        assertEquals(outcomes.get(1).getLastSuccessFinishSecond() - 50.0,
-                outcomes.get(1).getFlowTimeSeconds(), 0.0, "流时 = 最大完成 − 提交时刻");
+        assertEquals(STAGGERED_GOLDEN_FLOW_W1, outcomes.get(1).getFlowTimeSeconds(), 0.0, "工作流 1 黄金流时");
+        assertEquals(
+                outcomes.get(1).getLastSuccessFinishSecond() - 50.0,
+                outcomes.get(1).getFlowTimeSeconds(),
+                0.0,
+                "流时 = 最大完成 − 提交时刻");
         // 到达门控：工作流 1 的任何任务都不得在提交时刻之前开始。
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
             if (task.getTaskId() >= 11 && task.getTaskId() <= 20) {
-                assertTrue(task.getStartTime() >= 50.0,
-                        "任务 " + task.getTaskId() + " 在到达时刻前开始: " + task.getStartTime());
+                assertTrue(task.getStartTime() >= 50.0, "任务 " + task.getTaskId() + " 在到达时刻前开始: " + task.getStartTime());
             }
         }
         // 晚到不会提前：错峰 makespan 不小于同时提交。
         SimulationReport simultaneous = run(Arrays.asList(0.0, 0.0));
-        assertTrue(report.getMakespan() >= simultaneous.getMakespan(),
-                "错峰到达不得早于同时提交完成");
+        assertTrue(report.getMakespan() >= simultaneous.getMakespan(), "错峰到达不得早于同时提交完成");
         // R8 审计回归（P0-1）：早到不得被推迟——双向门控。工作流 0 的最后成功
         // 完成时刻必须与同时提交下逐位一致（修复前 stage-in 被扣到 50 秒，
         // 早到工作流被静默推迟，此断言即其回归锁）。
-        assertEquals(simultaneous.getWorkflowOutcomes().get(0).getLastSuccessFinishSecond(),
-                outcomes.get(0).getLastSuccessFinishSecond(), 0.0,
+        assertEquals(
+                simultaneous.getWorkflowOutcomes().get(0).getLastSuccessFinishSecond(),
+                outcomes.get(0).getLastSuccessFinishSecond(),
+                0.0,
                 "早到工作流不得被晚到工作流的到达时刻推迟");
     }
 
@@ -92,8 +92,10 @@ class MultiWorkflowArrivalIntegrationTest {
         SimulationReport first = run(Arrays.asList(0.0, 50.0));
         SimulationReport second = run(Arrays.asList(0.0, 50.0));
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0, "确定性");
-        assertEquals(first.getWorkflowOutcomes().get(1).getFlowTimeSeconds(),
-                second.getWorkflowOutcomes().get(1).getFlowTimeSeconds(), 0.0);
+        assertEquals(
+                first.getWorkflowOutcomes().get(1).getFlowTimeSeconds(),
+                second.getWorkflowOutcomes().get(1).getFlowTimeSeconds(),
+                0.0);
         // WORKFLOW_ARRIVED 证据：每个工作流恰好一次，提交时刻与配置一致。
         int arrived0 = 0;
         int arrived1 = 0;
@@ -108,8 +110,7 @@ class MultiWorkflowArrivalIntegrationTest {
                 } else if (Integer.valueOf(1).equals(index)) {
                     arrived1++;
                     assertEquals(50.0, ((Number) arrival).doubleValue(), 0.0);
-                    assertTrue(event.getSimulationTime() >= 50.0,
-                            "到达证据时刻不得早于提交时刻");
+                    assertTrue(event.getSimulationTime() >= 50.0, "到达证据时刻不得早于提交时刻");
                 }
             }
         }
@@ -122,21 +123,19 @@ class MultiWorkflowArrivalIntegrationTest {
         SimulationConfig config = SimulationConfig.builder(workflowPath(), 3).build();
         SimulationReport report = new SimulationRunner().run(config, paperPlatform());
         for (SimulationEvent event : report.getEvents()) {
-            assertFalse(event.getType() == SimulationEventType.WORKFLOW_ARRIVED,
-                    "单输入全零到达不得产生新事件（历史轨迹逐位一致）");
+            assertFalse(event.getType() == SimulationEventType.WORKFLOW_ARRIVED, "单输入全零到达不得产生新事件（历史轨迹逐位一致）");
         }
         List<SimulationReport.WorkflowOutcome> outcomes = report.getWorkflowOutcomes();
         assertEquals(1, outcomes.size());
         assertEquals(0.0, outcomes.get(0).getArrivalSecond(), 0.0);
         assertEquals(10, outcomes.get(0).getTaskCount());
-        assertEquals(outcomes.get(0).getLastSuccessFinishSecond(),
-                outcomes.get(0).getFlowTimeSeconds(), 0.0);
+        assertEquals(
+                outcomes.get(0).getLastSuccessFinishSecond(), outcomes.get(0).getFlowTimeSeconds(), 0.0);
     }
 
     private static SimulationReport run(List<Double> arrivals) throws Exception {
         Log.disable();
-        SimulationConfig config = SimulationConfig
-                .builder(Arrays.asList(workflowPath(), workflowPath()), 3)
+        SimulationConfig config = SimulationConfig.builder(Arrays.asList(workflowPath(), workflowPath()), 3)
                 .workflowArrivalSeconds(arrivals)
                 .build();
         return new SimulationRunner().run(config, paperPlatform());
@@ -147,15 +146,14 @@ class MultiWorkflowArrivalIntegrationTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("multi-arrival-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }
 
     private static String workflowPath() throws Exception {
-        java.net.URL url = MultiWorkflowArrivalIntegrationTest.class
-                .getResource("/dax/heft-paper-example.dax");
+        java.net.URL url = MultiWorkflowArrivalIntegrationTest.class.getResource("/dax/heft-paper-example.dax");
         if (url == null) {
             throw new IllegalStateException("Missing test resource /dax/heft-paper-example.dax");
         }

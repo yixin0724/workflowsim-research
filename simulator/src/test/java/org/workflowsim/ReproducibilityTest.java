@@ -35,8 +35,8 @@ class ReproducibilityTest {
     }
 
     private CondorVM createVm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10000, "Xen",
-                new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
+        return new CondorVM(
+                id, 0, mips, 1, 512, 1000, 10000, "Xen", new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
     }
 
     @Test
@@ -62,10 +62,8 @@ class ReproducibilityTest {
         for (int i = 0; i < s1.getScheduledList().size(); i++) {
             Cloudlet a = (Cloudlet) s1.getScheduledList().get(i);
             Cloudlet b = (Cloudlet) s2.getScheduledList().get(i);
-            assertEquals(a.getCloudletId(), b.getCloudletId(),
-                    "第 " + i + " 个调度的任务 ID 不一致");
-            assertEquals(a.getVmId(), b.getVmId(),
-                    "第 " + i + " 个调度的 VM 分配不一致");
+            assertEquals(a.getCloudletId(), b.getCloudletId(), "第 " + i + " 个调度的任务 ID 不一致");
+            assertEquals(a.getVmId(), b.getVmId(), "第 " + i + " 个调度的 VM 分配不一致");
         }
     }
 

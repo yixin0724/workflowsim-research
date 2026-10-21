@@ -20,11 +20,17 @@ class WorkflowSchedulerPolicyLifecycleTest {
     @BeforeEach
     void setUp() {
         Parameters.setRandomSeed(20260901L);
-        Parameters.init(1, (String) null, null, null,
+        Parameters.init(
+                1,
+                (String) null,
+                null,
+                null,
                 new OverheadParameters(0, null, null, null, null, 0),
                 new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null),
                 Parameters.SchedulingAlgorithm.READY_BATCH_ROUNDROBIN,
-                Parameters.PlanningAlgorithm.INVALID, null, 0);
+                Parameters.PlanningAlgorithm.INVALID,
+                null,
+                0);
         CloudSim.init(1, Calendar.getInstance(), false);
     }
 
@@ -39,11 +45,17 @@ class WorkflowSchedulerPolicyLifecycleTest {
         assertTrue(first instanceof ReadyBatchRoundRobinSchedulingAlgorithm);
 
         // 同一个 Scheduler 在算法类型改变后必须丢弃已缓存的有状态策略实例。
-        Parameters.init(1, (String) null, null, null,
+        Parameters.init(
+                1,
+                (String) null,
+                null,
+                null,
                 new OverheadParameters(0, null, null, null, null, 0),
                 new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null),
                 Parameters.SchedulingAlgorithm.READY_BATCH_MAXMIN,
-                Parameters.PlanningAlgorithm.INVALID, null, 0);
+                Parameters.PlanningAlgorithm.INVALID,
+                null,
+                0);
 
         BaseSchedulingAlgorithm replacement = scheduler.getSchedulingPolicy();
         assertNotSame(first, replacement);

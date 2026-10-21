@@ -7,7 +7,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.workflowsim.data.TransferContentionEngine;
 
 /**
@@ -48,8 +47,12 @@ public final class FatTreeTopology {
     private final Map<Integer, int[]> hostToPodEdge;
     private final Map<String, Double> linkCapacities;
 
-    private FatTreeTopology(int k, double linkBandwidthBytesPerSecond, int coreSwitchCount,
-            Map<Integer, int[]> hostToPodEdge, Map<String, Double> linkCapacities) {
+    private FatTreeTopology(
+            int k,
+            double linkBandwidthBytesPerSecond,
+            int coreSwitchCount,
+            Map<Integer, int[]> hostToPodEdge,
+            Map<String, Double> linkCapacities) {
         this.k = k;
         this.halfK = k / 2;
         this.linkBandwidthBytesPerSecond = linkBandwidthBytesPerSecond;
@@ -84,17 +87,17 @@ public final class FatTreeTopology {
         Collections.sort(sorted);
         int hostCapacity = k * k * k / 4;
         if (sorted.size() > hostCapacity) {
-            throw new IllegalArgumentException("A k=" + k + " fat-tree hosts at most k^3/4="
-                    + hostCapacity + " hosts, received " + sorted.size());
+            throw new IllegalArgumentException(
+                    "A k=" + k + " fat-tree hosts at most k^3/4=" + hostCapacity + " hosts, received " + sorted.size());
         }
-        int coreSwitchCount = spec.getCoreSwitchCount() != null
-                ? spec.getCoreSwitchCount().intValue() : k * k / 4;
+        int coreSwitchCount =
+                spec.getCoreSwitchCount() != null ? spec.getCoreSwitchCount().intValue() : k * k / 4;
         // 超收敛校验：每台 aggregate（编号 a < availA 才会被路由使用）必须至少
         // 有一条 core 上行，即 a*halfK < coreSwitchCount 对 a = availA-1 成立。
         int availableAggregateCount = (coreSwitchCount + halfK - 1) / halfK;
         if (availableAggregateCount < 1) {
-            throw new IllegalArgumentException("Fat-tree core switch count too small for k=" + k
-                    + ": at least 1 core switch must be reachable");
+            throw new IllegalArgumentException(
+                    "Fat-tree core switch count too small for k=" + k + ": at least 1 core switch must be reachable");
         }
         // 放置解析：显式 map 或默认轮转（hostId 升序 → edge 交换机索引轮转）。
         int edgeSwitchCount = k * halfK;
@@ -103,47 +106,48 @@ public final class FatTreeTopology {
         if (placements == null) {
             for (int i = 0; i < sorted.size(); i++) {
                 int edgeSwitchIndex = i % edgeSwitchCount;
-                hostToPodEdge.put(sorted.get(i),
-                        new int[]{edgeSwitchIndex / halfK, edgeSwitchIndex % halfK});
+                hostToPodEdge.put(sorted.get(i), new int[] {edgeSwitchIndex / halfK, edgeSwitchIndex % halfK});
             }
         } else {
             Map<Integer, Integer> perEdgeCount = new LinkedHashMap<Integer, Integer>();
             for (Integer hostId : sorted) {
                 Integer edgeSwitchIndex = placements.get(hostId);
                 if (edgeSwitchIndex == null) {
-                    throw new IllegalArgumentException("Explicit fat-tree host placement must cover host "
-                            + hostId);
+                    throw new IllegalArgumentException("Explicit fat-tree host placement must cover host " + hostId);
                 }
                 int idx = edgeSwitchIndex.intValue();
                 Integer count = perEdgeCount.get(Integer.valueOf(idx));
                 int next = (count == null ? 0 : count.intValue()) + 1;
                 if (next > halfK) {
-                    throw new IllegalArgumentException("Fat-tree edge switch " + idx + " hosts at most k/2="
-                            + halfK + " hosts");
+                    throw new IllegalArgumentException(
+                            "Fat-tree edge switch " + idx + " hosts at most k/2=" + halfK + " hosts");
                 }
                 perEdgeCount.put(Integer.valueOf(idx), Integer.valueOf(next));
-                hostToPodEdge.put(hostId, new int[]{idx / halfK, idx % halfK});
+                hostToPodEdge.put(hostId, new int[] {idx / halfK, idx % halfK});
             }
             for (Integer placedHost : placements.keySet()) {
                 if (!hostToPodEdge.containsKey(placedHost)) {
-                    throw new IllegalArgumentException("Explicit fat-tree host placement references unknown host "
-                            + placedHost);
+                    throw new IllegalArgumentException(
+                            "Explicit fat-tree host placement references unknown host " + placedHost);
                 }
             }
         }
         // 单位契约：spec 的链路带宽按 MB/s 解释（×10⁶ = 字节/秒），与 VM 端点
         // 容量（vm.getBw() × 10⁶）及遗留估算公式（bytes/10⁶/bw）同一惯例。
         // 同声明值下链路容量与端点容量同量级（R8 审计修复：此前误按 Mb/s ÷8）。
-        Map<String, Double> linkCapacities = buildLinkCapacities(k, halfK, coreSwitchCount,
-                hostToPodEdge, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0);
-        return new FatTreeTopology(k, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0,
-                coreSwitchCount, Collections.unmodifiableMap(hostToPodEdge),
+        Map<String, Double> linkCapacities = buildLinkCapacities(
+                k, halfK, coreSwitchCount, hostToPodEdge, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0);
+        return new FatTreeTopology(
+                k,
+                spec.getLinkBandwidthMbPerSecond() * 1_000_000.0,
+                coreSwitchCount,
+                Collections.unmodifiableMap(hostToPodEdge),
                 Collections.unmodifiableMap(linkCapacities));
     }
 
     /** 构造全部物理链路容量表（双工分方向；仅已放置主机的接入链路）。 */
-    private static Map<String, Double> buildLinkCapacities(int k, int halfK, int coreSwitchCount,
-            Map<Integer, int[]> hostToPodEdge, double bandwidthBytesPerSecond) {
+    private static Map<String, Double> buildLinkCapacities(
+            int k, int halfK, int coreSwitchCount, Map<Integer, int[]> hostToPodEdge, double bandwidthBytesPerSecond) {
         Map<String, Double> capacities = new LinkedHashMap<String, Double>();
         for (Map.Entry<Integer, int[]> entry : hostToPodEdge.entrySet()) {
             int hostId = entry.getKey().intValue();
@@ -154,9 +158,11 @@ public final class FatTreeTopology {
         for (int pod = 0; pod < k; pod++) {
             for (int edge = 0; edge < halfK; edge++) {
                 for (int agg = 0; agg < halfK; agg++) {
-                    capacities.put("LINK:EDGE:" + pod + ":" + edge + "->AGG:" + pod + ":" + agg,
+                    capacities.put(
+                            "LINK:EDGE:" + pod + ":" + edge + "->AGG:" + pod + ":" + agg,
                             Double.valueOf(bandwidthBytesPerSecond));
-                    capacities.put("LINK:AGG:" + pod + ":" + agg + "->EDGE:" + pod + ":" + edge,
+                    capacities.put(
+                            "LINK:AGG:" + pod + ":" + agg + "->EDGE:" + pod + ":" + edge,
                             Double.valueOf(bandwidthBytesPerSecond));
                 }
             }
@@ -164,10 +170,10 @@ public final class FatTreeTopology {
             for (int agg = 0; agg < halfK; agg++) {
                 for (int j = 0; j < halfK && agg * halfK + j < coreSwitchCount; j++) {
                     int core = agg * halfK + j;
-                    capacities.put("LINK:AGG:" + pod + ":" + agg + "->CORE:" + core,
-                            Double.valueOf(bandwidthBytesPerSecond));
-                    capacities.put("LINK:CORE:" + core + "->AGG:" + pod + ":" + agg,
-                            Double.valueOf(bandwidthBytesPerSecond));
+                    capacities.put(
+                            "LINK:AGG:" + pod + ":" + agg + "->CORE:" + core, Double.valueOf(bandwidthBytesPerSecond));
+                    capacities.put(
+                            "LINK:CORE:" + core + "->AGG:" + pod + ":" + agg, Double.valueOf(bandwidthBytesPerSecond));
                 }
             }
         }

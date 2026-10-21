@@ -34,52 +34,42 @@ class ExperimentEvidenceContextTest {
 
     @Test
     void builderRejectsBlankOrMissingIdentityFields() {
-        assertThrows(IllegalArgumentException.class,
-                () -> ExperimentEvidenceContext.builder(null));
-        assertThrows(IllegalArgumentException.class,
-                () -> ExperimentEvidenceContext.builder("   "));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().artifact(null, "a", "1.0"));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().artifact("g", "", "1.0"));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().artifact("g", "a", " "));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().driver(null, "src"));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().driver(String.class, ""));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().protocol(null, null));
+        assertThrows(IllegalArgumentException.class, () -> ExperimentEvidenceContext.builder(null));
+        assertThrows(IllegalArgumentException.class, () -> ExperimentEvidenceContext.builder("   "));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().artifact(null, "a", "1.0"));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().artifact("g", "", "1.0"));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().artifact("g", "a", " "));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().driver(null, "src"));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().driver(String.class, ""));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().protocol(null, null));
     }
 
     @Test
     void buildRejectsPartiallyConfiguredContext() {
         // 缺 artifact。
-        IllegalStateException noArtifact = assertThrows(IllegalStateException.class,
-                () -> ExperimentEvidenceContext.builder("study-x")
+        IllegalStateException noArtifact =
+                assertThrows(IllegalStateException.class, () -> ExperimentEvidenceContext.builder("study-x")
                         .driver(ExperimentEvidenceContextTest.class, "src")
                         .protocol("p", null)
                         .datasetRoot(datasetRoot)
                         .build());
         assertTrue(noArtifact.getMessage().contains("required"), noArtifact.getMessage());
         // 缺 datasetRoot。
-        assertThrows(IllegalStateException.class,
-                () -> ExperimentEvidenceContext.builder("study-x")
-                        .artifact("g", "a", "1.0")
-                        .driver(ExperimentEvidenceContextTest.class, "src")
-                        .protocol("p", null)
-                        .build());
+        assertThrows(IllegalStateException.class, () -> ExperimentEvidenceContext.builder("study-x")
+                .artifact("g", "a", "1.0")
+                .driver(ExperimentEvidenceContextTest.class, "src")
+                .protocol("p", null)
+                .build());
     }
 
     @Test
     void datasetRootMustBeAbsoluteAndExist() {
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().datasetRoot(null));
-        assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().datasetRoot(java.nio.file.Paths.get("relative", "root")));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder().datasetRoot(null));
+        assertThrows(IllegalArgumentException.class, () -> fullBuilder()
+                .datasetRoot(java.nio.file.Paths.get("relative", "root")));
         Path missing = datasetRoot.resolve("not-here");
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> fullBuilder().datasetRoot(missing));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> fullBuilder().datasetRoot(missing));
         assertTrue(ex.getMessage().contains("not a directory"), ex.getMessage());
     }
 
@@ -107,9 +97,8 @@ class ExperimentEvidenceContextTest {
         assertNull(missingProtocol.get("sha256"));
 
         // 目录路径不是常规文件 → 同样视为不可用。
-        Map<String, Object> directory = fullBuilder()
-                .protocol("protocol-1", datasetRoot)
-                .build().asMap();
+        Map<String, Object> directory =
+                fullBuilder().protocol("protocol-1", datasetRoot).build().asMap();
         @SuppressWarnings("unchecked")
         Map<String, Object> directoryProtocol = (Map<String, Object>) directory.get("protocol");
         assertEquals(Boolean.FALSE, directoryProtocol.get("available"));
@@ -117,9 +106,8 @@ class ExperimentEvidenceContextTest {
         // 真实协议文件 → available=true、sha256 为 64 位十六进制。
         Path protocolFile = datasetRoot.resolve("PROTOCOL.md");
         Files.write(protocolFile, "# protocol".getBytes(StandardCharsets.UTF_8));
-        Map<String, Object> present = fullBuilder()
-                .protocol("protocol-1", protocolFile)
-                .build().asMap();
+        Map<String, Object> present =
+                fullBuilder().protocol("protocol-1", protocolFile).build().asMap();
         @SuppressWarnings("unchecked")
         Map<String, Object> presentProtocol = (Map<String, Object>) present.get("protocol");
         assertEquals(Boolean.TRUE, presentProtocol.get("available"));

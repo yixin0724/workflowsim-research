@@ -15,8 +15,7 @@ public final class SeedPlan {
     private final Long derivationRootSeed;
     private final List<Long> seeds;
 
-    private SeedPlan(RandomizationDesign randomizationDesign, Long derivationRootSeed,
-            List<Long> seeds) {
+    private SeedPlan(RandomizationDesign randomizationDesign, Long derivationRootSeed, List<Long> seeds) {
         if (randomizationDesign == null || seeds == null || seeds.isEmpty()) {
             throw new IllegalArgumentException("Randomization design and at least one seed are required");
         }
@@ -39,8 +38,8 @@ public final class SeedPlan {
      * @return 恰有一次重复的确定性种子计划
      */
     public static SeedPlan deterministic(long seed) {
-        return new SeedPlan(RandomizationDesign.DETERMINISTIC, Long.valueOf(seed),
-                Collections.singletonList(Long.valueOf(seed)));
+        return new SeedPlan(
+                RandomizationDesign.DETERMINISTIC, Long.valueOf(seed), Collections.singletonList(Long.valueOf(seed)));
     }
 
     /**
@@ -88,8 +87,19 @@ public final class SeedPlan {
         return mixed ^ (mixed >>> 31);
     }
 
-    public RandomizationDesign getRandomizationDesign() { return randomizationDesign; }
-    public Long getDerivationRootSeed() { return derivationRootSeed; }
-    public List<Long> getSeeds() { return seeds; }
-    public int getReplicationCount() { return seeds.size(); }
+    public RandomizationDesign getRandomizationDesign() {
+        return randomizationDesign;
+    }
+
+    public Long getDerivationRootSeed() {
+        return derivationRootSeed;
+    }
+
+    public List<Long> getSeeds() {
+        return seeds;
+    }
+
+    public int getReplicationCount() {
+        return seeds.size();
+    }
 }

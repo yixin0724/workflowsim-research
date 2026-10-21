@@ -25,8 +25,8 @@ public final class SharedStorageHeftPlanningAlgorithm extends BasePlanningAlgori
     @Override
     public void run() {
         lastPlanTrace = null;
-        lastPlanTrace = SharedStorageDagPlanner.plan(getTaskList(), getVmList(), context,
-                SharedStorageDagPlanner.Strategy.HEFT);
+        lastPlanTrace = SharedStorageDagPlanner.plan(
+                getTaskList(), getVmList(), context, SharedStorageDagPlanner.Strategy.HEFT);
     }
 
     /** 返回最近一次成功规划的不可变决策轨迹。 */

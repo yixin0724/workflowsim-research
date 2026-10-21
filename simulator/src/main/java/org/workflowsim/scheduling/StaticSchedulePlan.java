@@ -17,8 +17,8 @@ import org.workflowsim.utils.Parameters.ClassType;
  */
 public final class StaticSchedulePlan {
 
-    private static final StaticSchedulePlan EMPTY = new StaticSchedulePlan(
-            Collections.<Integer, List<Integer>>emptyMap());
+    private static final StaticSchedulePlan EMPTY =
+            new StaticSchedulePlan(Collections.<Integer, List<Integer>>emptyMap());
 
     private final Map<Integer, List<Integer>> jobIdsByVm;
     private final Map<Integer, Integer> nextIndexByVm;
@@ -69,10 +69,8 @@ public final class StaticSchedulePlan {
             return empty();
         }
         for (Job job : jobs) {
-            if (job.getClassType() == ClassType.COMPUTE.value
-                    && Double.isNaN(job.getStaticScheduleStartTime())) {
-                throw new IllegalStateException("Static schedule is incomplete for compute job "
-                        + job.getCloudletId());
+            if (job.getClassType() == ClassType.COMPUTE.value && Double.isNaN(job.getStaticScheduleStartTime())) {
+                throw new IllegalStateException("Static schedule is incomplete for compute job " + job.getCloudletId());
             }
         }
 
@@ -82,10 +80,9 @@ public final class StaticSchedulePlan {
             Collections.sort(items, new Comparator<Job>() {
                 @Override
                 public int compare(Job first, Job second) {
-                    int byStart = Double.compare(first.getStaticScheduleStartTime(),
-                            second.getStaticScheduleStartTime());
-                    return byStart != 0 ? byStart
-                            : Integer.compare(first.getCloudletId(), second.getCloudletId());
+                    int byStart =
+                            Double.compare(first.getStaticScheduleStartTime(), second.getStaticScheduleStartTime());
+                    return byStart != 0 ? byStart : Integer.compare(first.getCloudletId(), second.getCloudletId());
                 }
             });
             List<Integer> ids = new ArrayList<Integer>();
@@ -120,8 +117,8 @@ public final class StaticSchedulePlan {
     public void markDispatched(Job job) {
         Integer expected = nextExpectedJobId(job.getVmId());
         if (expected == null || expected.intValue() != job.getCloudletId()) {
-            throw new IllegalStateException("Static plan dispatch order violation for job "
-                    + job.getCloudletId() + " on VM " + job.getVmId());
+            throw new IllegalStateException(
+                    "Static plan dispatch order violation for job " + job.getCloudletId() + " on VM " + job.getVmId());
         }
         nextIndexByVm.put(job.getVmId(), nextIndexByVm.get(job.getVmId()) + 1);
     }

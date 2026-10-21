@@ -27,7 +27,8 @@ class SharedStoragePeftPlanningAlgorithmTest {
 
         SharedStoragePeftPlanningAlgorithm planner = planner(
                 Arrays.asList(shortSuccessor, longRoot, longSuccessor, successorAwareRoot),
-                Arrays.asList(vm(1, 2_000.0), vm(0, 1_000.0)), mixedMipsPlatform());
+                Arrays.asList(vm(1, 2_000.0), vm(0, 1_000.0)),
+                mixedMipsPlatform());
         planner.run();
 
         SharedStorageDagPlanTrace trace = planner.getLastPlanTrace();
@@ -42,8 +43,7 @@ class SharedStoragePeftPlanningAlgorithmTest {
         // 初始 stage-in 释放在 0.21 秒完成。Task 1 在 VM 1 上的 EFT 为 0.71、OCT 为 2.0，
         // 因而 PEFT 选定目标值为 2.71。
         assertEquals(1, trace.getTaskPlan(1).getVmId());
-        assertEquals(2.0, trace.getTaskPlan(1).getPeftOptimisticCostAtSelectedVmSeconds(),
-                1.0e-12);
+        assertEquals(2.0, trace.getTaskPlan(1).getPeftOptimisticCostAtSelectedVmSeconds(), 1.0e-12);
         assertEquals(2.71, trace.getTaskPlan(1).getPeftEftPlusOptimisticCostSeconds(), 1.0e-12);
         assertEquals(1, trace.getTaskPlan(2).getVmId());
         assertNull(trace.getTaskPlan(1).getEtfEarliestStartAtSelection());
@@ -55,8 +55,8 @@ class SharedStoragePeftPlanningAlgorithmTest {
         Task higherId = new Task(8, 1_000);
         Task lowerId = new Task(2, 1_000);
 
-        SharedStoragePeftPlanningAlgorithm planner = planner(Arrays.asList(higherId, lowerId),
-                Arrays.asList(vm(7, 1_000.0), vm(3, 1_000.0)), equalMipsPlatform());
+        SharedStoragePeftPlanningAlgorithm planner = planner(
+                Arrays.asList(higherId, lowerId), Arrays.asList(vm(7, 1_000.0), vm(3, 1_000.0)), equalMipsPlatform());
         planner.run();
 
         SharedStorageDagPlanTrace trace = planner.getLastPlanTrace();
@@ -66,14 +66,14 @@ class SharedStoragePeftPlanningAlgorithmTest {
         assertTrue(trace.getTaskPlan(2).getPeftEftPlusOptimisticCostSeconds() > 0.0);
     }
 
-    private static SharedStoragePeftPlanningAlgorithm planner(List<Task> tasks,
-            List<CondorVM> vms, PlatformProfile platform) {
+    private static SharedStoragePeftPlanningAlgorithm planner(
+            List<Task> tasks, List<CondorVM> vms, PlatformProfile platform) {
         SimulationConfig config = SimulationConfig.builder("workflow.dax", 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_PEFT)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
-        SharedStoragePeftPlanningAlgorithm result = new SharedStoragePeftPlanningAlgorithm(
-                new PlanningContext(config, platform));
+        SharedStoragePeftPlanningAlgorithm result =
+                new SharedStoragePeftPlanningAlgorithm(new PlanningContext(config, platform));
         result.setTaskList(tasks);
         result.setVmList(vms);
         return result;
@@ -85,38 +85,29 @@ class SharedStoragePeftPlanningAlgorithmTest {
     }
 
     private static CondorVM vm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static PlatformProfile mixedMipsPlatform() {
         return PlatformProfile.builder("shared-storage-peft-mixed")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 2000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 2000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 2000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 2000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }
 
     private static PlatformProfile equalMipsPlatform() {
         return PlatformProfile.builder("shared-storage-peft-ties")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0,
-                        1024, 1000L, 100_000L))
-                .addVm(new PlatformProfile.VmSpec(3, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(7, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0, 1024, 1000L, 100_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        3, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        7, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000L, 20))
                 .build();
     }

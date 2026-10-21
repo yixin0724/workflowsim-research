@@ -35,8 +35,8 @@ class ReadyBatchMCTSchedulingAlgorithmTest {
     }
 
     private CondorVM createVm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10000, "Xen",
-                new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
+        return new CondorVM(
+                id, 0, mips, 1, 512, 1000, 10000, "Xen", new org.cloudbus.cloudsim.CloudletSchedulerTimeShared());
     }
 
     @Test

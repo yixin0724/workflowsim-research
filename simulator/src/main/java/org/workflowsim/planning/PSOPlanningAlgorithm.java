@@ -70,8 +70,7 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
     /** 最近一次运行的实际迭代数。 */
     private int lastIterationCount = 0;
     /** 最近一次收敛的全局最优映射（Task ID → VM ID）。 */
-    private java.util.Map<Integer, Integer> lastMapping =
-            new java.util.LinkedHashMap<Integer, Integer>();
+    private java.util.Map<Integer, Integer> lastMapping = new java.util.LinkedHashMap<Integer, Integer>();
 
     @Override
     public void run() {
@@ -106,8 +105,8 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
         for (Vm vm : vms) {
             double mips = vm.getMips();
             if (Double.isNaN(mips) || Double.isInfinite(mips) || mips <= 0.0) {
-                throw new IllegalStateException("PSO requires every VM to have finite positive MIPS; VM #"
-                        + vm.getId() + " has " + mips);
+                throw new IllegalStateException(
+                        "PSO requires every VM to have finite positive MIPS; VM #" + vm.getId() + " has " + mips);
             }
         }
 
@@ -129,8 +128,7 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
 
         for (int iter = 0; iter < MAX_ITERATIONS; iter++) {
             for (PsoParticle particle : swarm) {
-                double fitness = PsoFitnessFunction.evaluate(particle.getPosition(), tasks, vms,
-                        COST_WEIGHT);
+                double fitness = PsoFitnessFunction.evaluate(particle.getPosition(), tasks, vms, COST_WEIGHT);
                 if (fitness < particle.getBestFitness()) {
                     particle.setBestPosition(particle.getPosition());
                     particle.setBestFitness(fitness);
@@ -141,12 +139,12 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
                 }
             }
             if (globalBestPosition == null) {
-                throw new IllegalStateException("PSO found no finite-fitness compatible mapping; "
-                        + "check task costs and VM MIPS");
+                throw new IllegalStateException(
+                        "PSO found no finite-fitness compatible mapping; " + "check task costs and VM MIPS");
             }
             for (PsoParticle particle : swarm) {
-                particle.updateVelocity(globalBestPosition, INERTIA_WEIGHT,
-                        COGNITIVE_COEFFICIENT, SOCIAL_COEFFICIENT, random);
+                particle.updateVelocity(
+                        globalBestPosition, INERTIA_WEIGHT, COGNITIVE_COEFFICIENT, SOCIAL_COEFFICIENT, random);
                 particle.updatePosition(vmCount);
                 constrainToCompatibleVms(particle.getPosition(), compatibleIndices);
             }
@@ -157,9 +155,8 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
         // 理论不可达，但防御性保留），globalBestPosition 会停在 null，
         // 原代码在此处以空指针崩溃。显式 fail-fast 指向根因。
         if (globalBestPosition == null) {
-            throw new IllegalStateException(
-                    "PSO did not converge to any finite-fitness position (all particle "
-                            + "fitnesses were NaN); check task lengths and VM MIPS");
+            throw new IllegalStateException("PSO did not converge to any finite-fitness position (all particle "
+                    + "fitnesses were NaN); check task lengths and VM MIPS");
         }
 
         // 收敛后写入全局最优映射。
@@ -211,10 +208,14 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
     }
 
     /** @return 最近一次收敛的全局最优适应度；未运行或无输入时为 {@code NaN} */
-    public double getLastBestFitness() { return lastBestFitness; }
+    public double getLastBestFitness() {
+        return lastBestFitness;
+    }
 
     /** @return 最近一次运行的迭代数 */
-    public int getLastIterationCount() { return lastIterationCount; }
+    public int getLastIterationCount() {
+        return lastIterationCount;
+    }
 
     /** @return 最近一次收敛的映射（Task ID → VM ID），插入序 = Task ID 升序 */
     public java.util.Map<Integer, Integer> getLastMapping() {

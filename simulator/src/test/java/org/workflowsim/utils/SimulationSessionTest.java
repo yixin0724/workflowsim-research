@@ -69,66 +69,61 @@ class SimulationSessionTest {
         try (SimulationSession ignored = SimulationSession.open(config)) {
             assertThrows(IllegalStateException.class, () -> SimulationSession.open(config));
         }
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 0).build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1).runtimeReferenceMips(0.0).build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .cloudSimMinEventIntervalSeconds(0.0).build());
-        SimulationConfig deadlineObservation = SimulationConfig.builder("workflow.dax", 1)
-                .deadline(1L).build();
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 0)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .runtimeReferenceMips(0.0)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .cloudSimMinEventIntervalSeconds(0.0)
+                .build());
+        SimulationConfig deadlineObservation =
+                SimulationConfig.builder("workflow.dax", 1).deadline(1L).build();
         assertEquals(1L, deadlineObservation.getDeadline());
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> SimulationConfig.builder("workflow.dax", 1).deadline(-1L).build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .schedulingAlgorithm(SchedulingAlgorithm.INVALID).build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.RANDOM)
-                        .build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                        .build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
-                        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_CPOP)
-                        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_DLS)
-                        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_ETF)
-                        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .build());
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_PEFT)
-                        .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .schedulingAlgorithm(SchedulingAlgorithm.INVALID)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .planningAlgorithm(PlanningAlgorithm.RANDOM)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_CPOP)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_DLS)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_ETF)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                .build());
+        assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_PEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                .build());
     }
 
     @Test
     void createsConfiguredOverheadDistributionsAfterInstallingTheSeed() {
         OverheadModelConfig overhead = OverheadModelConfig.builder()
-                .queueDelays(Collections.singletonMap(0, DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 2.0, 3.0)))
+                .queueDelays(Collections.singletonMap(
+                        0, DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 2.0, 3.0)))
                 .build();
         SimulationConfig config = SimulationConfig.builder("workflow.dax", 1)
                 .randomSeed(41L)
@@ -140,7 +135,8 @@ class SimulationSessionTest {
             first = Parameters.getOverheadParams().getQueueDelay().get(0).getNextSample();
         }
         try (SimulationSession ignored = SimulationSession.open(config)) {
-            assertEquals(first, Parameters.getOverheadParams().getQueueDelay().get(0).getNextSample(), 0.0);
+            assertEquals(
+                    first, Parameters.getOverheadParams().getQueueDelay().get(0).getNextSample(), 0.0);
         }
     }
 }

@@ -60,8 +60,7 @@ class PlannerImpactDeepChainTest {
         return tasks;
     }
 
-    private static void runImpactPropagation(WorkflowPlanner planner, List<Task> tasks)
-            throws Exception {
+    private static void runImpactPropagation(WorkflowPlanner planner, List<Task> tasks) throws Exception {
         Method method = WorkflowPlanner.class.getDeclaredMethod("processImpactFactors", List.class);
         method.setAccessible(true);
         try {
@@ -85,8 +84,7 @@ class PlannerImpactDeepChainTest {
         List<Task> tasks = chain(16);
         runImpactPropagation(planner, tasks);
         for (Task task : tasks) {
-            assertEquals(1.0, task.getImpact(), 0.0,
-                    "链上任务 " + task.getCloudletId() + " 的影响度必须精确为 1.0");
+            assertEquals(1.0, task.getImpact(), 0.0, "链上任务 " + task.getCloudletId() + " 的影响度必须精确为 1.0");
         }
     }
 
@@ -99,8 +97,7 @@ class PlannerImpactDeepChainTest {
         // 迭代化修复后本用例转绿，且不影响下方精确不变量。
         runImpactPropagation(planner, tasks);
         for (int i = 0; i < depth; i += (i < 4 || i >= depth - 4) ? 1 : 997) {
-            assertEquals(1.0, tasks.get(i).getImpact(), 0.0,
-                    "深度 " + (i + 1) + " 处任务的影响度必须精确为 1.0");
+            assertEquals(1.0, tasks.get(i).getImpact(), 0.0, "深度 " + (i + 1) + " 处任务的影响度必须精确为 1.0");
         }
     }
 
@@ -123,17 +120,17 @@ class PlannerImpactDeepChainTest {
             runReferenceImpactPropagation(reference);
 
             for (int i = 0; i < production.size(); i++) {
-                assertEquals(Double.doubleToRawLongBits(reference.get(i).getImpact()),
+                assertEquals(
+                        Double.doubleToRawLongBits(reference.get(i).getImpact()),
                         Double.doubleToRawLongBits(production.get(i).getImpact()),
-                        "DAG#" + graph + " 任务 " + production.get(i).getCloudletId()
-                                + " 的影响度必须与文档语义直译逐位一致");
+                        "DAG#" + graph + " 任务 " + production.get(i).getCloudletId() + " 的影响度必须与文档语义直译逐位一致");
             }
         }
     }
 
     /** 层次随机 DAG 的父表规格：节点 i 的父集合取自更小下标（保证无环），每点至多 3 父。 */
     private static java.util.List<int[]> randomParentSpec(java.util.Random random, int size) {
-        java.util.List<int[]> spec = new ArrayList<int[]>(size );
+        java.util.List<int[]> spec = new ArrayList<int[]>(size);
         for (int i = 0; i < size; i++) {
             int parentCount = Math.min(i, random.nextInt(4));
             java.util.Set<Integer> parents = new java.util.TreeSet<Integer>();

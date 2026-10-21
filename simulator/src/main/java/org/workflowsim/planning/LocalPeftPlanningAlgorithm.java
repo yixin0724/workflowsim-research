@@ -51,8 +51,7 @@ import org.workflowsim.Task;
 public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningAlgorithm {
 
     /** 任务 → (VM → OCT)；每次 {@link #prepare()} 清空，首次查询时重建。 */
-    private final Map<Task, Map<CondorVM, Double>> octByTaskVm =
-            new HashMap<Task, Map<CondorVM, Double>>();
+    private final Map<Task, Map<CondorVM, Double>> octByTaskVm = new HashMap<Task, Map<CondorVM, Double>>();
 
     public LocalPeftPlanningAlgorithm(PlanningContext context) {
         super("LOCAL_PEFT", context);
@@ -74,8 +73,7 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
             @Override
             public int compare(Task first, Task second) {
                 int byOct = Double.compare(priorityOf(second), priorityOf(first));
-                return byOct != 0 ? byOct
-                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+                return byOct != 0 ? byOct : Integer.compare(first.getCloudletId(), second.getCloudletId());
             }
         });
         double stageInFinish = stageInFinishTime();
@@ -95,8 +93,8 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
             }
             if (next == null) {
                 // prepare() 的深度校验已保证无环；此分支仅防御性兜底。
-                throw new IllegalStateException(label() + " ready list exhausted with "
-                        + remaining.size() + " unallocated tasks");
+                throw new IllegalStateException(
+                        label() + " ready list exhausted with " + remaining.size() + " unallocated tasks");
             }
             remaining.remove(next);
             allocated.add(next);
@@ -177,8 +175,8 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
             }
         }
         if (count == 0) {
-            throw new IllegalArgumentException(label() + " cannot rank task " + task.getCloudletId()
-                    + "; no compatible VM");
+            throw new IllegalArgumentException(
+                    label() + " cannot rank task " + task.getCloudletId() + "; no compatible VM");
         }
         return total / count;
     }
@@ -187,13 +185,12 @@ public final class LocalPeftPlanningAlgorithm extends AbstractLocalCommPlanningA
     final double optimisticCostOf(Task task, CondorVM vm) {
         Map<CondorVM, Double> perVm = octByTaskVm.get(task);
         if (perVm == null) {
-            throw new IllegalStateException(label() + " has no OCT before run(); task "
-                    + task.getCloudletId());
+            throw new IllegalStateException(label() + " has no OCT before run(); task " + task.getCloudletId());
         }
         Double value = perVm.get(vm);
         if (value == null) {
-            throw new IllegalStateException(label() + " has no OCT for task "
-                    + task.getCloudletId() + " on VM " + vm.getId());
+            throw new IllegalStateException(
+                    label() + " has no OCT for task " + task.getCloudletId() + " on VM " + vm.getId());
         }
         return value.doubleValue();
     }

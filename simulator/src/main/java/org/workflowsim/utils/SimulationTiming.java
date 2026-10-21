@@ -6,8 +6,7 @@ public final class SimulationTiming {
     /** WorkflowDatacenter 的历史完成事件保护量，单位为模拟秒。 */
     public static final double CLOUDLET_COMPLETION_SAFETY_SECONDS = 0.01;
 
-    private SimulationTiming() {
-    }
+    private SimulationTiming() {}
 
     /**
      * 计算 WorkflowDatacenter 可接受的最早 Cloudlet 完成时间。
@@ -21,14 +20,16 @@ public final class SimulationTiming {
      * @return 可接受、有限且晚于当前时刻的最早完成时间
      * @throws IllegalArgumentException 当时间非法、加法溢出或浮点时钟无法前进时
      */
-    public static double earliestCloudletCompletionTime(double currentTime,
-            double predictedCompletionTime, double minimumEventIntervalSeconds) {
-        if (!isFiniteNonNegative(currentTime) || !isFiniteNonNegative(predictedCompletionTime)
+    public static double earliestCloudletCompletionTime(
+            double currentTime, double predictedCompletionTime, double minimumEventIntervalSeconds) {
+        if (!isFiniteNonNegative(currentTime)
+                || !isFiniteNonNegative(predictedCompletionTime)
                 || !isFiniteNonNegative(minimumEventIntervalSeconds)) {
             throw new IllegalArgumentException("CloudSim timing values must be finite and non-negative");
         }
-        double completion = Math.max(predictedCompletionTime, currentTime + minimumEventIntervalSeconds
-                + CLOUDLET_COMPLETION_SAFETY_SECONDS);
+        double completion = Math.max(
+                predictedCompletionTime,
+                currentTime + minimumEventIntervalSeconds + CLOUDLET_COMPLETION_SAFETY_SECONDS);
         if (!Double.isFinite(completion) || completion <= currentTime) {
             throw new IllegalArgumentException("Cloudlet completion cannot advance the finite simulation "
                     + "clock at its current precision: " + currentTime);

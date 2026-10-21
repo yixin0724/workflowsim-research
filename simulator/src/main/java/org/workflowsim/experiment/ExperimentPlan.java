@@ -42,8 +42,13 @@ public final class ExperimentPlan {
         return new Builder(id);
     }
 
-    public String getId() { return id; }
-    public List<Cell> getCells() { return cells; }
+    public String getId() {
+        return id;
+    }
+
+    public List<Cell> getCells() {
+        return cells;
+    }
 
     /**
      * 返回计划中所有 cell 声明的重复运行总数。
@@ -93,8 +98,7 @@ public final class ExperimentPlan {
             Set<String> cellIds = new HashSet<String>();
             Set<String> candidates = new HashSet<String>();
             Map<String, Cell> baselineByGroup = new HashMap<String, Cell>();
-            Map<String, RandomizationDesign> designByGroup =
-                    new HashMap<String, RandomizationDesign>();
+            Map<String, RandomizationDesign> designByGroup = new HashMap<String, RandomizationDesign>();
             for (Cell cell : cells) {
                 if (!cellIds.add(cell.getId())) {
                     throw new IllegalArgumentException("Experiment plan has duplicate cell ID " + cell.getId());
@@ -103,21 +107,21 @@ public final class ExperimentPlan {
                     throw new IllegalArgumentException("Comparison group " + cell.getComparisonGroup()
                             + " has duplicate candidate ID " + cell.getCandidateId());
                 }
-                RandomizationDesign existing = designByGroup.put(cell.getComparisonGroup(),
-                        cell.getSeedPlan().getRandomizationDesign());
+                RandomizationDesign existing = designByGroup.put(
+                        cell.getComparisonGroup(), cell.getSeedPlan().getRandomizationDesign());
                 if (existing != null && existing != cell.getSeedPlan().getRandomizationDesign()) {
                     throw new IllegalArgumentException("Comparison group " + cell.getComparisonGroup()
                             + " has inconsistent randomization designs");
                 }
                 if (cell.isBaseline() && baselineByGroup.put(cell.getComparisonGroup(), cell) != null) {
-                    throw new IllegalArgumentException("Comparison group " + cell.getComparisonGroup()
-                            + " has more than one baseline");
+                    throw new IllegalArgumentException(
+                            "Comparison group " + cell.getComparisonGroup() + " has more than one baseline");
                 }
             }
             for (Cell cell : cells) {
                 if (!baselineByGroup.containsKey(cell.getComparisonGroup())) {
-                    throw new IllegalArgumentException("Comparison group " + cell.getComparisonGroup()
-                            + " has no baseline cell");
+                    throw new IllegalArgumentException(
+                            "Comparison group " + cell.getComparisonGroup() + " has no baseline cell");
                 }
             }
             return new ExperimentPlan(this);
@@ -150,8 +154,14 @@ public final class ExperimentPlan {
          * @param tags 可选的不可变实验标签；传入 {@code null} 等价于空标签
          * @throws IllegalArgumentException 当标识符、必要对象、VM 数量或标签不满足约束时
          */
-        public Cell(String id, String comparisonGroup, String candidateId, boolean baseline,
-                SimulationConfig config, PlatformProfile platform, SeedPlan seedPlan,
+        public Cell(
+                String id,
+                String comparisonGroup,
+                String candidateId,
+                boolean baseline,
+                SimulationConfig config,
+                PlatformProfile platform,
+                SeedPlan seedPlan,
                 Map<String, String> tags) {
             this.id = requireIdentifier(id, "Experiment cell ID");
             this.comparisonGroup = requireIdentifier(comparisonGroup, "Comparison group ID");
@@ -175,14 +185,37 @@ public final class ExperimentPlan {
             }
         }
 
-        public String getId() { return id; }
-        public String getComparisonGroup() { return comparisonGroup; }
-        public String getCandidateId() { return candidateId; }
-        public boolean isBaseline() { return baseline; }
-        public SimulationConfig getConfig() { return config; }
-        public PlatformProfile getPlatform() { return platform; }
-        public SeedPlan getSeedPlan() { return seedPlan; }
-        public Map<String, String> getTags() { return tags; }
+        public String getId() {
+            return id;
+        }
+
+        public String getComparisonGroup() {
+            return comparisonGroup;
+        }
+
+        public String getCandidateId() {
+            return candidateId;
+        }
+
+        public boolean isBaseline() {
+            return baseline;
+        }
+
+        public SimulationConfig getConfig() {
+            return config;
+        }
+
+        public PlatformProfile getPlatform() {
+            return platform;
+        }
+
+        public SeedPlan getSeedPlan() {
+            return seedPlan;
+        }
+
+        public Map<String, String> getTags() {
+            return tags;
+        }
     }
 
     private static String requireIdentifier(String value, String subject) {

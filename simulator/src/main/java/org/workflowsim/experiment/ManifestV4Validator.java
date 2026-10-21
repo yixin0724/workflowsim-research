@@ -12,11 +12,12 @@ import org.workflowsim.data.DataMovementModel;
 
 /** Strict checks of the complete v4 configuration snapshot; v2/v3 remain readable. */
 final class ManifestV4Validator {
-    private ManifestV4Validator() { }
+    private ManifestV4Validator() {}
 
     static void validate(JsonObject root) throws IOException {
         JsonObject config = object(root, "configuration");
-        if(config.has("dataflowAssignment")||root.has("dataflowComputeRequests"))FileLifecycleContextValidator.requiresOnlineAssignmentAudit(root);
+        if (config.has("dataflowAssignment") || root.has("dataflowComputeRequests"))
+            FileLifecycleContextValidator.requiresOnlineAssignmentAudit(root);
         JsonObject platform = object(root, "platform");
         JsonArray inputs = array(root, "inputs");
         JsonArray paths = array(config, "workflowPaths");
@@ -25,22 +26,39 @@ final class ManifestV4Validator {
             throw new IOException("configuration.workflowArrivalSeconds/workflowPaths must cover every input");
         }
         JsonArray outcomes = array(object(root, "result"), "workflowOutcomes");
-        if (outcomes.size() != inputs.size()) { throw new IOException("workflowOutcomes must cover every input"); }
-        String workingDirectory = text(required(object(object(root, "provenance"), "execution"), "workingDirectory"), "workingDirectory");
+        if (outcomes.size() != inputs.size()) {
+            throw new IOException("workflowOutcomes must cover every input");
+        }
+        String workingDirectory =
+                text(required(object(object(root, "provenance"), "execution"), "workingDirectory"), "workingDirectory");
         for (int i = 0; i < arrivals.size(); i++) {
             double arrival = number(arrivals.get(i), "workflowArrivalSeconds[" + i + "]", false);
             String configuredPath = text(paths.get(i), "workflowPaths[" + i + "]");
-            if (!inputs.get(i).isJsonObject() || !outcomes.get(i).isJsonObject()) { throw new IOException("inputs/workflowOutcomes must contain objects"); }
+            if (!inputs.get(i).isJsonObject() || !outcomes.get(i).isJsonObject()) {
+                throw new IOException("inputs/workflowOutcomes must contain objects");
+            }
             JsonObject input = inputs.get(i).getAsJsonObject();
             JsonObject outcome = outcomes.get(i).getAsJsonObject();
             try {
-                java.nio.file.Path configured = java.nio.file.Paths.get(workingDirectory).resolve(configuredPath).normalize();
-                java.nio.file.Path consumed = java.nio.file.Paths.get(text(required(input, "path"), "input.path")).normalize();
-                java.nio.file.Path resultPath = java.nio.file.Paths.get(workingDirectory).resolve(text(required(outcome, "path"), "workflowOutcomes.path")).normalize();
-                if (!configured.equals(consumed) || !configured.equals(resultPath)) { throw new IOException("workflowPaths differ from inputs/workflowOutcomes"); }
-            } catch (java.nio.file.InvalidPathException invalid) { throw new IOException("Invalid workflow path", invalid); }
+                java.nio.file.Path configured = java.nio.file.Paths.get(workingDirectory)
+                        .resolve(configuredPath)
+                        .normalize();
+                java.nio.file.Path consumed = java.nio.file.Paths.get(text(required(input, "path"), "input.path"))
+                        .normalize();
+                java.nio.file.Path resultPath = java.nio.file.Paths.get(workingDirectory)
+                        .resolve(text(required(outcome, "path"), "workflowOutcomes.path"))
+                        .normalize();
+                if (!configured.equals(consumed) || !configured.equals(resultPath)) {
+                    throw new IOException("workflowPaths differ from inputs/workflowOutcomes");
+                }
+            } catch (java.nio.file.InvalidPathException invalid) {
+                throw new IOException("Invalid workflow path", invalid);
+            }
             if (integer(required(outcome, "index"), "workflowOutcomes.index") != i
-                    || Double.compare(arrival, number(required(outcome, "arrivalSecond"), "workflowOutcomes.arrivalSecond", false)) != 0) {
+                    || Double.compare(
+                                    arrival,
+                                    number(required(outcome, "arrivalSecond"), "workflowOutcomes.arrivalSecond", false))
+                            != 0) {
                 throw new IOException("workflowArrivalSeconds differs from workflowOutcomes");
             }
             JsonElement finish = required(outcome, "lastSuccessFinishSecond");
@@ -48,13 +66,13 @@ final class ManifestV4Validator {
                 throw new IOException("workflowOutcomes completion precedes arrival");
             }
         }
-        equalText(config, "workflowArrivalSemantics",
-                "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
+        equalText(config, "workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
         JsonArray hosts = array(platform, "hosts");
         JsonArray vms = array(platform, "vms");
         Set<Integer> hostIds = identifiers(hosts, "hosts");
         Set<Integer> vmIds = identifiers(vms, "vms");
-        if (hostIds.isEmpty() || vmIds.isEmpty()
+        if (hostIds.isEmpty()
+                || vmIds.isEmpty()
                 || integer(required(config, "vmCount"), "configuration.vmCount") != vms.size()
                 || integer(required(platform, "vmCount"), "platform.vmCount") != vms.size()
                 || integer(required(platform, "hostCount"), "platform.hostCount") != hosts.size()) {
@@ -62,31 +80,44 @@ final class ManifestV4Validator {
         }
         validateMatrix(config, root, vmIds);
         DataMovementModel model = readMovement(object(config, "dataMovementModel"));
-        if(config.has("networkEvidence")){
+        if (config.has("networkEvidence")) {
             try {
-                org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model,org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
-            } catch(IllegalArgumentException invalid){throw new IOException("Invalid networkEvidence configuration",invalid);}
+                org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(
+                        model,
+                        org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
+            } catch (IllegalArgumentException invalid) {
+                throw new IOException("Invalid networkEvidence configuration", invalid);
+            }
         }
         validateTopology(required(platform, "networkTopology"), model, hostIds);
-        if (root.has("workflowGraph")) { validateGraph(root); }
-        if(model.isCoherentStorageDataflowV3()!=platform.has("sourceStorage"))throw new IOException("sourceStorage declaration differs from model");
-        if(model.usesCoherentDataflowRuntime())FileLifecycleContextValidator.validatePlanContext(root);
-        else if(root.has("dataflowPlan"))throw new IOException("Only coherent dataflow models may declare a dataflowPlan");
+        if (root.has("workflowGraph")) {
+            validateGraph(root);
+        }
+        if (model.isCoherentStorageDataflowV3() != platform.has("sourceStorage"))
+            throw new IOException("sourceStorage declaration differs from model");
+        if (model.usesCoherentDataflowRuntime()) FileLifecycleContextValidator.validatePlanContext(root);
+        else if (root.has("dataflowPlan"))
+            throw new IOException("Only coherent dataflow models may declare a dataflowPlan");
     }
 
     private static void validateGraph(JsonObject root) throws IOException {
         JsonArray graph = array(root, "workflowGraph");
         Map<Integer, JsonObject> nodes = new LinkedHashMap<Integer, JsonObject>();
         for (JsonElement item : graph) {
-            if (!item.isJsonObject()) { throw new IOException("workflowGraph nodes must be objects"); }
+            if (!item.isJsonObject()) {
+                throw new IOException("workflowGraph nodes must be objects");
+            }
             JsonObject node = item.getAsJsonObject();
             int id = integer(required(node, "taskId"), "workflowGraph.taskId");
-            if (nodes.put(id, node) != null) { throw new IOException("workflowGraph has duplicate taskId"); }
+            if (nodes.put(id, node) != null) {
+                throw new IOException("workflowGraph has duplicate taskId");
+            }
             integer(required(node, "depth"), "workflowGraph.depth");
         }
         int edges = 0;
         for (Map.Entry<Integer, JsonObject> entry : nodes.entrySet()) {
-            int id = entry.getKey(); JsonObject node = entry.getValue();
+            int id = entry.getKey();
+            JsonObject node = entry.getValue();
             for (String direction : new String[] {"parentIds", "childIds"}) {
                 Set<Integer> unique = new HashSet<Integer>();
                 for (JsonElement neighbor : array(node, direction)) {
@@ -97,9 +128,13 @@ final class ManifestV4Validator {
                     }
                     boolean reciprocal = false;
                     for (JsonElement reverse : array(other, "parentIds".equals(direction) ? "childIds" : "parentIds")) {
-                        if (integer(reverse, "workflowGraph edge") == id) { reciprocal = true; }
+                        if (integer(reverse, "workflowGraph edge") == id) {
+                            reciprocal = true;
+                        }
                     }
-                    if (!reciprocal) { throw new IOException("workflowGraph edge must be symmetric"); }
+                    if (!reciprocal) {
+                        throw new IOException("workflowGraph edge must be symmetric");
+                    }
                     if ("childIds".equals(direction)) {
                         edges++;
                         if (other.get("depth").getAsInt() <= node.get("depth").getAsInt()) {
@@ -116,8 +151,7 @@ final class ManifestV4Validator {
         }
     }
 
-    private static void validateMatrix(JsonObject config, JsonObject root, Set<Integer> vmIds)
-            throws IOException {
+    private static void validateMatrix(JsonObject config, JsonObject root, Set<Integer> vmIds) throws IOException {
         JsonElement element = required(config, "taskCostMatrix");
         if (element.isJsonNull()) {
             return;
@@ -169,56 +203,85 @@ final class ManifestV4Validator {
         try {
             switch (DataMovementModel.Kind.valueOf(kind)) {
                 case LEGACY_WORKFLOWSIM_V1:
-                    model = DataMovementModel.legacyWorkflowsimV1(); break;
+                    model = DataMovementModel.legacyWorkflowsimV1();
+                    break;
                 case FIXED_ENDPOINT_NO_CONTENTION_V1:
                     model = DataMovementModel.fixedEndpointNoContention(
-                            number(required(value, "accessLinkBandwidthMbPerSecond"),
-                                    "dataMovementModel.accessLinkBandwidthMbPerSecond", true),
-                            number(required(value, "accessLinkLatencySeconds"),
-                                    "dataMovementModel.accessLinkLatencySeconds", false),
-                            number(required(value, "sourceEndpointBandwidthMbPerSecond"),
-                                    "dataMovementModel.sourceEndpointBandwidthMbPerSecond", true)); break;
+                            number(
+                                    required(value, "accessLinkBandwidthMbPerSecond"),
+                                    "dataMovementModel.accessLinkBandwidthMbPerSecond",
+                                    true),
+                            number(
+                                    required(value, "accessLinkLatencySeconds"),
+                                    "dataMovementModel.accessLinkLatencySeconds",
+                                    false),
+                            number(
+                                    required(value, "sourceEndpointBandwidthMbPerSecond"),
+                                    "dataMovementModel.sourceEndpointBandwidthMbPerSecond",
+                                    true));
+                    break;
                 case PRE_EXECUTION_TRANSFER_DELAY_V1:
-                    model = DataMovementModel.preExecutionTransferDelayV1(); break;
+                    model = DataMovementModel.preExecutionTransferDelayV1();
+                    break;
                 case PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1:
-                    model = DataMovementModel.preExecutionTransferDelayWithContentionV1(); break;
+                    model = DataMovementModel.preExecutionTransferDelayWithContentionV1();
+                    break;
                 case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1:
-                    model = DataMovementModel.fatTreeContentionV1(); break;
-                case COHERENT_FILE_DATAFLOW_V2:model=DataMovementModel.coherentFileDataflowV2();break;
-                case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:model=DataMovementModel.coherentFileDataflowNoContentionV2();break;
-                case COHERENT_STORAGE_DATAFLOW_V3:model=DataMovementModel.coherentStorageDataflowV3();break;
-                case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:model=DataMovementModel.coherentStorageDataflowNoContentionV3();break;
-                default: throw new IllegalArgumentException(kind);
+                    model = DataMovementModel.fatTreeContentionV1();
+                    break;
+                case COHERENT_FILE_DATAFLOW_V2:
+                    model = DataMovementModel.coherentFileDataflowV2();
+                    break;
+                case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:
+                    model = DataMovementModel.coherentFileDataflowNoContentionV2();
+                    break;
+                case COHERENT_STORAGE_DATAFLOW_V3:
+                    model = DataMovementModel.coherentStorageDataflowV3();
+                    break;
+                case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:
+                    model = DataMovementModel.coherentStorageDataflowNoContentionV3();
+                    break;
+                default:
+                    throw new IllegalArgumentException(kind);
             }
         } catch (IllegalArgumentException exception) {
             throw new IOException("Invalid dataMovementModel.kind/parameters: " + kind, exception);
         }
-        if(model.usesCoherentDataflowRuntime())for(String parameter:new String[]{"accessLinkBandwidthMbPerSecond","accessLinkLatencySeconds","sourceEndpointBandwidthMbPerSecond"})if(number(required(value,parameter),parameter,false)!=0)throw new IOException("V2 model does not use fixed-endpoint parameters");
+        if (model.usesCoherentDataflowRuntime())
+            for (String parameter : new String[] {
+                "accessLinkBandwidthMbPerSecond", "accessLinkLatencySeconds", "sourceEndpointBandwidthMbPerSecond"
+            })
+                if (number(required(value, parameter), parameter, false) != 0)
+                    throw new IOException("V2 model does not use fixed-endpoint parameters");
         equalText(value, "contentionSemantics", ExperimentManifestWriter.contentionSemantics(model));
         equalText(value, "transferStartSemantics", ExperimentManifestWriter.transferStartSemantics(model));
         equalText(value, "bandwidthUnit", "DECIMAL_MB_PER_SECOND");
         return model;
     }
 
-    private static void validateTopology(JsonElement element, DataMovementModel model,
-            Set<Integer> hostIds) throws IOException {
+    private static void validateTopology(JsonElement element, DataMovementModel model, Set<Integer> hostIds)
+            throws IOException {
         if (element.isJsonNull()) {
             if (model.isFatTreeContentionV1()) {
                 throw new IOException("platform.networkTopology is required by Fat-tree data movement");
             }
             return;
         }
-        if ((!model.isFatTreeContentionV1()&&!model.usesCoherentDataflowRuntime()) || !element.isJsonObject()) {
+        if ((!model.isFatTreeContentionV1() && !model.usesCoherentDataflowRuntime()) || !element.isJsonObject()) {
             throw new IOException("platform.networkTopology requires Fat-tree data movement");
         }
         JsonObject value = element.getAsJsonObject();
         equalText(value, "kind", "FAT_TREE");
         int k = integer(required(value, "k"), "networkTopology.k");
-        double declaredBandwidth=number(required(value, "linkBandwidthMbPerSecond"), "networkTopology.linkBandwidthMbPerSecond", true);
-        if(model.usesCoherentDataflowRuntime()&&(k>32||!Double.isFinite(declaredBandwidth*1_000_000.0)||declaredBandwidth*1_000_000.0<Double.MIN_NORMAL))throw new IOException("Unsupported V2 topology size or converted capacity");
+        double declaredBandwidth =
+                number(required(value, "linkBandwidthMbPerSecond"), "networkTopology.linkBandwidthMbPerSecond", true);
+        if (model.usesCoherentDataflowRuntime()
+                && (k > 32
+                        || !Double.isFinite(declaredBandwidth * 1_000_000.0)
+                        || declaredBandwidth * 1_000_000.0 < Double.MIN_NORMAL))
+            throw new IOException("Unsupported V2 topology size or converted capacity");
         JsonElement core = required(value, "coreSwitchCount");
-        Integer cores = core.isJsonNull() ? null
-                : Integer.valueOf(integer(core, "networkTopology.coreSwitchCount"));
+        Integer cores = core.isJsonNull() ? null : Integer.valueOf(integer(core, "networkTopology.coreSwitchCount"));
         JsonElement placement = required(value, "hostEdgePlacements");
         Map<Integer, Integer> placements = null;
         if (!placement.isJsonNull()) {
@@ -226,7 +289,8 @@ final class ManifestV4Validator {
                 throw new IOException("networkTopology.hostEdgePlacements must be an object or null");
             }
             placements = new LinkedHashMap<Integer, Integer>();
-            for (Map.Entry<String, JsonElement> entry : placement.getAsJsonObject().entrySet()) {
+            for (Map.Entry<String, JsonElement> entry :
+                    placement.getAsJsonObject().entrySet()) {
                 int host;
                 try {
                     host = Integer.parseInt(entry.getKey());
@@ -242,14 +306,20 @@ final class ManifestV4Validator {
         equalText(value, "defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES");
         equalText(value, "routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1");
         equalText(value, "linkDirectionality", "INDEPENDENT_DIRECTED_LINKS");
-        equalText(value, "externalSourceRouting", model.isCoherentStorageDataflowV3()?"BOUNDED_STORAGE_HOST_ATTACHMENT_V3":"BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
+        equalText(
+                value,
+                "externalSourceRouting",
+                model.isCoherentStorageDataflowV3()
+                        ? "BOUNDED_STORAGE_HOST_ATTACHMENT_V3"
+                        : "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
         // Check capacities arithmetically: validation must not allocate an untrusted topology.
         if (k < 2 || k % 2 != 0) {
             throw new IOException("networkTopology.k must be even and >= 2");
         }
         long edgeCount = (long) k * k / 2;
         long coreCount = (long) k * k / 4;
-        if (edgeCount > Integer.MAX_VALUE || coreCount > Integer.MAX_VALUE
+        if (edgeCount > Integer.MAX_VALUE
+                || coreCount > Integer.MAX_VALUE
                 || (cores != null && (cores < 1 || cores > coreCount))
                 || hostIds.size() > (double) k * k * k / 4.0) {
             throw new IOException("networkTopology capacity/coreSwitchCount is invalid");
@@ -275,8 +345,7 @@ final class ManifestV4Validator {
     private static Set<Integer> identifiers(JsonArray array, String subject) throws IOException {
         Set<Integer> ids = new HashSet<Integer>();
         for (JsonElement item : array) {
-            if (!item.isJsonObject()
-                    || !ids.add(integer(required(item.getAsJsonObject(), "id"), subject + ".id"))) {
+            if (!item.isJsonObject() || !ids.add(integer(required(item.getAsJsonObject(), "id"), subject + ".id"))) {
                 throw new IOException(subject + " must contain unique resource IDs");
             }
         }
@@ -307,7 +376,8 @@ final class ManifestV4Validator {
     }
 
     private static String text(JsonElement value, String field) throws IOException {
-        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+        if (!value.isJsonPrimitive()
+                || !value.getAsJsonPrimitive().isString()
                 || value.getAsString().trim().isEmpty()) {
             throw new IOException(field + " must be a non-empty string");
         }

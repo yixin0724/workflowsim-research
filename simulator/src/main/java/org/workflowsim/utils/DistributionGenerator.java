@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *   Copyright 2013-2014 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.utils;
 
@@ -49,14 +49,16 @@ public class DistributionGenerator {
     protected int cursor;
     /** 每次预采样或扩容的样本数量。 */
     protected final int SAMPLE_SIZE = 1500;
+
     private final RandomGenerator randomGenerator;
     private static long streamSequence;
-    
 
     /** 支持的概率分布族。 */
     public enum DistributionFamily {
-
-        LOGNORMAL, GAMMA, WEIBULL, NORMAL
+        LOGNORMAL,
+        GAMMA,
+        WEIBULL,
+        NORMAL
     }
 
     /**
@@ -125,8 +127,8 @@ public class DistributionGenerator {
      * @param c 先验似然参数
      * @param randomStream 稳定的随机组件名称
      */
-    public DistributionGenerator(DistributionFamily dist, double scale, double shape,
-            double a, double b, double c, String randomStream) {
+    public DistributionGenerator(
+            DistributionFamily dist, double scale, double shape, double a, double b, double c, String randomStream) {
         this(dist, scale, shape, randomStream);
         this.scale_prior = b;
         this.shape_prior = a;
@@ -167,8 +169,8 @@ public class DistributionGenerator {
      */
     public void consumeSamplesThrough(int lastConsumedIndex) {
         if (lastConsumedIndex < 0 || lastConsumedIndex >= samples.length) {
-            throw new IllegalArgumentException("Consumed sample index " + lastConsumedIndex
-                    + " is outside the current sample cache");
+            throw new IllegalArgumentException(
+                    "Consumed sample index " + lastConsumedIndex + " is outside the current sample cache");
         }
         cursor = Math.max(cursor, lastConsumedIndex + 1);
     }
@@ -240,7 +242,7 @@ public class DistributionGenerator {
                 case WEIBULL:
                     sum += Math.pow(samples[i], likelihood_prior);
                     break;
-                // 契约：不支持的分布族（LOGNORMAL/NORMAL）贡献 0，整体返回 0.0（见方法 javadoc）。
+                    // 契约：不支持的分布族（LOGNORMAL/NORMAL）贡献 0，整体返回 0.0（见方法 javadoc）。
                 default:
                     break;
             }
@@ -315,31 +317,30 @@ public class DistributionGenerator {
         RealDistribution distribution = null;
         switch (this.dist) {
             case LOGNORMAL:
-                distribution = new LogNormalDistribution(randomGenerator, scale, shape,
-                        LogNormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+                distribution = new LogNormalDistribution(
+                        randomGenerator, scale, shape, LogNormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             case WEIBULL:
-                distribution = new WeibullDistribution(randomGenerator, shape, scale,
-                        WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+                distribution = new WeibullDistribution(
+                        randomGenerator, shape, scale, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             case GAMMA:
-                distribution = new GammaDistribution(randomGenerator, shape, scale,
-                        GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+                distribution = new GammaDistribution(
+                        randomGenerator, shape, scale, GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             case NORMAL:
                 // 正态分布的 scale 是均值，shape 是标准差。
-                distribution = new NormalDistribution(randomGenerator, scale, shape,
-                        NormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+                distribution = new NormalDistribution(
+                        randomGenerator, scale, shape, NormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
                 break;
             default:
                 break;
         }
         return distribution;
     }
-    
+
     /** @return 当前尺度参数 */
-    public double getScale()
-    {
+    public double getScale() {
         return this.scale;
     }
 
@@ -347,9 +348,9 @@ public class DistributionGenerator {
     public DistributionFamily getFamily() {
         return this.dist;
     }
-    
+
     /** @return 当前形状参数 */
-    public double getShape(){
+    public double getShape() {
         return this.shape;
     }
 
@@ -366,8 +367,11 @@ public class DistributionGenerator {
     }
 
     private static void validateParameters(DistributionFamily family, double scale, double shape) {
-        if (family == null || Double.isNaN(scale) || Double.isInfinite(scale)
-                || Double.isNaN(shape) || Double.isInfinite(shape)) {
+        if (family == null
+                || Double.isNaN(scale)
+                || Double.isInfinite(scale)
+                || Double.isNaN(shape)
+                || Double.isInfinite(shape)) {
             throw new IllegalArgumentException("Distribution family and finite parameters are required");
         }
         if (shape <= 0.0 || (family != DistributionFamily.NORMAL && scale <= 0.0)) {

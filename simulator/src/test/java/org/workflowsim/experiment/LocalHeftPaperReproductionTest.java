@@ -46,33 +46,35 @@ class LocalHeftPaperReproductionTest {
 
     /** 论文任务 i（DAX 文档顺序 → 任务 ID i）在 VM j 上的计算秒数（论文成本矩阵）。 */
     private static final double[][] PAPER_COST_SECONDS = {
-            {14, 16, 9},   // t1 = n1
-            {13, 19, 18},  // t2 = n2
-            {11, 13, 19},  // t3 = n3
-            {13, 8, 17},   // t4 = n4
-            {12, 13, 10},  // t5 = n5
-            {13, 16, 9},   // t6 = n6
-            {7, 15, 11},   // t7 = n7
-            {5, 11, 14},   // t8 = n8
-            {18, 12, 20},  // t9 = n9
-            {21, 7, 16},   // t10 = n10
+        {14, 16, 9}, // t1 = n1
+        {13, 19, 18}, // t2 = n2
+        {11, 13, 19}, // t3 = n3
+        {13, 8, 17}, // t4 = n4
+        {12, 13, 10}, // t5 = n5
+        {13, 16, 9}, // t6 = n6
+        {7, 15, 11}, // t7 = n7
+        {5, 11, 14}, // t8 = n8
+        {18, 12, 20}, // t9 = n9
+        {21, 7, 16}, // t10 = n10
     };
 
     /** stage-in 引导偏移：stage-in Job（110 MI，mips=1.0）完成 110.0 + 内核间隔 0.1。 */
     private static final double BOOTSTRAP_OFFSET = 110.1;
 
     /** 受控模型的每任务 VM 映射（10/10 与论文/参考实现一致）。 */
-    private static final int[] CONTROLLED_VM_BY_TASK =
-            {-1, 2, 0, 2, 1, 2, 1, 2, 0, 1, 1};
+    private static final int[] CONTROLLED_VM_BY_TASK = {-1, 2, 0, 2, 1, 2, 1, 2, 0, 1, 1};
     /** 受控模型的运行时开始时刻（绝对秒），下标 = 任务 ID；论文区间 + 引导偏移 110.1。 */
     private static final double[] CONTROLLED_STARTS = {
-            0.0, BOOTSTRAP_OFFSET, 137.1, 119.1, 128.1, 138.1, 136.1, 148.1, 167.1, 166.1, 183.1};
+        0.0, BOOTSTRAP_OFFSET, 137.1, 119.1, 128.1, 138.1, 136.1, 148.1, 167.1, 166.1, 183.1
+    };
     /** 受控模型的运行时完成时刻（绝对秒），下标 = 任务 ID；论文区间 + 引导偏移 110.1。 */
     private static final double[] CONTROLLED_FINISHES = {
-            0.0, 119.1, 150.1, 138.1, 136.1, 148.1, 152.1, 159.1, 172.1, 178.1, 190.1};
+        0.0, 119.1, 150.1, 138.1, 136.1, 148.1, 152.1, 159.1, 172.1, 178.1, 190.1
+    };
     /** 每任务实际建模传输秒数（副本已在目标 VM 上为零；跨 VM = 论文边权）。 */
     private static final double[] CONTROLLED_TRANSFER_SECONDS = {
-            0.0, 0.0, 18.0, 0.0, 9.0, 0.0, 14.0, 0.0, 42.0, 29.0, 28.0};
+        0.0, 0.0, 18.0, 0.0, 9.0, 0.0, 14.0, 0.0, 42.0, 29.0, 28.0
+    };
 
     @Test
     void heftPaperExampleReproducesControlledScheduleAndMapping() throws Exception {
@@ -88,12 +90,10 @@ class LocalHeftPaperReproductionTest {
             }
             computeCount++;
             int taskId = job.getTaskIds().get(0).intValue();
-            assertEquals(CONTROLLED_VM_BY_TASK[taskId], job.getVmId(),
-                    "task " + taskId + " 的 VM 映射");
-            assertEquals(CONTROLLED_STARTS[taskId], job.getStartTime(), 1.0e-9,
-                    "task " + taskId + " 的开始时刻（规划 == 运行时）");
-            assertEquals(CONTROLLED_FINISHES[taskId], job.getFinishTime(), 1.0e-9,
-                    "task " + taskId + " 的完成时刻（规划 == 运行时）");
+            assertEquals(CONTROLLED_VM_BY_TASK[taskId], job.getVmId(), "task " + taskId + " 的 VM 映射");
+            assertEquals(CONTROLLED_STARTS[taskId], job.getStartTime(), 1.0e-9, "task " + taskId + " 的开始时刻（规划 == 运行时）");
+            assertEquals(
+                    CONTROLLED_FINISHES[taskId], job.getFinishTime(), 1.0e-9, "task " + taskId + " 的完成时刻（规划 == 运行时）");
         }
         assertEquals(10, computeCount);
     }
@@ -105,9 +105,11 @@ class LocalHeftPaperReproductionTest {
         // 秒数逐位等于论文边权（字节数/1e6/1 MB/s）。
         for (int taskId = 1; taskId <= 10; taskId++) {
             SimulationEvent event = transferEventForTask(report, taskId);
-            assertEquals(CONTROLLED_TRANSFER_SECONDS[taskId],
+            assertEquals(
+                    CONTROLLED_TRANSFER_SECONDS[taskId],
                     ((Number) event.getAttributes().get("modeledTransferSeconds")).doubleValue(),
-                    1.0e-9, "task " + taskId + " 的建模传输秒数");
+                    1.0e-9,
+                    "task " + taskId + " 的建模传输秒数");
         }
         assertEquals(140.0, report.getMetrics().getTotalModeledDataTransferSeconds(), 1.0e-9);
         assertEquals(10, report.getMetrics().getDataStageInModelObservationCount());
@@ -119,10 +121,13 @@ class LocalHeftPaperReproductionTest {
         SimulationReport second = runPaperExample();
         assertEquals(first.getMakespan(), second.getMakespan(), 0.0);
         for (int taskId = 1; taskId <= 10; taskId++) {
-            assertEquals(computeJobForTask(first, taskId).getVmId(),
+            assertEquals(
+                    computeJobForTask(first, taskId).getVmId(),
                     computeJobForTask(second, taskId).getVmId());
-            assertEquals(computeJobForTask(first, taskId).getFinishTime(),
-                    computeJobForTask(second, taskId).getFinishTime(), 0.0);
+            assertEquals(
+                    computeJobForTask(first, taskId).getFinishTime(),
+                    computeJobForTask(second, taskId).getFinishTime(),
+                    0.0);
         }
     }
 
@@ -130,8 +135,8 @@ class LocalHeftPaperReproductionTest {
     void localHeftRejectsIncompatibleExecutionModels() throws Exception {
         String workflow = resourcePath("/dax/heft-paper-example.dax");
         // SHARED 文件系统：LOCAL_HEFT 的通信建模只对 LOCAL 成立。
-        IllegalArgumentException shared = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException shared =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .taskCostMatrix(paperCostMatrix())
@@ -139,8 +144,8 @@ class LocalHeftPaperReproductionTest {
                         .build());
         assertTrue(shared.getMessage().contains("LOCAL"), shared.getMessage());
         // 非 preExecutionTransferDelayV1 数据移动模型：规划 AST 与运行时传输延迟将失去对齐。
-        IllegalArgumentException movement = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException movement =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -149,21 +154,21 @@ class LocalHeftPaperReproductionTest {
         assertTrue(movement.getMessage().contains("preExecutionTransferDelayV1"), movement.getMessage());
         // INVALID 规划层 + 新数据移动模型：就绪时刻没有目标 VM，无法估计传输
         // （STATIC 派发已被既有校验拦截，此处验证在线派发路径同样被拒绝）。
-        IllegalArgumentException unmapped = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException unmapped =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.MINMIN)
                         .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                         .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
                         .build());
         assertTrue(unmapped.getMessage().contains("INVALID"), unmapped.getMessage());
         // 聚类：LOCAL_HEFT 要求 NONE 聚类（每 Job 对应单 Task）。
-        IllegalArgumentException clustering = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException clustering =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
-                        .clusteringParameters(new ClusteringParameters(0, 0,
-                                ClusteringParameters.ClusteringMethod.BALANCED, ""))
+                        .clusteringParameters(
+                                new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.BALANCED, ""))
                         .build());
         assertTrue(clustering.getMessage().contains("NONE"), clustering.getMessage());
     }
@@ -185,8 +190,8 @@ class LocalHeftPaperReproductionTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("heft-paper-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }

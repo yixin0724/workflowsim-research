@@ -47,7 +47,8 @@ class StochasticArrivalInteractionIntegrationTest {
     private static final long[][] MATRIX_MI = {{750L, 2500L}, {1500L, 1000L}, {1000L, 1750L}};
     private static final Set<Integer> SOURCE_IDS = new HashSet<Integer>(Arrays.asList(1, 2, 3, 4, 5, 6));
 
-    @TempDir Path directory;
+    @TempDir
+    Path directory;
 
     @AfterEach
     void restoreLogging() {
@@ -57,11 +58,14 @@ class StochasticArrivalInteractionIntegrationTest {
     @Test
     void jointStochasticArrivalModelReplaysAndDeadlineRemainsOnlyAnObserver() throws Exception {
         Path input = directory.resolve("two-roots-and-join.dax");
-        Files.write(input, ("<adag version=\"3.3\">"
-                + "<job id=\"a\" runtime=\"0.5\"/><job id=\"b\" runtime=\"1\"/>"
-                + "<job id=\"c\" runtime=\"0.75\"/>"
-                + "<child ref=\"c\"><parent ref=\"a\"/><parent ref=\"b\"/></child>"
-                + "</adag>").getBytes(StandardCharsets.UTF_8));
+        Files.write(
+                input,
+                ("<adag version=\"3.3\">"
+                                + "<job id=\"a\" runtime=\"0.5\"/><job id=\"b\" runtime=\"1\"/>"
+                                + "<job id=\"c\" runtime=\"0.75\"/>"
+                                + "<child ref=\"c\"><parent ref=\"a\"/><parent ref=\"b\"/></child>"
+                                + "</adag>")
+                        .getBytes(StandardCharsets.UTF_8));
         List<Cell> cells = Arrays.asList(
                 new Cell("A", Arrays.asList(0.5, 0.75), false, 5L, 1L),
                 new Cell("B", Arrays.asList(0.5, 0.75), true, 22L, 30L),
@@ -95,19 +99,22 @@ class StochasticArrivalInteractionIntegrationTest {
             assertEquals(trajectory(baselines.get(cell.id)), trajectory(replay), cell.id + " exact replay");
         }
         for (Cell cell : cells) {
-            SimulationReport observed = runner.run(configs.get(cell.id).toBuilder()
-                    .deadline(cell.deadline).build(), platform);
+            SimulationReport observed = runner.run(
+                    configs.get(cell.id).toBuilder().deadline(cell.deadline).build(), platform);
             runs++;
             assertReport(observed, cell, cell.deadline, cell.id + " deadline observer");
-            assertEquals(trajectory(baselines.get(cell.id)), trajectory(observed),
+            assertEquals(
+                    trajectory(baselines.get(cell.id)),
+                    trajectory(observed),
                     cell.id + " deadline must not change decisions, arrivals, overhead samples, or retries");
         }
         assertEquals(12, runs);
         // No per-cell failure-count golden. Only base runs count toward actual interaction coverage.
-        assertTrue(baselineRetries > 0, "No base cell exercised a retry: " + baselineRetryCounts
-                + "; report this coverage gap rather than treating empty lineage checks as verification");
-        System.out.println("STOCHASTIC_ARRIVAL_INTERACTION runs=" + runs
-                + " baseRetryCounts=" + baselineRetryCounts);
+        assertTrue(
+                baselineRetries > 0,
+                "No base cell exercised a retry: " + baselineRetryCounts
+                        + "; report this coverage gap rather than treating empty lineage checks as verification");
+        System.out.println("STOCHASTIC_ARRIVAL_INTERACTION runs=" + runs + " baseRetryCounts=" + baselineRetryCounts);
     }
 
     private static int assertReport(SimulationReport report, Cell cell, long deadline, String context) {
@@ -195,7 +202,9 @@ class StochasticArrivalInteractionIntegrationTest {
             int row = sourceRow(task.getTaskId(), context);
             assertEquals(Collections.singletonList(task.getTaskId()), job.getTaskIds(), context);
             assertEquals(job.getVmId(), task.getVmId(), context);
-            assertEquals(initialVmByTask.get(task.getTaskId()).intValue(), task.getVmId(),
+            assertEquals(
+                    initialVmByTask.get(task.getTaskId()).intValue(),
+                    task.getVmId(),
                     context + " STATIC retries must retain their VM mapping");
             assertEquals(job.getStatus(), task.getJobStatus(), context);
             if (job.getStatus() == Cloudlet.SUCCESS) {
@@ -239,8 +248,10 @@ class StochasticArrivalInteractionIntegrationTest {
             assertEquals(parentId, integer(retryReady, "retryOfFailedJobId", context), context);
             assertNotBefore(retryReady.getSimulationTime(), created.getSimulationTime(), context);
             SimulationEvent parentReturn = required(returned, parentId, context);
-            assertNotBefore(created.getSimulationTime(), parentReturn.getSimulationTime()
-                    + number(parentReturn, "postDelaySeconds", context), context);
+            assertNotBefore(
+                    created.getSimulationTime(),
+                    parentReturn.getSimulationTime() + number(parentReturn, "postDelaySeconds", context),
+                    context);
             retriedTasks.addAll(retry.getTaskIds());
         }
         assertEquals(failedIds, failedParents, context);
@@ -260,8 +271,11 @@ class StochasticArrivalInteractionIntegrationTest {
         assertEquals("COMPLETED_SUCCESSFULLY", report.getLogicalTaskCompletionStatus(), context);
         assertEquals(logicalCompletion, report.getLogicalTaskCompletionSeconds().doubleValue(), 0.0, context);
         assertNotBefore(end, logicalCompletion, context);
-        assertEquals(Math.max(0.0, end - logicalCompletion),
-                report.getTerminalLifecycleTailSeconds().doubleValue(), 0.0, context);
+        assertEquals(
+                Math.max(0.0, end - logicalCompletion),
+                report.getTerminalLifecycleTailSeconds().doubleValue(),
+                0.0,
+                context);
         assertFalse(metrics.isControlledSharedStorageCriticalPathReferenceAvailable(), context);
         assertEquals(0.0, metrics.getControlledSharedStorageCriticalPathLowerBoundSeconds(), 0.0, context);
         assertEquals(0.0, metrics.getControlledSharedStorageScheduleLengthRatio(), 0.0, context);
@@ -271,8 +285,11 @@ class StochasticArrivalInteractionIntegrationTest {
         assertEquals(outcome, metrics.getDeadlineObservationOutcome(), context);
         assertEquals("MET".equals(outcome), metrics.isDeadlineMet(), context);
         assertEquals(deadline == 0L ? 0.0 : deadline - end, metrics.getDeadlineSlackSeconds(), 0.0, context);
-        assertEquals(deadline == 0L ? 0.0 : Math.max(0.0, end - deadline),
-                metrics.getDeadlineTardinessSeconds(), 0.0, context);
+        assertEquals(
+                deadline == 0L ? 0.0 : Math.max(0.0, end - deadline),
+                metrics.getDeadlineTardinessSeconds(),
+                0.0,
+                context);
         assertSourcesAndWorkflowArrivals(report, cell, context);
         return retries.size();
     }
@@ -283,10 +300,14 @@ class StochasticArrivalInteractionIntegrationTest {
             int row = sourceRow(node.getTaskId(), context);
             assertTrue(graphIds.add(node.getTaskId()), context);
             int first = ((node.getTaskId() - 1) / 3) * 3 + 1;
-            assertEquals(row == 2 ? Arrays.asList(first, first + 1) : Collections.<Integer>emptyList(),
-                    node.getParentIds(), context);
-            assertEquals(row == 2 ? Collections.<Integer>emptyList() : Collections.singletonList(first + 2),
-                    node.getChildIds(), context);
+            assertEquals(
+                    row == 2 ? Arrays.asList(first, first + 1) : Collections.<Integer>emptyList(),
+                    node.getParentIds(),
+                    context);
+            assertEquals(
+                    row == 2 ? Collections.<Integer>emptyList() : Collections.singletonList(first + 2),
+                    node.getChildIds(),
+                    context);
         }
         assertEquals(SOURCE_IDS, graphIds, context + " source graph excludes stage-in/retry nodes");
         assertEquals(6, report.getWorkflowProfile().getTaskCount(), context);
@@ -298,14 +319,15 @@ class StochasticArrivalInteractionIntegrationTest {
                 int index = integer(event, "workflowIndex", context);
                 assertTrue(index == 0 || index == 1, context);
                 assertTrue(announced.add(index), context + " duplicate workflow arrival");
-                assertEquals(cell.arrivals.get(index).doubleValue(), number(event, "arrivalSecond", context),
-                        0.0, context);
+                assertEquals(
+                        cell.arrivals.get(index).doubleValue(), number(event, "arrivalSecond", context), 0.0, context);
                 assertNotBefore(event.getSimulationTime(), cell.arrivals.get(index), context);
             }
         }
         assertEquals(new HashSet<Integer>(Arrays.asList(0, 1)), announced, context);
         for (int index = 0; index < 2; index++) {
-            SimulationReport.WorkflowOutcome workflow = report.getWorkflowOutcomes().get(index);
+            SimulationReport.WorkflowOutcome workflow =
+                    report.getWorkflowOutcomes().get(index);
             int first = index * 3 + 1;
             int last = first + 2;
             assertEquals(3, report.getInputReports().get(index).getTaskCount(), context);
@@ -316,8 +338,7 @@ class StochasticArrivalInteractionIntegrationTest {
             assertEquals(cell.arrivals.get(index).doubleValue(), workflow.getArrivalSecond(), 0.0, context);
             double lastSuccess = Double.NEGATIVE_INFINITY;
             for (SimulationReport.TaskOutcome task : report.getTasks()) {
-                if (task.getTaskId() >= first && task.getTaskId() <= last
-                        && task.getTaskStatus() == Cloudlet.SUCCESS) {
+                if (task.getTaskId() >= first && task.getTaskId() <= last && task.getTaskStatus() == Cloudlet.SUCCESS) {
                     lastSuccess = Math.max(lastSuccess, task.getFinishTime());
                 }
             }
@@ -333,22 +354,28 @@ class StochasticArrivalInteractionIntegrationTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.SHARED)
                 .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
-                .clusteringParameters(new ClusteringParameters(0, 0,
-                        ClusteringParameters.ClusteringMethod.NONE, null))
-                .runtimeReferenceMips(1000.0).runtimeScale(1.0).cloudSimMinEventIntervalSeconds(0.1)
-                .costModel(Parameters.CostModel.DATACENTER).randomSeed(cell.seed)
+                .clusteringParameters(new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null))
+                .runtimeReferenceMips(1000.0)
+                .runtimeScale(1.0)
+                .cloudSimMinEventIntervalSeconds(0.1)
+                .costModel(Parameters.CostModel.DATACENTER)
+                .randomSeed(cell.seed)
                 .workflowArrivalSeconds(cell.arrivals)
                 .failureModel(FailureModelConfig.builder()
                         .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                         .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                         .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
                         .generatorSpecs(new DistributionSpec[][] {{weibull(4.0, 1.0)}})
-                        .maxTotalRetryJobs(32).build())
-                .overheadModel(OverheadModelConfig.builder().workflowEngineDelayInterval(1)
+                        .maxTotalRetryJobs(32)
+                        .build())
+                .overheadModel(OverheadModelConfig.builder()
+                        .workflowEngineDelayInterval(1)
                         .workflowEngineDelays(Collections.singletonMap(0, weibull(0.03, 2.0)))
                         .queueDelays(Collections.singletonMap(0, weibull(0.02, 2.0)))
-                        .postDelays(Collections.singletonMap(0, weibull(0.04, 2.0))).build())
-                .taskCostMatrix(cell.matrix ? matrix() : null).build();
+                        .postDelays(Collections.singletonMap(0, weibull(0.04, 2.0)))
+                        .build())
+                .taskCostMatrix(cell.matrix ? matrix() : null)
+                .build();
     }
 
     private static TaskCostMatrix matrix() {
@@ -371,11 +398,12 @@ class StochasticArrivalInteractionIntegrationTest {
         for (int id = 0; id < 2; id++) {
             double mips = id == 0 ? 1000.0 : 2000.0;
             builder.addHost(new PlatformProfile.HostSpec(id, 1, mips, 1024, 1000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, mips, 1, 512, 1000L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, mips, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             builder.pinVmToHost(id, id);
         }
-        return builder.storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20)).build();
+        return builder.storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
+                .build();
     }
 
     private static int sourceRow(int taskId, String context) {
@@ -383,8 +411,8 @@ class StochasticArrivalInteractionIntegrationTest {
         return (taskId - 1) % 3;
     }
 
-    private static Map<Integer, SimulationEvent> events(SimulationReport report, SimulationEventType type,
-            String context) {
+    private static Map<Integer, SimulationEvent> events(
+            SimulationReport report, SimulationEventType type, String context) {
         Map<Integer, SimulationEvent> result = new LinkedHashMap<Integer, SimulationEvent>();
         for (SimulationEvent event : report.getEvents()) {
             if (event.getType() == type) {
@@ -424,37 +452,85 @@ class StochasticArrivalInteractionIntegrationTest {
     /** Remove only the two documented host wall-clock samples, never stochastic/model evidence. */
     private static List<Object> trajectory(SimulationReport report) {
         List<Object> rows = new ArrayList<Object>();
-        rows.add(Arrays.asList("end", report.getSimulationEndSeconds(), report.getLogicalTaskCompletionSeconds(),
-                report.getLogicalTaskCompletionStatus(), report.getTerminalLifecycleTailSeconds()));
+        rows.add(Arrays.asList(
+                "end",
+                report.getSimulationEndSeconds(),
+                report.getLogicalTaskCompletionSeconds(),
+                report.getLogicalTaskCompletionStatus(),
+                report.getTerminalLifecycleTailSeconds()));
         rows.add(report.getActualVmHostAssignments());
         rows.add(report.getVmSummaries());
         for (SimulationReport.JobOutcome job : report.getJobs()) {
-            rows.add(Arrays.asList("job", job.getJobId(), job.getVmId(), job.getStatus(), job.getClassType(),
-                    job.getSubmissionTime(), job.getStartTime(), job.getFinishTime(), job.getCpuTime(),
-                    job.getWaitingTime(), job.getExecutionTime(), job.getResponseTime(),
-                    job.getModeledCpuEnvelopeCost(), job.getModeledDeclaredFileBandwidthCost(),
-                    job.getModeledDeclaredFileBytes(), job.getModeledProcessingCost(), job.getTaskCount(), job.getTaskIds()));
+            rows.add(Arrays.asList(
+                    "job",
+                    job.getJobId(),
+                    job.getVmId(),
+                    job.getStatus(),
+                    job.getClassType(),
+                    job.getSubmissionTime(),
+                    job.getStartTime(),
+                    job.getFinishTime(),
+                    job.getCpuTime(),
+                    job.getWaitingTime(),
+                    job.getExecutionTime(),
+                    job.getResponseTime(),
+                    job.getModeledCpuEnvelopeCost(),
+                    job.getModeledDeclaredFileBandwidthCost(),
+                    job.getModeledDeclaredFileBytes(),
+                    job.getModeledProcessingCost(),
+                    job.getTaskCount(),
+                    job.getTaskIds()));
         }
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
-            rows.add(Arrays.asList("task", task.getTaskId(), task.getJobId(), task.getVmId(), task.getJobStatus(),
-                    task.getTaskStatus(), task.getDepth(), task.getLengthMi(), task.getEffectiveExecutionLengthMi(),
-                    task.getStartTime(), task.getFinishTime(), task.hasExactJobTiming()));
+            rows.add(Arrays.asList(
+                    "task",
+                    task.getTaskId(),
+                    task.getJobId(),
+                    task.getVmId(),
+                    task.getJobStatus(),
+                    task.getTaskStatus(),
+                    task.getDepth(),
+                    task.getLengthMi(),
+                    task.getEffectiveExecutionLengthMi(),
+                    task.getStartTime(),
+                    task.getFinishTime(),
+                    task.hasExactJobTiming()));
         }
         for (SimulationReport.WorkflowOutcome workflow : report.getWorkflowOutcomes()) {
-            rows.add(Arrays.asList("workflow", workflow.getIndex(), workflow.getPath(), workflow.getArrivalSecond(),
-                    workflow.getFirstTaskId(), workflow.getLastTaskId(), workflow.getTaskCount(),
-                    workflow.getLastSuccessFinishSecond(), workflow.getFlowTimeSeconds()));
+            rows.add(Arrays.asList(
+                    "workflow",
+                    workflow.getIndex(),
+                    workflow.getPath(),
+                    workflow.getArrivalSecond(),
+                    workflow.getFirstTaskId(),
+                    workflow.getLastTaskId(),
+                    workflow.getTaskCount(),
+                    workflow.getLastSuccessFinishSecond(),
+                    workflow.getFlowTimeSeconds()));
         }
         for (SimulationReport.TaskNode task : report.getWorkflowGraph()) {
-            rows.add(Arrays.asList("source", task.getTaskId(), task.getType(), task.getDepth(),
-                    task.getParentIds(), task.getChildIds()));
+            rows.add(Arrays.asList(
+                    "source",
+                    task.getTaskId(),
+                    task.getType(),
+                    task.getDepth(),
+                    task.getParentIds(),
+                    task.getChildIds()));
         }
         for (SimulationEvent event : report.getEvents()) {
             Map<String, Object> attributes = new LinkedHashMap<String, Object>(event.getAttributes());
             attributes.remove("decisionElapsedNanos");
             attributes.remove("planningDecisionElapsedNanos");
-            rows.add(Arrays.asList("event", event.getSequence(), event.getSimulationTime(), event.getType(),
-                    event.getJobId(), event.getVmId(), event.getClassType(), event.getTaskIds(), attributes));
+            rows.add(Arrays.asList(
+                    "event",
+                    event.getSequence(),
+                    event.getSimulationTime(),
+                    event.getType(),
+                    event.getJobId(),
+                    event.getVmId(),
+                    event.getClassType(),
+                    event.getTaskIds(),
+                    attributes));
         }
         return rows;
     }

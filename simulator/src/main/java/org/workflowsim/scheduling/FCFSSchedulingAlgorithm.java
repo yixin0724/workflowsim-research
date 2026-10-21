@@ -39,7 +39,7 @@ public class FCFSSchedulingAlgorithm extends BaseSchedulingAlgorithm {
         validateCloudletCompatibility();
         List<CondorVM> vms = sortedVmsById();
 
-        for (Iterator it = getCloudletList().iterator(); it.hasNext();) {
+        for (Iterator it = getCloudletList().iterator(); it.hasNext(); ) {
             Cloudlet cloudlet = (Cloudlet) it.next();
             boolean stillHasVm = false;
             for (CondorVM vm : vms) {

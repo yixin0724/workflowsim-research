@@ -18,8 +18,14 @@ public final class SimulationEvent {
     private final List<Integer> taskIds;
     private final Map<String, Object> attributes;
 
-    SimulationEvent(long sequence, double simulationTime, SimulationEventType type,
-            Integer jobId, Integer vmId, Integer classType, List<Integer> taskIds,
+    SimulationEvent(
+            long sequence,
+            double simulationTime,
+            SimulationEventType type,
+            Integer jobId,
+            Integer vmId,
+            Integer classType,
+            List<Integer> taskIds,
             Map<String, ?> attributes) {
         this.sequence = sequence;
         this.simulationTime = simulationTime;
@@ -31,12 +37,35 @@ public final class SimulationEvent {
         this.attributes = Collections.unmodifiableMap(new LinkedHashMap<String, Object>(attributes));
     }
 
-    public long getSequence() { return sequence; }
-    public double getSimulationTime() { return simulationTime; }
-    public SimulationEventType getType() { return type; }
-    public Integer getJobId() { return jobId; }
-    public Integer getVmId() { return vmId; }
-    public Integer getClassType() { return classType; }
-    public List<Integer> getTaskIds() { return taskIds; }
-    public Map<String, Object> getAttributes() { return attributes; }
+    public long getSequence() {
+        return sequence;
+    }
+
+    public double getSimulationTime() {
+        return simulationTime;
+    }
+
+    public SimulationEventType getType() {
+        return type;
+    }
+
+    public Integer getJobId() {
+        return jobId;
+    }
+
+    public Integer getVmId() {
+        return vmId;
+    }
+
+    public Integer getClassType() {
+        return classType;
+    }
+
+    public List<Integer> getTaskIds() {
+        return taskIds;
+    }
+
+    public Map<String, Object> getAttributes() {
+        return attributes;
+    }
 }

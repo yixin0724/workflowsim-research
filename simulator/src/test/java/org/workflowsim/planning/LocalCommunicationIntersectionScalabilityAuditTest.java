@@ -35,7 +35,8 @@ import org.workflowsim.utils.SimulationConfig;
 class LocalCommunicationIntersectionScalabilityAuditTest {
     @Test
     void positiveEdgeFilesAreScannedOncePerOctFillRatherThanOncePerVmPair() {
-        assertAll("positive payload, independently varied VM and declaration counts",
+        assertAll(
+                "positive payload, independently varied VM and declaration counts",
                 () -> assertPairScanBound(4, 8, true),
                 () -> assertPairScanBound(4, 32, true),
                 () -> assertPairScanBound(16, 8, true),
@@ -44,7 +45,8 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
 
     @Test
     void nonemptyZeroIntersectionIsAlsoRememberedWithinTheOctFill() {
-        assertAll("positive declarations with no matching parent OUTPUT / child INPUT name",
+        assertAll(
+                "positive declarations with no matching parent OUTPUT / child INPUT name",
                 () -> assertPairScanBound(4, 8, false),
                 () -> assertPairScanBound(4, 32, false),
                 () -> assertPairScanBound(16, 8, false),
@@ -102,18 +104,21 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         f.access.reset();
 
         assertExact(3.0, f.planner.priorityOf(f.parent), "single compatible OCT entry");
-        assertExact(Double.POSITIVE_INFINITY,
-                f.planner.optimisticCostOf(f.parent, f.machines.get(0)), "incompatible parent entry");
-        assertExact(Double.POSITIVE_INFINITY,
-                f.planner.optimisticCostOf(f.child, f.machines.get(1)), "incompatible child entry");
+        assertExact(
+                Double.POSITIVE_INFINITY,
+                f.planner.optimisticCostOf(f.parent, f.machines.get(0)),
+                "incompatible parent entry");
+        assertExact(
+                Double.POSITIVE_INFINITY,
+                f.planner.optimisticCostOf(f.child, f.machines.get(1)),
+                "incompatible child entry");
         assertExact(3.0, f.planner.optimisticCostOf(f.parent, f.machines.get(2)), "same compatible VM");
         assertNoFileReads(f.access, "no compatible off-diagonal OCT candidate needs edge bytes");
     }
 
     @Test
     void heterogeneousPeDomainsBandwidthsAndLowerVmIdTiesKeepTheirLiteralOracle() {
-        Fixture f = new Fixture(Arrays.asList(
-                vm(3, 1, 1L), vm(17, 2, 2L), vm(41, 4, 4L), vm(89, 4, 8L)));
+        Fixture f = new Fixture(Arrays.asList(vm(3, 1, 1L), vm(17, 2, 2L), vm(41, 4, 4L), vm(89, 4, 8L)));
         f.parent.setNumberOfPes(2);
         f.child.setNumberOfPes(4);
         f.addEdgeFile("edge", 12_000_000.0);
@@ -125,9 +130,13 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         double[] expectedParent = {Double.POSITIVE_INFINITY, 9.0, 3.0, 3.0};
         double[] expectedChild = {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, 0.0, 0.0};
         for (int index = 0; index < f.machines.size(); index++) {
-            assertExact(expectedParent[index], f.planner.optimisticCostOf(f.parent, f.machines.get(index)),
+            assertExact(
+                    expectedParent[index],
+                    f.planner.optimisticCostOf(f.parent, f.machines.get(index)),
                     "parent OCT column " + index);
-            assertExact(expectedChild[index], f.planner.optimisticCostOf(f.child, f.machines.get(index)),
+            assertExact(
+                    expectedChild[index],
+                    f.planner.optimisticCostOf(f.child, f.machines.get(index)),
                     "child OCT column " + index);
         }
         assertExact(0.0, f.planner.priorityOf(f.child), "exit rank excludes incompatible infinities");
@@ -160,15 +169,23 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         // Byte intersection is 1.25 + 1.25 + 0.5. Do not deduplicate child inputs,
         // multiply by output occurrences, or import isRealInputFile's stage-in exclusion.
         double expected = 3.0 / 1.0e6 / 2.0;
-        assertExact(expected, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "positive fractional duplicate payload");
+        assertExact(
+                expected,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "positive fractional duplicate payload");
         assertExact(expected, f.planner.meanCommunicationSeconds(f.parent, f.child), "duplicate pair mean");
-        assertExact(0.0, f.planner.communicationSeconds(f.child, f.parent,
-                f.machines.get(0), f.machines.get(1)), "task pairs are directed");
-        assertExact(expected, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(1), f.machines.get(0)), "VM direction does not change endpoint minimum");
+        assertExact(
+                0.0,
+                f.planner.communicationSeconds(f.child, f.parent, f.machines.get(0), f.machines.get(1)),
+                "task pairs are directed");
+        assertExact(
+                expected,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(1), f.machines.get(0)),
+                "VM direction does not change endpoint minimum");
         assertExact((1.0 + (1.0 + expected)) / 2.0, f.planner.priorityOf(f.parent), "duplicate-aware OCT rank");
-        assertExact(1.0 + expected, f.planner.optimisticCostOf(f.parent, f.machines.get(1)),
+        assertExact(
+                1.0 + expected,
+                f.planner.optimisticCostOf(f.parent, f.machines.get(1)),
                 "OCT uses every child INPUT occurrence too");
     }
 
@@ -190,17 +207,24 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         double largeFirst = 0x1.0p53 / 1.0e6 / 2.0;
         double smallFirst = (0x1.0p53 + 2.0) / 1.0e6 / 2.0;
         assertNotEquals(Double.doubleToLongBits(largeFirst), Double.doubleToLongBits(smallFirst));
-        assertExact(largeFirst, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "original child iteration order");
+        assertExact(
+                largeFirst,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "original child iteration order");
         f.planner.priorityOf(f.parent);
         assertExact(1.0 + largeFirst, f.planner.optimisticCostOf(f.parent, f.machines.get(1)), "original OCT sum");
         f.child.setFileList(new CountingFileList(f.access, Arrays.asList(unitInput, unitInput, largeInput)));
-        assertExact(smallFirst, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "live direct query after list replacement");
-        assertExact(1.0 + largeFirst, f.planner.optimisticCostOf(f.parent, f.machines.get(1)), "filled OCT is unchanged");
+        assertExact(
+                smallFirst,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "live direct query after list replacement");
+        assertExact(
+                1.0 + largeFirst, f.planner.optimisticCostOf(f.parent, f.machines.get(1)), "filled OCT is unchanged");
         f.planner.prepare();
-        assertExact(smallFirst, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "reprepared child iteration order");
+        assertExact(
+                smallFirst,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "reprepared child iteration order");
         f.planner.priorityOf(f.parent);
         assertExact(1.0 + smallFirst, f.planner.optimisticCostOf(f.parent, f.machines.get(1)), "reprepared OCT sum");
     }
@@ -212,8 +236,10 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         f.child.getFileList().get(0).setSize(0.0);
         f.planner.prepare();
 
-        assertExact(0.0, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "zero payload");
+        assertExact(
+                0.0,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "zero payload");
         assertExact(5.0, f.planner.upwardRankOf(f.parent), "2 + 0 + 3");
         assertExact(3.0, f.planner.priorityOf(f.parent), "zero communication successor cost");
     }
@@ -225,13 +251,17 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         FileItem input = f.child.getFileList().get(0);
         f.planner.prepare();
         assertExact(52.5, f.planner.upwardRankOf(f.parent), "prepared with one MB");
-        assertThrows(IllegalStateException.class,
-                () -> f.planner.optimisticCostOf(f.parent, f.machines.get(0)), "OCT is still lazy");
+        assertThrows(
+                IllegalStateException.class,
+                () -> f.planner.optimisticCostOf(f.parent, f.machines.get(0)),
+                "OCT is still lazy");
 
         output.setSize(9_000_000.0);
         input.setSize(9_000_000.0);
-        assertExact(9.0, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "live byte intersection");
+        assertExact(
+                9.0,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "live byte intersection");
         assertExact(9.0, f.planner.meanCommunicationSeconds(f.parent, f.child), "live mean communication");
         assertExact(52.5, f.planner.upwardRankOf(f.parent), "upward rank remains prepared");
         assertExact(5.5, f.planner.priorityOf(f.parent), "first OCT uses [1, 10], not [1, 2]");
@@ -240,8 +270,10 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
 
         output.setSize(17_000_000.0);
         input.setSize(17_000_000.0);
-        assertExact(17.0, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "direct query remains live after OCT fill");
+        assertExact(
+                17.0,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "direct query remains live after OCT fill");
         assertExact(5.5, f.planner.priorityOf(f.parent), "do not silently change the existing OCT lifetime");
         assertExact(10.0, f.planner.optimisticCostOf(f.parent, f.machines.get(1)), "previously filled OCT");
         f.planner.prepare();
@@ -253,10 +285,10 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
     void replacingBothFileListsBeforeFirstOctRefreshesMembershipWithoutRepreparingRanks() {
         Fixture f = asymmetricFixture();
         f.planner.prepare();
-        f.parent.setFileList(new CountingFileList(f.access,
-                Collections.singletonList(f.file("replacement", 9_000_000.0, FileType.OUTPUT))));
-        f.child.setFileList(new CountingFileList(f.access,
-                Collections.singletonList(f.file("replacement", 9_000_000.0, FileType.INPUT))));
+        f.parent.setFileList(new CountingFileList(
+                f.access, Collections.singletonList(f.file("replacement", 9_000_000.0, FileType.OUTPUT))));
+        f.child.setFileList(new CountingFileList(
+                f.access, Collections.singletonList(f.file("replacement", 9_000_000.0, FileType.INPUT))));
 
         assertExact(52.5, f.planner.upwardRankOf(f.parent), "unchanged prepared upward rank");
         assertExact(5.5, f.planner.priorityOf(f.parent), "first OCT sees replacement declarations");
@@ -294,8 +326,10 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         f.planner.setVmList(Arrays.asList(replacementSecond, replacementFirst));
         f.planner.prepare();
 
-        assertThrows(IllegalStateException.class,
-                () -> f.planner.optimisticCostOf(f.parent, replacementSecond), "reprepare clears the OCT table");
+        assertThrows(
+                IllegalStateException.class,
+                () -> f.planner.optimisticCostOf(f.parent, replacementSecond),
+                "reprepare clears the OCT table");
         assertExact(60.5, f.planner.upwardRankOf(f.parent), "new file generation");
         assertExact(5.5, f.planner.priorityOf(f.parent), "new OCT generation");
         assertExact(1.0, f.planner.optimisticCostOf(f.parent, replacementFirst), "replacement first key");
@@ -324,15 +358,19 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         f.child.getFileList().get(0).setSize(4_000_000.0);
         f.planner.prepare();
         assertExact(3.0, f.planner.priorityOf(f.parent), "static OCT before allocation");
-        assertExact(4.0, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "static pair communication before allocation");
+        assertExact(
+                4.0,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "static pair communication before allocation");
 
         f.planner.allocate(f.parent, f.machines.get(0), 110.1);
         f.planner.allocate(f.child, f.machines.get(1), 110.1);
         assertExact(116.1, f.child.getStaticScheduleStartTime(), "112.1 parent finish plus four-second transfer");
         assertExact(119.1, f.planner.plannedFinishOf(f.child).doubleValue(), "child computation after transfer");
-        assertExact(4.0, f.planner.communicationSeconds(f.parent, f.child,
-                f.machines.get(0), f.machines.get(1)), "static estimate must not cache dynamic locality");
+        assertExact(
+                4.0,
+                f.planner.communicationSeconds(f.parent, f.child, f.machines.get(0), f.machines.get(1)),
+                "static estimate must not cache dynamic locality");
         assertExact(3.0, f.planner.priorityOf(f.parent), "allocation does not alter the filled OCT");
     }
 
@@ -350,29 +388,42 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
         }
         // Before optimization: V*(V-1)*2F element/type/name reads. For V=16,F=32
         // this is 15,360 element reads, versus a bound of 64 for one fresh edge read.
-        assertScanBudget(f.access, 2L * fileCount, matches ? fileCount : 0L, 2L,
+        assertScanBudget(
+                f.access,
+                2L * fileCount,
+                matches ? fileCount : 0L,
+                2L,
                 "VMs=" + vmCount + ", files per endpoint=" + fileCount + ", matching=" + matches);
     }
 
-    private static void assertScanBudget(AccessCounter access, long elementBudget,
-            long sizeBudget, long iteratorBudget, String subject) {
+    private static void assertScanBudget(
+            AccessCounter access, long elementBudget, long sizeBudget, long iteratorBudget, String subject) {
         final String observed = subject + "; observed " + access;
         System.out.println("LOCAL_INTERSECTION_AUDIT " + observed);
-        assertAll(observed,
-                () -> assertTrue(access.elements <= elementBudget, "list elements <= " + elementBudget + "; " + observed),
-                () -> assertTrue(access.types <= elementBudget, "file type reads <= " + elementBudget + "; " + observed),
-                () -> assertTrue(access.names <= elementBudget, "file name reads <= " + elementBudget + "; " + observed),
+        assertAll(
+                observed,
+                () -> assertTrue(
+                        access.elements <= elementBudget, "list elements <= " + elementBudget + "; " + observed),
+                () -> assertTrue(
+                        access.types <= elementBudget, "file type reads <= " + elementBudget + "; " + observed),
+                () -> assertTrue(
+                        access.names <= elementBudget, "file name reads <= " + elementBudget + "; " + observed),
                 () -> assertTrue(access.sizes <= sizeBudget, "file size reads <= " + sizeBudget + "; " + observed),
-                () -> assertTrue(access.iterators <= iteratorBudget, "file iterators <= " + iteratorBudget + "; " + observed));
+                () -> assertTrue(
+                        access.iterators <= iteratorBudget, "file iterators <= " + iteratorBudget + "; " + observed));
     }
 
     private static void assertNoFileReads(AccessCounter access, String subject) {
-        assertEquals(0L, access.elements + access.types + access.names + access.sizes + access.iterators,
+        assertEquals(
+                0L,
+                access.elements + access.types + access.names + access.sizes + access.iterators,
                 subject + "; observed " + access);
     }
 
     private static void assertExact(double expected, double actual, String subject) {
-        assertEquals(Double.doubleToLongBits(expected), Double.doubleToLongBits(actual),
+        assertEquals(
+                Double.doubleToLongBits(expected),
+                Double.doubleToLongBits(actual),
                 subject + ": expected " + expected + ", actual " + actual);
     }
 
@@ -408,8 +459,7 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
     }
 
     private static CondorVM vm(int id, int pes, long bandwidth) {
-        return new CondorVM(id, 0, 1.0, pes, 512, bandwidth, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1.0, pes, 512, bandwidth, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private static final class Fixture {
@@ -428,10 +478,17 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
             PlatformProfile.Builder platform = PlatformProfile.builder("local-intersection-counting-audit");
             for (int index = 0; index < machines.size(); index++) {
                 CondorVM vm = machines.get(index);
-                platform.addHost(new PlatformProfile.HostSpec(index, vm.getNumberOfPes(), 1.0,
-                        2048, 10_000L, 1_000_000L));
-                platform.addVm(new PlatformProfile.VmSpec(vm.getId(), 1.0, vm.getNumberOfPes(),
-                        512, vm.getBw(), 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+                platform.addHost(
+                        new PlatformProfile.HostSpec(index, vm.getNumberOfPes(), 1.0, 2048, 10_000L, 1_000_000L));
+                platform.addVm(new PlatformProfile.VmSpec(
+                        vm.getId(),
+                        1.0,
+                        vm.getNumberOfPes(),
+                        512,
+                        vm.getBw(),
+                        10_000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
                 platform.pinVmToHost(vm.getId(), index);
             }
             SimulationConfig config = SimulationConfig.builder("not-parsed-local-intersection.dax", machines.size())
@@ -439,7 +496,8 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
                     .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                     .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                     .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
-                    .cloudSimMinEventIntervalSeconds(0.1).build();
+                    .cloudSimMinEventIntervalSeconds(0.1)
+                    .build();
             planner = new LocalPeftPlanningAlgorithm(new PlanningContext(config, platform.build()));
             planner.setTaskList(Arrays.asList(child, parent)); // Deliberately not topological.
             List<CondorVM> reversed = new ArrayList<CondorVM>(machines);
@@ -549,8 +607,8 @@ class LocalCommunicationIntersectionScalabilityAuditTest {
 
         @Override
         public String toString() {
-            return "elements=" + elements + ", types=" + types + ", names=" + names
-                    + ", sizes=" + sizes + ", iterators=" + iterators;
+            return "elements=" + elements + ", types=" + types + ", names=" + names + ", sizes=" + sizes
+                    + ", iterators=" + iterators;
         }
     }
 }

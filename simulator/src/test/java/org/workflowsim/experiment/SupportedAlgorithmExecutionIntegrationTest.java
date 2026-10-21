@@ -34,17 +34,17 @@ class SupportedAlgorithmExecutionIntegrationTest {
                 SchedulingAlgorithm.READY_BATCH_MAXMIN,
                 SchedulingAlgorithm.DATA)) {
             // DATA 算法的局部性判定要求 LOCAL 文件系统模式（SHARED 模式下配置层会拒绝）。
-            SimulationConfig config = SimulationConfig.builder(
-                            resourcePath("/dax/reproducibility-workflow.dax"), 3)
+            SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 3)
                     .schedulingAlgorithm(algorithm)
-                    .fileSystem(algorithm == SchedulingAlgorithm.DATA
-                            ? ReplicaCatalog.FileSystem.LOCAL
-                            : ReplicaCatalog.FileSystem.SHARED)
+                    .fileSystem(
+                            algorithm == SchedulingAlgorithm.DATA
+                                    ? ReplicaCatalog.FileSystem.LOCAL
+                                    : ReplicaCatalog.FileSystem.SHARED)
                     .randomSeed(91L)
                     .build();
 
-            SimulationReport report = new SimulationRunner().run(config,
-                    PlatformProfiles.homogeneousLocal("online-" + algorithm.name(), 3));
+            SimulationReport report = new SimulationRunner()
+                    .run(config, PlatformProfiles.homogeneousLocal("online-" + algorithm.name(), 3));
 
             assertEquals(5, report.getMetrics().getLogicalTaskCount(), algorithm.name());
             assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully(), algorithm.name());
@@ -63,15 +63,14 @@ class SupportedAlgorithmExecutionIntegrationTest {
                 PlanningAlgorithm.STATIC_MAXMIN,
                 PlanningAlgorithm.STATIC_SUFFERAGE,
                 PlanningAlgorithm.STATIC_ROUND_ROBIN)) {
-            SimulationConfig config = SimulationConfig.builder(
-                            resourcePath("/dax/independent-tasks.dax"), 2)
+            SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/independent-tasks.dax"), 2)
                     .planningAlgorithm(algorithm)
                     .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
                     .randomSeed(91L)
                     .build();
 
-            SimulationReport report = new SimulationRunner().run(config,
-                    PlatformProfiles.homogeneousLocal("independent-" + algorithm.name(), 2));
+            SimulationReport report = new SimulationRunner()
+                    .run(config, PlatformProfiles.homogeneousLocal("independent-" + algorithm.name(), 2));
 
             assertEquals(3, report.getMetrics().getLogicalTaskCount(), algorithm.name());
             assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully(), algorithm.name());
@@ -82,8 +81,7 @@ class SupportedAlgorithmExecutionIntegrationTest {
     void randomMappingAndMaintainedDagPlannersRunWithNonContiguousVmIds() throws Exception {
         Log.disable();
         PlatformProfile platform = nonContiguousPlatform();
-        SimulationConfig random = SimulationConfig.builder(
-                        resourcePath("/dax/reproducibility-workflow.dax"), 2)
+        SimulationConfig random = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
                 .planningAlgorithm(PlanningAlgorithm.RANDOM)
                 .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
                 .randomSeed(91L)
@@ -91,11 +89,12 @@ class SupportedAlgorithmExecutionIntegrationTest {
         assertComplete(new SimulationRunner().run(random, platform));
 
         for (PlanningAlgorithm algorithm : Arrays.asList(
-                PlanningAlgorithm.SHARED_STORAGE_HEFT, PlanningAlgorithm.SHARED_STORAGE_CPOP,
-                PlanningAlgorithm.SHARED_STORAGE_DLS, PlanningAlgorithm.SHARED_STORAGE_ETF,
+                PlanningAlgorithm.SHARED_STORAGE_HEFT,
+                PlanningAlgorithm.SHARED_STORAGE_CPOP,
+                PlanningAlgorithm.SHARED_STORAGE_DLS,
+                PlanningAlgorithm.SHARED_STORAGE_ETF,
                 PlanningAlgorithm.SHARED_STORAGE_PEFT)) {
-            SimulationConfig config = SimulationConfig.builder(
-                            resourcePath("/dax/reproducibility-workflow.dax"), 2)
+            SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
                     .planningAlgorithm(algorithm)
                     .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
                     .randomSeed(91L)
@@ -116,16 +115,12 @@ class SupportedAlgorithmExecutionIntegrationTest {
 
     private static PlatformProfile nonContiguousPlatform() {
         return PlatformProfile.builder("non-contiguous-vm-ids")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 10_000L, 1_000_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 2, 2000.0,
-                        2048, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(20, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(10, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 10_000L, 1_000_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 2, 2000.0, 2048, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        20, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        10, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
     }

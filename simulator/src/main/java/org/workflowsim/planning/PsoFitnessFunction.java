@@ -37,7 +37,7 @@ import org.workflowsim.utils.TaskExecutionModel;
  */
 public final class PsoFitnessFunction {
 
-    private PsoFitnessFunction() { }
+    private PsoFitnessFunction() {}
 
     /**
      * 计算一个粒子位置的适应度（越小越好）。
@@ -49,8 +49,7 @@ public final class PsoFitnessFunction {
      * @return 加权适应度；PE 不兼容的位置返回正无穷
      * @throws IllegalArgumentException 当列表、下标或执行成本不合法时抛出
      */
-    public static double evaluate(int[] position, List<Task> tasks, List<? extends Vm> vms,
-            double costWeight) {
+    public static double evaluate(int[] position, List<Task> tasks, List<? extends Vm> vms, double costWeight) {
         if (tasks == null || tasks.isEmpty() || vms == null || vms.isEmpty()) {
             throw new IllegalArgumentException("PSO fitness requires non-empty task and VM lists");
         }

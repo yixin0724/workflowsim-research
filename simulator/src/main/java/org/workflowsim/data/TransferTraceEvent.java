@@ -44,9 +44,13 @@ public final class TransferTraceEvent {
         }
 
         /** @return registered resource key */
-        public String getResourceKey() { return resourceKey; }
+        public String getResourceKey() {
+            return resourceKey;
+        }
         /** @return capacity installed by this successful put, in bytes/second */
-        public double getCapacityBytesPerSecond() { return capacityBytesPerSecond; }
+        public double getCapacityBytesPerSecond() {
+            return capacityBytesPerSecond;
+        }
     }
 
     /** Immutable admission description; resource order and duplicate weights are preserved. */
@@ -56,7 +60,10 @@ public final class TransferTraceEvent {
         private final double nominalRateBytesPerSecond;
         private final double initialRateBytesPerSecond;
 
-        private Start(double bytes, List<String> occupiedResources, double nominalRateBytesPerSecond,
+        private Start(
+                double bytes,
+                List<String> occupiedResources,
+                double nominalRateBytesPerSecond,
                 double initialRateBytesPerSecond) {
             this.bytes = bytes;
             this.occupiedResources = Collections.unmodifiableList(new ArrayList<String>(occupiedResources));
@@ -65,13 +72,21 @@ public final class TransferTraceEvent {
         }
 
         /** @return original modeled byte demand, including any fractional bytes */
-        public double getBytes() { return bytes; }
+        public double getBytes() {
+            return bytes;
+        }
         /** @return immutable defensive copy in original order, including duplicate keys */
-        public List<String> getOccupiedResources() { return occupiedResources; }
+        public List<String> getOccupiedResources() {
+            return occupiedResources;
+        }
         /** @return the admitted flow's nominal rate cap in bytes/second */
-        public double getNominalRateBytesPerSecond() { return nominalRateBytesPerSecond; }
+        public double getNominalRateBytesPerSecond() {
+            return nominalRateBytesPerSecond;
+        }
         /** @return validated final allocation after admission, not a solver intermediate */
-        public double getInitialRateBytesPerSecond() { return initialRateBytesPerSecond; }
+        public double getInitialRateBytesPerSecond() {
+            return initialRateBytesPerSecond;
+        }
     }
 
     /** Immutable change between two validated final allocations. */
@@ -85,9 +100,13 @@ public final class TransferTraceEvent {
         }
 
         /** @return previous effective rate in bytes/second */
-        public double getPreviousRateBytesPerSecond() { return previousRateBytesPerSecond; }
+        public double getPreviousRateBytesPerSecond() {
+            return previousRateBytesPerSecond;
+        }
         /** @return new validated final effective rate in bytes/second */
-        public double getRateBytesPerSecond() { return rateBytesPerSecond; }
+        public double getRateBytesPerSecond() {
+            return rateBytesPerSecond;
+        }
     }
 
     /**
@@ -104,8 +123,13 @@ public final class TransferTraceEvent {
         private final double remainingBefore;
         private final double remainingAfter;
 
-        private ServiceSegment(double intervalStart, double intervalEnd, double elapsed,
-                double rateBytesPerSecond, double remainingBefore, double remainingAfter) {
+        private ServiceSegment(
+                double intervalStart,
+                double intervalEnd,
+                double elapsed,
+                double rateBytesPerSecond,
+                double remainingBefore,
+                double remainingAfter) {
             this.intervalStart = intervalStart;
             this.intervalEnd = intervalEnd;
             this.elapsed = elapsed;
@@ -115,17 +139,29 @@ public final class TransferTraceEvent {
         }
 
         /** @return engine clock at the start of this integration step */
-        public double getIntervalStart() { return intervalStart; }
+        public double getIntervalStart() {
+            return intervalStart;
+        }
         /** @return internal boundary clock, possibly equal to start despite positive elapsed */
-        public double getIntervalEnd() { return intervalEnd; }
+        public double getIntervalEnd() {
+            return intervalEnd;
+        }
         /** @return original integration elapsed, never recomputed from the two clocks */
-        public double getElapsed() { return elapsed; }
+        public double getElapsed() {
+            return elapsed;
+        }
         /** @return effective rate used by this step, in bytes/second */
-        public double getRateBytesPerSecond() { return rateBytesPerSecond; }
+        public double getRateBytesPerSecond() {
+            return rateBytesPerSecond;
+        }
         /** @return remaining modeled bytes before the original subtract/clamp */
-        public double getRemainingBefore() { return remainingBefore; }
+        public double getRemainingBefore() {
+            return remainingBefore;
+        }
         /** @return remaining modeled bytes after subtract/clamp but before numerical settlement */
-        public double getRemainingAfter() { return remainingAfter; }
+        public double getRemainingAfter() {
+            return remainingAfter;
+        }
     }
 
     /** Numerical removal of a flow, separate from any recorded fluid service. */
@@ -144,7 +180,9 @@ public final class TransferTraceEvent {
          *
          * @return nonnegative numerical settlement residual in modeled bytes
          */
-        public double getRemainingAfterService() { return remainingAfterService; }
+        public double getRemainingAfterService() {
+            return remainingAfterService;
+        }
     }
 
     private final long sequence;
@@ -159,9 +197,18 @@ public final class TransferTraceEvent {
     private final ServiceSegment serviceSegment;
     private final Complete complete;
 
-    private TransferTraceEvent(long sequence, Type type, double effectiveTime, double observedTime,
-            Long transferId, Long admissionOrdinal, Capacity capacity, Start start, RateChange rateChange,
-            ServiceSegment serviceSegment, Complete complete) {
+    private TransferTraceEvent(
+            long sequence,
+            Type type,
+            double effectiveTime,
+            double observedTime,
+            Long transferId,
+            Long admissionOrdinal,
+            Capacity capacity,
+            Start start,
+            RateChange rateChange,
+            ServiceSegment serviceSegment,
+            Complete complete) {
         this.sequence = sequence;
         this.type = type;
         this.effectiveTime = effectiveTime;
@@ -176,59 +223,156 @@ public final class TransferTraceEvent {
     }
 
     static TransferTraceEvent capacity(long sequence, double engineTime, String resourceKey, double capacity) {
-        return new TransferTraceEvent(sequence, Type.CAPACITY, engineTime, engineTime, null, null,
-                new Capacity(resourceKey, capacity), null, null, null, null);
+        return new TransferTraceEvent(
+                sequence,
+                Type.CAPACITY,
+                engineTime,
+                engineTime,
+                null,
+                null,
+                new Capacity(resourceKey, capacity),
+                null,
+                null,
+                null,
+                null);
     }
 
-    static TransferTraceEvent start(long sequence, double now, long transferId, long admissionOrdinal,
-            double bytes, List<String> resources, double nominalRate, double initialRate) {
-        return new TransferTraceEvent(sequence, Type.START, now, now, transferId, admissionOrdinal,
-                null, new Start(bytes, resources, nominalRate, initialRate), null, null, null);
+    static TransferTraceEvent start(
+            long sequence,
+            double now,
+            long transferId,
+            long admissionOrdinal,
+            double bytes,
+            List<String> resources,
+            double nominalRate,
+            double initialRate) {
+        return new TransferTraceEvent(
+                sequence,
+                Type.START,
+                now,
+                now,
+                transferId,
+                admissionOrdinal,
+                null,
+                new Start(bytes, resources, nominalRate, initialRate),
+                null,
+                null,
+                null);
     }
 
-    static TransferTraceEvent rateChange(long sequence, double effectiveTime, double observedTime,
-            long transferId, long admissionOrdinal, double previousRate, double rate) {
-        return new TransferTraceEvent(sequence, Type.RATE_CHANGE, effectiveTime, observedTime,
-                transferId, admissionOrdinal, null, null, new RateChange(previousRate, rate), null, null);
+    static TransferTraceEvent rateChange(
+            long sequence,
+            double effectiveTime,
+            double observedTime,
+            long transferId,
+            long admissionOrdinal,
+            double previousRate,
+            double rate) {
+        return new TransferTraceEvent(
+                sequence,
+                Type.RATE_CHANGE,
+                effectiveTime,
+                observedTime,
+                transferId,
+                admissionOrdinal,
+                null,
+                null,
+                new RateChange(previousRate, rate),
+                null,
+                null);
     }
 
-    static TransferTraceEvent serviceSegment(long sequence, double intervalStart, double intervalEnd,
-            double observedTime, long transferId, long admissionOrdinal, double elapsed, double rate,
-            double remainingBefore, double remainingAfter) {
-        return new TransferTraceEvent(sequence, Type.SERVICE_SEGMENT, intervalEnd, observedTime,
-                transferId, admissionOrdinal, null, null, null,
-                new ServiceSegment(intervalStart, intervalEnd, elapsed, rate, remainingBefore, remainingAfter), null);
+    static TransferTraceEvent serviceSegment(
+            long sequence,
+            double intervalStart,
+            double intervalEnd,
+            double observedTime,
+            long transferId,
+            long admissionOrdinal,
+            double elapsed,
+            double rate,
+            double remainingBefore,
+            double remainingAfter) {
+        return new TransferTraceEvent(
+                sequence,
+                Type.SERVICE_SEGMENT,
+                intervalEnd,
+                observedTime,
+                transferId,
+                admissionOrdinal,
+                null,
+                null,
+                null,
+                new ServiceSegment(intervalStart, intervalEnd, elapsed, rate, remainingBefore, remainingAfter),
+                null);
     }
 
-    static TransferTraceEvent complete(long sequence, double effectiveTime, double observedTime,
-            long transferId, long admissionOrdinal, double remainingAfterService) {
-        return new TransferTraceEvent(sequence, Type.COMPLETE, effectiveTime, observedTime,
-                transferId, admissionOrdinal, null, null, null, null, new Complete(remainingAfterService));
+    static TransferTraceEvent complete(
+            long sequence,
+            double effectiveTime,
+            double observedTime,
+            long transferId,
+            long admissionOrdinal,
+            double remainingAfterService) {
+        return new TransferTraceEvent(
+                sequence,
+                Type.COMPLETE,
+                effectiveTime,
+                observedTime,
+                transferId,
+                admissionOrdinal,
+                null,
+                null,
+                null,
+                null,
+                new Complete(remainingAfterService));
     }
 
     /** @return one-based sequence within this engine's retained deterministic prefix */
-    public long getSequence() { return sequence; }
+    public long getSequence() {
+        return sequence;
+    }
     /** @return kind identifying the single non-null typed payload */
-    public Type getType() { return type; }
+    public Type getType() {
+        return type;
+    }
     /** @return actual internal double-clock boundary, not an idealized completion time */
-    public double getEffectiveTime() { return effectiveTime; }
+    public double getEffectiveTime() {
+        return effectiveTime;
+    }
     /** @return outer caller time, or the known engine clock for a capacity setter */
-    public double getObservedTime() { return observedTime; }
+    public double getObservedTime() {
+        return observedTime;
+    }
     /** @return caller's flow ID, or null for CAPACITY; completed IDs may be reused */
-    public Long getTransferId() { return transferId; }
+    public Long getTransferId() {
+        return transferId;
+    }
     /**
      * @return one-based successful-insertion ordinal distinguishing reused flow IDs
      *         within this engine, or null for CAPACITY
      */
-    public Long getAdmissionOrdinal() { return admissionOrdinal; }
+    public Long getAdmissionOrdinal() {
+        return admissionOrdinal;
+    }
     /** @return capacity payload only for CAPACITY, otherwise null */
-    public Capacity getCapacity() { return capacity; }
+    public Capacity getCapacity() {
+        return capacity;
+    }
     /** @return admission payload only for START, otherwise null */
-    public Start getStart() { return start; }
+    public Start getStart() {
+        return start;
+    }
     /** @return final-allocation change only for RATE_CHANGE, otherwise null */
-    public RateChange getRateChange() { return rateChange; }
+    public RateChange getRateChange() {
+        return rateChange;
+    }
     /** @return original integration values only for SERVICE_SEGMENT, otherwise null */
-    public ServiceSegment getServiceSegment() { return serviceSegment; }
+    public ServiceSegment getServiceSegment() {
+        return serviceSegment;
+    }
     /** @return numerical settlement only for COMPLETE, otherwise null */
-    public Complete getComplete() { return complete; }
+    public Complete getComplete() {
+        return complete;
+    }
 }

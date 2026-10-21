@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -76,22 +75,18 @@ class SessionResetMatrixTest {
             SimulationReport second = runOnce(workflow, SchedulingAlgorithm.READY_BATCH_MCT);
             Map<String, String> afterSecond = snapshot();
 
-            assertTrue(first.getMetrics().isAllLogicalTasksCompletedSuccessfully(),
-                    "第一轮（FCFS）仿真必须完整成功，状态审计才有意义");
-            assertTrue(second.getMetrics().isAllLogicalTasksCompletedSuccessfully(),
-                    "第二轮（MCT）仿真必须完整成功，状态审计才有意义");
+            assertTrue(first.getMetrics().isAllLogicalTasksCompletedSuccessfully(), "第一轮（FCFS）仿真必须完整成功，状态审计才有意义");
+            assertTrue(second.getMetrics().isAllLogicalTasksCompletedSuccessfully(), "第二轮（MCT）仿真必须完整成功，状态审计才有意义");
 
             // 泄漏检测：两个完整生命周期后，状态与第一循环结束时刻逐字段一致。
             List<String> unstable = diff("afterFirst", afterFirst, "afterSecond", afterSecond);
-            assertTrue(unstable.isEmpty(),
-                    "连续两次标准运行后可变静态状态发生漂移（跨 run 泄漏）：\n"
-                            + String.join("\n", unstable));
+            assertTrue(unstable.isEmpty(), "连续两次标准运行后可变静态状态发生漂移（跨 run 泄漏）：\n" + String.join("\n", unstable));
 
             // 围栏检测：休眠字段必须从未被触碰（与最初基线一致）。
             List<String> fenceBroken = diffViolations(virgin, afterSecond);
-            assertTrue(fenceBroken.isEmpty(),
-                    "标准 runner 触碰了声明范围外的休眠全局（F-002/F-003 类陷阱）：\n"
-                            + String.join("\n", fenceBroken));
+            assertTrue(
+                    fenceBroken.isEmpty(),
+                    "标准 runner 触碰了声明范围外的休眠全局（F-002/F-003 类陷阱）：\n" + String.join("\n", fenceBroken));
         } finally {
             Log.setDisabled(logWasDisabled);
         }
@@ -160,8 +155,11 @@ class SessionResetMatrixTest {
         if (depth > 3) {
             return shortIdentity(value);
         }
-        if (value instanceof String || value instanceof Number || value instanceof Boolean
-                || value instanceof Character || value instanceof Enum) {
+        if (value instanceof String
+                || value instanceof Number
+                || value instanceof Boolean
+                || value instanceof Character
+                || value instanceof Enum) {
             return value.getClass().getSimpleName() + ":" + String.valueOf(value);
         }
         if (value.getClass().isArray()) {
@@ -179,8 +177,10 @@ class SessionResetMatrixTest {
             Map<?, ?> map = (Map<?, ?>) value;
             StringBuilder sb = new StringBuilder("{");
             for (Object key : new TreeMap<Object, Object>((Map<Object, Object>) map).keySet()) {
-                sb.append(canonical(key, depth + 1)).append("=")
-                        .append(canonical(map.get(key), depth + 1)).append(",");
+                sb.append(canonical(key, depth + 1))
+                        .append("=")
+                        .append(canonical(map.get(key), depth + 1))
+                        .append(",");
             }
             return sb.append("}").toString();
         }
@@ -212,15 +212,14 @@ class SessionResetMatrixTest {
     }
 
     /** 抽查所有 snapshot 键的不同项。 */
-    private static List<String> diff(String leftLabel, Map<String, String> left,
-            String rightLabel, Map<String, String> right) {
+    private static List<String> diff(
+            String leftLabel, Map<String, String> left, String rightLabel, Map<String, String> right) {
         List<String> diffs = new ArrayList<String>();
         for (String key : new TreeMap<String, String>(right).keySet()) {
             String before = left.get(key);
             String after = right.get(key);
             if (before == null || !before.equals(after)) {
-                diffs.add(String.format("  %s: [%s]=%s → [%s]=%s", key, leftLabel, before,
-                        rightLabel, after));
+                diffs.add(String.format("  %s: [%s]=%s → [%s]=%s", key, leftLabel, before, rightLabel, after));
             }
         }
         return diffs;
@@ -238,8 +237,7 @@ class SessionResetMatrixTest {
                     continue;
                 }
                 if (!virgin.get(key).equals(current.get(key))) {
-                    violations.add(String.format("  %s: %s → %s", key, virgin.get(key),
-                            current.get(key)));
+                    violations.add(String.format("  %s: %s → %s", key, virgin.get(key), current.get(key)));
                 }
             }
         }

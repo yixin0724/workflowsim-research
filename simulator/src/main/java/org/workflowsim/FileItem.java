@@ -63,7 +63,7 @@ public class FileItem {
     public FileType getType() {
         return this.type;
     }
-    
+
     /**
      * 判断输入文件是否需要从作业外部执行 stage-in。
      *
@@ -78,8 +78,7 @@ public class FileItem {
         if (this.getType() == FileType.INPUT) {
             for (FileItem another : list) {
                 // 同名输出表明该数据在当前作业内产生，无需额外 stage-in。
-                if (another.getName().equals(this.getName())
-                        && another.getType() == FileType.OUTPUT) {
+                if (another.getName().equals(this.getName()) && another.getType() == FileType.OUTPUT) {
                     return false;
                 }
             }

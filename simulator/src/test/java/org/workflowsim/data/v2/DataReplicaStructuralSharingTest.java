@@ -34,7 +34,8 @@ class DataReplicaStructuralSharingTest {
     private static final FileId Q = id("q");
     private static final List<DataLocation> ORDERED_LOCATIONS = Arrays.asList(VM7, VM42, VM99, SOURCE, SECOND);
 
-    @Test void retainedSnapshotKeepsOrderedImmutableRowsTicketsAndLocationsAfterParentMutations() {
+    @Test
+    void retainedSnapshotKeepsOrderedImmutableRowsTicketsAndLocationsAfterParentMutations() {
         DataflowFilePlan plan = plan();
         List<DataLocation> supplied = new ArrayList<>(Arrays.asList(SECOND, VM99, SOURCE, VM42, VM7));
         DataReplicaState parent = new DataReplicaState(plan, supplied);
@@ -74,12 +75,18 @@ class DataReplicaStructuralSharingTest {
         assertSame(plan.getFile(P), retained.getFile(P));
         assertEquals(4, retained.getFile(P).getBytes(), 0);
         assertEquals(Arrays.asList(3), retained.getFile(P).getConsumerTaskIds());
-        assertThrows(UnsupportedOperationException.class, () -> retained.getLocations().clear());
+        assertThrows(UnsupportedOperationException.class, () -> retained.getLocations()
+                .clear());
         assertThrows(UnsupportedOperationException.class, () -> retainedRow.set(0, second));
-        assertThrows(UnsupportedOperationException.class, () -> retained.getReplicas(P).clear());
-        assertThrows(UnsupportedOperationException.class, () -> retained.getReplicas(Q).add(output));
-        assertThrows(UnsupportedOperationException.class, () -> retained.getActiveCopies().clear());
-        assertThrows(UnsupportedOperationException.class, () -> retained.getFile(P).getConsumerTaskIds().add(99));
+        assertThrows(UnsupportedOperationException.class, () -> retained.getReplicas(P)
+                .clear());
+        assertThrows(UnsupportedOperationException.class, () -> retained.getReplicas(Q)
+                .add(output));
+        assertThrows(UnsupportedOperationException.class, () -> retained.getActiveCopies()
+                .clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> retained.getFile(P).getConsumerTaskIds().add(99));
         assertThrows(IllegalArgumentException.class, () -> retained.getFile(id("unknown")));
         assertThrows(IllegalArgumentException.class, () -> retained.getReplicas(id("unknown")));
         assertThrows(IllegalArgumentException.class, () -> retained.getReplica(P, DataLocation.vm(404)));
@@ -90,7 +97,8 @@ class DataReplicaStructuralSharingTest {
         assertLocations(parent.snapshot(), Q, VM7);
     }
 
-    @Test void parentChildSiblingAndNestedCompletionHistoriesAreIndependentInBothDirections() {
+    @Test
+    void parentChildSiblingAndNestedCompletionHistoriesAreIndependentInBothDirections() {
         DataflowFilePlan plan = plan();
         DataReplicaState parent = state(plan);
         parent.recordTaskCompletion(1, 10, VM7, true, 1);
@@ -100,8 +108,8 @@ class DataReplicaStructuralSharingTest {
         DataReplicaState sibling = parent.fork();
         for (DataReplicaState branch : Arrays.asList(parent, child, sibling)) {
             assertTrue(branch.recordTaskCompletion(1, 10, VM7, true, 1).isEmpty());
-            rejectsWithoutChange(IllegalStateException.class, branch, plan,
-                    () -> branch.recordTaskCompletion(1, 10, VM7, false, 1));
+            rejectsWithoutChange(
+                    IllegalStateException.class, branch, plan, () -> branch.recordTaskCompletion(1, 10, VM7, false, 1));
         }
 
         child.recordTaskCompletion(2, 20, VM42, true, 2);
@@ -114,8 +122,8 @@ class DataReplicaStructuralSharingTest {
         Replica siblingQ = sibling.getReplica(Q, VM99);
         assertTrue(child.recordTaskCompletion(4, 20, VM42, false, 2).isEmpty());
         assertTrue(nested.recordTaskCompletion(4, 20, VM42, true, 2).isEmpty());
-        rejectsWithoutChange(IllegalStateException.class, nested, plan,
-                () -> nested.recordTaskCompletion(4, 20, VM42, false, 2));
+        rejectsWithoutChange(
+                IllegalStateException.class, nested, plan, () -> nested.recordTaskCompletion(4, 20, VM42, false, 2));
         assertTrue(child.recordTaskCompletion(4, 20, VM42, false, 2).isEmpty());
 
         child.recordTaskCompletion(1, 30, VM42, true, 4);
@@ -144,7 +152,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(nested, 5, 0, 4);
     }
 
-    @Test void cachePublicationsAreIndependentAcrossParentChildSiblingAndNestedBranches() {
+    @Test
+    void cachePublicationsAreIndependentAcrossParentChildSiblingAndNestedBranches() {
         DataReplicaState parent = state(plan());
         Replica zero = parent.seedExternal(ZERO_INPUT, SOURCE, 0).getReplica();
         Replica external = parent.seedExternal(EXTERNAL, SOURCE, 0).getReplica();
@@ -158,15 +167,20 @@ class DataReplicaStructuralSharingTest {
         DataReplicaState nested = child.fork();
         Snapshot nestedBeforeWrites = nested.snapshot();
 
-        Replica parent42 = parent.resolveZeroReference(ZERO_INPUT, SOURCE, VM42, 2).getReplica();
-        Replica parentStore = parent.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 2).getReplica();
+        Replica parent42 =
+                parent.resolveZeroReference(ZERO_INPUT, SOURCE, VM42, 2).getReplica();
+        Replica parentStore =
+                parent.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 2).getReplica();
         Replica child99 = child.resolveZeroReference(ZERO_INPUT, VM7, VM99, 3).getReplica();
         Replica childStore = child.commitZeroOutput(ZERO_OUTPUT, VM7, SECOND, 3).getReplica();
         Replica nested42 = nested.resolveZeroReference(ZERO_INPUT, VM7, VM42, 4).getReplica();
-        Replica nestedStore = nested.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 4).getReplica();
-        Replica sibling99 = sibling.resolveZeroReference(ZERO_INPUT, SOURCE, VM99, 5).getReplica();
+        Replica nestedStore =
+                nested.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 4).getReplica();
+        Replica sibling99 =
+                sibling.resolveZeroReference(ZERO_INPUT, SOURCE, VM99, 5).getReplica();
         Replica siblingSeed = sibling.seedExternal(EXTERNAL, SECOND, 5).getReplica();
-        Replica siblingStore = sibling.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 5).getReplica();
+        Replica siblingStore =
+                sibling.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 5).getReplica();
 
         assertRows(common, ZERO_INPUT, zero);
         assertRows(common, EXTERNAL, external);
@@ -201,7 +215,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(sibling, 5, 0, 1);
     }
 
-    @Test void inheritedTicketsCanSettleIndependentlyInEveryBranchAndKeepTheirOriginalIdentity() {
+    @Test
+    void inheritedTicketsCanSettleIndependentlyInEveryBranchAndKeepTheirOriginalIdentity() {
         DataReplicaState parent = state(plan());
         Replica source = parent.seedExternal(EXTERNAL, SOURCE, 0).getReplica();
         parent.recordTaskCompletion(1, 1, VM7, true, 0);
@@ -262,7 +277,8 @@ class DataReplicaStructuralSharingTest {
         }
     }
 
-    @Test void newlyAdmittedSiblingTicketsWithTheSameOrdinalCannotBeInterchanged() {
+    @Test
+    void newlyAdmittedSiblingTicketsWithTheSameOrdinalCannotBeInterchanged() {
         DataflowFilePlan plan = plan();
         DataReplicaState parent = state(plan);
         parent.seedExternal(EXTERNAL, SOURCE, 0);
@@ -305,7 +321,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(nested, 4, 2, 0, inherited);
     }
 
-    @Test void conflictingTaskFlagsJobPlacementsAndObservationTimesAreRejectedAtomically() {
+    @Test
+    void conflictingTaskFlagsJobPlacementsAndObservationTimesAreRejectedAtomically() {
         DataflowFilePlan plan = plan();
         DataReplicaState state = state(plan);
         state.seedExternal(EXTERNAL, SOURCE, 0);
@@ -313,26 +330,29 @@ class DataReplicaStructuralSharingTest {
         state.recordTaskCompletion(1, 20, VM7, true, 2);
         Replica output = state.getReplica(P, VM7);
         Replica zeroOutput = state.getReplica(ZERO_OUTPUT, VM7);
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(1, 20, VM7, false, 2));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(1, 20, VM42, true, 2));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(1, 20, VM7, true, 3));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(2, 20, VM42, true, 2));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(2, 20, VM7, false, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.recordTaskCompletion(2, -1, VM7, true, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.recordTaskCompletion(404, 30, VM7, true, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.recordTaskCompletion(2, 30, SOURCE, true, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(1, 20, VM7, false, 2));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(1, 20, VM42, true, 2));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(1, 20, VM7, true, 3));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(2, 20, VM42, true, 2));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(2, 20, VM7, false, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.recordTaskCompletion(2, -1, VM7, true, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.recordTaskCompletion(404, 30, VM7, true, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.recordTaskCompletion(2, 30, SOURCE, true, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.recordTaskCompletion(2, 30, DataLocation.vm(404), true, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.recordTaskCompletion(2, 30, null, true, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.recordTaskCompletion(2, 30, null, true, 3));
         assertTrue(state.recordTaskCompletion(1, 20, VM7, true, 2).isEmpty());
         assertCounts(state, 2, 1, 1, active);
         assertRows(state.snapshot(), P, output);
@@ -344,10 +364,10 @@ class DataReplicaStructuralSharingTest {
         assertTrue(state.recordTaskCompletion(3, 20, VM7, true, 2).isEmpty());
         assertTrue(state.recordTaskCompletion(4, 20, VM7, false, 2).isEmpty());
         assertTrue(state.recordTaskCompletion(4, 20, VM7, false, 2).isEmpty());
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(2, 20, VM7, true, 2));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.recordTaskCompletion(4, 20, VM7, true, 2));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(2, 20, VM7, true, 2));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.recordTaskCompletion(4, 20, VM7, true, 2));
         assertCounts(state, 2, 1, 4, active);
         // Rejected calls using Job 30 must not leave behind even a Job-only observation.
         state.recordTaskCompletion(2, 30, VM42, true, 4);
@@ -356,7 +376,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(state, 4, 1, 5, active);
     }
 
-    @Test void invalidAdmissionsAndObservationTimesLeaveClocksCountersRowsAndActiveIdsUnchanged() {
+    @Test
+    void invalidAdmissionsAndObservationTimesLeaveClocksCountersRowsAndActiveIdsUnchanged() {
         DataflowFilePlan plan = plan();
         DataReplicaState state = state(plan);
         state.seedExternal(EXTERNAL, SOURCE, 1);
@@ -364,39 +385,58 @@ class DataReplicaStructuralSharingTest {
         state.recordTaskCompletion(1, 10, VM7, true, 1);
         CopyTicket active = state.admitCopy(EXTERNAL, SOURCE, VM42, 2);
         Snapshot retained = state.snapshot();
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.admitCopy(EXTERNAL, VM99, VM7, 3));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.admitCopy(EXTERNAL, SOURCE, SOURCE, 3));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.admitCopy(EXTERNAL, SOURCE, VM42, 3));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.admitCopy(P, VM7, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.admitCopy(ZERO_INPUT, SOURCE, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.admitCopy(id("unknown"), SOURCE, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(IllegalStateException.class, state, plan, () -> state.admitCopy(EXTERNAL, VM99, VM7, 3));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.admitCopy(EXTERNAL, SOURCE, SOURCE, 3));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.admitCopy(EXTERNAL, SOURCE, VM42, 3));
+        rejectsWithoutChange(IllegalStateException.class, state, plan, () -> state.admitCopy(P, VM7, VM7, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.admitCopy(ZERO_INPUT, SOURCE, VM7, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.admitCopy(id("unknown"), SOURCE, VM7, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.admitCopy(EXTERNAL, DataLocation.vm(404), VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.admitCopy(EXTERNAL, SOURCE, DataLocation.vm(404), 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.admitCopy(EXTERNAL, null, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.admitCopy(EXTERNAL, SOURCE, null, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.admitCopy(EXTERNAL, null, VM7, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.admitCopy(EXTERNAL, SOURCE, null, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.admitCopy(EXTERNAL, SOURCE, VM99, Double.MAX_VALUE));
         for (double invalid : new double[] {-1, 1, Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}) {
             rejectsWithoutChange(IllegalArgumentException.class, state, plan, () -> state.advanceTo(invalid));
-            rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+            rejectsWithoutChange(
+                    IllegalArgumentException.class,
+                    state,
+                    plan,
                     () -> state.admitCopy(EXTERNAL, SOURCE, VM99, invalid));
-            rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                    () -> state.seedExternal(EXTERNAL, SECOND, invalid));
-            rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+            rejectsWithoutChange(
+                    IllegalArgumentException.class, state, plan, () -> state.seedExternal(EXTERNAL, SECOND, invalid));
+            rejectsWithoutChange(
+                    IllegalArgumentException.class,
+                    state,
+                    plan,
                     () -> state.resolveZeroReference(ZERO_INPUT, SOURCE, VM7, invalid));
-            rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+            rejectsWithoutChange(
+                    IllegalArgumentException.class,
+                    state,
+                    plan,
                     () -> state.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, invalid));
-            rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+            rejectsWithoutChange(
+                    IllegalArgumentException.class,
+                    state,
+                    plan,
                     () -> state.recordTaskCompletion(2, 30, VM7, true, invalid));
             rejectsWithoutChange(IllegalArgumentException.class, state, plan, () -> state.settleCopy(active, invalid));
         }
@@ -409,7 +449,8 @@ class DataReplicaStructuralSharingTest {
         assertNull(retained.getReplica(EXTERNAL, VM99));
     }
 
-    @Test void invalidForeignEarlyAndRepeatedSettlementsKeepTheWholeVisibleAndActiveState() {
+    @Test
+    void invalidForeignEarlyAndRepeatedSettlementsKeepTheWholeVisibleAndActiveState() {
         DataflowFilePlan plan = plan();
         DataReplicaState state = state(plan);
         Replica source = state.seedExternal(EXTERNAL, SOURCE, 1).getReplica();
@@ -441,7 +482,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(otherRun, 2, 1, 0, foreign);
     }
 
-    @Test void sourceSeedsAndZeroReferencesPreserveTheFirstPublicationObjectAndOrigin() {
+    @Test
+    void sourceSeedsAndZeroReferencesPreserveTheFirstPublicationObjectAndOrigin() {
         DataReplicaState state = state(plan());
         Publication seeded = state.seedExternal(EXTERNAL, SOURCE, 0);
         Replica external = seeded.getReplica();
@@ -450,12 +492,14 @@ class DataReplicaStructuralSharingTest {
         assertTrue(seeded.isNewReplica());
         assertExisting(state.seedExternal(EXTERNAL, SOURCE, 2), external);
         assertExisting(state.seedExternal(ZERO_INPUT, SOURCE, 2), zero);
-        Replica reference = state.resolveZeroReference(ZERO_INPUT, SOURCE, VM42, 2).getReplica();
+        Replica reference =
+                state.resolveZeroReference(ZERO_INPUT, SOURCE, VM42, 2).getReplica();
         List<Replica> retainedRow = state.snapshot().getReplicas(ZERO_INPUT);
         assertExisting(state.resolveZeroReference(ZERO_INPUT, VM42, VM42, 3), reference);
         assertExisting(state.resolveZeroReference(ZERO_INPUT, VM42, SOURCE, 4), zero);
         Replica secondSeed = state.seedExternal(EXTERNAL, SECOND, 4).getReplica();
-        Replica secondReference = state.resolveZeroReference(ZERO_INPUT, VM42, SECOND, 5).getReplica();
+        Replica secondReference =
+                state.resolveZeroReference(ZERO_INPUT, VM42, SECOND, 5).getReplica();
         assertExisting(state.seedExternal(ZERO_INPUT, SECOND, 6), secondReference);
         assertExisting(state.seedExternal(EXTERNAL, SOURCE, 6), external);
 
@@ -488,7 +532,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(state, 6, 0, 0);
     }
 
-    @Test void directOutputAndPositiveCopyRacesAlwaysReturnTheFirstVisibleReplicaObject() {
+    @Test
+    void directOutputAndPositiveCopyRacesAlwaysReturnTheFirstVisibleReplicaObject() {
         DataReplicaState state = state(plan());
         List<Publication> first = state.recordTaskCompletion(1, 10, VM7, true, 1);
         Replica original = first.get(0).getReplica();
@@ -532,7 +577,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(state, 6, 2, 4);
     }
 
-    @Test void positiveCopiesAndExternalSeedsCannotReplaceEachOthersEarlierPublication() {
+    @Test
+    void positiveCopiesAndExternalSeedsCannotReplaceEachOthersEarlierPublication() {
         DataReplicaState seedFirst = state(plan());
         seedFirst.seedExternal(EXTERNAL, SOURCE, 0);
         CopyTicket inFlight = seedFirst.admitCopy(EXTERNAL, SOURCE, SECOND, 1);
@@ -557,7 +603,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(copyFirst, 3, 1, 0);
     }
 
-    @Test void v2ZeroReferencesAndV3ZeroOutputCommitsPreserveFirstPublicationWithoutCopyIds() {
+    @Test
+    void v2ZeroReferencesAndV3ZeroOutputCommitsPreserveFirstPublicationWithoutCopyIds() {
         DataReplicaState state = state(plan());
         state.recordTaskCompletion(1, 10, VM7, true, 1);
         Replica original = state.getReplica(ZERO_OUTPUT, VM7);
@@ -565,11 +612,13 @@ class DataReplicaStructuralSharingTest {
         Replica committed = state.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 1).getReplica();
         Snapshot beforeReference = state.snapshot();
         assertExisting(state.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 3), committed);
-        Replica reference = state.resolveZeroReference(ZERO_OUTPUT, SOURCE, VM42, 3).getReplica();
+        Replica reference =
+                state.resolveZeroReference(ZERO_OUTPUT, SOURCE, VM42, 3).getReplica();
         List<Publication> retry = state.recordTaskCompletion(1, 11, VM42, true, 4);
         assertExisting(retry.get(1), reference);
         assertExisting(state.commitZeroOutput(ZERO_OUTPUT, VM42, SOURCE, 5), committed);
-        Replica referenceFirst = state.resolveZeroReference(ZERO_OUTPUT, VM42, SECOND, 5).getReplica();
+        Replica referenceFirst =
+                state.resolveZeroReference(ZERO_OUTPUT, VM42, SECOND, 5).getReplica();
         assertExisting(state.commitZeroOutput(ZERO_OUTPUT, VM42, SECOND, 6), referenceFirst);
         assertExisting(state.resolveZeroReference(ZERO_OUTPUT, SOURCE, VM7, 6), original);
         assertExisting(state.recordTaskCompletion(1, 12, VM7, true, 7).get(1), original);
@@ -599,7 +648,8 @@ class DataReplicaStructuralSharingTest {
         assertCounts(state, 7, 0, 3);
     }
 
-    @Test void invalidSeedsZeroReferencesAndZeroOutputCommitsAreAtomicWithLiveCopies() {
+    @Test
+    void invalidSeedsZeroReferencesAndZeroOutputCommitsAreAtomicWithLiveCopies() {
         DataflowFilePlan plan = plan();
         DataReplicaState state = state(plan);
         state.seedExternal(EXTERNAL, SOURCE, 1);
@@ -607,39 +657,61 @@ class DataReplicaStructuralSharingTest {
         state.recordTaskCompletion(1, 10, VM7, true, 1);
         CopyTicket active = state.admitCopy(EXTERNAL, SOURCE, VM99, 2);
         Snapshot retained = state.snapshot();
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.commitZeroOutput(ZERO_INPUT, VM7, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.commitZeroOutput(P, VM7, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.commitZeroOutput(ZERO_INPUT, VM7, SOURCE, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.commitZeroOutput(P, VM7, SOURCE, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.commitZeroOutput(ZERO_OUTPUT, SOURCE, SECOND, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.commitZeroOutput(ZERO_OUTPUT, VM7, VM42, 3));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.commitZeroOutput(ZERO_OUTPUT, VM42, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.commitZeroOutput(ZERO_OUTPUT, VM7, VM42, 3));
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.commitZeroOutput(ZERO_OUTPUT, VM42, SOURCE, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.commitZeroOutput(id("unknown"), VM7, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.commitZeroOutput(ZERO_OUTPUT, null, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.commitZeroOutput(ZERO_OUTPUT, VM7, DataLocation.source("unknown"), 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.resolveZeroReference(EXTERNAL, SOURCE, VM7, 3));
-        rejectsWithoutChange(IllegalStateException.class, state, plan,
-                () -> state.resolveZeroReference(ZERO_INPUT, VM42, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalStateException.class, state, plan, () -> state.resolveZeroReference(ZERO_INPUT, VM42, VM7, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.resolveZeroReference(id("unknown"), SOURCE, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.resolveZeroReference(ZERO_INPUT, SOURCE, null, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.seedExternal(P, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.seedExternal(ZERO_OUTPUT, SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.seedExternal(ZERO_INPUT, VM7, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
-                () -> state.seedExternal(id("unknown"), SOURCE, 3));
-        rejectsWithoutChange(IllegalArgumentException.class, state, plan,
+        rejectsWithoutChange(IllegalArgumentException.class, state, plan, () -> state.seedExternal(P, SOURCE, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.seedExternal(ZERO_OUTPUT, SOURCE, 3));
+        rejectsWithoutChange(IllegalArgumentException.class, state, plan, () -> state.seedExternal(ZERO_INPUT, VM7, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class, state, plan, () -> state.seedExternal(id("unknown"), SOURCE, 3));
+        rejectsWithoutChange(
+                IllegalArgumentException.class,
+                state,
+                plan,
                 () -> state.seedExternal(ZERO_INPUT, DataLocation.source("unknown"), 3));
         assertCounts(state, 2, 1, 1, active);
         assertTrue(state.commitZeroOutput(ZERO_OUTPUT, VM7, SOURCE, 3).isNewReplica());
@@ -650,7 +722,8 @@ class DataReplicaStructuralSharingTest {
         assertSameElements(Arrays.asList(active), retained.getActiveCopies());
     }
 
-    @Test void manyFilesAndCompletedAttemptsStayStableThroughForksSnapshotsAndLaterRowUpdates() {
+    @Test
+    void manyFilesAndCompletedAttemptsStayStableThroughForksSnapshotsAndLaterRowUpdates() {
         final int fileCount = 256;
         final int extraHistory = 2048;
         DataflowFilePlan plan = manyFilePlan(fileCount);
@@ -662,13 +735,17 @@ class DataReplicaStructuralSharingTest {
         List<Replica> copies = new ArrayList<>();
         for (int i = 0; i < fileCount; i++) {
             seeds.add(parent.seedExternal(id("seed-" + i), SOURCE, 0).getReplica());
-            zeroReferences.add(parent.resolveZeroReference(id("seed-" + i), SOURCE, VM7, 0).getReplica());
-            originals.add(parent.recordTaskCompletion(i + 1, i + 1, VM7, true, 0).get(0).getReplica());
+            zeroReferences.add(
+                    parent.resolveZeroReference(id("seed-" + i), SOURCE, VM7, 0).getReplica());
+            originals.add(parent.recordTaskCompletion(i + 1, i + 1, VM7, true, 0)
+                    .get(0)
+                    .getReplica());
         }
         for (int i = 0; i < fileCount; i++) {
             tickets.add(parent.admitCopy(id("file-" + i), VM7, VM42, 0));
         }
-        for (CopyTicket ticket : tickets) copies.add(parent.settleCopy(ticket, 1).getReplica());
+        for (CopyTicket ticket : tickets)
+            copies.add(parent.settleCopy(ticket, 1).getReplica());
         for (int i = 0; i < extraHistory; i++) {
             parent.recordTaskCompletion(i % fileCount + 1, 10000 + i, VM7, (i & 1) == 0, 1);
         }
@@ -783,7 +860,8 @@ class DataReplicaStructuralSharingTest {
         }
     }
 
-    private static void assertCounts(DataReplicaState state, double clock, long admitted, long completed, CopyTicket... active) {
+    private static void assertCounts(
+            DataReplicaState state, double clock, long admitted, long completed, CopyTicket... active) {
         assertEquals(clock, state.getObservedThrough(), 0);
         assertEquals(clock, state.snapshot().getObservedThrough(), 0);
         assertEquals(admitted, state.getAdmittedCopyCount());
@@ -791,8 +869,8 @@ class DataReplicaStructuralSharingTest {
         assertActive(state, active);
     }
 
-    private static <T extends Throwable> void rejectsWithoutChange(Class<T> type, DataReplicaState state,
-                                                                  DataflowFilePlan plan, Executable invalid) {
+    private static <T extends Throwable> void rejectsWithoutChange(
+            Class<T> type, DataReplicaState state, DataflowFilePlan plan, Executable invalid) {
         Checkpoint before = new Checkpoint(state, plan);
         assertThrows(type, invalid);
         before.assertUnchanged(state);
@@ -888,12 +966,21 @@ class DataReplicaStructuralSharingTest {
         return task;
     }
 
-    private static FileItem in(String name, double bytes) { return file(name, bytes, FileType.INPUT); }
-    private static FileItem out(String name, double bytes) { return file(name, bytes, FileType.OUTPUT); }
+    private static FileItem in(String name, double bytes) {
+        return file(name, bytes, FileType.INPUT);
+    }
+
+    private static FileItem out(String name, double bytes) {
+        return file(name, bytes, FileType.OUTPUT);
+    }
+
     private static FileItem file(String name, double bytes, FileType type) {
         FileItem file = new FileItem(name, bytes);
         file.setType(type);
         return file;
     }
-    private static FileId id(String name) { return FileId.of(0, name); }
+
+    private static FileId id(String name) {
+        return FileId.of(0, name);
+    }
 }

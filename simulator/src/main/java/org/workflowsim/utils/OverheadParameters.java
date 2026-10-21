@@ -57,7 +57,8 @@ public class OverheadParameters {
      * @param cluster_delay 聚类延迟生成器
      * @param bandwidth 逻辑带宽
      */
-    public OverheadParameters(int wed_interval,
+    public OverheadParameters(
+            int wed_interval,
             Map<Integer, DistributionGenerator> wed_delay,
             Map<Integer, DistributionGenerator> queue_delay,
             Map<Integer, DistributionGenerator> post_delay,
@@ -69,7 +70,6 @@ public class OverheadParameters {
         this.POST_DELAY = post_delay;
         this.CLUST_DELAY = cluster_delay;
         this.bandwidth = bandwidth;
-
     }
 
     /** @return 逻辑带宽 */
@@ -110,7 +110,7 @@ public class OverheadParameters {
      */
     public double getClustDelay(Cloudlet cl) {
         double delay = 0.0;
-        if(this.CLUST_DELAY == null){
+        if (this.CLUST_DELAY == null) {
             return delay;
         }
         if (cl != null) {
@@ -123,7 +123,6 @@ public class OverheadParameters {
             } else {
                 delay = 0.0;
             }
-
 
         } else {
             Log.printLine("Not yet supported");
@@ -140,7 +139,7 @@ public class OverheadParameters {
     public double getQueueDelay(Cloudlet cl) {
         double delay = 0.0;
 
-        if(this.QUEUE_DELAY == null){
+        if (this.QUEUE_DELAY == null) {
             return delay;
         }
         if (cl != null) {
@@ -153,7 +152,6 @@ public class OverheadParameters {
             } else {
                 delay = 0.0;
             }
-
 
         } else {
             Log.printLine("Not yet supported");
@@ -170,7 +168,7 @@ public class OverheadParameters {
     public double getPostDelay(Job job) {
         double delay = 0.0;
 
-        if(this.POST_DELAY == null){
+        if (this.POST_DELAY == null) {
             return delay;
         }
         if (job != null) {
@@ -199,7 +197,7 @@ public class OverheadParameters {
     public double getWEDDelay(List list) {
         double delay = 0.0;
 
-        if(this.WED_DELAY == null){
+        if (this.WED_DELAY == null) {
             return delay;
         }
         if (!list.isEmpty()) {

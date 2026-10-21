@@ -51,7 +51,8 @@ class SimulationRunnerIntegrationTest {
         assertEquals(logicalMetricsFingerprint(first), logicalMetricsFingerprint(second));
         assertEquals(first.getVmSummaries().keySet(), second.getVmSummaries().keySet());
         assertEquals(64, first.getInputs().get(0).getSha256().length());
-        assertEquals(WorkflowInputReport.Format.DAX_XML,
+        assertEquals(
+                WorkflowInputReport.Format.DAX_XML,
                 first.getInputReports().get(0).getFormat());
         assertEquals(first.getTotalJobs(), first.getSuccessfulJobs());
         assertEquals(0, first.getFailedJobs());
@@ -121,14 +122,11 @@ class SimulationRunnerIntegrationTest {
                 .runtimeScale(1.0)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("static-independent-mct")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .build();
 
         Log.disable();
@@ -185,40 +183,30 @@ class SimulationRunnerIntegrationTest {
 
     @Test
     void platformProfileRejectsAnUnresolvableHostPlacementBeforeSimulationStarts() throws Exception {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> PlatformProfile.builder("fragmented-placement")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0,
-                        1024, 10_000L, 1_000_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 2, 1000.0,
-                        512, 10_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 2, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 2, 1024,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder(
+                        "fragmented-placement")
+                .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0, 1024, 10_000L, 1_000_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 2, 1000.0, 512, 10_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 2, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 2, 1024, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .build());
         assertTrue(exception.getMessage().contains("No deterministic host placement"));
     }
 
     @Test
-    void reportAndManifestRecordTheActualPinnedVmHostPlacement(@TempDir Path tempDirectory)
-            throws Exception {
+    void reportAndManifestRecordTheActualPinnedVmHostPlacement(@TempDir Path tempDirectory) throws Exception {
         PlatformProfile platform = PlatformProfile.builder("pinned-placement-integration")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0,
-                        1024, 1_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0, 2048, 2_000L, 1_000_000L))
+                .addHost(new PlatformProfile.HostSpec(1, 1, 1000.0, 1024, 1_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .pinVmToHost(1, 1)
                 .build();
-        SimulationConfig config = SimulationConfig.builder(
-                        resourcePath("/wfcommons/minimum-runtime.json"), 2)
+        SimulationConfig config = SimulationConfig.builder(resourcePath("/wfcommons/minimum-runtime.json"), 2)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
                 .build();
 
@@ -239,14 +227,11 @@ class SimulationRunnerIntegrationTest {
     @Test
     void staticDagPlannerAlignsWithTwoCapacityProvisionedVmsOnOneHost() throws Exception {
         PlatformProfile platform = PlatformProfile.builder("collocated-static-vms")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 1000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
         SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
@@ -269,14 +254,11 @@ class SimulationRunnerIntegrationTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("shared-storage-heft-integration")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
 
@@ -319,14 +301,11 @@ class SimulationRunnerIntegrationTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("shared-storage-cpop-integration")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
 
@@ -348,21 +327,17 @@ class SimulationRunnerIntegrationTest {
     }
 
     @Test
-    void sharedStorageDlsPublishesAnAuditablePlanAlignedWithExecution(@TempDir Path tempDirectory)
-            throws Exception {
+    void sharedStorageDlsPublishesAnAuditablePlanAlignedWithExecution(@TempDir Path tempDirectory) throws Exception {
         SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_DLS)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("shared-storage-dls-integration")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
 
@@ -372,8 +347,8 @@ class SimulationRunnerIntegrationTest {
         assertEquals(report.getTotalJobs(), report.getSuccessfulJobs());
         assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully());
         assertStaticDagPlanMatchesExecutedTaskStarts(report, "DLS");
-        for (SharedStorageDagPlanTrace.TaskPlan plan : report.getSharedStorageDagPlanTrace()
-                .getTaskPlans().values()) {
+        for (SharedStorageDagPlanTrace.TaskPlan plan :
+                report.getSharedStorageDagPlanTrace().getTaskPlans().values()) {
             assertTrue(plan.getDlsDynamicLevelAtSelection() != null);
             assertTrue(plan.getDlsSelectionOrder() != null);
         }
@@ -386,21 +361,17 @@ class SimulationRunnerIntegrationTest {
     }
 
     @Test
-    void sharedStorageEtfPublishesAnAuditablePlanAlignedWithExecution(@TempDir Path tempDirectory)
-            throws Exception {
+    void sharedStorageEtfPublishesAnAuditablePlanAlignedWithExecution(@TempDir Path tempDirectory) throws Exception {
         SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_ETF)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("shared-storage-etf-integration")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
 
@@ -410,8 +381,8 @@ class SimulationRunnerIntegrationTest {
         assertEquals(report.getTotalJobs(), report.getSuccessfulJobs());
         assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully());
         assertStaticDagPlanMatchesExecutedTaskStarts(report, "ETF");
-        for (SharedStorageDagPlanTrace.TaskPlan plan : report.getSharedStorageDagPlanTrace()
-                .getTaskPlans().values()) {
+        for (SharedStorageDagPlanTrace.TaskPlan plan :
+                report.getSharedStorageDagPlanTrace().getTaskPlans().values()) {
             assertTrue(plan.getEtfEarliestStartAtSelection() != null);
             assertTrue(plan.getEtfSelectionOrder() != null);
         }
@@ -424,21 +395,17 @@ class SimulationRunnerIntegrationTest {
     }
 
     @Test
-    void sharedStoragePeftPublishesAnAuditablePlanAlignedWithExecution(@TempDir Path tempDirectory)
-            throws Exception {
+    void sharedStoragePeftPublishesAnAuditablePlanAlignedWithExecution(@TempDir Path tempDirectory) throws Exception {
         SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_PEFT)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("shared-storage-peft-integration")
-                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0,
-                        2048, 2_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
-                .addVm(new PlatformProfile.VmSpec(1, 500.0, 1, 512,
-                        1000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 2_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        1, 500.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
 
@@ -450,8 +417,8 @@ class SimulationRunnerIntegrationTest {
         assertStaticDagPlanMatchesExecutedTaskStarts(report, "PEFT");
         assertEquals(1, report.getMetrics().getExplicitPlannerDecisionObservationCount());
         assertTrue(report.getMetrics().getTotalPlanningDecisionWallClockNanos() >= 0L);
-        for (SharedStorageDagPlanTrace.TaskPlan plan : report.getSharedStorageDagPlanTrace()
-                .getTaskPlans().values()) {
+        for (SharedStorageDagPlanTrace.TaskPlan plan :
+                report.getSharedStorageDagPlanTrace().getTaskPlans().values()) {
             assertTrue(plan.getPeftRankOctSeconds() != null);
             assertTrue(plan.getPeftOptimisticCostAtSelectedVmSeconds() != null);
             assertTrue(plan.getPeftEftPlusOptimisticCostSeconds() != null);
@@ -473,11 +440,9 @@ class SimulationRunnerIntegrationTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .build();
         PlatformProfile platform = PlatformProfile.builder("shared-storage-fast-stage-in")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0,
-                        1024, 1_000L, 1_000_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 2000.0, 1, 512,
-                        1_000L, 10_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 2000.0, 1024, 1_000L, 1_000_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 2000.0, 1, 512, 1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .storage(new PlatformProfile.StorageSpec(1_000_000_000L, 20))
                 .build();
 
@@ -486,7 +451,10 @@ class SimulationRunnerIntegrationTest {
 
         assertEquals(0.21, report.getSharedStorageDagPlanTrace().getStageInFinishSeconds(), 1.0e-12);
         SharedStorageDagPlanTrace.TaskPlan plan = report.getSharedStorageDagPlanTrace()
-                .getTaskPlans().values().iterator().next();
+                .getTaskPlans()
+                .values()
+                .iterator()
+                .next();
         assertEquals(1.5, plan.getPlannedDataStageInSeconds(), 1.0e-12);
         assertEquals(1.71, plan.getPlannedComputeStartSeconds(), 1.0e-12);
         assertStaticDagPlanMatchesExecutedTaskStarts(report, "HEFT");
@@ -504,13 +472,14 @@ class SimulationRunnerIntegrationTest {
         assertEquals(expected.getMakespan(), actual.getMakespan(), 0.0);
         assertEquals(expected.getSuccessfulJobs(), actual.getSuccessfulJobs());
         assertEquals(expected.getFailedJobs(), actual.getFailedJobs());
-        assertEquals(expected.getInputs().get(0).getSha256(), actual.getInputs().get(0).getSha256());
+        assertEquals(
+                expected.getInputs().get(0).getSha256(),
+                actual.getInputs().get(0).getSha256());
         assertEquals(jobFingerprint(expected), jobFingerprint(actual));
         assertEquals(expected.getVmSummaries().keySet(), actual.getVmSummaries().keySet());
     }
 
-    private static void assertStaticDagPlanMatchesExecutedTaskStarts(SimulationReport report,
-            String expectedStrategy) {
+    private static void assertStaticDagPlanMatchesExecutedTaskStarts(SimulationReport report, String expectedStrategy) {
         SharedStorageDagPlanTrace trace = report.getSharedStorageDagPlanTrace();
         assertTrue(trace != null, "A maintained static DAG planner must publish its trace");
         assertEquals(expectedStrategy, trace.getStrategy());
@@ -520,9 +489,12 @@ class SimulationRunnerIntegrationTest {
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
             SharedStorageDagPlanTrace.TaskPlan planned = trace.getTaskPlan(task.getTaskId());
             assertTrue(planned != null, "Missing static plan entry for task " + task.getTaskId());
-            assertEquals(planned.getVmId(), task.getVmId(), "Task " + task.getTaskId()
-                    + " in Job " + task.getJobId() + " planned for VM " + planned.getVmId()
-                    + " but reported VM " + task.getVmId());
+            assertEquals(
+                    planned.getVmId(),
+                    task.getVmId(),
+                    "Task " + task.getTaskId()
+                            + " in Job " + task.getJobId() + " planned for VM " + planned.getVmId()
+                            + " but reported VM " + task.getVmId());
             plannedStarts.put(task.getTaskId(), planned.getPlannedComputeStartSeconds());
             actualStarts.put(task.getTaskId(), task.getStartTime());
         }
@@ -532,10 +504,20 @@ class SimulationRunnerIntegrationTest {
     private static String jobFingerprint(SimulationReport report) {
         StringBuilder result = new StringBuilder();
         for (SimulationReport.JobOutcome job : report.getJobs()) {
-            result.append(job.getJobId()).append('|').append(job.getVmId()).append('|')
-                    .append(job.getStatus()).append('|').append(job.getStartTime()).append('|')
-                    .append(job.getFinishTime()).append('|').append(job.getCpuTime()).append('|')
-                    .append(job.getTaskCount()).append('\n');
+            result.append(job.getJobId())
+                    .append('|')
+                    .append(job.getVmId())
+                    .append('|')
+                    .append(job.getStatus())
+                    .append('|')
+                    .append(job.getStartTime())
+                    .append('|')
+                    .append(job.getFinishTime())
+                    .append('|')
+                    .append(job.getCpuTime())
+                    .append('|')
+                    .append(job.getTaskCount())
+                    .append('\n');
         }
         return result.toString();
     }
@@ -543,9 +525,18 @@ class SimulationRunnerIntegrationTest {
     private static String taskFingerprint(SimulationReport report) {
         StringBuilder result = new StringBuilder();
         for (SimulationReport.TaskOutcome task : report.getTasks()) {
-            result.append(task.getTaskId()).append('|').append(task.getJobId()).append('|')
-                    .append(task.getVmId()).append('|').append(task.getTaskStatus()).append('|')
-                    .append(task.getStartTime()).append('|').append(task.getFinishTime()).append('\n');
+            result.append(task.getTaskId())
+                    .append('|')
+                    .append(task.getJobId())
+                    .append('|')
+                    .append(task.getVmId())
+                    .append('|')
+                    .append(task.getTaskStatus())
+                    .append('|')
+                    .append(task.getStartTime())
+                    .append('|')
+                    .append(task.getFinishTime())
+                    .append('\n');
         }
         return result.toString();
     }
@@ -557,10 +548,20 @@ class SimulationRunnerIntegrationTest {
             Map<String, Object> attributes = new TreeMap<String, Object>(event.getAttributes());
             attributes.remove("decisionElapsedNanos");
             attributes.remove("planningDecisionElapsedNanos");
-            result.append(event.getSequence()).append('|').append(event.getSimulationTime()).append('|')
-                    .append(event.getType()).append('|').append(event.getJobId()).append('|')
-                    .append(event.getVmId()).append('|').append(event.getTaskIds()).append('|')
-                    .append(attributes).append('\n');
+            result.append(event.getSequence())
+                    .append('|')
+                    .append(event.getSimulationTime())
+                    .append('|')
+                    .append(event.getType())
+                    .append('|')
+                    .append(event.getJobId())
+                    .append('|')
+                    .append(event.getVmId())
+                    .append('|')
+                    .append(event.getTaskIds())
+                    .append('|')
+                    .append(attributes)
+                    .append('\n');
         }
         return result.toString();
     }
@@ -568,19 +569,33 @@ class SimulationRunnerIntegrationTest {
     private static String logicalMetricsFingerprint(SimulationReport report) {
         SimulationMetrics metrics = report.getMetrics();
         StringBuilder result = new StringBuilder();
-        result.append(metrics.getMakespanSeconds()).append('|')
-                .append(metrics.getComputeJobOutcomeCount()).append('|')
-                .append(metrics.getSuccessfulComputeJobOutcomeRate()).append('|')
-                .append(metrics.getMeanComputeJobRunTimeSeconds()).append('|')
-                .append(metrics.getMeanComputeReadyToDecisionDelaySeconds()).append('|')
-                .append(metrics.getMeanComputeDecisionToStartDelaySeconds()).append('|')
-                .append(metrics.getVmModeledBusyTimeCoefficientOfVariation()).append('|');
+        result.append(metrics.getMakespanSeconds())
+                .append('|')
+                .append(metrics.getComputeJobOutcomeCount())
+                .append('|')
+                .append(metrics.getSuccessfulComputeJobOutcomeRate())
+                .append('|')
+                .append(metrics.getMeanComputeJobRunTimeSeconds())
+                .append('|')
+                .append(metrics.getMeanComputeReadyToDecisionDelaySeconds())
+                .append('|')
+                .append(metrics.getMeanComputeDecisionToStartDelaySeconds())
+                .append('|')
+                .append(metrics.getVmModeledBusyTimeCoefficientOfVariation())
+                .append('|');
         for (SimulationMetrics.VmMetrics vm : metrics.getVmMetrics().values()) {
-            result.append(vm.getVmId()).append('|').append(vm.getJobOutcomeCount()).append('|')
-                    .append(vm.getReportedCpuTimeSeconds()).append('|')
-                    .append(vm.getModeledBusyIntervalSeconds()).append('|')
-                    .append(vm.getModeledIntervalUtilization()).append('|')
-                    .append(vm.getReportedCpuTimeOverMakespan()).append('\n');
+            result.append(vm.getVmId())
+                    .append('|')
+                    .append(vm.getJobOutcomeCount())
+                    .append('|')
+                    .append(vm.getReportedCpuTimeSeconds())
+                    .append('|')
+                    .append(vm.getModeledBusyIntervalSeconds())
+                    .append('|')
+                    .append(vm.getModeledIntervalUtilization())
+                    .append('|')
+                    .append(vm.getReportedCpuTimeOverMakespan())
+                    .append('\n');
         }
         return result.toString();
     }

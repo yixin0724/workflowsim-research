@@ -54,8 +54,7 @@ class RandomPlanningAlgorithmTest {
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, planner::run);
 
-        assertEquals("RANDOM cannot map task 7; no VM has sufficient processing elements",
-                exception.getMessage());
+        assertEquals("RANDOM cannot map task 7; no VM has sufficient processing elements", exception.getMessage());
     }
 
     private static List<Task> tasks() {
@@ -67,7 +66,8 @@ class RandomPlanningAlgorithmTest {
     }
 
     private static List<Integer> vmIds(List<Task> tasks) {
-        return Arrays.asList(tasks.get(0).getVmId(), tasks.get(1).getVmId(), tasks.get(2).getVmId());
+        return Arrays.asList(
+                tasks.get(0).getVmId(), tasks.get(1).getVmId(), tasks.get(2).getVmId());
     }
 
     private static void run(List<Task> tasks, List<CondorVM> vms) throws Exception {
@@ -78,7 +78,6 @@ class RandomPlanningAlgorithmTest {
     }
 
     private static CondorVM vm(int id, int pes) {
-        return new CondorVM(id, 0, 1000.0, pes, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerTimeShared());
+        return new CondorVM(id, 0, 1000.0, pes, 512, 1000, 10_000, "Xen", new CloudletSchedulerTimeShared());
     }
 }

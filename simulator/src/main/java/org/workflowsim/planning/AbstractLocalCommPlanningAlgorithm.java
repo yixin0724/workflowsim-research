@@ -47,11 +47,9 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
     /** 按 VM ID 升序的 VM 列表（{@link #prepare()} 后可用）。 */
     private final List<CondorVM> vms = new ArrayList<CondorVM>();
     /** 任务 → (兼容 VM → 整数 MI 对应的有效计算秒数)。 */
-    private final Map<Task, Map<CondorVM, Double>> computeSecondsByVm =
-            new HashMap<Task, Map<CondorVM, Double>>();
+    private final Map<Task, Map<CondorVM, Double>> computeSecondsByVm = new HashMap<Task, Map<CondorVM, Double>>();
     /** 文件名 → (站点 → 副本最早可用时刻)，站点为 SOURCE 或 VM ID 字符串。 */
-    private final Map<String, Map<String, Double>> replicas =
-            new LinkedHashMap<String, Map<String, Double>>();
+    private final Map<String, Map<String, Double>> replicas = new LinkedHashMap<String, Map<String, Double>>();
     /** 文件名 → 大小（字节）。 */
     private final Map<String, Double> fileSizes = new LinkedHashMap<String, Double>();
     /** 经 DAG 校验的正向拓扑序，仅供 rank/OCT 动态规划，不改变调度的 ID 顺序。 */
@@ -65,8 +63,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
 
     AbstractLocalCommPlanningAlgorithm(String label, PlanningContext context) {
         if (context == null) {
-            throw new IllegalArgumentException(label
-                    + " requires a PlanningContext from SimulationRunner");
+            throw new IllegalArgumentException(label + " requires a PlanningContext from SimulationRunner");
         }
         this.label = label;
         this.context = context;
@@ -93,8 +90,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             @Override
             public int compare(Task first, Task second) {
                 int byDepth = Integer.compare(first.getDepth(), second.getDepth());
-                return byDepth != 0 ? byDepth
-                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+                return byDepth != 0 ? byDepth : Integer.compare(first.getCloudletId(), second.getCloudletId());
             }
         });
         topologicalTasks = Collections.unmodifiableList(byDepth);
@@ -114,8 +110,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
     }
 
     /** 子类的准备期派生缓存失效钩子；不替代基类校验与成本装配。 */
-    void resetPreparedCaches() {
-    }
+    void resetPreparedCaches() {}
 
     /** 验证后的只读正向拓扑序；每个父任务都先于子任务，供子类计算静态 rank/OCT。 */
     final List<Task> tasksInTopologicalOrder() {
@@ -153,9 +148,10 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
      * 引擎收到完成事件后再经过一个内核间隔释放根计算 Job。
      */
     final double stageInFinishTime() {
-        return SimulationTiming.earliestCloudletCompletionTime(0.0,
-                SimulationConstants.STAGE_IN_JOB_LENGTH_MI / vms.get(0).getMips(),
-                context.getCloudSimMinEventIntervalSeconds())
+        return SimulationTiming.earliestCloudletCompletionTime(
+                        0.0,
+                        SimulationConstants.STAGE_IN_JOB_LENGTH_MI / vms.get(0).getMips(),
+                        context.getCloudSimMinEventIntervalSeconds())
                 + context.getCloudSimMinEventIntervalSeconds();
     }
 
@@ -201,7 +197,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             double secondsFromParent = 0.0;
             boolean hasFilesFromParent = false;
             for (FileItem file : task.getFileList()) {
-                if (file.getType() == FileType.INPUT && file.isRealInputFile(task.getFileList())
+                if (file.getType() == FileType.INPUT
+                        && file.isRealInputFile(task.getFileList())
                         && parentOutputs.contains(file.getName())) {
                     hasFilesFromParent = true;
                     attributedNames.add(file.getName());
@@ -220,7 +217,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
         }
         double externalSeconds = 0.0;
         for (FileItem file : task.getFileList()) {
-            if (file.getType() == FileType.INPUT && file.isRealInputFile(task.getFileList())
+            if (file.getType() == FileType.INPUT
+                    && file.isRealInputFile(task.getFileList())
                     && !attributedNames.contains(file.getName())) {
                 externalSeconds += fileStageInSeconds(file, vm, dependencyReady);
             }
@@ -261,19 +259,17 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
      */
     final double allocateOptimistic(Task task, Map<CondorVM, Double> octPerVm, double stageInFinish) {
         if (octPerVm == null) {
-            throw new IllegalArgumentException(label + " requires per-VM OCT values for task "
-                    + task.getCloudletId());
+            throw new IllegalArgumentException(label + " requires per-VM OCT values for task " + task.getCloudletId());
         }
         return allocateInternal(task, null, stageInFinish, octPerVm);
     }
 
-    private double allocateInternal(Task task, CondorVM pinnedVm, double stageInFinish,
-            Map<CondorVM, Double> octPerVm) {
+    private double allocateInternal(
+            Task task, CondorVM pinnedVm, double stageInFinish, Map<CondorVM, Double> octPerVm) {
         // 运行时镜像：Job 在全部父任务返回后才被释放，因此可派发时刻为
         // max(全部父完成时刻, 数据到达时刻)。
         double dispatchable = readyTime(task, stageInFinish);
-        List<CondorVM> candidates = pinnedVm != null
-                ? Collections.singletonList(pinnedVm) : vms;
+        List<CondorVM> candidates = pinnedVm != null ? Collections.singletonList(pinnedVm) : vms;
         CondorVM selectedVm = null;
         double selectedStart = 0.0;
         double selectedInputReady = 0.0;
@@ -291,13 +287,15 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             if (octPerVm != null) {
                 Double oct = octPerVm.get(vm);
                 if (oct == null) {
-                    throw new IllegalStateException(label + " is missing OCT for task "
-                            + task.getCloudletId() + " on VM " + vm.getId());
+                    throw new IllegalStateException(
+                            label + " is missing OCT for task " + task.getCloudletId() + " on VM " + vm.getId());
                 }
                 score = finish + oct.doubleValue();
             }
-            if (score < selectedScore || (Double.compare(score, selectedScore) == 0
-                    && selectedVm != null && vm.getId() < selectedVm.getId())) {
+            if (score < selectedScore
+                    || (Double.compare(score, selectedScore) == 0
+                            && selectedVm != null
+                            && vm.getId() < selectedVm.getId())) {
                 selectedVm = vm;
                 selectedStart = start;
                 selectedInputReady = arrival;
@@ -306,8 +304,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             }
         }
         if (selectedVm == null) {
-            throw new IllegalStateException(label + " cannot map task " + task.getCloudletId()
-                    + "; no candidate VM");
+            throw new IllegalStateException(label + " cannot map task " + task.getCloudletId() + "; no candidate VM");
         }
         reserve(task, selectedVm, selectedStart, selectedFinish, selectedInputReady);
         return selectedFinish;
@@ -318,8 +315,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
             Map<CondorVM, Double> perVm = new LinkedHashMap<CondorVM, Double>();
             for (CondorVM vm : vms) {
                 if (isCompatible(task, vm)) {
-                    perVm.put(vm, Double.valueOf(TaskExecutionModel.executionSeconds(
-                            task, vm.getId(), vm.getMips())));
+                    perVm.put(vm, Double.valueOf(TaskExecutionModel.executionSeconds(task, vm.getId(), vm.getMips())));
                 }
             }
             if (perVm.isEmpty()) {
@@ -414,7 +410,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                         || !isCompatible(child, second.getValue())) {
                     continue;
                 }
-                double minBw = Math.min(first.getValue().getBw(), second.getValue().getBw());
+                double minBw =
+                        Math.min(first.getValue().getBw(), second.getValue().getBw());
                 total += bytes / 1.0e6 / minBw;
                 pairs++;
             }
@@ -441,8 +438,8 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
      * 同一父任务的一次 OCT 行组计算内复用静态边字节数，包括零交集。
      * 调用方拥有该局部 map；它不跨 prepare/首次 lazy OCT 阶段保留，也不缓存副本状态。
      */
-    final double communicationSeconds(Task parent, Task child, CondorVM from, CondorVM to,
-            Map<Task, Double> edgeBytes) {
+    final double communicationSeconds(
+            Task parent, Task child, CondorVM from, CondorVM to, Map<Task, Double> edgeBytes) {
         if (from.getId() == to.getId()) {
             return 0.0;
         }
@@ -485,8 +482,7 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
     private double fileStageInSeconds(FileItem file, CondorVM vm, double dependencyReady) {
         Map<String, Double> sites = replicas.get(file.getName());
         if (sites == null || sites.isEmpty()) {
-            throw new IllegalStateException("Required input file '" + file.getName()
-                    + "' has no registered replica");
+            throw new IllegalStateException("Required input file '" + file.getName() + "' has no registered replica");
         }
         String vmSite = Integer.toString(vm.getId());
         double maxBwth = 0.0;
@@ -506,13 +502,13 @@ abstract class AbstractLocalCommPlanningAlgorithm extends BasePlanningAlgorithm 
                 try {
                     sourceVmId = Integer.parseInt(site);
                 } catch (NumberFormatException e) {
-                    throw new IllegalStateException("Replica site '" + site
-                            + "' is neither the source nor a VM identifier", e);
+                    throw new IllegalStateException(
+                            "Replica site '" + site + "' is neither the source nor a VM identifier", e);
                 }
                 CondorVM sourceVm = vmById.get(Integer.valueOf(sourceVmId));
                 if (sourceVm == null) {
-                    throw new IllegalStateException("Replica site VM " + sourceVmId
-                            + " is unavailable for input file '" + file.getName() + "'");
+                    throw new IllegalStateException("Replica site VM " + sourceVmId + " is unavailable for input file '"
+                            + file.getName() + "'");
                 }
                 bwth = Math.min(vm.getBw(), sourceVm.getBw());
             }

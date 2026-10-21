@@ -23,16 +23,11 @@ class PeriodicalDistributionGeneratorTest {
 
     @Test
     void signalRejectsInvalidDomainValues() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new PeriodicalSignal(0.0, 1.0, 1.0, 0.5));
-        assertThrows(IllegalArgumentException.class,
-                () -> new PeriodicalSignal(1.0, Double.NaN, 1.0, 0.5));
-        assertThrows(IllegalArgumentException.class,
-                () -> new PeriodicalSignal(1.0, 1.0, -1.0, 0.5));
-        assertThrows(IllegalArgumentException.class,
-                () -> new PeriodicalSignal(1.0, 1.0, 1.0, -0.1));
-        assertThrows(IllegalArgumentException.class,
-                () -> new PeriodicalSignal(1.0, 1.0, 1.0, 1.1));
+        assertThrows(IllegalArgumentException.class, () -> new PeriodicalSignal(0.0, 1.0, 1.0, 0.5));
+        assertThrows(IllegalArgumentException.class, () -> new PeriodicalSignal(1.0, Double.NaN, 1.0, 0.5));
+        assertThrows(IllegalArgumentException.class, () -> new PeriodicalSignal(1.0, 1.0, -1.0, 0.5));
+        assertThrows(IllegalArgumentException.class, () -> new PeriodicalSignal(1.0, 1.0, 1.0, -0.1));
+        assertThrows(IllegalArgumentException.class, () -> new PeriodicalSignal(1.0, 1.0, 1.0, 1.1));
     }
 
     @Test
@@ -48,8 +43,7 @@ class PeriodicalDistributionGeneratorTest {
     void cacheExtensionKeepsUsingThePeriodicalDistribution() {
         PeriodicalSignal signal = new PeriodicalSignal(10.0, 1.0, 100.0, 0.5, true);
         PeriodicalDistributionGenerator generator = new PeriodicalDistributionGenerator(
-                DistributionGenerator.DistributionFamily.NORMAL, 7.0, 1.0e-9,
-                signal);
+                DistributionGenerator.DistributionFamily.NORMAL, 7.0, 1.0e-9, signal);
 
         for (int index = 0; index < 1500; index++) {
             generator.getNextSample();
@@ -57,7 +51,8 @@ class PeriodicalDistributionGeneratorTest {
         double firstExtendedSample = generator.getNextSample();
 
         assertEquals(3000, generator.getSamples().length);
-        assertTrue(firstExtendedSample > 50.0,
+        assertTrue(
+                firstExtendedSample > 50.0,
                 "Extended samples must follow the periodic lower-state mean, not base scale 7");
     }
 }

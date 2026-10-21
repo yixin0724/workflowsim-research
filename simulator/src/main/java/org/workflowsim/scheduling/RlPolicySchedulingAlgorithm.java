@@ -53,8 +53,8 @@ public class RlPolicySchedulingAlgorithm extends BaseSchedulingAlgorithm {
                 continue;
             }
             if (vmIndex < 0 || vmIndex >= vms.size()) {
-                throw new IllegalStateException("RL policy returned out-of-range VM index "
-                        + vmIndex + " (valid range [0, " + vms.size() + "))");
+                throw new IllegalStateException("RL policy returned out-of-range VM index " + vmIndex
+                        + " (valid range [0, " + vms.size() + "))");
             }
             if (usedVmIndices.contains(vmIndex)) {
                 continue;

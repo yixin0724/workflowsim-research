@@ -72,12 +72,17 @@ class WorkflowInputFileNamespaceTest {
     }
 
     private WorkflowParser parse(List<Path> paths) {
-        Parameters.init(2, Arrays.asList(paths.get(0).toString(), paths.get(1).toString()),
-                null, null,
+        Parameters.init(
+                2,
+                Arrays.asList(paths.get(0).toString(), paths.get(1).toString()),
+                null,
+                null,
                 new OverheadParameters(0, null, null, null, null, 0.0),
                 new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null),
                 Parameters.SchedulingAlgorithm.FCFS,
-                Parameters.PlanningAlgorithm.INVALID, null, 0L);
+                Parameters.PlanningAlgorithm.INVALID,
+                null,
+                0L);
         WorkflowParser parser = new WorkflowParser(0);
         parser.parse();
         return parser;

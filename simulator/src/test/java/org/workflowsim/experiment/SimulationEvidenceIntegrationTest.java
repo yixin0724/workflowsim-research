@@ -1,11 +1,11 @@
 package org.workflowsim.experiment;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,14 +38,16 @@ class SimulationEvidenceIntegrationTest {
         int graphEdges = 0;
         for (SimulationReport.TaskNode node : report.getWorkflowGraph()) {
             graphEdges += node.getChildIds().size();
-            org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
-                    () -> node.getParentIds().add(999));
+            org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> node.getParentIds()
+                    .add(999));
         }
         assertEquals(report.getWorkflowProfile().getEdgeCount(), graphEdges);
-        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
+        org.junit.jupiter.api.Assertions.assertThrows(
+                UnsupportedOperationException.class,
                 () -> report.getWorkflowGraph().clear());
         assertFalse(report.getEvents().isEmpty());
-        assertEquals(SimulationEventType.WORKFLOW_PARSED, report.getEvents().get(0).getType());
+        assertEquals(
+                SimulationEventType.WORKFLOW_PARSED, report.getEvents().get(0).getType());
         assertTrue(hasType(report.getEvents(), SimulationEventType.JOBS_CLUSTERED));
         assertTrue(hasType(report.getEvents(), SimulationEventType.JOB_READY));
         assertTrue(hasType(report.getEvents(), SimulationEventType.SCHEDULING_CYCLE));
@@ -81,8 +83,8 @@ class SimulationEvidenceIntegrationTest {
     void evidenceBundleCrossReferencesMetricsAndEventStream(@TempDir Path output) throws Exception {
         Log.disable();
         SimulationReport report = runFixture();
-        ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
-                report, output, "fixture-fcfs");
+        ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, output, "fixture-fcfs");
 
         assertTrue(Files.isRegularFile(artifacts.getManifest()));
         assertTrue(Files.isRegularFile(artifacts.getMetrics()));
@@ -96,13 +98,16 @@ class SimulationEvidenceIntegrationTest {
         assertTrue(manifest.contains("sourceTreeSha256"));
         assertTrue(manifest.contains("\"study\": null"));
         assertTrue(metrics.contains("workflowsim-simulation-metrics-v2"));
-        JsonObject core = JsonParser.parseString(manifest).getAsJsonObject()
-                .getAsJsonObject("provenance").getAsJsonObject("core");
+        JsonObject core = JsonParser.parseString(manifest)
+                .getAsJsonObject()
+                .getAsJsonObject("provenance")
+                .getAsJsonObject("core");
         assertTrue(core.get("sourceTreeSha256").getAsString().matches("[0-9a-f]{64}"));
         assertTrue(core.get("sourceFileCount").getAsInt() > 0);
         assertEquals("src/main/java/**/*.java", core.get("sourceTreeScope").getAsString());
-        assertEquals(report.getEvents().size(), ExperimentArtifactValidator.validate(
-                artifacts.getManifest()).getEventCount());
+        assertEquals(
+                report.getEvents().size(),
+                ExperimentArtifactValidator.validate(artifacts.getManifest()).getEventCount());
         assertEquals(report.getEvents().size(), events.size());
         assertTrue(events.get(0).contains("WORKFLOW_PARSED"));
         try (java.util.stream.Stream<Path> stream = Files.list(output)) {
@@ -115,8 +120,7 @@ class SimulationEvidenceIntegrationTest {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
                 .randomSeed(20260902L)
                 .build();
-        return new SimulationRunner().run(config,
-                PlatformProfiles.homogeneousLocal("evidence-fixture", 3));
+        return new SimulationRunner().run(config, PlatformProfiles.homogeneousLocal("evidence-fixture", 3));
     }
 
     private static boolean hasType(List<SimulationEvent> events, SimulationEventType type) {

@@ -38,6 +38,7 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
 
     /** 任务 → 向下 rank。 */
     private final Map<Task, Double> downwardRanks = new HashMap<Task, Double>();
+
     private List<Integer> criticalPathTaskIds = Collections.emptyList();
     private Integer criticalProcessorVmId;
 
@@ -74,7 +75,8 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
                 if (task == null || !isReady(task)) {
                     continue;
                 }
-                if (next == null || priorityOf(task) > priorityOf(next)
+                if (next == null
+                        || priorityOf(task) > priorityOf(next)
                         || (Double.compare(priorityOf(task), priorityOf(next)) == 0
                                 && task.getCloudletId() < next.getCloudletId())) {
                     next = task;
@@ -82,8 +84,7 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
             }
             if (next == null) {
                 throw new IllegalStateException(
-                        "LOCAL_CPOP found no ready task; the DAG validator should have "
-                                + "rejected cyclic workflows");
+                        "LOCAL_CPOP found no ready task; the DAG validator should have " + "rejected cyclic workflows");
             }
             allocate(next, criticalPath.contains(next) ? cpVm : null, stageInFinish);
             pending.set(pending.indexOf(next), null);
@@ -131,7 +132,8 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
         }
         double rank = 0.0;
         for (Task parent : task.getParentList()) {
-            double via = downwardRanks.get(parent).doubleValue() + meanComputeSeconds(parent)
+            double via = downwardRanks.get(parent).doubleValue()
+                    + meanComputeSeconds(parent)
                     + meanCommunicationSeconds(parent, task);
             if (via > rank) {
                 rank = via;
@@ -148,7 +150,8 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
             if (!task.getParentList().isEmpty()) {
                 continue;
             }
-            if (entry == null || priorityOf(task) > priorityOf(entry)
+            if (entry == null
+                    || priorityOf(task) > priorityOf(entry)
                     || (Double.compare(priorityOf(task), priorityOf(entry)) == 0
                             && task.getCloudletId() < entry.getCloudletId())) {
                 entry = task;
@@ -167,10 +170,9 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
             for (Task child : current.getChildList()) {
                 // 两节点可能分别位于不同的等长关键路径上；优先级相等并不足以
                 // 保证连接它们的边也在关键路径上，还必须满足向上 rank 递推等式。
-                double via = meanComputeSeconds(current)
-                        + meanCommunicationSeconds(current, child) + upwardRankOf(child);
-                if (!sameRank(priorityOf(child), criticalPathLength)
-                        || !sameRank(upwardRankOf(current), via)) {
+                double via =
+                        meanComputeSeconds(current) + meanCommunicationSeconds(current, child) + upwardRankOf(child);
+                if (!sameRank(priorityOf(child), criticalPathLength) || !sameRank(upwardRankOf(current), via)) {
                     continue;
                 }
                 if (next == null || child.getCloudletId() < next.getCloudletId()) {
@@ -178,12 +180,12 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
                 }
             }
             if (next == null) {
-                throw new IllegalStateException("LOCAL_CPOP could not continue its critical path "
-                        + "from task " + current.getCloudletId());
+                throw new IllegalStateException(
+                        "LOCAL_CPOP could not continue its critical path " + "from task " + current.getCloudletId());
             }
             if (!criticalPath.add(next)) {
-                throw new IllegalStateException("LOCAL_CPOP critical path revisited task "
-                        + next.getCloudletId() + "; the DAG validator should have rejected cycles");
+                throw new IllegalStateException("LOCAL_CPOP critical path revisited task " + next.getCloudletId()
+                        + "; the DAG validator should have rejected cycles");
             }
             current = next;
         }
@@ -214,8 +216,8 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
             }
         }
         if (best == null) {
-            throw new IllegalArgumentException("LOCAL_CPOP cannot select one compatible VM "
-                    + "for every task on its critical path");
+            throw new IllegalArgumentException(
+                    "LOCAL_CPOP cannot select one compatible VM " + "for every task on its critical path");
         }
         return best;
     }

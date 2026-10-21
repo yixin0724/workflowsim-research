@@ -43,7 +43,8 @@ class PlanningCostMatrixRegressionTest {
     @Test
     void timeAwareIndependentPlannersUseTheMatrixInsteadOfRawLength() {
         // Raw MI=100 prefers VM3 (2 MIPS); matrix [100,1] seconds prefers VM8.
-        assertAll("matrix-aware independent mappings",
+        assertAll(
+                "matrix-aware independent mappings",
                 () -> assertMatrixChoice(new StaticMetPlanningAlgorithm()),
                 () -> assertMatrixChoice(new StaticMctPlanningAlgorithm()),
                 () -> assertMatrixChoice(new StaticMinMinPlanningAlgorithm()),
@@ -115,8 +116,7 @@ class PlanningCostMatrixRegressionTest {
     void psoFitnessUsesRoundedEffectiveSecondsNotUnquantizedMatrixSeconds() {
         List<Task> tasks = Collections.singletonList(projectedTask(1, 100L, 1.24, 2.0));
         // VM3: round(1.24*2)=2 MI -> 1 second; .8*.002 + .2*1 = .2016.
-        assertEquals(0.2016, PsoFitnessFunction.evaluate(new int[] {0}, tasks,
-                vms(2.0, 1, 1.0, 1), 0.8), EPSILON);
+        assertEquals(0.2016, PsoFitnessFunction.evaluate(new int[] {0}, tasks, vms(2.0, 1, 1.0, 1), 0.8), EPSILON);
     }
 
     @Test
@@ -140,19 +140,20 @@ class PlanningCostMatrixRegressionTest {
         planner.run();
         assertEquals(3, task.getVmId());
         // 2PE execute in parallel: 100/2=50 seconds, not totalLength/mips=100.
-        assertEquals(10.08, PsoFitnessFunction.evaluate(new int[] {0},
-                Collections.singletonList(task), vms(2.0, 2, 1.0, 2), 0.8), EPSILON);
+        assertEquals(
+                10.08,
+                PsoFitnessFunction.evaluate(new int[] {0}, Collections.singletonList(task), vms(2.0, 2, 1.0, 2), 0.8),
+                EPSILON);
     }
 
     @Test
     void standardRunnerExecutesTheMatrixPreferredVmForMetAndPso() throws Exception {
-        Path input = workflow(directory, "matrix-single.dax",
-                "<job id=\"only\" name=\"only\" runtime=\"100\"/>");
+        Path input = workflow(directory, "matrix-single.dax", "<job id=\"only\" name=\"only\" runtime=\"100\"/>");
         double[][] costs = {{100.0, 1.0}};
         Log.disable();
         for (PlanningAlgorithm algorithm : Arrays.asList(PlanningAlgorithm.STATIC_MET, PlanningAlgorithm.PSO)) {
-            SimulationReport report = new SimulationRunner().run(config(input.toString(), algorithm, costs, false),
-                    platform(vms(2.0, 1, 1.0, 1)));
+            SimulationReport report = new SimulationRunner()
+                    .run(config(input.toString(), algorithm, costs, false), platform(vms(2.0, 1, 1.0, 1)));
             SimulationReport.JobOutcome job = computeJob(report, 1);
             assertEquals(8, job.getVmId(), algorithm.name());
             assertEquals(55.1, job.getStartTime(), EPSILON, algorithm.name());
@@ -163,15 +164,18 @@ class PlanningCostMatrixRegressionTest {
 
     @Test
     void standardRunnerPreservesTheMatrixAwareOlbMapping() throws Exception {
-        Path input = workflow(directory, "matrix-olb.dax",
+        Path input = workflow(
+                directory,
+                "matrix-olb.dax",
                 "<job id=\"first\" name=\"first\" runtime=\"100\"/>\n"
-                + "<job id=\"second\" name=\"second\" runtime=\"100\"/>\n"
-                + "<job id=\"third\" name=\"third\" runtime=\"100\"/>");
+                        + "<job id=\"second\" name=\"second\" runtime=\"100\"/>\n"
+                        + "<job id=\"third\" name=\"third\" runtime=\"100\"/>");
         double[][] costs = {{100.0, 1.0}, {1.0, 1.0}, {100.0, 1.0}};
         Log.disable();
-        SimulationReport report = new SimulationRunner().run(
-                config(input.toString(), PlanningAlgorithm.STATIC_OLB, costs, false),
-                platform(vms(1.0, 1, 1.0, 1)));
+        SimulationReport report = new SimulationRunner()
+                .run(
+                        config(input.toString(), PlanningAlgorithm.STATIC_OLB, costs, false),
+                        platform(vms(1.0, 1, 1.0, 1)));
         assertEquals(3, computeJob(report, 1).getVmId());
         assertEquals(8, computeJob(report, 2).getVmId());
         assertEquals(8, computeJob(report, 3).getVmId());

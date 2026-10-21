@@ -50,8 +50,7 @@ class WorkflowProfileTest {
         Task second = task(2, 10L);
         first.addChild(second);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> WorkflowProfile.fromTasks(Arrays.asList(first, second)));
+        assertThrows(IllegalArgumentException.class, () -> WorkflowProfile.fromTasks(Arrays.asList(first, second)));
     }
 
     @Test

@@ -12,8 +12,12 @@ class TaskCostMatrixTest {
 
     private TaskCostMatrix sample() {
         return TaskCostMatrix.builder()
-                .put(1, 0, 14.0).put(1, 1, 13.0).put(1, 2, 11.0)
-                .put(2, 0, 13.0).put(2, 1, 16.0).put(2, 2, 9.0)
+                .put(1, 0, 14.0)
+                .put(1, 1, 13.0)
+                .put(1, 2, 11.0)
+                .put(2, 0, 13.0)
+                .put(2, 1, 16.0)
+                .put(2, 2, 9.0)
                 .build();
     }
 
@@ -30,11 +34,9 @@ class TaskCostMatrixTest {
     @Test
     void missingEntriesFailFast() {
         TaskCostMatrix matrix = sample();
-        IllegalArgumentException task = assertThrows(IllegalArgumentException.class,
-                () -> matrix.getCostSeconds(3, 0));
+        IllegalArgumentException task = assertThrows(IllegalArgumentException.class, () -> matrix.getCostSeconds(3, 0));
         assertTrue(task.getMessage().contains("task 3"));
-        IllegalArgumentException vm = assertThrows(IllegalArgumentException.class,
-                () -> matrix.getCostSeconds(1, 9));
+        IllegalArgumentException vm = assertThrows(IllegalArgumentException.class, () -> matrix.getCostSeconds(1, 9));
         assertTrue(vm.getMessage().contains("VM 9"));
         assertFalse(matrix.contains(1, 9));
         assertTrue(matrix.contains(1, 0));
@@ -42,31 +44,36 @@ class TaskCostMatrixTest {
 
     @Test
     void builderRejectsNonPositiveAndNonFiniteSeconds() {
-        assertThrows(IllegalArgumentException.class,
-                () -> TaskCostMatrix.builder().put(1, 0, 0.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> TaskCostMatrix.builder().put(1, 0, -1.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> TaskCostMatrix.builder().put(1, 0, Double.NaN));
-        assertThrows(IllegalArgumentException.class,
-                () -> TaskCostMatrix.builder().put(1, 0, Double.POSITIVE_INFINITY));
+        assertThrows(
+                IllegalArgumentException.class, () -> TaskCostMatrix.builder().put(1, 0, 0.0));
+        assertThrows(
+                IllegalArgumentException.class, () -> TaskCostMatrix.builder().put(1, 0, -1.0));
+        assertThrows(
+                IllegalArgumentException.class, () -> TaskCostMatrix.builder().put(1, 0, Double.NaN));
+        assertThrows(
+                IllegalArgumentException.class, () -> TaskCostMatrix.builder().put(1, 0, Double.POSITIVE_INFINITY));
     }
 
     @Test
     void builderRejectsDuplicatesAndEmptyBuild() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> TaskCostMatrix.builder().put(1, 0, 2.0).put(1, 0, 3.0));
-        assertThrows(IllegalArgumentException.class, () -> TaskCostMatrix.builder().build());
+        assertThrows(
+                IllegalArgumentException.class, () -> TaskCostMatrix.builder().build());
     }
 
     @Test
     void evidenceSnapshotPreservesSparseEntriesAndCannotBeMutated() {
-        TaskCostMatrix matrix = TaskCostMatrix.builder().put(9, 8, 2.25).put(9, 3, 4.5).build();
+        TaskCostMatrix matrix =
+                TaskCostMatrix.builder().put(9, 8, 2.25).put(9, 3, 4.5).build();
         assertEquals(2.25, matrix.asMap().get(9).get(8), 0.0);
         assertEquals(4.5, matrix.getCostsForTask(9).get(3), 0.0);
         assertThrows(UnsupportedOperationException.class, () -> matrix.asMap().clear());
-        assertThrows(UnsupportedOperationException.class, () -> matrix.asMap().get(9).put(8, 5.0));
-        assertThrows(UnsupportedOperationException.class, () -> matrix.getCostsForTask(9).clear());
+        assertThrows(
+                UnsupportedOperationException.class, () -> matrix.asMap().get(9).put(8, 5.0));
+        assertThrows(UnsupportedOperationException.class, () -> matrix.getCostsForTask(9)
+                .clear());
         assertThrows(IllegalArgumentException.class, () -> matrix.getCostsForTask(10));
     }
 

@@ -24,7 +24,9 @@ public final class NetworkEvidenceConfig {
     }
 
     /** @return the shared history-free recording policy */
-    public static NetworkEvidenceConfig off() { return OFF; }
+    public static NetworkEvidenceConfig off() {
+        return OFF;
+    }
 
     /**
      * Enable a bounded prefix of group-flow observations. The bound counts records,
@@ -47,15 +49,27 @@ public final class NetworkEvidenceConfig {
      * @param maxTraceRecords positive lifecycle-record budget
      * @return immutable V2 recording policy
      */
-    public static NetworkEvidenceConfig fileLifecycleV2(int maxTraceRecords){if(maxTraceRecords<=0)throw new IllegalArgumentException("File lifecycle record budget must be positive");return new NetworkEvidenceConfig(Mode.FILE_LIFECYCLE_V2,maxTraceRecords);}
+    public static NetworkEvidenceConfig fileLifecycleV2(int maxTraceRecords) {
+        if (maxTraceRecords <= 0) throw new IllegalArgumentException("File lifecycle record budget must be positive");
+        return new NetworkEvidenceConfig(Mode.FILE_LIFECYCLE_V2, maxTraceRecords);
+    }
 
     /** @param budget positive record budget @return explicit storage-version capture option */
-    public static NetworkEvidenceConfig storageLifecycleV3(int budget){if(budget<=0)throw new IllegalArgumentException("Storage lifecycle record budget must be positive");return new NetworkEvidenceConfig(Mode.FILE_STORAGE_LIFECYCLE_V3,budget);}
+    public static NetworkEvidenceConfig storageLifecycleV3(int budget) {
+        if (budget <= 0) throw new IllegalArgumentException("Storage lifecycle record budget must be positive");
+        return new NetworkEvidenceConfig(Mode.FILE_STORAGE_LIFECYCLE_V3, budget);
+    }
 
     /** @return versioned recording mode */
-    public Mode getMode() { return mode; }
+    public Mode getMode() {
+        return mode;
+    }
     /** @return positive enabled budget, or zero when OFF */
-    public int getMaxTraceRecords() { return maxTraceRecords; }
+    public int getMaxTraceRecords() {
+        return maxTraceRecords;
+    }
     /** @return whether group-flow recording is explicitly enabled */
-    public boolean isEnabled() { return mode != Mode.OFF; }
+    public boolean isEnabled() {
+        return mode != Mode.OFF;
+    }
 }

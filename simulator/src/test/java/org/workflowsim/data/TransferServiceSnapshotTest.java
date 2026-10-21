@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 class TransferServiceSnapshotTest {
     @Test
     void uncheckedConstructorsRejectSnapshotsWithoutChangingTheirContracts() {
-        for (TransferContentionEngine engine : Arrays.asList(new TransferContentionEngine(),
-                new TransferContentionEngine(0), new TransferContentionEngine(64))) {
+        for (TransferContentionEngine engine : Arrays.asList(
+                new TransferContentionEngine(), new TransferContentionEngine(0), new TransferContentionEngine(64))) {
             IllegalStateException rejection = assertThrows(IllegalStateException.class, engine::snapshotState);
             assertTrue(rejection.getMessage().contains("coherentV2"));
             engine.setEndpointCapacity("R", 10);
@@ -54,7 +54,9 @@ class TransferServiceSnapshotTest {
             engine.setEndpointCapacity("z-link", 20);
             engine.setEndpointCapacity("a-link", 10);
             TransferServiceSnapshot bound = engine.snapshotState();
-            assertEquals(Arrays.asList("a-link", "z-link"), new ArrayList<String>(bound.getResources().keySet()));
+            assertEquals(
+                    Arrays.asList("a-link", "z-link"),
+                    new ArrayList<String>(bound.getResources().keySet()));
             assertResource(bound, "a-link", 10, BigDecimal.ZERO, 0, 0);
             assertResource(bound, "z-link", 20, BigDecimal.ZERO, 0, 0);
             engine.setEndpointCapacity("z-link", 25);
@@ -81,7 +83,9 @@ class TransferServiceSnapshotTest {
         TransferServiceSnapshot snapshot = engine.snapshotState();
         assertBits(3, snapshot.getObservedThrough());
         assertTrue(snapshot.isShared());
-        assertEquals(Arrays.asList(9L, 3L), new ArrayList<Long>(snapshot.getTransfers().keySet()));
+        assertEquals(
+                Arrays.asList(9L, 3L),
+                new ArrayList<Long>(snapshot.getTransfers().keySet()));
         assertFlow(snapshot, 9L, 100, 85, 5, 10, 0, "R");
         assertFlow(snapshot, 3L, 100, 85, 5, 10, 0, "R");
         assertResource(snapshot, "R", 10, new BigDecimal(10), 2, 2);
@@ -131,10 +135,11 @@ class TransferServiceSnapshotTest {
         assertFlow(snapshot, 2L, 10, 10, 0.2, 0.2, 0, "R", "S");
         assertResource(snapshot, "R", 1, tenth.multiply(BigDecimal.valueOf(2)).add(fifth), 2, 3);
         assertResource(snapshot, "S", 1, tenth.add(fifth), 2, 2);
-        assertTrue(snapshot.getResources().get("R").getAssignedRateBytesPerSecond()
-                .compareTo(new BigDecimal("0.4")) > 0);
-        assertNotEquals(0, snapshot.getResources().get("S").getAssignedRateBytesPerSecond()
-                .compareTo(new BigDecimal(0.1 + 0.2)));
+        assertTrue(
+                snapshot.getResources().get("R").getAssignedRateBytesPerSecond().compareTo(new BigDecimal("0.4")) > 0);
+        assertNotEquals(
+                0,
+                snapshot.getResources().get("S").getAssignedRateBytesPerSecond().compareTo(new BigDecimal(0.1 + 0.2)));
     }
 
     @Test
@@ -159,10 +164,18 @@ class TransferServiceSnapshotTest {
         TransferServiceSnapshot snapshot = engine.snapshotState();
         BigDecimal maximum = new BigDecimal(Double.MAX_VALUE);
         assertResource(snapshot, "R", Double.MAX_VALUE, maximum.multiply(BigDecimal.valueOf(2)), 2, 2);
-        assertTrue(snapshot.getResources().get("R").getAssignedRateBytesPerSecond().compareTo(maximum) > 0);
+        assertTrue(
+                snapshot.getResources().get("R").getAssignedRateBytesPerSecond().compareTo(maximum) > 0);
         assertFlow(snapshot, 1L, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, 0, "R");
-        assertFlow(snapshot, Long.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE,
-                Double.MAX_VALUE, Double.MAX_VALUE, 0, "R");
+        assertFlow(
+                snapshot,
+                Long.MAX_VALUE,
+                Double.MAX_VALUE,
+                Double.MAX_VALUE,
+                Double.MAX_VALUE,
+                Double.MAX_VALUE,
+                0,
+                "R");
         assertBits(0, snapshot.getObservedThrough());
         assertBits(0, engine.getCurrentTime());
     }
@@ -175,17 +188,32 @@ class TransferServiceSnapshotTest {
         TransferServiceSnapshot snapshot = engine.snapshotState();
         TransferServiceSnapshot.Resource resource = snapshot.getResources().get("R");
         TransferServiceSnapshot.Flow flow = snapshot.getTransfers().get(1L);
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getResources().put("new", resource));
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getResources().remove("R"));
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getResources().keySet().clear());
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getResources().entrySet().iterator().next().setValue(resource));
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getTransfers().put(2L, flow));
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getTransfers().clear());
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getTransfers().values().clear());
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.getTransfers().entrySet().iterator().next().setValue(flow));
-        assertThrows(UnsupportedOperationException.class, () -> flow.getResources().add("S"));
-        assertThrows(UnsupportedOperationException.class, () -> flow.getResources().set(0, "S"));
-        assertThrows(UnsupportedOperationException.class, () -> flow.getResources().clear());
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.getResources()
+                .put("new", resource));
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.getResources()
+                .remove("R"));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> snapshot.getResources().keySet().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> snapshot.getResources().entrySet().iterator().next().setValue(resource));
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.getTransfers()
+                .put(2L, flow));
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.getTransfers()
+                .clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> snapshot.getTransfers().values().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> snapshot.getTransfers().entrySet().iterator().next().setValue(flow));
+        assertThrows(
+                UnsupportedOperationException.class, () -> flow.getResources().add("S"));
+        assertThrows(
+                UnsupportedOperationException.class, () -> flow.getResources().set(0, "S"));
+        assertThrows(
+                UnsupportedOperationException.class, () -> flow.getResources().clear());
         resource.getAssignedRateBytesPerSecond().add(BigDecimal.ONE);
         assertResource(snapshot, "R", 10, new BigDecimal(8), 1, 2);
         assertFlow(snapshot, 1L, 100, 100, 4, 4, 0, "R", "S", "R");
@@ -220,8 +248,10 @@ class TransferServiceSnapshotTest {
             TransferContentionEngine.AdvanceResult control = unreadControl.advance(40);
             assertEquals(Arrays.asList(1L, 2L), result.getCompletedTransferIds());
             assertEquals(control.getCompletedTransferIds(), result.getCompletedTransferIds());
-            assertBits(sharing ? 20 : 10, result.getCompletionObservations().get(0).getEffectiveTime());
-            assertBits(sharing ? 30 : 20, result.getCompletionObservations().get(1).getEffectiveTime());
+            assertBits(
+                    sharing ? 20 : 10, result.getCompletionObservations().get(0).getEffectiveTime());
+            assertBits(
+                    sharing ? 30 : 20, result.getCompletionObservations().get(1).getEffectiveTime());
             for (TransferContentionEngine.CompletionObservation completion : result.getCompletionObservations()) {
                 assertBits(40, completion.getObservedTime());
                 assertBits(0, completion.getRemainingAfterService());
@@ -230,7 +260,9 @@ class TransferServiceSnapshotTest {
             engine.addTransfer(Long.MAX_VALUE, 10, Arrays.asList("R"), 10, 40);
             assertFlow(engine.snapshotState(), Long.MAX_VALUE, 10, 10, 10, 10, 40, "R");
             assertTrue(engine.getTraceSnapshot().getEvents().isEmpty());
-            assertEquals(TransferTraceSnapshot.Status.DISABLED, engine.getTraceSnapshot().getStatus());
+            assertEquals(
+                    TransferTraceSnapshot.Status.DISABLED,
+                    engine.getTraceSnapshot().getStatus());
         }
     }
 
@@ -252,7 +284,8 @@ class TransferServiceSnapshotTest {
         engine.addTransfer(2L, 60, Arrays.asList("R"), 20, 14);
         TransferServiceSnapshot latest = engine.snapshotState();
         assertBits(14, latest.getObservedThrough());
-        assertEquals(Arrays.asList(2L), new ArrayList<Long>(latest.getTransfers().keySet()));
+        assertEquals(
+                Arrays.asList(2L), new ArrayList<Long>(latest.getTransfers().keySet()));
         assertFlow(latest, 2L, 60, 60, 20, 20, 14, "R");
         assertResource(latest, "R", 20, new BigDecimal(20), 1, 1);
         assertResource(latest, "NEW", 5, BigDecimal.ZERO, 0, 0);
@@ -274,7 +307,8 @@ class TransferServiceSnapshotTest {
         TransferServiceSnapshot before = engine.snapshotState();
         TransferTraceSnapshot trace = engine.getTraceSnapshot();
         // Sharing would halve the rate and overflow the remaining service duration.
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> engine.addTransfer(2L, Double.MAX_VALUE, Arrays.asList("R"), 1, 1));
         assertSnapshotEquals(before, engine.snapshotState());
         assertTraceEquals(trace, engine.getTraceSnapshot());
@@ -346,7 +380,8 @@ class TransferServiceSnapshotTest {
         assertEquals(Arrays.asList(Long.MAX_VALUE), engine.advance(1).getCompletedTransferIds());
         engine.addTransfer(900L, 20, Arrays.asList("R"), 10, 1);
         TransferServiceSnapshot after = engine.snapshotState();
-        assertEquals(Arrays.asList(7L, Long.MIN_VALUE, 0L, Long.MAX_VALUE - 1, 900L),
+        assertEquals(
+                Arrays.asList(7L, Long.MIN_VALUE, 0L, Long.MAX_VALUE - 1, 900L),
                 new ArrayList<Long>(after.getTransfers().keySet()));
         assertFlow(after, Long.MAX_VALUE - 1, 100, 90, 10, 10, 0, "R");
         assertFlow(after, 900L, 20, 20, 10, 10, 1, "R");
@@ -360,8 +395,15 @@ class TransferServiceSnapshotTest {
         return engine;
     }
 
-    private static void assertFlow(TransferServiceSnapshot snapshot, long id, double bytes,
-            double remaining, double rate, double nominalRate, double admittedAt, String... path) {
+    private static void assertFlow(
+            TransferServiceSnapshot snapshot,
+            long id,
+            double bytes,
+            double remaining,
+            double rate,
+            double nominalRate,
+            double admittedAt,
+            String... path) {
         TransferServiceSnapshot.Flow flow = snapshot.getTransfers().get(id);
         assertNotNull(flow);
         assertEquals(id, flow.getTransferId());
@@ -373,8 +415,13 @@ class TransferServiceSnapshotTest {
         assertEquals(Arrays.asList(path), flow.getResources());
     }
 
-    private static void assertResource(TransferServiceSnapshot snapshot, String key, double capacity,
-            BigDecimal assignedRate, int activeFlows, long pathMultiplicity) {
+    private static void assertResource(
+            TransferServiceSnapshot snapshot,
+            String key,
+            double capacity,
+            BigDecimal assignedRate,
+            int activeFlows,
+            long pathMultiplicity) {
         TransferServiceSnapshot.Resource resource = snapshot.getResources().get(key);
         assertNotNull(resource);
         assertEquals(key, resource.getKey());
@@ -387,19 +434,32 @@ class TransferServiceSnapshotTest {
     private static void assertSnapshotEquals(TransferServiceSnapshot expected, TransferServiceSnapshot actual) {
         assertBits(expected.getObservedThrough(), actual.getObservedThrough());
         assertEquals(expected.isShared(), actual.isShared());
-        assertEquals(new ArrayList<String>(expected.getResources().keySet()),
+        assertEquals(
+                new ArrayList<String>(expected.getResources().keySet()),
                 new ArrayList<String>(actual.getResources().keySet()));
-        assertEquals(new ArrayList<Long>(expected.getTransfers().keySet()),
+        assertEquals(
+                new ArrayList<Long>(expected.getTransfers().keySet()),
                 new ArrayList<Long>(actual.getTransfers().keySet()));
         for (TransferServiceSnapshot.Resource resource : expected.getResources().values()) {
-            assertResource(actual, resource.getKey(), resource.getCapacityBytesPerSecond(),
-                    resource.getAssignedRateBytesPerSecond(), resource.getActiveFlowCount(),
+            assertResource(
+                    actual,
+                    resource.getKey(),
+                    resource.getCapacityBytesPerSecond(),
+                    resource.getAssignedRateBytesPerSecond(),
+                    resource.getActiveFlowCount(),
                     resource.getPathMultiplicityCount());
         }
-        for (Map.Entry<Long, TransferServiceSnapshot.Flow> entry : expected.getTransfers().entrySet()) {
+        for (Map.Entry<Long, TransferServiceSnapshot.Flow> entry :
+                expected.getTransfers().entrySet()) {
             TransferServiceSnapshot.Flow flow = entry.getValue();
-            assertFlow(actual, entry.getKey(), flow.getBytes(), flow.getRemainingBytes(),
-                    flow.getRateBytesPerSecond(), flow.getNominalRateBytesPerSecond(), flow.getAdmittedAt(),
+            assertFlow(
+                    actual,
+                    entry.getKey(),
+                    flow.getBytes(),
+                    flow.getRemainingBytes(),
+                    flow.getRateBytesPerSecond(),
+                    flow.getNominalRateBytesPerSecond(),
+                    flow.getAdmittedAt(),
                     flow.getResources().toArray(new String[0]));
         }
     }

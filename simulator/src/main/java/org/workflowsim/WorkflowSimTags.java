@@ -35,6 +35,7 @@ public class WorkflowSimTags {
     public static final int VM_STATUS_BUSY = BASE + 3;
     /** 虚拟机空闲状态；可以接收新作业。 */
     public static final int VM_STATUS_IDLE = BASE + 4;
+
     public static final int START_SIMULATION = BASE + 0;
     public static final int JOB_SUBMIT = BASE + 1;
     public static final int CLOUDLET_UPDATE = BASE + 5;

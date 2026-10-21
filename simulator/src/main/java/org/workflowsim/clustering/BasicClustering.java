@@ -144,7 +144,6 @@ public class BasicClustering implements ClusteringInterface {
          * 将逻辑任务的父子边投影为作业的父子边。
          */
         updateDependencies();
-
     }
 
     /**
@@ -173,7 +172,7 @@ public class BasicClustering implements ClusteringInterface {
             int priority = 0;
             int depth = 0;
             // CloudSim 在构造后固定输入/输出文件大小，因此先以长度占位创建作业。
-            Job job = new Job(idIndex, length/*, inputFileSize, outputFileSize*/);
+            Job job = new Job(idIndex, length /*, inputFileSize, outputFileSize*/);
             job.setClassType(ClassType.COMPUTE.value);
             for (Task task : taskList) {
                 length = Math.addExact(length, task.getCloudletLength());
@@ -264,7 +263,7 @@ public class BasicClustering implements ClusteringInterface {
 
         if (root == null) {
             // 使用不与当前任务列表冲突的临时 ID。
-            root = new Task(taskList.size() + 1, 0/*,0,0*/);
+            root = new Task(taskList.size() + 1, 0 /*,0,0*/);
             for (Task node : taskList) {
                 if (node.getParentList().isEmpty()) {
                     node.addParent(root);
@@ -272,7 +271,6 @@ public class BasicClustering implements ClusteringInterface {
                 }
             }
             taskList.add(root);
-
         }
         return root;
     }

@@ -22,8 +22,7 @@ class SupportedOnlineSchedulingCompatibilityTest {
     }
 
     @Test
-    void everySupportedOnlineSchedulerExcludesIncompatibleVmsAndUsesVmIdForEqualChoices()
-            throws Exception {
+    void everySupportedOnlineSchedulerExcludesIncompatibleVmsAndUsesVmIdForEqualChoices() throws Exception {
         for (SchedulerFactory factory : supportedSchedulers()) {
             ReplicaCatalog.init(ReplicaCatalog.FileSystem.LOCAL);
             Job job = job(10, 1);
@@ -65,11 +64,13 @@ class SupportedOnlineSchedulingCompatibilityTest {
             scheduler.setCloudletList(Arrays.<Cloudlet>asList(job));
             scheduler.setVmList(Arrays.asList(vm(2, 1000.0, 1)));
 
-            IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, scheduler::run,
-                    factory.name);
+            IllegalArgumentException exception =
+                    assertThrows(IllegalArgumentException.class, scheduler::run, factory.name);
 
-            assertEquals("Ready job 10 requires 2 processing element(s), but no declared VM is compatible",
-                    exception.getMessage(), factory.name);
+            assertEquals(
+                    "Ready job 10 requires 2 processing element(s), but no declared VM is compatible",
+                    exception.getMessage(),
+                    factory.name);
             ReplicaCatalog.reset();
         }
     }
@@ -91,8 +92,7 @@ class SupportedOnlineSchedulingCompatibilityTest {
     }
 
     private static CondorVM vm(int id, double mips, int pes) {
-        return new CondorVM(id, 0, mips, pes, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerTimeShared());
+        return new CondorVM(id, 0, mips, pes, 512, 1000, 10_000, "Xen", new CloudletSchedulerTimeShared());
     }
 
     private static final class SchedulerFactory {

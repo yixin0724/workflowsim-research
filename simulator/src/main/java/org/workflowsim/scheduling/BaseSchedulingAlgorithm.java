@@ -41,7 +41,7 @@ public abstract class BaseSchedulingAlgorithm implements SchedulingAlgorithmInte
     /** 当前可见的 VM 列表。 */
     private List<? extends Vm> vmList;
     /** 本次 {@link #run()} 已经分派的 Job。 */
-    private List< Cloudlet> scheduledList;
+    private List<Cloudlet> scheduledList;
 
     /** 初始化空的本轮分派结果。 */
     public BaseSchedulingAlgorithm() {

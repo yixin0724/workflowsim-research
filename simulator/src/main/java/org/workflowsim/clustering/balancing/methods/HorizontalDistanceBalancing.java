@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *  Copyright 2012-2013 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.clustering.balancing.methods;
 
@@ -57,7 +57,6 @@ public class HorizontalDistanceBalancing extends HorizontalImpactBalancing {
         for (List<TaskSet> taskList : map.values()) {
             process(taskList);
         }
-
     }
 
     /**
@@ -176,7 +175,6 @@ public class HorizontalDistanceBalancing extends HorizontalImpactBalancing {
                 int distance = calDistance(setA, setB);
 
                 distances[i][j] = distance;
-
             }
         }
         int job_index = 0;
@@ -207,13 +205,11 @@ public class HorizontalDistanceBalancing extends HorizontalImpactBalancing {
         Arrays.sort(record);
         for (int i = size - 1; i >= 0 && record[i] >= 0; i--) {
             taskList.remove(record[i]);
-
         }
         return taskList;
     }
 
-    private List<TaskSet> getNextPotentialTaskSets(List<TaskSet> taskList,
-            TaskSet checkSet, int clusters_size) {
+    private List<TaskSet> getNextPotentialTaskSets(List<TaskSet> taskList, TaskSet checkSet, int clusters_size) {
         int dis = Integer.MAX_VALUE;
 
         Map<Integer, List<TaskSet>> map = new HashMap<>();
@@ -276,9 +272,7 @@ public class HorizontalDistanceBalancing extends HorizontalImpactBalancing {
      * @param clusters_size 每个目标集合允许的最大任务数
      * @return 候选目标集合
      */
-    protected TaskSet getCandidateTastSet(ArrayList<TaskSet> taskList,
-            TaskSet checkSet,
-            int clusters_size) {
+    protected TaskSet getCandidateTastSet(ArrayList<TaskSet> taskList, TaskSet checkSet, int clusters_size) {
 
         List<TaskSet> potential = getNextPotentialTaskSets(taskList, checkSet, clusters_size);
         TaskSet task = null;
@@ -299,7 +293,7 @@ public class HorizontalDistanceBalancing extends HorizontalImpactBalancing {
 
     /**
      * 计算两个同层任务集合到共同后继的图距离。
- * 水平聚类假定两个集合位于同一 DAG 层，不适用于任意跨层任务对。
+     * 水平聚类假定两个集合位于同一 DAG 层，不适用于任意跨层任务对。
      *
      * @param taskA 第一个同层任务集合
      * @param taskB 第二个同层任务集合
@@ -379,5 +373,4 @@ class Distance {
     public int getDistance() {
         return this.distance;
     }
-
 }

@@ -73,22 +73,20 @@ class DistributionGeneratorKsTest {
     void distributionSpecWiringMatchesFamilyContract() {
         // DistributionSpec.of(WEIBULL, scale, shape) 是故障模型配置的入口；其生成器
         // 的样本必须通过 Weibull(alpha=shape, beta=scale) 的 KS 检验。
-        DistributionGenerator generator = DistributionSpec.of(
-                DistributionFamily.WEIBULL, 100.0, 2.0)
-                .createGenerator("r3.ks.spec.wiring");
+        DistributionGenerator generator =
+                DistributionSpec.of(DistributionFamily.WEIBULL, 100.0, 2.0).createGenerator("r3.ks.spec.wiring");
         double p = kolmogorovSmirnovP(generator, new WeibullDistribution(2.0, 100.0));
-        assertTrue(p > MIN_ACCEPT_P,
-                "DistributionSpec 接线样本应服从 Weibull(alpha=2, beta=100)，实际 p=" + p);
+        assertTrue(p > MIN_ACCEPT_P, "DistributionSpec 接线样本应服从 Weibull(alpha=2, beta=100)，实际 p=" + p);
     }
 
     @Test
     void sampleMeansMatchFamilyMoments() {
         // 每族 1500 个确定性样本的均值与理论矩的相对偏差应在 5% 以内。
-        assertMeanNear(DistributionFamily.WEIBULL, 100.0, 1.5, "r3.ks.moments.weibull",
-                100.0 * Gamma.gamma(1.0 + 1.0 / 1.5));
+        assertMeanNear(
+                DistributionFamily.WEIBULL, 100.0, 1.5, "r3.ks.moments.weibull", 100.0 * Gamma.gamma(1.0 + 1.0 / 1.5));
         assertMeanNear(DistributionFamily.GAMMA, 2.0, 3.0, "r3.ks.moments.gamma", 3.0 * 2.0);
-        assertMeanNear(DistributionFamily.LOGNORMAL, 1.0, 0.5, "r3.ks.moments.lognormal",
-                Math.exp(1.0 + 0.5 * 0.5 / 2.0));
+        assertMeanNear(
+                DistributionFamily.LOGNORMAL, 1.0, 0.5, "r3.ks.moments.lognormal", Math.exp(1.0 + 0.5 * 0.5 / 2.0));
         assertMeanNear(DistributionFamily.NORMAL, 10.0, 2.0, "r3.ks.moments.normal", 10.0);
     }
 
@@ -96,14 +94,12 @@ class DistributionGeneratorKsTest {
     void ksTestHasPowerToRejectWrongFamily() {
         // 效力对照：用 Weibull(1.5, 100) 的样本去拟合均值相近的 Gamma，
         // p 必须极小——否则 KS 判定形同虚设。
-        DistributionGenerator generator = new DistributionGenerator(
-                DistributionFamily.WEIBULL, 100.0, 1.5, "r3.ks.power");
+        DistributionGenerator generator =
+                new DistributionGenerator(DistributionFamily.WEIBULL, 100.0, 1.5, "r3.ks.power");
         double weibullMean = 100.0 * Gamma.gamma(1.0 + 1.0 / 1.5);
         // Gamma(alpha=9, beta=mean/9) 与 Weibull 均值相同、形状不同。
-        double crossP = kolmogorovSmirnovP(generator,
-                new GammaDistribution(9.0, weibullMean / 9.0));
-        assertTrue(crossP < MAX_CROSS_FIT_P,
-                "KS 检验应拒绝错误族拟合，实际 p=" + crossP);
+        double crossP = kolmogorovSmirnovP(generator, new GammaDistribution(9.0, weibullMean / 9.0));
+        assertTrue(crossP < MAX_CROSS_FIT_P, "KS 检验应拒绝错误族拟合，实际 p=" + crossP);
     }
 
     @Test
@@ -114,12 +110,13 @@ class DistributionGeneratorKsTest {
         // (b) 到达间隔（即分布样本）通过 Weibull KS 检验。
         double scale = 100.0;
         double shape = 1.5;
-        DistributionGenerator generator = new DistributionGenerator(
-                DistributionFamily.WEIBULL, scale, shape, "r3.arrival.weibull");
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
+        DistributionGenerator generator =
+                new DistributionGenerator(DistributionFamily.WEIBULL, scale, shape, "r3.arrival.weibull");
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
                 FailureParameters.FTCMonitor.MONITOR_ALL,
                 FailureParameters.FTCFailure.FAILURE_ALL,
-                new DistributionGenerator[][]{{generator}});
+                new DistributionGenerator[][] {{generator}});
         FailureMonitor.init();
         FailureGenerator.init();
 
@@ -133,15 +130,14 @@ class DistributionGeneratorKsTest {
         // (a) 接线恒等：消费边界与扫描地平线一致——最后一个已消费到达 ≤ horizon，
         // 第一个未消费到达 > horizon；且到达时刻严格递增。
         double[] cumulative = generator.getCumulativeSamples();
-        assertTrue(cumulative[consumed - 1] <= horizon,
+        assertTrue(
+                cumulative[consumed - 1] <= horizon,
                 "最后一个已消费到达 " + cumulative[consumed - 1] + " 应 ≤ horizon " + horizon);
         if (consumed < cumulative.length) {
-            assertTrue(cumulative[consumed] > horizon,
-                    "第一个未消费到达 " + cumulative[consumed] + " 应 > horizon " + horizon);
+            assertTrue(cumulative[consumed] > horizon, "第一个未消费到达 " + cumulative[consumed] + " 应 > horizon " + horizon);
         }
         for (int i = 0; i < consumed; i++) {
-            assertTrue(i == 0 || cumulative[i] > cumulative[i - 1],
-                    "Weibull 到达时刻必须严格递增");
+            assertTrue(i == 0 || cumulative[i] > cumulative[i - 1], "Weibull 到达时刻必须严格递增");
         }
         // (b) 到达间隔的分布检验。
         double[] interArrivals = new double[consumed];
@@ -149,24 +145,21 @@ class DistributionGeneratorKsTest {
             interArrivals[i] = i == 0 ? cumulative[0] : cumulative[i] - cumulative[i - 1];
         }
         double p = kolmogorovSmirnovP(interArrivals, new WeibullDistribution(shape, scale));
-        assertTrue(p > MIN_ACCEPT_P,
-                "故障到达间隔应服从 Weibull(alpha=1.5, beta=100)，实际 p=" + p);
+        assertTrue(p > MIN_ACCEPT_P, "故障到达间隔应服从 Weibull(alpha=1.5, beta=100)，实际 p=" + p);
     }
 
     /** 族契约断言：生成器样本通过其自身理论分布的 KS 检验。 */
-    private static void assertSamplesFollowDistribution(DistributionFamily family,
-            double scale, double shape, String stream) {
+    private static void assertSamplesFollowDistribution(
+            DistributionFamily family, double scale, double shape, String stream) {
         DistributionGenerator generator = new DistributionGenerator(family, scale, shape, stream);
         double p = kolmogorovSmirnovP(generator, generator.getDistribution(scale, shape));
-        assertTrue(p > MIN_ACCEPT_P,
-                family + "(" + scale + ", " + shape + ") 样本 KS p=" + p
-                        + " 应大于 " + MIN_ACCEPT_P);
+        assertTrue(p > MIN_ACCEPT_P, family + "(" + scale + ", " + shape + ") 样本 KS p=" + p + " 应大于 " + MIN_ACCEPT_P);
         assertEquals(1500, generator.getSamples().length, "首批样本量必须为 1500");
     }
 
     /** 样本均值与理论矩的相对偏差断言（5% 容差，1500 确定性样本）。 */
-    private static void assertMeanNear(DistributionFamily family, double scale, double shape,
-            String stream, double theoreticalMean) {
+    private static void assertMeanNear(
+            DistributionFamily family, double scale, double shape, String stream, double theoreticalMean) {
         DistributionGenerator generator = new DistributionGenerator(family, scale, shape, stream);
         double[] samples = generator.getSamples();
         double sum = 0.0;
@@ -175,13 +168,12 @@ class DistributionGeneratorKsTest {
         }
         double mean = sum / samples.length;
         double relativeError = Math.abs(mean - theoreticalMean) / theoreticalMean;
-        assertTrue(relativeError < 0.05,
-                family + " 样本均值 " + mean + " 与理论矩 " + theoreticalMean
-                        + " 的相对偏差 " + relativeError + " 应小于 5%");
+        assertTrue(
+                relativeError < 0.05,
+                family + " 样本均值 " + mean + " 与理论矩 " + theoreticalMean + " 的相对偏差 " + relativeError + " 应小于 5%");
     }
 
-    private static double kolmogorovSmirnovP(DistributionGenerator generator,
-            RealDistribution theoretical) {
+    private static double kolmogorovSmirnovP(DistributionGenerator generator, RealDistribution theoretical) {
         return kolmogorovSmirnovP(generator.getSamples(), theoretical);
     }
 
@@ -198,14 +190,12 @@ class DistributionGeneratorKsTest {
         double statistic = 0.0;
         for (int i = 0; i < n; i++) {
             double fitted = theoretical.cumulativeProbability(sorted[i]);
-            statistic = Math.max(statistic, Math.max(
-                    (i + 1.0) / n - fitted, fitted - i / (double) n));
+            statistic = Math.max(statistic, Math.max((i + 1.0) / n - fitted, fitted - i / (double) n));
         }
         double lambda = Math.sqrt(n) * statistic;
         double p = 0.0;
         for (int k = 1; k <= 100; k++) {
-            double term = 2.0 * ((k % 2 == 1) ? 1.0 : -1.0)
-                    * Math.exp(-2.0 * k * k * lambda * lambda);
+            double term = 2.0 * ((k % 2 == 1) ? 1.0 : -1.0) * Math.exp(-2.0 * k * k * lambda * lambda);
             p += term;
             if (Math.abs(term) < 1.0e-14) {
                 break;

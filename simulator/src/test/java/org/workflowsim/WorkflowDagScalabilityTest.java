@@ -18,7 +18,8 @@ class WorkflowDagScalabilityTest {
             Graph graph = star(width, true);
             WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
             assertEquals(1, graph.tasks.get(0).getDepth());
-            for (int i = 1; i < graph.tasks.size(); i++) assertEquals(2, graph.tasks.get(i).getDepth());
+            for (int i = 1; i < graph.tasks.size(); i++)
+                assertEquals(2, graph.tasks.get(i).getDepth());
             assertLinearMembershipBudget(graph, width);
         }
     }
@@ -29,7 +30,8 @@ class WorkflowDagScalabilityTest {
             Graph graph = star(width, false);
             WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
             assertEquals(2, graph.tasks.get(0).getDepth());
-            for (int i = 1; i < graph.tasks.size(); i++) assertEquals(1, graph.tasks.get(i).getDepth());
+            for (int i = 1; i < graph.tasks.size(); i++)
+                assertEquals(1, graph.tasks.get(i).getDepth());
             assertLinearMembershipBudget(graph, width);
         }
     }
@@ -39,11 +41,13 @@ class WorkflowDagScalabilityTest {
         int width = 64;
         Graph graph = new Graph();
         for (int i = 0; i < 2 * width; i++) graph.add(i + 1);
-        for (int left = 0; left < width; left++) for (int right = width; right < 2 * width; right++) {
-            connect(graph.tasks.get(left), graph.tasks.get(right));
-        }
+        for (int left = 0; left < width; left++)
+            for (int right = width; right < 2 * width; right++) {
+                connect(graph.tasks.get(left), graph.tasks.get(right));
+            }
         WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
-        for (int i = 0; i < graph.tasks.size(); i++) assertEquals(i < width ? 1 : 2, graph.tasks.get(i).getDepth());
+        for (int i = 0; i < graph.tasks.size(); i++)
+            assertEquals(i < width ? 1 : 2, graph.tasks.get(i).getDepth());
         assertLinearMembershipBudget(graph, width * width);
     }
 
@@ -53,8 +57,8 @@ class WorkflowDagScalabilityTest {
         WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
         Task root = graph.tasks.get(0), changed = graph.tasks.get(1);
         root.getChildList().remove(changed);
-        WorkflowValidationException error = assertThrows(WorkflowValidationException.class,
-                () -> WorkflowDagValidator.validateAndAssignDepths(graph.tasks));
+        WorkflowValidationException error = assertThrows(
+                WorkflowValidationException.class, () -> WorkflowDagValidator.validateAndAssignDepths(graph.tasks));
         assertTrue(error.getMessage().contains("asymmetric parent"), error.getMessage());
         changed.getParentList().clear();
         WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
@@ -91,11 +95,13 @@ class WorkflowDagScalabilityTest {
     void malformedNullAdjacencyIsAWorkflowValidationErrorNotAnInternalNullPointer() {
         Graph nullParents = star(1, true);
         nullParents.tasks.get(1).setParentList(null);
-        assertThrows(WorkflowValidationException.class,
+        assertThrows(
+                WorkflowValidationException.class,
                 () -> WorkflowDagValidator.validateAndAssignDepths(nullParents.tasks));
         Graph nullChildren = star(1, true);
         nullChildren.tasks.get(0).setChildList(null);
-        assertThrows(WorkflowValidationException.class,
+        assertThrows(
+                WorkflowValidationException.class,
                 () -> WorkflowDagValidator.validateAndAssignDepths(nullChildren.tasks));
     }
 
@@ -122,13 +128,14 @@ class WorkflowDagScalabilityTest {
             List<Task> permuted = new ArrayList<>(graph.tasks);
             Collections.shuffle(permuted, random);
             WorkflowDagValidator.validateAndAssignDepths(permuted);
-            for (int i = 0; i < count; i++) assertEquals(expectedDepth[i], graph.tasks.get(i).getDepth(), "seed=" + seed + " node=" + i);
+            for (int i = 0; i < count; i++)
+                assertEquals(expectedDepth[i], graph.tasks.get(i).getDepth(), "seed=" + seed + " node=" + i);
         }
     }
 
     private static void reject(Graph graph, String message) {
-        WorkflowValidationException error = assertThrows(WorkflowValidationException.class,
-                () -> WorkflowDagValidator.validateAndAssignDepths(graph.tasks));
+        WorkflowValidationException error = assertThrows(
+                WorkflowValidationException.class, () -> WorkflowDagValidator.validateAndAssignDepths(graph.tasks));
         assertTrue(error.getMessage().contains(message), error.getMessage());
     }
 
@@ -137,28 +144,41 @@ class WorkflowDagScalabilityTest {
         Task centre = graph.add(1);
         for (int i = 0; i < width; i++) {
             Task leaf = graph.add(2 + i);
-            if (fanOut) connect(centre, leaf); else connect(leaf, centre);
+            if (fanOut) connect(centre, leaf);
+            else connect(leaf, centre);
         }
         return graph;
     }
 
-    private static void connect(Task parent, Task child) { parent.addChild(child); child.addParent(parent); }
+    private static void connect(Task parent, Task child) {
+        parent.addChild(child);
+        child.addParent(parent);
+    }
 
     private static void assertLinearMembershipBudget(Graph graph, int edges) {
         long budget = 16L * (graph.tasks.size() + edges);
         System.out.println("DAG_MEMBERSHIP_AUDIT nodes=" + graph.tasks.size() + " edges=" + edges
                 + " sourceListComparisons=" + graph.counter.comparisons + " budget=" + budget);
-        assertTrue(graph.counter.comparisons <= budget,
+        assertTrue(
+                graph.counter.comparisons <= budget,
                 "Reciprocal adjacency must not repeatedly linearly scan high-degree lists: nodes="
                         + graph.tasks.size() + " edges=" + edges + " comparisons=" + graph.counter.comparisons
                         + " linear budget=" + budget);
     }
 
-    private static final class Counter { private long comparisons; }
+    private static final class Counter {
+        private long comparisons;
+    }
+
     private static final class CountingList extends ArrayList<Task> {
         private final Counter counter;
-        CountingList(Counter counter) { this.counter = counter; }
-        @Override public boolean contains(Object sought) {
+
+        CountingList(Counter counter) {
+            this.counter = counter;
+        }
+
+        @Override
+        public boolean contains(Object sought) {
             for (Task task : this) {
                 counter.comparisons++;
                 if (sought == null ? task == null : sought.equals(task)) return true;
@@ -166,13 +186,17 @@ class WorkflowDagScalabilityTest {
             return false;
         }
     }
+
     private static final class Graph {
         private final Counter counter = new Counter();
         private final List<Task> tasks = new ArrayList<>();
+
         Task add(int id) {
             Task task = new Task(id, 1000L);
-            task.setParentList(new CountingList(counter)); task.setChildList(new CountingList(counter));
-            tasks.add(task); return task;
+            task.setParentList(new CountingList(counter));
+            task.setChildList(new CountingList(counter));
+            tasks.add(task);
+            return task;
         }
     }
 }

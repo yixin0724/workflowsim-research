@@ -29,23 +29,21 @@ class TransferCompletionToleranceBoundaryTest {
         double bytes = 1_000_000.0;
         double rate = 1000.0;
 
-        TransferContentionEngine.AdvanceResult admit = engine.addTransfer(
-                1L, bytes, Arrays.asList("VM:0"), rate, 0.0);
+        TransferContentionEngine.AdvanceResult admit = engine.addTransfer(1L, bytes, Arrays.asList("VM:0"), rate, 0.0);
         assertTrue(admit.getCompletedTransferIds().isEmpty(), "满容量单流不得在准入时刻完成");
 
         // 推进到剩余恰为 0.5 字节（> 合同容差 10⁻³，< 变异容差 1.0）。
         double partialSeconds = (bytes - 0.5) / rate;
         TransferContentionEngine.AdvanceResult partial = engine.advance(partialSeconds);
-        assertTrue(partial.getCompletedTransferIds().isEmpty(),
-                "剩余 0.5 字节远超合同容差 max(1e-9*bytes, 4*ulp) = 1e-3 字节，"
-                        + "不得提前判定完成（变异 M5 会在此判完成）");
+        assertTrue(
+                partial.getCompletedTransferIds().isEmpty(),
+                "剩余 0.5 字节远超合同容差 max(1e-9*bytes, 4*ulp) = 1e-3 字节，" + "不得提前判定完成（变异 M5 会在此判完成）");
         Double next = partial.getNextCompletionTime();
         assertNotNull(next, "未完成的流必须报告下一次完成时刻");
         assertTrue(next > partialSeconds, "下一次完成时刻必须晚于当前推进点");
 
         TransferContentionEngine.AdvanceResult settled = engine.advance(next);
-        assertFalse(settled.getCompletedTransferIds().isEmpty(),
-                "到达真实完成时刻后必须结算");
+        assertFalse(settled.getCompletedTransferIds().isEmpty(), "到达真实完成时刻后必须结算");
     }
 
     @Test
@@ -54,10 +52,8 @@ class TransferCompletionToleranceBoundaryTest {
         engine.setEndpointCapacity("VM:0", 1.0);
         // 小负载流：bytes*0.5 分支主导容差（min(0.05, max(1e-4,4ulp)) = 1e-4）。
         double bytes = 10.0;
-        TransferContentionEngine.AdvanceResult admit = engine.addTransfer(
-                2L, bytes, Arrays.asList("VM:0"), 1.0, 0.0);
-        assertTrue(admit.getCompletedTransferIds().isEmpty(),
-                "未服务过任何时间的正负载流不得被判完成（容差是相对舍入防护，不是免费额度）");
+        TransferContentionEngine.AdvanceResult admit = engine.addTransfer(2L, bytes, Arrays.asList("VM:0"), 1.0, 0.0);
+        assertTrue(admit.getCompletedTransferIds().isEmpty(), "未服务过任何时间的正负载流不得被判完成（容差是相对舍入防护，不是免费额度）");
         Double next = admit.getNextCompletionTime();
         assertNotNull(next);
         assertTrue(next > 0.0, "10 字节 / 1 B/s 的完成时刻必须是正时刻");

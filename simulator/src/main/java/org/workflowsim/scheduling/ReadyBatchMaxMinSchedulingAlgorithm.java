@@ -1,7 +1,7 @@
 package org.workflowsim.scheduling;
 
-import org.cloudbus.cloudsim.Cloudlet;
 import java.util.List;
+import org.cloudbus.cloudsim.Cloudlet;
 import org.workflowsim.CondorVM;
 import org.workflowsim.WorkflowSimTags;
 
@@ -64,11 +64,13 @@ public class ReadyBatchMaxMinSchedulingAlgorithm extends BaseSchedulingAlgorithm
                 }
 
                 // Max-Min:从各任务的最小 ECT 中选最大
-                if (bestVmForTask != -1 && (minEctForTask > globalMaxEct
-                        || (Double.compare(minEctForTask, globalMaxEct) == 0
-                        && globalMaxTaskIdx != -1
-                        && cloudlet.getCloudletId() < ((Cloudlet) getCloudletList()
-                                .get(globalMaxTaskIdx)).getCloudletId()))) {
+                if (bestVmForTask != -1
+                        && (minEctForTask > globalMaxEct
+                                || (Double.compare(minEctForTask, globalMaxEct) == 0
+                                        && globalMaxTaskIdx != -1
+                                        && cloudlet.getCloudletId()
+                                                < ((Cloudlet) getCloudletList().get(globalMaxTaskIdx))
+                                                        .getCloudletId()))) {
                     globalMaxEct = minEctForTask;
                     globalMaxTaskIdx = t;
                     globalMaxVmIdx = bestVmForTask;

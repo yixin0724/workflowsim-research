@@ -43,7 +43,9 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
     private StaticSchedulePlan staticSchedulePlan = StaticSchedulePlan.empty();
     private boolean strictDataflowBindings;
     /** Enable fail-fast bound-compute validation for the explicit online-assignment contract. */
-    public void requireDataflowBindings(){strictDataflowBindings=true;}
+    public void requireDataflowBindings() {
+        strictDataflowBindings = true;
+    }
 
     public StaticSchedulingAlgorithm() {
         super();
@@ -80,7 +82,21 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
         List<Integer> fallbackRewrittenJobIds = new ArrayList<Integer>();
         for (Object item : getCloudletList()) {
             Cloudlet cloudlet = (Cloudlet) item;
-            if(strictDataflowBindings){if(!(cloudlet instanceof Job))throw new IllegalStateException("Dataflow dispatch requires Job identity");Job job=(Job)cloudlet;if(job.getClassType()==ClassType.COMPUTE.value){CondorVM assigned=mId2Vm.get(job.getVmId());if(assigned==null||job.getTaskList().size()!=1||job.getNumberOfPes()>assigned.getNumberOfPes()||job.getTaskList().get(0).getNumberOfPes()>assigned.getNumberOfPes()||job.getTaskList().get(0).getVmId()!=job.getVmId())throw new IllegalStateException("Online dataflow compute binding is invalid; STATIC must not remap after transfer");}}
+            if (strictDataflowBindings) {
+                if (!(cloudlet instanceof Job))
+                    throw new IllegalStateException("Dataflow dispatch requires Job identity");
+                Job job = (Job) cloudlet;
+                if (job.getClassType() == ClassType.COMPUTE.value) {
+                    CondorVM assigned = mId2Vm.get(job.getVmId());
+                    if (assigned == null
+                            || job.getTaskList().size() != 1
+                            || job.getNumberOfPes() > assigned.getNumberOfPes()
+                            || job.getTaskList().get(0).getNumberOfPes() > assigned.getNumberOfPes()
+                            || job.getTaskList().get(0).getVmId() != job.getVmId())
+                        throw new IllegalStateException(
+                                "Online dataflow compute binding is invalid; STATIC must not remap after transfer");
+                }
+            }
             if (cloudlet.getVmId() < 0 || !mId2Vm.containsKey(cloudlet.getVmId())) {
                 Log.printLine("Cloudlet " + cloudlet.getCloudletId() + " is not matched."
                         + " It is possible a model-generated stage-in job.");
@@ -106,12 +122,12 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
                 // 与计划本身缺条目，避免误导性错误信息。
                 String rootCauseHint = fallbackRewrittenJobIds.contains(job.getCloudletId())
                         ? " Root cause: the job arrived without a planner VM mapping and was"
-                            + " rewritten to fallback VM " + fallbackVmId + "; the planner must"
-                            + " map every compute task (or the failure/retry path must preserve"
-                            + " the original mapping)."
+                                + " rewritten to fallback VM " + fallbackVmId + "; the planner must"
+                                + " map every compute task (or the failure/retry path must preserve"
+                                + " the original mapping)."
                         : "";
-                throw new IllegalStateException("Static plan has no entry for compute job "
-                        + job.getCloudletId() + "." + rootCauseHint);
+                throw new IllegalStateException(
+                        "Static plan has no entry for compute job " + job.getCloudletId() + "." + rootCauseHint);
             }
         }
 
@@ -147,8 +163,8 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
         if (vm.getState() == WorkflowSimTags.VM_STATUS_IDLE) {
             vm.setState(WorkflowSimTags.VM_STATUS_BUSY);
             getScheduledList().add(cloudlet);
-            Log.printLine("Schedules " + cloudlet.getCloudletId() + " with "
-                    + cloudlet.getCloudletLength() + " to VM " + cloudlet.getVmId());
+            Log.printLine("Schedules " + cloudlet.getCloudletId() + " with " + cloudlet.getCloudletLength() + " to VM "
+                    + cloudlet.getVmId());
         }
     }
 }

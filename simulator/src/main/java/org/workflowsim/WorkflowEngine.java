@@ -111,59 +111,139 @@ public final class WorkflowEngine extends SimEntity {
     /**
      * 计算 Job ID → 其未完成争用传输组 ID 集合的映射（R2 争用模型）。
      */
-    private final Map<Integer, Set<Long>> contentionJobPendingTransfers =
-            new LinkedHashMap<Integer, Set<Long>>();
+    private final Map<Integer, Set<Long>> contentionJobPendingTransfers = new LinkedHashMap<Integer, Set<Long>>();
     /** 引擎分配的下一个争用传输 ID（确定性递增）。 */
     private long nextContentionTransferId = 1L;
+
     private org.workflowsim.data.v2.CoherentDataflowRuntime coherentDataflow;
-    private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignment=org.workflowsim.data.v2.DataflowAssignmentConfig.off();
+    private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignment =
+            org.workflowsim.data.v2.DataflowAssignmentConfig.off();
     private org.workflowsim.data.v2.DataflowVmAssigner dataflowVmAssigner;
     /** @param value explicit run-owned destination binding contract, independent of CPU dispatch */
-    public void setDataflowAssignmentConfig(org.workflowsim.data.v2.DataflowAssignmentConfig value){if(value==null||dataflowVmAssigner!=null)throw new IllegalArgumentException("Assignment configuration must precede binding");dataflowAssignment=value;}
-    private final Map<Integer,Job> coherentPendingJobs=new LinkedHashMap<Integer,Job>();
+    public void setDataflowAssignmentConfig(org.workflowsim.data.v2.DataflowAssignmentConfig value) {
+        if (value == null || dataflowVmAssigner != null)
+            throw new IllegalArgumentException("Assignment configuration must precede binding");
+        dataflowAssignment = value;
+    }
+
+    private final Map<Integer, Job> coherentPendingJobs = new LinkedHashMap<Integer, Job>();
     private Double coherentCheckTime;
     private long coherentCheckGeneration;
     private boolean coherentEndRequested;
 
     /** @param value run-owned V2 coordinator shared with planner and datacenter */
-    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value){if(value==null||coherentDataflow!=null||getSchedulers().size()!=1)throw new IllegalArgumentException("Coherent V2 requires one run-owned coordinator and scheduler");coherentDataflow=value;}
+    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value) {
+        if (value == null || coherentDataflow != null || getSchedulers().size() != 1)
+            throw new IllegalArgumentException("Coherent V2 requires one run-owned coordinator and scheduler");
+        coherentDataflow = value;
+    }
 
-    private org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation prepareCoherentInput(Job job){
-        if(job.getClassType()!=ClassType.COMPUTE.value||boundDatacenterId<0)return null;
-        SimEntity entity=CloudSim.getEntity(boundDatacenterId);if(!(entity instanceof WorkflowDatacenter))return null;
-        WorkflowDatacenter datacenter=(WorkflowDatacenter)entity;if(!datacenter.getDataMovementModel().usesCoherentDataflowRuntime())return null;
-        if(coherentDataflow==null)throw new IllegalStateException("Coherent V2 has no dedicated workflow run context");
+    private org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation prepareCoherentInput(Job job) {
+        if (job.getClassType() != ClassType.COMPUTE.value || boundDatacenterId < 0) return null;
+        SimEntity entity = CloudSim.getEntity(boundDatacenterId);
+        if (!(entity instanceof WorkflowDatacenter)) return null;
+        WorkflowDatacenter datacenter = (WorkflowDatacenter) entity;
+        if (!datacenter.getDataMovementModel().usesCoherentDataflowRuntime()) return null;
+        if (coherentDataflow == null)
+            throw new IllegalStateException("Coherent V2 has no dedicated workflow run context");
         datacenter.initializeCoherentFabric();
-        if(dataflowAssignment.isEnabled()){
-            if(dataflowVmAssigner==null)dataflowVmAssigner=new org.workflowsim.data.v2.DataflowVmAssigner(coherentDataflow,datacenter.actualDataflowVmOptions());
-            org.workflowsim.data.v2.DataflowVmAssigner.Prepared prepared=dataflowVmAssigner.prepare(job,CloudSim.clock());eventRecorder.record(SimulationEventType.DATAFLOW_VM_ASSIGNED,CloudSim.clock(),job,prepared.getDecision().getAttributes());return prepared.getPreparation();
+        if (dataflowAssignment.isEnabled()) {
+            if (dataflowVmAssigner == null)
+                dataflowVmAssigner = new org.workflowsim.data.v2.DataflowVmAssigner(
+                        coherentDataflow, datacenter.actualDataflowVmOptions());
+            org.workflowsim.data.v2.DataflowVmAssigner.Prepared prepared =
+                    dataflowVmAssigner.prepare(job, CloudSim.clock());
+            eventRecorder.record(
+                    SimulationEventType.DATAFLOW_VM_ASSIGNED,
+                    CloudSim.clock(),
+                    job,
+                    prepared.getDecision().getAttributes());
+            return prepared.getPreparation();
         }
-        List<Integer> tasks=new ArrayList<Integer>();for(Task task:job.getTaskList())tasks.add(task.getCloudletId());return coherentDataflow.requestJob(job.getCloudletId(),tasks,job.getVmId(),CloudSim.clock());
+        List<Integer> tasks = new ArrayList<Integer>();
+        for (Task task : job.getTaskList()) tasks.add(task.getCloudletId());
+        return coherentDataflow.requestJob(job.getCloudletId(), tasks, job.getVmId(), CloudSim.clock());
     }
-    private void appendCoherentReady(Map<Integer,List> allocation){
-        if(coherentDataflow==null)return;
-        for(Integer id:coherentDataflow.drainReadyJobIds()){Job ready=coherentPendingJobs.remove(id);if(ready==null)throw new IllegalStateException("Data-ready V2 Job has no engine waiter: "+id);if(coherentDataflow.isStorageVersion())recordStorageInputPreparation(ready);allocation.get(ready.getUserId()).add(ready);}
+
+    private void appendCoherentReady(Map<Integer, List> allocation) {
+        if (coherentDataflow == null) return;
+        for (Integer id : coherentDataflow.drainReadyJobIds()) {
+            Job ready = coherentPendingJobs.remove(id);
+            if (ready == null) throw new IllegalStateException("Data-ready V2 Job has no engine waiter: " + id);
+            if (coherentDataflow.isStorageVersion()) recordStorageInputPreparation(ready);
+            allocation.get(ready.getUserId()).add(ready);
+        }
     }
-    private void recordStorageInputPreparation(Job job){
-        org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation preparation=coherentDataflow.getPreparation(job.getCloudletId());
-        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED,CloudSim.clock(),job,SimulationEventRecorder.attributes("modeledTransferSeconds",preparation.getIsolatedSeconds(),"requiredFileBytes",preparation.getRequiredBytes(),"modeledTransferFileCount",preparation.getReferenceCount(),"dataMovementModel",((WorkflowDatacenter)CloudSim.getEntity(boundDatacenterId)).getDataMovementModel().getKind().name(),"newFileCopies",preparation.getNewCopies(),"joinedFileCopies",preparation.getJoinedCopies(),"transferUnit","LOGICAL_FILE_STORAGE_V3","observedInputPreparationSeconds",coherentDataflow.getObservedInputPreparationSeconds(job.getCloudletId())));
+
+    private void recordStorageInputPreparation(Job job) {
+        org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation preparation =
+                coherentDataflow.getPreparation(job.getCloudletId());
+        eventRecorder.record(
+                SimulationEventType.DATA_STAGE_IN_MODELED,
+                CloudSim.clock(),
+                job,
+                SimulationEventRecorder.attributes(
+                        "modeledTransferSeconds",
+                        preparation.getIsolatedSeconds(),
+                        "requiredFileBytes",
+                        preparation.getRequiredBytes(),
+                        "modeledTransferFileCount",
+                        preparation.getReferenceCount(),
+                        "dataMovementModel",
+                        ((WorkflowDatacenter) CloudSim.getEntity(boundDatacenterId))
+                                .getDataMovementModel()
+                                .getKind()
+                                .name(),
+                        "newFileCopies",
+                        preparation.getNewCopies(),
+                        "joinedFileCopies",
+                        preparation.getJoinedCopies(),
+                        "transferUnit",
+                        "LOGICAL_FILE_STORAGE_V3",
+                        "observedInputPreparationSeconds",
+                        coherentDataflow.getObservedInputPreparationSeconds(job.getCloudletId())));
     }
-    private void scheduleCoherentCheck(){
-        if(coherentDataflow==null||!coherentDataflow.isFabricBound())return;Double next=coherentDataflow.getNextCompletionTime();if(next==null)return;
-        double now=CloudSim.clock(),delay=Math.max(next-now,CloudSim.getMinTimeBetweenEvents()),due=now+delay;
-        if(!Double.isFinite(due)||due<=now)throw new IllegalStateException("V2 completion observation cannot advance Kernel clock");
-        if(coherentCheckTime!=null&&coherentCheckTime<=due)return;
-        long generation=Math.addExact(coherentCheckGeneration,1);schedule(getId(),delay,WorkflowSimTags.COHERENT_DATAFLOW_CHECK,Long.valueOf(generation));coherentCheckGeneration=generation;coherentCheckTime=due;
+
+    private void scheduleCoherentCheck() {
+        if (coherentDataflow == null || !coherentDataflow.isFabricBound()) return;
+        Double next = coherentDataflow.getNextCompletionTime();
+        if (next == null) return;
+        double now = CloudSim.clock(),
+                delay = Math.max(next - now, CloudSim.getMinTimeBetweenEvents()),
+                due = now + delay;
+        if (!Double.isFinite(due) || due <= now)
+            throw new IllegalStateException("V2 completion observation cannot advance Kernel clock");
+        if (coherentCheckTime != null && coherentCheckTime <= due) return;
+        long generation = Math.addExact(coherentCheckGeneration, 1);
+        schedule(getId(), delay, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, Long.valueOf(generation));
+        coherentCheckGeneration = generation;
+        coherentCheckTime = due;
     }
-    private void processCoherentDataflowCheck(SimEvent event){
-        if(coherentDataflow==null||!coherentDataflow.isFabricBound())throw new IllegalStateException("V2 check has no initialized run context");
-        if(event.getData() instanceof Long){if(((Long)event.getData()).longValue()!=coherentCheckGeneration)return;coherentCheckTime=null;}
-        coherentDataflow.advance(CloudSim.clock());Map<Integer,List> allocation=new LinkedHashMap<Integer,List>();for(int scheduler:getSchedulerIds())allocation.put(scheduler,new ArrayList<Job>());
-        appendCoherentReady(allocation);for(int scheduler:getSchedulerIds())dispatchReadyBatch(scheduler,allocation.get(scheduler));scheduleCoherentCheck();finishCoherentIfIdle();
+
+    private void processCoherentDataflowCheck(SimEvent event) {
+        if (coherentDataflow == null || !coherentDataflow.isFabricBound())
+            throw new IllegalStateException("V2 check has no initialized run context");
+        if (event.getData() instanceof Long) {
+            if (((Long) event.getData()).longValue() != coherentCheckGeneration) return;
+            coherentCheckTime = null;
+        }
+        coherentDataflow.advance(CloudSim.clock());
+        Map<Integer, List> allocation = new LinkedHashMap<Integer, List>();
+        for (int scheduler : getSchedulerIds()) allocation.put(scheduler, new ArrayList<Job>());
+        appendCoherentReady(allocation);
+        for (int scheduler : getSchedulerIds()) dispatchReadyBatch(scheduler, allocation.get(scheduler));
+        scheduleCoherentCheck();
+        finishCoherentIfIdle();
     }
-    private void finishCoherentIfIdle(){
-        if(coherentDataflow==null||coherentEndRequested||!getJobsList().isEmpty()||jobsSubmitted!=0||!coherentDataflow.isQuiescent())return;
-        coherentEndRequested=true;for(int scheduler:getSchedulerIds())sendNow(scheduler,CloudSimTags.END_OF_SIMULATION,null);
+
+    private void finishCoherentIfIdle() {
+        if (coherentDataflow == null
+                || coherentEndRequested
+                || !getJobsList().isEmpty()
+                || jobsSubmitted != 0
+                || !coherentDataflow.isQuiescent()) return;
+        coherentEndRequested = true;
+        for (int scheduler : getSchedulerIds()) sendNow(scheduler, CloudSimTags.END_OF_SIMULATION, null);
     }
 
     /** R5 动态到达：每个工作流输入的提交时刻（模拟秒）；null 表示未配置（全部 t=0）。 */
@@ -253,13 +333,12 @@ public final class WorkflowEngine extends SimEntity {
      *
      * @return 默认 VM 列表，或按调度器顺序汇总的 VM 列表
      */
-    public List<? extends Vm> getAllVmList(){
-        if(this.vmList != null && !this.vmList.isEmpty()){
+    public List<? extends Vm> getAllVmList() {
+        if (this.vmList != null && !this.vmList.isEmpty()) {
             return this.vmList;
-        }
-        else{
+        } else {
             List list = new ArrayList();
-            for(int i = 0;i < getSchedulers().size();i ++){
+            for (int i = 0; i < getSchedulers().size(); i++) {
                 list.addAll(getScheduler(i).getVmList());
             }
             return list;
@@ -324,11 +403,11 @@ public final class WorkflowEngine extends SimEntity {
     @Override
     public void processEvent(SimEvent ev) {
         switch (ev.getTag()) {
-            // 启动时将资源特征请求转发给每个运行时调度器。
+                // 启动时将资源特征请求转发给每个运行时调度器。
             case CloudSimTags.RESOURCE_CHARACTERISTICS_REQUEST:
                 processResourceCharacteristicsRequest(ev);
                 break;
-            // 调度器在 VM 创建完成后通知引擎开始释放当前就绪 Job。
+                // 调度器在 VM 创建完成后通知引擎开始释放当前就绪 Job。
             case CloudSimTags.CLOUDLET_SUBMIT:
                 submitJobs();
                 break;
@@ -394,7 +473,7 @@ public final class WorkflowEngine extends SimEntity {
     public void bindSchedulerDatacenter(int datacenterId) {
         bindSchedulerDatacenter(datacenterId, 0);
     }
-   
+
     /**
      * 处理 {@link WorkflowSimTags#JOB_SUBMIT}：以事件负载中的列表替换当前待提交队列，
      * 并立即触发一轮就绪扫描。
@@ -428,10 +507,8 @@ public final class WorkflowEngine extends SimEntity {
      * @param arrivalSeconds 每个工作流输入的提交时刻（模拟秒），与输入路径一一对应
      * @param taskWorkflowIndices 任务编号→来源输入下标的映射
      */
-    public void setWorkflowArrivals(List<Double> arrivalSeconds,
-            Map<Integer, Integer> taskWorkflowIndices) {
-        this.workflowArrivalSeconds = arrivalSeconds == null
-                ? null : new ArrayList<>(arrivalSeconds);
+    public void setWorkflowArrivals(List<Double> arrivalSeconds, Map<Integer, Integer> taskWorkflowIndices) {
+        this.workflowArrivalSeconds = arrivalSeconds == null ? null : new ArrayList<>(arrivalSeconds);
         this.taskWorkflowIndices = taskWorkflowIndices == null
                 ? Collections.<Integer, Integer>emptyMap()
                 : new HashMap<>(taskWorkflowIndices);
@@ -462,8 +539,8 @@ public final class WorkflowEngine extends SimEntity {
             return 0.0;
         }
         if (workflowIndex.intValue() < 0 || workflowIndex.intValue() >= workflowArrivalSeconds.size()) {
-            throw new IllegalStateException("Workflow index " + workflowIndex + " of Job "
-                    + job.getCloudletId() + " is outside the configured arrival seconds");
+            throw new IllegalStateException("Workflow index " + workflowIndex + " of Job " + job.getCloudletId()
+                    + " is outside the configured arrival seconds");
         }
         Double arrivalSecond = workflowArrivalSeconds.get(workflowIndex.intValue());
         return arrivalSecond == null ? 0.0 : arrivalSecond.doubleValue();
@@ -484,8 +561,8 @@ public final class WorkflowEngine extends SimEntity {
         List<Task> tasks = job.getTaskList();
         if (tasks == null || tasks.isEmpty()) {
             if (job.getClassType() == ClassType.COMPUTE.value) {
-                throw new IllegalStateException("Job " + job.getCloudletId()
-                        + " carries no task for workflow arrival attribution");
+                throw new IllegalStateException(
+                        "Job " + job.getCloudletId() + " carries no task for workflow arrival attribution");
             }
             return null;
         }
@@ -493,8 +570,8 @@ public final class WorkflowEngine extends SimEntity {
         for (Task task : tasks) {
             Integer index = taskWorkflowIndices.get(task.getCloudletId());
             if (index == null) {
-                throw new IllegalStateException("Task " + task.getCloudletId() + " of Job "
-                        + job.getCloudletId() + " has no workflow arrival attribution");
+                throw new IllegalStateException("Task " + task.getCloudletId() + " of Job " + job.getCloudletId()
+                        + " has no workflow arrival attribution");
             }
             if (workflowIndex == null) {
                 workflowIndex = index;
@@ -546,9 +623,11 @@ public final class WorkflowEngine extends SimEntity {
         }
         announcedWorkflowIndices.add(workflowIndex);
         double arrivalSecond = workflowArrivalSeconds.get(workflowIndex);
-        eventRecorder.record(SimulationEventType.WORKFLOW_ARRIVED, CloudSim.clock(), job,
-                SimulationEventRecorder.attributes("workflowIndex", workflowIndex,
-                        "arrivalSecond", arrivalSecond));
+        eventRecorder.record(
+                SimulationEventType.WORKFLOW_ARRIVED,
+                CloudSim.clock(),
+                job,
+                SimulationEventRecorder.attributes("workflowIndex", workflowIndex, "arrivalSecond", arrivalSecond));
     }
 
     /**
@@ -558,8 +637,7 @@ public final class WorkflowEngine extends SimEntity {
      */
     private void scheduleArrivalRescan(double arrivalSecond) {
         if (pendingArrivalScanSecond == null || arrivalSecond < pendingArrivalScanSecond) {
-            schedule(getId(), arrivalSecond - CloudSim.clock(),
-                    WorkflowSimTags.WORKFLOW_ARRIVAL_SCAN, null);
+            schedule(getId(), arrivalSecond - CloudSim.clock(), WorkflowSimTags.WORKFLOW_ARRIVAL_SCAN, null);
             pendingArrivalScanSecond = arrivalSecond;
         }
     }
@@ -594,8 +672,8 @@ public final class WorkflowEngine extends SimEntity {
         }
         // Missing mappings are an execution contract violation, never a no-transfer fallback.
         if (job.getVmId() < 0) {
-            throw new IllegalStateException("Pre-execution transfer requires a static VM mapping for Job "
-                    + job.getCloudletId());
+            throw new IllegalStateException(
+                    "Pre-execution transfer requires a static VM mapping for Job " + job.getCloudletId());
         }
         // 新数据移动模型下，计算 Job 统一记录传输证据（即使没有真实输入文件，
         // 与历史提交路径的证据覆盖保持一致）。
@@ -652,24 +730,35 @@ public final class WorkflowEngine extends SimEntity {
                 }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("WorkflowEngine could not estimate pre-execution stage-in for Job "
-                    + job.getCloudletId(), e);
+            throw new IllegalStateException(
+                    "WorkflowEngine could not estimate pre-execution stage-in for Job " + job.getCloudletId(), e);
         }
 
         double delay = maxArrival - now;
-        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job,
-                SimulationEventRecorder.attributes("modeledTransferSeconds", totalSeconds,
-                        "requiredFileBytes", requiredBytes,
-                        "modeledTransferFileCount", fileCount,
-                        "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
-                        "dataArrivalDelaySeconds", Math.max(delay, 0.0)));
+        eventRecorder.record(
+                SimulationEventType.DATA_STAGE_IN_MODELED,
+                now,
+                job,
+                SimulationEventRecorder.attributes(
+                        "modeledTransferSeconds",
+                        totalSeconds,
+                        "requiredFileBytes",
+                        requiredBytes,
+                        "modeledTransferFileCount",
+                        fileCount,
+                        "dataMovementModel",
+                        datacenter.getDataMovementModel().getKind().name(),
+                        "dataArrivalDelaySeconds",
+                        Math.max(delay, 0.0)));
         if (delay <= 0.0) {
             // 传输已在就绪前完成（或全部为本地数据）；立即登记副本，Job 走常规释放路径。
             try {
                 datacenter.registerStageInReplicasForComputeJob(job);
             } catch (Exception e) {
-                throw new IllegalStateException("WorkflowEngine could not register pre-execution stage-in "
-                        + "replicas for Job " + job.getCloudletId(), e);
+                throw new IllegalStateException(
+                        "WorkflowEngine could not register pre-execution stage-in " + "replicas for Job "
+                                + job.getCloudletId(),
+                        e);
             }
             return 0.0;
         }
@@ -692,8 +781,10 @@ public final class WorkflowEngine extends SimEntity {
         try {
             datacenter.registerStageInReplicasForComputeJob(job);
         } catch (Exception e) {
-            throw new IllegalStateException("WorkflowEngine could not register pre-execution stage-in "
-                    + "replicas for Job " + job.getCloudletId(), e);
+            throw new IllegalStateException(
+                    "WorkflowEngine could not register pre-execution stage-in " + "replicas for Job "
+                            + job.getCloudletId(),
+                    e);
         }
         List<Job> batch = new ArrayList<Job>();
         batch.add(job);
@@ -724,16 +815,15 @@ public final class WorkflowEngine extends SimEntity {
         }
         WorkflowDatacenter datacenter = (WorkflowDatacenter) entity;
         boolean fatTree = datacenter.getDataMovementModel().isFatTreeContentionV1();
-        if (!datacenter.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1()
-                && !fatTree) {
+        if (!datacenter.getDataMovementModel().isPreExecutionTransferDelayWithContentionV1() && !fatTree) {
             return false;
         }
         if (job.getClassType() != ClassType.COMPUTE.value) {
             return false;
         }
         if (job.getVmId() < 0) {
-            throw new IllegalStateException("Contention transfer requires a static VM mapping for Job "
-                    + job.getCloudletId());
+            throw new IllegalStateException(
+                    "Contention transfer requires a static VM mapping for Job " + job.getCloudletId());
         }
         TransferContentionEngine contention = datacenter.getTransferContentionEngine();
         double now = CloudSim.clock();
@@ -744,8 +834,7 @@ public final class WorkflowEngine extends SimEntity {
         int fileCount = 0;
         int pathLinkCount = 0;
         double modeledSeconds = 0.0;
-        boolean localFileSystem =
-                ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.LOCAL;
+        boolean localFileSystem = ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.LOCAL;
         try {
             Set<String> attributedNames = new HashSet<String>();
             // 按父任务产出归组：LOCAL 文件系统下源端点取父任务所在 VM；SHARED 文件系统
@@ -780,8 +869,7 @@ public final class WorkflowEngine extends SimEntity {
                 if (seconds <= 0.0 || transferredBytes <= 0.0) {
                     continue; // 副本已在目标 VM 上，零传输。
                 }
-                String sourceEndpoint = localFileSystem
-                        ? "VM:" + parent.getVmId() : Parameters.SOURCE;
+                String sourceEndpoint = localFileSystem ? "VM:" + parent.getVmId() : Parameters.SOURCE;
                 long transferId = nextContentionTransferId++;
                 String destinationEndpoint = "VM:" + job.getVmId();
                 List<String> resources;
@@ -789,24 +877,35 @@ public final class WorkflowEngine extends SimEntity {
                     // Fat-tree：资源集 = 两端点 + 确定性路由的全部链路键。
                     List<String> pathLinks = Parameters.SOURCE.equals(sourceEndpoint)
                             ? java.util.Collections.<String>emptyList()
-                            : datacenter.fatTreePathResources(parent.getVmId(), job.getVmId(),
-                                    job.getUserId());
+                            : datacenter.fatTreePathResources(parent.getVmId(), job.getVmId(), job.getUserId());
                     pathLinkCount += pathLinks.size();
                     resources = new ArrayList<String>();
                     resources.add(sourceEndpoint);
                     resources.add(destinationEndpoint);
                     resources.addAll(pathLinks);
-                    settleContentionTransfers(datacenter, contention.addTransfer(
-                            transferId, transferredBytes, resources,
-                            transferredBytes / seconds, now).getCompletedTransferIds());
+                    settleContentionTransfers(
+                            datacenter,
+                            contention
+                                    .addTransfer(
+                                            transferId, transferredBytes, resources, transferredBytes / seconds, now)
+                                    .getCompletedTransferIds());
                 } else {
                     resources = java.util.Arrays.asList(sourceEndpoint, destinationEndpoint);
-                    settleContentionTransfers(datacenter, contention.addTransfer(
-                            transferId, transferredBytes, resources,
-                            transferredBytes / seconds, now).getCompletedTransferIds());
+                    settleContentionTransfers(
+                            datacenter,
+                            contention
+                                    .addTransfer(
+                                            transferId, transferredBytes, resources, transferredBytes / seconds, now)
+                                    .getCompletedTransferIds());
                 }
-                datacenter.recordNetworkFlowBinding(transferId, job, Integer.valueOf(parent.getCloudletId()),
-                        NetworkFlowBinding.GroupKind.PARENT_GROUP_V1, sourceEndpoint, destinationEndpoint, resources);
+                datacenter.recordNetworkFlowBinding(
+                        transferId,
+                        job,
+                        Integer.valueOf(parent.getCloudletId()),
+                        NetworkFlowBinding.GroupKind.PARENT_GROUP_V1,
+                        sourceEndpoint,
+                        destinationEndpoint,
+                        resources);
                 contentionTransferJobs.put(transferId, job);
                 pending.add(transferId);
             }
@@ -833,23 +932,44 @@ public final class WorkflowEngine extends SimEntity {
                     if (fatTree) {
                         // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
                         resources = java.util.Collections.singletonList(destinationEndpoint);
-                        settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes,
-                                resources, transferredBytes / seconds, now).getCompletedTransferIds());
+                        settleContentionTransfers(
+                                datacenter,
+                                contention
+                                        .addTransfer(
+                                                transferId,
+                                                transferredBytes,
+                                                resources,
+                                                transferredBytes / seconds,
+                                                now)
+                                        .getCompletedTransferIds());
                     } else {
                         resources = java.util.Arrays.asList(Parameters.SOURCE, destinationEndpoint);
-                        settleContentionTransfers(datacenter, contention.addTransfer(transferId, transferredBytes,
-                                resources, transferredBytes / seconds, now).getCompletedTransferIds());
+                        settleContentionTransfers(
+                                datacenter,
+                                contention
+                                        .addTransfer(
+                                                transferId,
+                                                transferredBytes,
+                                                resources,
+                                                transferredBytes / seconds,
+                                                now)
+                                        .getCompletedTransferIds());
                     }
-                    datacenter.recordNetworkFlowBinding(transferId, job, null,
-                            NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1, Parameters.SOURCE,
-                            destinationEndpoint, resources);
+                    datacenter.recordNetworkFlowBinding(
+                            transferId,
+                            job,
+                            null,
+                            NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1,
+                            Parameters.SOURCE,
+                            destinationEndpoint,
+                            resources);
                     contentionTransferJobs.put(transferId, job);
                     pending.add(transferId);
                 }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("WorkflowEngine could not register contention stage-in "
-                    + "for Job " + job.getCloudletId(), e);
+            throw new IllegalStateException(
+                    "WorkflowEngine could not register contention stage-in " + "for Job " + job.getCloudletId(), e);
         }
         Map<String, Object> stageInAttributes = SimulationEventRecorder.attributes(
                 "modeledTransferSeconds", modeledSeconds,
@@ -860,24 +980,25 @@ public final class WorkflowEngine extends SimEntity {
         if (fatTree) {
             stageInAttributes.put("fatTreePathLinkCount", (double) pathLinkCount);
         }
-        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job,
-                stageInAttributes);
+        eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job, stageInAttributes);
         if (pending.isEmpty()) {
             // No actual transfer: join the ordinary ready batch instead of sampling WED once
             // per Job merely because a contention model was selected.
             try {
                 datacenter.registerStageInReplicasForComputeJob(job);
             } catch (Exception exception) {
-                throw new IllegalStateException("Could not register zero-transfer inputs for Job "
-                        + job.getCloudletId(), exception);
+                throw new IllegalStateException(
+                        "Could not register zero-transfer inputs for Job " + job.getCloudletId(), exception);
             }
             return false;
         }
         contentionJobPendingTransfers.put(job.getCloudletId(), pending);
         Double nextCompletion = contention.advance(now).getNextCompletionTime();
-        schedule(getId(),
+        schedule(
+                getId(),
                 Math.max(nextCompletion.doubleValue() - now, CloudSim.getMinTimeBetweenEvents()),
-                WorkflowSimTags.TRANSFER_CONTENTION_CHECK, null);
+                WorkflowSimTags.TRANSFER_CONTENTION_CHECK,
+                null);
         return true;
     }
 
@@ -896,8 +1017,7 @@ public final class WorkflowEngine extends SimEntity {
      * <p>组内文件已按真实输入过滤；本地命中文件贡献零秒也不计入字节，保证争用流
      * 的字节/秒比例与 V1 逐文件估算一致（R8 审计修复 F2）。</p>
      */
-    private double sumTransferableBytes(List<FileItem> files, Job job,
-            WorkflowDatacenter datacenter) {
+    private double sumTransferableBytes(List<FileItem> files, Job job, WorkflowDatacenter datacenter) {
         double bytes = 0.0;
         for (FileItem file : files) {
             boolean local = datacenter.isFileLocalForJob(file, job);
@@ -911,7 +1031,10 @@ public final class WorkflowEngine extends SimEntity {
 
     private static double addFiniteTransferQuantity(double total, double value, String field) {
         double result = total + value;
-        if (!Double.isFinite(total) || total < 0.0 || !Double.isFinite(value) || value < 0.0
+        if (!Double.isFinite(total)
+                || total < 0.0
+                || !Double.isFinite(value)
+                || value < 0.0
                 || !Double.isFinite(result)) {
             throw new IllegalArgumentException("Non-finite or negative " + field + " aggregate");
         }
@@ -926,7 +1049,8 @@ public final class WorkflowEngine extends SimEntity {
         if (transferredBytes > 0.0) {
             double rate = transferredBytes / seconds;
             if (!(seconds > 0.0) || !(rate > 0.0) || !Double.isFinite(rate)) {
-                throw new IllegalArgumentException("Positive nonlocal bytes require representable positive transfer seconds and rate");
+                throw new IllegalArgumentException(
+                        "Positive nonlocal bytes require representable positive transfer seconds and rate");
             }
         }
     }
@@ -946,9 +1070,11 @@ public final class WorkflowEngine extends SimEntity {
         settleContentionTransfers(datacenter, result.getCompletedTransferIds());
         Double nextCompletion = result.getNextCompletionTime();
         if (nextCompletion != null) {
-            schedule(getId(),
+            schedule(
+                    getId(),
                     Math.max(nextCompletion.doubleValue() - now, CloudSim.getMinTimeBetweenEvents()),
-                    WorkflowSimTags.TRANSFER_CONTENTION_CHECK, null);
+                    WorkflowSimTags.TRANSFER_CONTENTION_CHECK,
+                    null);
         }
     }
 
@@ -962,8 +1088,7 @@ public final class WorkflowEngine extends SimEntity {
             }
             Set<Long> pending = contentionJobPendingTransfers.get(job.getCloudletId());
             if (pending == null) {
-                throw new IllegalStateException("Completed transfer has no pending Job "
-                        + job.getCloudletId());
+                throw new IllegalStateException("Completed transfer has no pending Job " + job.getCloudletId());
             }
             pending.remove(transferId);
             if (pending.isEmpty()) {
@@ -981,8 +1106,10 @@ public final class WorkflowEngine extends SimEntity {
         try {
             datacenter.registerStageInReplicasForComputeJob(job);
         } catch (Exception e) {
-            throw new IllegalStateException("WorkflowEngine could not register contention stage-in "
-                    + "replicas for Job " + job.getCloudletId(), e);
+            throw new IllegalStateException(
+                    "WorkflowEngine could not register contention stage-in " + "replicas for Job "
+                            + job.getCloudletId(),
+                    e);
         }
         List<Job> batch = new ArrayList<Job>();
         batch.add(job);
@@ -1009,8 +1136,7 @@ public final class WorkflowEngine extends SimEntity {
             int newId = nextAvailableJobId(job);
             List<Job> retries = ReclusteringEngine.process(job, newId);
             if (retries.isEmpty()) {
-                throw new IllegalStateException("Failed job " + job.getCloudletId()
-                        + " produced no retry jobs");
+                throw new IllegalStateException("Failed job " + job.getCloudletId() + " produced no retry jobs");
             }
             enforceRetryBudget(job, retries.size());
             getJobsList().addAll(retries);
@@ -1018,7 +1144,10 @@ public final class WorkflowEngine extends SimEntity {
             for (Job retry : retries) {
                 // PLAT-13：登记 retry Job 与失败原 Job 的关联，供 JOB_READY 事件补充属性。
                 retryOfFailedJobIds.put(retry.getCloudletId(), job.getCloudletId());
-                eventRecorder.record(SimulationEventType.RETRY_JOB_CREATED, CloudSim.clock(), retry,
+                eventRecorder.record(
+                        SimulationEventType.RETRY_JOB_CREATED,
+                        CloudSim.clock(),
+                        retry,
                         SimulationEventRecorder.attributes("failedJobId", job.getCloudletId()));
             }
         }
@@ -1027,7 +1156,11 @@ public final class WorkflowEngine extends SimEntity {
         receivedJobIds.add(job.getCloudletId());
         jobsSubmitted--;
         if (getJobsList().isEmpty() && jobsSubmitted == 0) {
-            if(coherentDataflow!=null){scheduleCoherentCheck();finishCoherentIfIdle();return;}
+            if (coherentDataflow != null) {
+                scheduleCoherentCheck();
+                finishCoherentIfIdle();
+                return;
+            }
             // 没有待释放或在途 Job 后，通知所有调度器结束本次仿真。
             for (int i = 0; i < getSchedulerIds().size(); i++) {
                 sendNow(getSchedulerId(i), CloudSimTags.END_OF_SIMULATION, null);
@@ -1062,8 +1195,12 @@ public final class WorkflowEngine extends SimEntity {
             return;
         }
         if (requestedRetryJobs <= 0 || retryJobsCreated > budget - requestedRetryJobs) {
-            throw new RetryLimitExceededException(failedJob.getCloudletId(), retryJobsCreated,
-                    requestedRetryJobs, budget, FailureParameters.getRootSeed());
+            throw new RetryLimitExceededException(
+                    failedJob.getCloudletId(),
+                    retryJobsCreated,
+                    requestedRetryJobs,
+                    budget,
+                    FailureParameters.getRootSeed());
         }
     }
 
@@ -1093,8 +1230,7 @@ public final class WorkflowEngine extends SimEntity {
             Log.printLine(getName() + ".processOtherEvent(): " + "Error - an event is null.");
             return;
         }
-        Log.printLine(getName() + ".processOtherEvent(): "
-                + "Error - event unknown by this DatacenterBroker.");
+        Log.printLine(getName() + ".processOtherEvent(): " + "Error - event unknown by this DatacenterBroker.");
     }
 
     /**
@@ -1144,14 +1280,21 @@ public final class WorkflowEngine extends SimEntity {
                         continue;
                     }
                     announceWorkflowArrivalFor(job);
-                    org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation coherentPreparation=prepareCoherentInput(job);
+                    org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation coherentPreparation =
+                            prepareCoherentInput(job);
                     // PLAT-13：retry Job 的 JOB_READY 补充与失败原 Job 的关联属性，
                     // 使下游事件消费者能直接识别重试尝试（attempt 语义）。
                     Integer retryOfFailedJobId = retryOfFailedJobIds.get(job.getCloudletId());
-                    eventRecorder.record(SimulationEventType.JOB_READY, CloudSim.clock(), job,
+                    eventRecorder.record(
+                            SimulationEventType.JOB_READY,
+                            CloudSim.clock(),
+                            job,
                             retryOfFailedJobId != null
-                                    ? SimulationEventRecorder.attributes("parentJobCount", parentList.size(),
-                                            "retryOfFailedJobId", retryOfFailedJobId)
+                                    ? SimulationEventRecorder.attributes(
+                                            "parentJobCount",
+                                            parentList.size(),
+                                            "retryOfFailedJobId",
+                                            retryOfFailedJobId)
                                     : SimulationEventRecorder.attributes("parentJobCount", parentList.size()));
                     jobsSubmitted++;
                     getJobsSubmittedList().add(job);
@@ -1164,26 +1307,44 @@ public final class WorkflowEngine extends SimEntity {
                     // MI 占用。负值表示模型不适用（常规释放路径，行为与历史一致）。
                     // R2：链路争用模型优先——传输组登记进争用引擎后由争用检查事件
                     // 在全部传输组完成时释放；返回 true 表示争用路径已接管本 Job。
-                    if(coherentPreparation!=null){
-                        coherentPendingJobs.put(job.getCloudletId(),job);
-                        if(!coherentDataflow.isStorageVersion())eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED,CloudSim.clock(),job,
-                                SimulationEventRecorder.attributes("modeledTransferSeconds",coherentPreparation.getIsolatedSeconds(),"requiredFileBytes",coherentPreparation.getRequiredBytes(),
-                                        "modeledTransferFileCount",coherentPreparation.getReferenceCount(),"dataMovementModel",((WorkflowDatacenter)CloudSim.getEntity(boundDatacenterId)).getDataMovementModel().getKind().name(),
-                                        "newFileCopies",coherentPreparation.getNewCopies(),"joinedFileCopies",coherentPreparation.getJoinedCopies(),"transferUnit","LOGICAL_FILE_V2"));
-                    }else if (!startContentionStageIn(job)) {
+                    if (coherentPreparation != null) {
+                        coherentPendingJobs.put(job.getCloudletId(), job);
+                        if (!coherentDataflow.isStorageVersion())
+                            eventRecorder.record(
+                                    SimulationEventType.DATA_STAGE_IN_MODELED,
+                                    CloudSim.clock(),
+                                    job,
+                                    SimulationEventRecorder.attributes(
+                                            "modeledTransferSeconds",
+                                            coherentPreparation.getIsolatedSeconds(),
+                                            "requiredFileBytes",
+                                            coherentPreparation.getRequiredBytes(),
+                                            "modeledTransferFileCount",
+                                            coherentPreparation.getReferenceCount(),
+                                            "dataMovementModel",
+                                            ((WorkflowDatacenter) CloudSim.getEntity(boundDatacenterId))
+                                                    .getDataMovementModel()
+                                                    .getKind()
+                                                    .name(),
+                                            "newFileCopies",
+                                            coherentPreparation.getNewCopies(),
+                                            "joinedFileCopies",
+                                            coherentPreparation.getJoinedCopies(),
+                                            "transferUnit",
+                                            "LOGICAL_FILE_V2"));
+                    } else if (!startContentionStageIn(job)) {
                         double stageInHoldSeconds = preExecutionStageInHoldSeconds(job);
                         if (stageInHoldSeconds < 0.0 || stageInHoldSeconds == 0.0) {
                             allocationList.get(job.getUserId()).add(job);
                         } else {
-                            schedule(getId(), stageInHoldSeconds,
-                                    WorkflowSimTags.JOB_STAGE_IN_COMPLETE, job);
+                            schedule(getId(), stageInHoldSeconds, WorkflowSimTags.JOB_STAGE_IN_COMPLETE, job);
                         }
                     }
                 }
             }
-
         }
-        appendCoherentReady(allocationList);scheduleCoherentCheck();
+        appendCoherentReady(allocationList);
+        scheduleCoherentCheck();
         for (int i = 0; i < getSchedulers().size(); i++) {
             dispatchReadyBatch(getSchedulerId(i), allocationList.get(getSchedulerId(i)));
         }
@@ -1196,7 +1357,9 @@ public final class WorkflowEngine extends SimEntity {
      * including a final partial batch. Empty batches consume no randomness.
      */
     private void dispatchReadyBatch(int scheduler, List<Job> jobs) {
-        if (jobs.isEmpty()) { return; }
+        if (jobs.isEmpty()) {
+            return;
+        }
         int interval = Parameters.getOverheadParams().getWEDInterval();
         int batchSize = interval > 0 ? Math.min(interval, jobs.size()) : jobs.size();
         double baseDelay = Parameters.getOverheadParams().getWEDDelay(jobs);
@@ -1204,14 +1367,13 @@ public final class WorkflowEngine extends SimEntity {
             throw new IllegalStateException("Workflow-engine delay must be finite and non-negative");
         }
         double delay = 0.0;
-        for (int first = 0; first < jobs.size();) {
+        for (int first = 0; first < jobs.size(); ) {
             int end = first + Math.min(batchSize, jobs.size() - first);
             delay += baseDelay;
             if (!Double.isFinite(delay)) {
                 throw new IllegalStateException("Workflow-engine batch delay overflow");
             }
-            schedule(scheduler, delay, CloudSimTags.CLOUDLET_SUBMIT,
-                    new ArrayList<Job>(jobs.subList(first, end)));
+            schedule(scheduler, delay, CloudSimTags.CLOUDLET_SUBMIT, new ArrayList<Job>(jobs.subList(first, end)));
             first = end;
         }
     }

@@ -76,5 +76,4 @@ public class RandomPlanningAlgorithm extends BasePlanningAlgorithm {
         });
         return result;
     }
-
 }

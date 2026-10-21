@@ -53,6 +53,7 @@ public final class SimulationMetrics {
     private final double meanJobVmLevelSlowdown;
     /** VM 层面减速比的样本观测数（仅 executionTime > 0.001s 的作业；与均值同集合）。 */
     private final int vmLevelSlowdownObservationCount;
+
     private final double meanComputeTotalWaitingTimeSeconds;
     private final double meanComputeTrueSlowdown;
     private final int trueSlowdownObservationCount;
@@ -78,6 +79,7 @@ public final class SimulationMetrics {
     private final int successOnlyWaitingObservationCount;
     /** 重试放大率 = 逻辑任务尝试总数 / 逻辑任务数；无失败时为 1.0，无任务时为 0.0。 */
     private final double retryAmplificationRatio;
+
     private final double meanComputeReadyToDecisionDelaySeconds;
     private final double meanComputeDecisionToStartDelaySeconds;
     private final int readyToDecisionObservationCount;
@@ -101,6 +103,7 @@ public final class SimulationMetrics {
     private final double vmModeledBusyTimeCoefficientOfVariation;
     /** VM 利用率 Jain 公平性指数 ∈ (0,1]；同窗口非零负载下等于 1/(1+CV²)。 */
     private final double vmUtilizationJainFairnessIndex;
+
     private final boolean controlledSharedStorageCriticalPathReferenceAvailable;
     private final String controlledSharedStorageCriticalPathReferenceScope;
     private final double controlledSharedStorageCriticalPathLowerBoundSeconds;
@@ -114,25 +117,40 @@ public final class SimulationMetrics {
     private final int exactTaskTimingObservationCount;
     private final int modeledApproximateTaskTimingObservationCount;
 
-    private SimulationMetrics(double makespanSeconds, Double logicalTaskCompletionSeconds,
-            String logicalTaskCompletionStatus, Double terminalLifecycleTailSeconds,
+    private SimulationMetrics(
+            double makespanSeconds,
+            Double logicalTaskCompletionSeconds,
+            String logicalTaskCompletionStatus,
+            Double terminalLifecycleTailSeconds,
             int jobOutcomeCount,
-            int computeJobOutcomeCount, int stageInJobOutcomeCount,
-            int successfulJobOutcomeCount, int failedJobOutcomeCount,
-            int successfulComputeJobOutcomeCount, int failedComputeJobOutcomeCount,
-            double successfulComputeJobOutcomeRate, double computeJobOutcomeThroughputPerSecond,
-            int logicalTaskCount, int successfullyCompletedLogicalTaskCount,
+            int computeJobOutcomeCount,
+            int stageInJobOutcomeCount,
+            int successfulJobOutcomeCount,
+            int failedJobOutcomeCount,
+            int successfulComputeJobOutcomeCount,
+            int failedComputeJobOutcomeCount,
+            double successfulComputeJobOutcomeRate,
+            double computeJobOutcomeThroughputPerSecond,
+            int logicalTaskCount,
+            int successfullyCompletedLogicalTaskCount,
             int logicalTasksNotYetSuccessfullyCompletedCount,
-            double successfulLogicalTaskCompletionRate, boolean allLogicalTasksCompletedSuccessfully,
-            int initialComputeJobOutcomeCount, int retryJobCreatedCount,
-            int completedRetryComputeJobOutcomeCount, int logicalTaskAttemptCount,
-            int retriedLogicalTaskCount, double failedComputeAttemptEnvelopeSeconds,
+            double successfulLogicalTaskCompletionRate,
+            boolean allLogicalTasksCompletedSuccessfully,
+            int initialComputeJobOutcomeCount,
+            int retryJobCreatedCount,
+            int completedRetryComputeJobOutcomeCount,
+            int logicalTaskAttemptCount,
+            int retriedLogicalTaskCount,
+            double failedComputeAttemptEnvelopeSeconds,
             double failedComputeAttemptModeledProcessingCost,
             double retryComputeAttemptModeledProcessingCost,
-            double meanComputeJobRunTimeSeconds, double meanJobVmQueueWaitingTimeSeconds,
-            double meanJobResponseTimeSeconds, double meanJobVmLevelSlowdown,
+            double meanComputeJobRunTimeSeconds,
+            double meanJobVmQueueWaitingTimeSeconds,
+            double meanJobResponseTimeSeconds,
+            double meanJobVmLevelSlowdown,
             int vmLevelSlowdownObservationCount,
-            double meanComputeTotalWaitingTimeSeconds, double meanComputeTrueSlowdown,
+            double meanComputeTotalWaitingTimeSeconds,
+            double meanComputeTrueSlowdown,
             int trueSlowdownObservationCount,
             int totalWaitingTimeObservationCount,
             double medianComputeTotalWaitingTimeSeconds,
@@ -146,21 +164,35 @@ public final class SimulationMetrics {
             int successOnlyWaitingObservationCount,
             double retryAmplificationRatio,
             double meanComputeReadyToDecisionDelaySeconds,
-            double meanComputeDecisionToStartDelaySeconds, int readyToDecisionObservationCount,
-            int decisionToStartObservationCount, int schedulingCycleCount,
-            long totalSchedulingDecisionWallClockNanos, int explicitPlannerDecisionObservationCount,
-            long totalPlanningDecisionWallClockNanos, int dataStageInModelObservationCount,
-            int modeledDataTransferFileCount, double totalModeledDataTransferSeconds,
-            double totalModeledRequiredInputBytes, double meanModeledDataTransferSeconds,
-            double totalModeledProcessingCost, double totalModeledCpuEnvelopeCost,
-            double totalModeledDeclaredFileBandwidthCost, double totalModeledDeclaredFileBytes,
-            Map<Integer, VmMetrics> vmMetrics, double totalVmModeledBusyIntervalSeconds,
-            double meanVmModeledIntervalUtilization, double vmModeledBusyTimeCoefficientOfVariation,
+            double meanComputeDecisionToStartDelaySeconds,
+            int readyToDecisionObservationCount,
+            int decisionToStartObservationCount,
+            int schedulingCycleCount,
+            long totalSchedulingDecisionWallClockNanos,
+            int explicitPlannerDecisionObservationCount,
+            long totalPlanningDecisionWallClockNanos,
+            int dataStageInModelObservationCount,
+            int modeledDataTransferFileCount,
+            double totalModeledDataTransferSeconds,
+            double totalModeledRequiredInputBytes,
+            double meanModeledDataTransferSeconds,
+            double totalModeledProcessingCost,
+            double totalModeledCpuEnvelopeCost,
+            double totalModeledDeclaredFileBandwidthCost,
+            double totalModeledDeclaredFileBytes,
+            Map<Integer, VmMetrics> vmMetrics,
+            double totalVmModeledBusyIntervalSeconds,
+            double meanVmModeledIntervalUtilization,
+            double vmModeledBusyTimeCoefficientOfVariation,
             double vmUtilizationJainFairnessIndex,
             WorkflowModelReference.Reference criticalPathReference,
-            double controlledSharedStorageScheduleLengthRatio, boolean deadlineObservationEnabled,
-            String deadlineObservationOutcome, boolean deadlineMet, double deadlineSlackSeconds,
-            double deadlineTardinessSeconds, int exactTaskTimingObservationCount,
+            double controlledSharedStorageScheduleLengthRatio,
+            boolean deadlineObservationEnabled,
+            String deadlineObservationOutcome,
+            boolean deadlineMet,
+            double deadlineSlackSeconds,
+            double deadlineTardinessSeconds,
+            int exactTaskTimingObservationCount,
             int modeledApproximateTaskTimingObservationCount) {
         this.makespanSeconds = makespanSeconds;
         this.logicalTaskCompletionSeconds = logicalTaskCompletionSeconds;
@@ -251,10 +283,15 @@ public final class SimulationMetrics {
      */
     private static final double BOUNDED_SLOWDOWN_THRESHOLD_SECONDS = 10.0;
 
-    static SimulationMetrics calculate(double makespan, List<SimulationReport.JobOutcome> jobs,
+    static SimulationMetrics calculate(
+            double makespan,
+            List<SimulationReport.JobOutcome> jobs,
             Map<Integer, SimulationReport.VmSummary> summaries,
-            List<SimulationEvent> events, List<SimulationReport.TaskOutcome> taskOutcomes,
-            List<Task> sourceTasks, SimulationConfig config, PlatformProfile platform) {
+            List<SimulationEvent> events,
+            List<SimulationReport.TaskOutcome> taskOutcomes,
+            List<Task> sourceTasks,
+            SimulationConfig config,
+            PlatformProfile platform) {
         // 数值稳定性：校验 makespan 有限性，防止 NaN/Infinity 静默传播进指标计算
         requireFinite(makespan, "makespan");
         // 校验每个 JobOutcome 的时间和成本字段有限性
@@ -290,8 +327,7 @@ public final class SimulationMetrics {
                             + previousReady + " but a second event arrived at "
                             + event.getSimulationTime());
                 }
-            } else if (event.getType() == SimulationEventType.SCHEDULING_DECISION
-                    && event.getJobId() != null) {
+            } else if (event.getType() == SimulationEventType.SCHEDULING_DECISION && event.getJobId() != null) {
                 // PLAT-16：同上，SCHEDULING_DECISION 每作业恰一次，重复即事件流破坏。
                 Double previousDecision = decisionTimes.put(event.getJobId(), event.getSimulationTime());
                 if (previousDecision != null) {
@@ -309,16 +345,12 @@ public final class SimulationMetrics {
             } else if (event.getType() == SimulationEventType.PLANNING_COMPLETED
                     && Boolean.TRUE.equals(event.getAttributes().get("explicitPlannerDecision"))) {
                 explicitPlannerDecisions++;
-                totalPlanningNanos += requiredNonNegativeLongAttribute(event,
-                        "planningDecisionElapsedNanos");
+                totalPlanningNanos += requiredNonNegativeLongAttribute(event, "planningDecisionElapsedNanos");
             } else if (event.getType() == SimulationEventType.DATA_STAGE_IN_MODELED) {
                 dataStageInObservations++;
-                totalTransferSeconds += requiredFiniteNonNegativeAttribute(event,
-                        "modeledTransferSeconds");
-                totalRequiredInputBytes += requiredFiniteNonNegativeAttribute(event,
-                        "requiredFileBytes");
-                modeledTransferFiles += requiredNonNegativeIntegerAttribute(event,
-                        "modeledTransferFileCount");
+                totalTransferSeconds += requiredFiniteNonNegativeAttribute(event, "modeledTransferSeconds");
+                totalRequiredInputBytes += requiredFiniteNonNegativeAttribute(event, "requiredFileBytes");
+                modeledTransferFiles += requiredNonNegativeIntegerAttribute(event, "modeledTransferFileCount");
             }
         }
 
@@ -385,23 +417,22 @@ public final class SimulationMetrics {
                     computeSuccess++;
                 } else if (job.getStatus() == Cloudlet.FAILED) {
                     computeFailure++;
-                    failedComputeEnvelopeSeconds += nonNegative(job.getFinishTime()
-                            - job.getStartTime());
+                    failedComputeEnvelopeSeconds += nonNegative(job.getFinishTime() - job.getStartTime());
                     failedComputeCost += job.getModeledProcessingCost();
                 }
                 computeRunTimeSum += nonNegative(job.getFinishTime() - job.getStartTime());
-                
+
                 // 统计等待时间和响应时间（所有作业，包括成功和失败）
                 jobWaitingTimeSum += job.getWaitingTime();
                 jobResponseTimeSum += job.getResponseTime();
-                
+
                 // 统计减速比（仅执行时间 > 0.001 秒的作业，避免除零）
                 if (job.getExecutionTime() > 0.001) {
                     double slowdown = job.getResponseTime() / job.getExecutionTime();
                     jobSlowdownSum += slowdown;
                     jobSlowdownCount++;
                 }
-                
+
                 Double ready = readyTimes.get(job.getJobId());
                 Double decision = decisionTimes.get(job.getJobId());
                 if (ready != null && decision != null && decision.doubleValue() >= ready.doubleValue()) {
@@ -471,18 +502,18 @@ public final class SimulationMetrics {
             terminalLifecycleTailSeconds = null;
         } else {
             logicalTaskCompletionStatus = "COMPLETED_SUCCESSFULLY";
-            logicalTaskCompletionSeconds = Double.valueOf(latestFinish(
-                    earliestSuccessfulJobFinishByLogicalTask));
-            terminalLifecycleTailSeconds = Double.valueOf(nonNegative(makespan
-                    - logicalTaskCompletionSeconds.doubleValue()));
+            logicalTaskCompletionSeconds = Double.valueOf(latestFinish(earliestSuccessfulJobFinishByLogicalTask));
+            terminalLifecycleTailSeconds =
+                    Double.valueOf(nonNegative(makespan - logicalTaskCompletionSeconds.doubleValue()));
         }
         int logicalAttempts = logicalTaskAttemptCount(taskOutcomes, jobsById, logicalTaskIds);
         int retriedLogicalTasks = retriedLogicalTaskCount(retryJobIds, jobsById, logicalTaskIds);
         WorkflowModelReference.Reference criticalPathReference =
                 WorkflowModelReference.calculate(sourceTasks, config, platform);
-        double scheduleLengthRatio = criticalPathReference.isAvailable()
-                && criticalPathReference.getCriticalPathLowerBoundSeconds() > 0.0
-                ? makespan / criticalPathReference.getCriticalPathLowerBoundSeconds() : 0.0;
+        double scheduleLengthRatio =
+                criticalPathReference.isAvailable() && criticalPathReference.getCriticalPathLowerBoundSeconds() > 0.0
+                        ? makespan / criticalPathReference.getCriticalPathLowerBoundSeconds()
+                        : 0.0;
         boolean workflowCompleted = "COMPLETED_SUCCESSFULLY".equals(logicalTaskCompletionStatus);
         boolean deadlineEnabled = config.getDeadline() > 0L;
         // Preserve the exact long threshold and the exact binary64 clock before subtracting.
@@ -491,8 +522,7 @@ public final class SimulationMetrics {
         BigDecimal exactDeadlineSlack = deadlineEnabled
                 ? BigDecimal.valueOf(config.getDeadline()).subtract(new BigDecimal(makespan))
                 : BigDecimal.ZERO;
-        String deadlineOutcome = deadlineOutcome(deadlineEnabled, workflowCompleted,
-                exactDeadlineSlack.signum());
+        String deadlineOutcome = deadlineOutcome(deadlineEnabled, workflowCompleted, exactDeadlineSlack.signum());
         boolean deadlineMet = "MET".equals(deadlineOutcome);
         double deadlineSlack = exactDeadlineSlack.doubleValue();
         double deadlineTardiness = Math.max(0.0, -deadlineSlack);
@@ -508,17 +538,34 @@ public final class SimulationMetrics {
         // 等待/减速比分布统计（排序后最近秩法取中位数/p95/max）。
         Collections.sort(totalWaitingSamples);
         Collections.sort(trueSlowdownSamples);
-        double retryAmplificationRatio = logicalTaskCount > 0
-                ? (double) logicalAttempts / logicalTaskCount : 0.0;
-        return new SimulationMetrics(makespan, logicalTaskCompletionSeconds,
-                logicalTaskCompletionStatus, terminalLifecycleTailSeconds,
-                jobs.size(), compute, stageIn, success, failure,
-                computeSuccess, computeFailure, ratio(computeSuccess, compute),
-                makespan > 0.0 ? compute / makespan : 0.0, logicalTaskCount, logicalSuccesses,
-                logicalTaskCount - logicalSuccesses, ratio(logicalSuccesses, logicalTaskCount),
-                workflowCompleted, compute - completedRetryComputeJobs, retryJobIds.size(),
-                completedRetryComputeJobs, logicalAttempts, retriedLogicalTasks,
-                failedComputeEnvelopeSeconds, failedComputeCost, retryComputeCost,
+        double retryAmplificationRatio = logicalTaskCount > 0 ? (double) logicalAttempts / logicalTaskCount : 0.0;
+        return new SimulationMetrics(
+                makespan,
+                logicalTaskCompletionSeconds,
+                logicalTaskCompletionStatus,
+                terminalLifecycleTailSeconds,
+                jobs.size(),
+                compute,
+                stageIn,
+                success,
+                failure,
+                computeSuccess,
+                computeFailure,
+                ratio(computeSuccess, compute),
+                makespan > 0.0 ? compute / makespan : 0.0,
+                logicalTaskCount,
+                logicalSuccesses,
+                logicalTaskCount - logicalSuccesses,
+                ratio(logicalSuccesses, logicalTaskCount),
+                workflowCompleted,
+                compute - completedRetryComputeJobs,
+                retryJobIds.size(),
+                completedRetryComputeJobs,
+                logicalAttempts,
+                retriedLogicalTasks,
+                failedComputeEnvelopeSeconds,
+                failedComputeCost,
+                retryComputeCost,
                 mean(computeRunTimeSum, compute),
                 mean(jobWaitingTimeSum, compute),
                 mean(jobResponseTimeSum, compute),
@@ -539,18 +586,36 @@ public final class SimulationMetrics {
                 successOnlyWaitingObservationCount,
                 retryAmplificationRatio,
                 mean(readyToDecisionSum, readyToDecisionCount),
-                mean(decisionToStartSum, decisionToStartCount), readyToDecisionCount,
-                decisionToStartCount, schedulingCycles, totalSchedulingNanos,
-                explicitPlannerDecisions, totalPlanningNanos, dataStageInObservations,
-                modeledTransferFiles, totalTransferSeconds, totalRequiredInputBytes,
-                mean(totalTransferSeconds, dataStageInObservations), cost, cpuEnvelopeCost,
-                declaredFileBandwidthCost, declaredFileBytes, frozenVm,
-                totalBusyInterval, makespan > 0.0 && !frozenVm.isEmpty()
-                        ? totalBusyInterval / (makespan * frozenVm.size()) : 0.0,
-                coefficientOfVariation(busyTimes), vmUtilizationJainFairnessIndex,
-                criticalPathReference, scheduleLengthRatio,
-                deadlineEnabled, deadlineOutcome, deadlineMet, deadlineSlack, deadlineTardiness,
-                exactTaskTimingCount, taskOutcomes.size() - exactTaskTimingCount);
+                mean(decisionToStartSum, decisionToStartCount),
+                readyToDecisionCount,
+                decisionToStartCount,
+                schedulingCycles,
+                totalSchedulingNanos,
+                explicitPlannerDecisions,
+                totalPlanningNanos,
+                dataStageInObservations,
+                modeledTransferFiles,
+                totalTransferSeconds,
+                totalRequiredInputBytes,
+                mean(totalTransferSeconds, dataStageInObservations),
+                cost,
+                cpuEnvelopeCost,
+                declaredFileBandwidthCost,
+                declaredFileBytes,
+                frozenVm,
+                totalBusyInterval,
+                makespan > 0.0 && !frozenVm.isEmpty() ? totalBusyInterval / (makespan * frozenVm.size()) : 0.0,
+                coefficientOfVariation(busyTimes),
+                vmUtilizationJainFairnessIndex,
+                criticalPathReference,
+                scheduleLengthRatio,
+                deadlineEnabled,
+                deadlineOutcome,
+                deadlineMet,
+                deadlineSlack,
+                deadlineTardiness,
+                exactTaskTimingCount,
+                taskOutcomes.size() - exactTaskTimingCount);
     }
 
     /**
@@ -561,51 +626,95 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的仿真结束时间
      */
-    public double getMakespanSeconds() { return makespanSeconds; }
+    public double getMakespanSeconds() {
+        return makespanSeconds;
+    }
     /**
      * 返回本次运行的 CloudSim 仿真结束时间。
      *
      * @return 与 {@link #getMakespanSeconds()} 完全相同的模拟秒值
      */
-    public double getSimulationEndSeconds() { return makespanSeconds; }
+    public double getSimulationEndSeconds() {
+        return makespanSeconds;
+    }
     /**
      * 返回全部逻辑 Task 首次由成功 compute Job 完成时的最大 Job envelope 结束时刻。
      *
      * @return 全部逻辑 Task 成功时的完成秒数；否则为 {@code null}
      */
-    public Double getLogicalTaskCompletionSeconds() { return logicalTaskCompletionSeconds; }
+    public Double getLogicalTaskCompletionSeconds() {
+        return logicalTaskCompletionSeconds;
+    }
     /**
      * 返回 {@code COMPLETED_SUCCESSFULLY}、{@code INCOMPLETE_LOGICAL_TASKS} 或
      * {@code NO_LOGICAL_TASKS}，以明确逻辑完成时间是否可用。
      *
      * @return 逻辑 Task 完成时间状态
      */
-    public String getLogicalTaskCompletionStatus() { return logicalTaskCompletionStatus; }
+    public String getLogicalTaskCompletionStatus() {
+        return logicalTaskCompletionStatus;
+    }
     /**
      * 返回最后一个逻辑 Task 成功完成到 CloudSim 仿真结束之间的生命周期尾部。
      *
      * @return 工作流完整时的非负模拟秒数；否则为 {@code null}
      */
-    public Double getTerminalLifecycleTailSeconds() { return terminalLifecycleTailSeconds; }
+    public Double getTerminalLifecycleTailSeconds() {
+        return terminalLifecycleTailSeconds;
+    }
     /** @return 已完成 Job attempt 数，等同于 {@link #getJobOutcomeCount()} */
-    public int getCompletedJobAttemptCount() { return jobOutcomeCount; }
-    public int getJobOutcomeCount() { return jobOutcomeCount; }
+    public int getCompletedJobAttemptCount() {
+        return jobOutcomeCount;
+    }
+
+    public int getJobOutcomeCount() {
+        return jobOutcomeCount;
+    }
     /** @return 已完成 compute Job attempt 数，包含 retry attempt */
-    public int getCompletedComputeAttemptCount() { return computeJobOutcomeCount; }
-    public int getComputeJobOutcomeCount() { return computeJobOutcomeCount; }
-    public int getStageInJobOutcomeCount() { return stageInJobOutcomeCount; }
-    public int getSuccessfulJobOutcomeCount() { return successfulJobOutcomeCount; }
-    public int getFailedJobOutcomeCount() { return failedJobOutcomeCount; }
-    public int getSuccessfulComputeJobOutcomeCount() { return successfulComputeJobOutcomeCount; }
-    public int getFailedComputeJobOutcomeCount() { return failedComputeJobOutcomeCount; }
+    public int getCompletedComputeAttemptCount() {
+        return computeJobOutcomeCount;
+    }
+
+    public int getComputeJobOutcomeCount() {
+        return computeJobOutcomeCount;
+    }
+
+    public int getStageInJobOutcomeCount() {
+        return stageInJobOutcomeCount;
+    }
+
+    public int getSuccessfulJobOutcomeCount() {
+        return successfulJobOutcomeCount;
+    }
+
+    public int getFailedJobOutcomeCount() {
+        return failedJobOutcomeCount;
+    }
+
+    public int getSuccessfulComputeJobOutcomeCount() {
+        return successfulComputeJobOutcomeCount;
+    }
+
+    public int getFailedComputeJobOutcomeCount() {
+        return failedComputeJobOutcomeCount;
+    }
     /**
      * 返回成功计算 Job 占全部计算 Job 的比例。
      *
      * @return 成功计算 Job 结果率；无计算 Job 时为零
      */
-    public double getSuccessfulComputeJobOutcomeRate() { return successfulComputeJobOutcomeRate; }
-    public int getLogicalTaskCount() { return logicalTaskCount; }
-    public int getSuccessfullyCompletedLogicalTaskCount() { return successfullyCompletedLogicalTaskCount; }
+    public double getSuccessfulComputeJobOutcomeRate() {
+        return successfulComputeJobOutcomeRate;
+    }
+
+    public int getLogicalTaskCount() {
+        return logicalTaskCount;
+    }
+
+    public int getSuccessfullyCompletedLogicalTaskCount() {
+        return successfullyCompletedLogicalTaskCount;
+    }
+
     public int getLogicalTasksNotYetSuccessfullyCompletedCount() {
         return logicalTasksNotYetSuccessfullyCompletedCount;
     }
@@ -617,6 +726,7 @@ public final class SimulationMetrics {
     public double getSuccessfulLogicalTaskCompletionRate() {
         return successfulLogicalTaskCompletionRate;
     }
+
     public boolean isAllLogicalTasksCompletedSuccessfully() {
         return allLogicalTasksCompletedSuccessfully;
     }
@@ -636,9 +746,13 @@ public final class SimulationMetrics {
      *
      * @return 初始 compute attempt 数
      */
-    public int getInitialComputeJobOutcomeCount() { return initialComputeJobOutcomeCount; }
+    public int getInitialComputeJobOutcomeCount() {
+        return initialComputeJobOutcomeCount;
+    }
     /** @return 事件流中创建的 retry Job 数 */
-    public int getRetryJobCreatedCount() { return retryJobCreatedCount; }
+    public int getRetryJobCreatedCount() {
+        return retryJobCreatedCount;
+    }
     /** @return 已完成且由 retry 创建事件证实的 compute attempt 数 */
     public int getCompletedRetryComputeJobOutcomeCount() {
         return completedRetryComputeJobOutcomeCount;
@@ -650,9 +764,13 @@ public final class SimulationMetrics {
      *
      * @return 逻辑 Task attempt 数
      */
-    public int getLogicalTaskAttemptCount() { return logicalTaskAttemptCount; }
+    public int getLogicalTaskAttemptCount() {
+        return logicalTaskAttemptCount;
+    }
     /** @return 至少出现在一个 retry compute Job 中的不同逻辑 Task 数 */
-    public int getRetriedLogicalTaskCount() { return retriedLogicalTaskCount; }
+    public int getRetriedLogicalTaskCount() {
+        return retriedLogicalTaskCount;
+    }
     /**
      * 返回所有失败 compute attempt 的 Job envelope 时长之和。
      *
@@ -681,7 +799,9 @@ public final class SimulationMetrics {
      *
      * @return 每模拟秒的计算 Job 结果数；makespan 为零时为零
      */
-    public double getComputeJobOutcomeThroughputPerSecond() { return computeJobOutcomeThroughputPerSecond; }
+    public double getComputeJobOutcomeThroughputPerSecond() {
+        return computeJobOutcomeThroughputPerSecond;
+    }
     /**
      * 计算 Job 信封的平均端到端时长，其中包含生效的 stage-in。
      *
@@ -690,8 +810,10 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的平均计算 Job 信封时长
      */
-    public double getMeanComputeJobRunTimeSeconds() { return meanComputeJobRunTimeSeconds; }
-    
+    public double getMeanComputeJobRunTimeSeconds() {
+        return meanComputeJobRunTimeSeconds;
+    }
+
     /**
      * 返回作业在 VM 队列内的平均等待时间（到达 VM 到开始执行）。
      * <p><strong>注意：</strong>在 WorkflowSim 中，所有调度算法都只向空闲 VM 派发作业，
@@ -701,7 +823,9 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的平均 VM 队列等待时间（通常为 0）
      */
-    public double getMeanJobVmQueueWaitingTimeSeconds() { return meanJobVmQueueWaitingTimeSeconds; }
+    public double getMeanJobVmQueueWaitingTimeSeconds() {
+        return meanJobVmQueueWaitingTimeSeconds;
+    }
 
     /**
      * 返回作业平均响应时间（从 VM 到达时刻到完成）。
@@ -716,7 +840,9 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的平均作业响应时间（VM 到达 → 完成）
      */
-    public double getMeanJobResponseTimeSeconds() { return meanJobResponseTimeSeconds; }
+    public double getMeanJobResponseTimeSeconds() {
+        return meanJobResponseTimeSeconds;
+    }
 
     /**
      * 返回作业平均 VM 层面减速比（基于 VM 到达时间的响应时间 / 执行时间）。
@@ -727,7 +853,9 @@ public final class SimulationMetrics {
      *
      * @return 无量纲的平均 VM 层面减速比（通常约为 1.0）
      */
-    public double getMeanJobVmLevelSlowdown() { return meanJobVmLevelSlowdown; }
+    public double getMeanJobVmLevelSlowdown() {
+        return meanJobVmLevelSlowdown;
+    }
 
     /**
      * 返回 VM 层面减速比的样本观测数。
@@ -739,7 +867,9 @@ public final class SimulationMetrics {
      *
      * @return 观测计数
      */
-    public int getVmLevelSlowdownObservationCount() { return vmLevelSlowdownObservationCount; }
+    public int getVmLevelSlowdownObservationCount() {
+        return vmLevelSlowdownObservationCount;
+    }
 
     /**
      * 返回计算作业的平均总等待时间（从就绪到开始执行）。
@@ -754,7 +884,9 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的平均总等待时间（就绪到开始）
      */
-    public double getMeanComputeTotalWaitingTimeSeconds() { return meanComputeTotalWaitingTimeSeconds; }
+    public double getMeanComputeTotalWaitingTimeSeconds() {
+        return meanComputeTotalWaitingTimeSeconds;
+    }
 
     /**
      * 返回计算作业的平均真实减速比（基于就绪时间，bounded slowdown）。
@@ -772,7 +904,9 @@ public final class SimulationMetrics {
      *
      * @return 无量纲的平均真实减速比（bounded，分母下限 10s，结果下限 1.0）
      */
-    public double getMeanComputeTrueSlowdown() { return meanComputeTrueSlowdown; }
+    public double getMeanComputeTrueSlowdown() {
+        return meanComputeTrueSlowdown;
+    }
 
     /**
      * 返回参与真实减速比计算的作业数量。
@@ -784,32 +918,48 @@ public final class SimulationMetrics {
      *
      * @return 观测计数
      */
-    public int getTrueSlowdownObservationCount() { return trueSlowdownObservationCount; }
+    public int getTrueSlowdownObservationCount() {
+        return trueSlowdownObservationCount;
+    }
 
     /**
      * 返回总等待时间的样本观测数（与真实减速比样本同一集合）。
      *
      * @return 观测计数
      */
-    public int getTotalWaitingTimeObservationCount() { return totalWaitingTimeObservationCount; }
+    public int getTotalWaitingTimeObservationCount() {
+        return totalWaitingTimeObservationCount;
+    }
 
     /** @return 总等待时间中位数（秒）；无观测时为 0.0 */
-    public double getMedianComputeTotalWaitingTimeSeconds() { return medianComputeTotalWaitingTimeSeconds; }
+    public double getMedianComputeTotalWaitingTimeSeconds() {
+        return medianComputeTotalWaitingTimeSeconds;
+    }
 
     /** @return 总等待时间 P95（秒，最近秩法）；无观测时为 0.0 */
-    public double getP95ComputeTotalWaitingTimeSeconds() { return p95ComputeTotalWaitingTimeSeconds; }
+    public double getP95ComputeTotalWaitingTimeSeconds() {
+        return p95ComputeTotalWaitingTimeSeconds;
+    }
 
     /** @return 总等待时间最大值（秒）；无观测时为 0.0 */
-    public double getMaxComputeTotalWaitingTimeSeconds() { return maxComputeTotalWaitingTimeSeconds; }
+    public double getMaxComputeTotalWaitingTimeSeconds() {
+        return maxComputeTotalWaitingTimeSeconds;
+    }
 
     /** @return 真实减速比中位数；无观测时为 0.0 */
-    public double getMedianComputeTrueSlowdown() { return medianComputeTrueSlowdown; }
+    public double getMedianComputeTrueSlowdown() {
+        return medianComputeTrueSlowdown;
+    }
 
     /** @return 真实减速比 P95（最近秩法）；无观测时为 0.0 */
-    public double getP95ComputeTrueSlowdown() { return p95ComputeTrueSlowdown; }
+    public double getP95ComputeTrueSlowdown() {
+        return p95ComputeTrueSlowdown;
+    }
 
     /** @return 真实减速比最大值；无观测时为 0.0 */
-    public double getMaxComputeTrueSlowdown() { return maxComputeTrueSlowdown; }
+    public double getMaxComputeTrueSlowdown() {
+        return maxComputeTrueSlowdown;
+    }
 
     /**
      * 返回仅成功作业的平均总等待时间（秒）。
@@ -828,10 +978,14 @@ public final class SimulationMetrics {
      *
      * @return success-only 平均真实减速比；无观测时为 0.0
      */
-    public double getSuccessOnlyMeanComputeTrueSlowdown() { return successOnlyMeanComputeTrueSlowdown; }
+    public double getSuccessOnlyMeanComputeTrueSlowdown() {
+        return successOnlyMeanComputeTrueSlowdown;
+    }
 
     /** @return success-only 等待/减速比变体的样本观测数 */
-    public int getSuccessOnlyWaitingObservationCount() { return successOnlyWaitingObservationCount; }
+    public int getSuccessOnlyWaitingObservationCount() {
+        return successOnlyWaitingObservationCount;
+    }
 
     /**
      * 返回重试放大率 = 逻辑任务尝试总数 / 逻辑任务数。
@@ -841,23 +995,38 @@ public final class SimulationMetrics {
      *
      * @return 重试放大率；正常闭环下 ≥1.0，无逻辑任务时为 0.0
      */
-    public double getRetryAmplificationRatio() { return retryAmplificationRatio; }
+    public double getRetryAmplificationRatio() {
+        return retryAmplificationRatio;
+    }
 
     /**
      * 返回从计算 Job 就绪到被调度器作出决策的平均延迟。
      *
      * @return 以模拟秒表示的平均就绪到决策延迟
      */
-    public double getMeanComputeReadyToDecisionDelaySeconds() { return meanComputeReadyToDecisionDelaySeconds; }
+    public double getMeanComputeReadyToDecisionDelaySeconds() {
+        return meanComputeReadyToDecisionDelaySeconds;
+    }
     /**
      * 返回从调度器决策到计算 Job 开始执行的平均延迟。
      *
      * @return 以模拟秒表示的平均决策到开始延迟
      */
-    public double getMeanComputeDecisionToStartDelaySeconds() { return meanComputeDecisionToStartDelaySeconds; }
-    public int getReadyToDecisionObservationCount() { return readyToDecisionObservationCount; }
-    public int getDecisionToStartObservationCount() { return decisionToStartObservationCount; }
-    public int getSchedulingCycleCount() { return schedulingCycleCount; }
+    public double getMeanComputeDecisionToStartDelaySeconds() {
+        return meanComputeDecisionToStartDelaySeconds;
+    }
+
+    public int getReadyToDecisionObservationCount() {
+        return readyToDecisionObservationCount;
+    }
+
+    public int getDecisionToStartObservationCount() {
+        return decisionToStartObservationCount;
+    }
+
+    public int getSchedulingCycleCount() {
+        return schedulingCycleCount;
+    }
     /**
      * 返回调度决策消耗的本地 JVM 墙钟时间总和。
      *
@@ -865,7 +1034,9 @@ public final class SimulationMetrics {
      *
      * @return 调度决策墙钟耗时，单位纳秒
      */
-    public long getTotalSchedulingDecisionWallClockNanos() { return totalSchedulingDecisionWallClockNanos; }
+    public long getTotalSchedulingDecisionWallClockNanos() {
+        return totalSchedulingDecisionWallClockNanos;
+    }
     /**
      * 事件记录中观测到的显式静态规划器决策次数。
      *
@@ -888,7 +1059,9 @@ public final class SimulationMetrics {
      *
      * @return 数据 stage-in 模型观测数
      */
-    public int getDataStageInModelObservationCount() { return dataStageInModelObservationCount; }
+    public int getDataStageInModelObservationCount() {
+        return dataStageInModelObservationCount;
+    }
     /**
      * 被配置的数据移动模型观测到的逻辑输入需求文件数。
      *
@@ -896,9 +1069,13 @@ public final class SimulationMetrics {
      *
      * @return 被计入的文件传输数量
      */
-    public int getModeledDataTransferFileCount() { return modeledDataTransferFileCount; }
+    public int getModeledDataTransferFileCount() {
+        return modeledDataTransferFileCount;
+    }
     /** @return 与 {@link #getModeledDataTransferFileCount()} 相同的逻辑输入需求文件数 */
-    public int getModeledRequiredInputDemandFileCount() { return modeledDataTransferFileCount; }
+    public int getModeledRequiredInputDemandFileCount() {
+        return modeledDataTransferFileCount;
+    }
     /**
      * DATA_STAGE_IN_MODELED 记录的名义 stage-in 估计秒数之和。
      *
@@ -908,7 +1085,9 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的名义 stage-in 估计总和
      */
-    public double getTotalModeledDataTransferSeconds() { return totalModeledDataTransferSeconds; }
+    public double getTotalModeledDataTransferSeconds() {
+        return totalModeledDataTransferSeconds;
+    }
     /**
      * 上述传输观测所计入的逻辑输入需求字节数总和。
      *
@@ -916,7 +1095,9 @@ public final class SimulationMetrics {
      *
      * @return 被模型纳入的数据字节总数
      */
-    public double getTotalModeledRequiredInputBytes() { return totalModeledRequiredInputBytes; }
+    public double getTotalModeledRequiredInputBytes() {
+        return totalModeledRequiredInputBytes;
+    }
     /** @return 与 {@link #getTotalModeledRequiredInputBytes()} 相同的逻辑输入需求字节数 */
     public double getTotalModeledRequiredInputDemandBytes() {
         return totalModeledRequiredInputBytes;
@@ -926,20 +1107,26 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的平均名义估计，不是平均实际争用持有时间
      */
-    public double getMeanModeledDataTransferSeconds() { return meanModeledDataTransferSeconds; }
+    public double getMeanModeledDataTransferSeconds() {
+        return meanModeledDataTransferSeconds;
+    }
     /**
      * 全部完成 Job attempt 的建模处理成本之和；其中可能包含 stage-in 的整数 MI 表示，
      * 也包括失败和 retry attempt，因而不是云服务商价格回放。
      *
      * @return 汇总的建模处理成本
      */
-    public double getTotalModeledProcessingCost() { return totalModeledProcessingCost; }
+    public double getTotalModeledProcessingCost() {
+        return totalModeledProcessingCost;
+    }
     /**
      * 返回全部 Job attempt 的 CPU envelope 抽象成本分量。
      *
      * @return CPU envelope 成本之和，可能包含生效的 stage-in MI
      */
-    public double getTotalModeledCpuEnvelopeCost() { return totalModeledCpuEnvelopeCost; }
+    public double getTotalModeledCpuEnvelopeCost() {
+        return totalModeledCpuEnvelopeCost;
+    }
     /**
      * 返回全部 Job attempt 按其声明文件字节数连续计价的带宽抽象成本分量。
      *
@@ -953,13 +1140,18 @@ public final class SimulationMetrics {
      *
      * @return 所有 Job 文件表声明字节数之和，不是实际传输字节数
      */
-    public double getTotalModeledDeclaredFileBytes() { return totalModeledDeclaredFileBytes; }
+    public double getTotalModeledDeclaredFileBytes() {
+        return totalModeledDeclaredFileBytes;
+    }
     /**
      * 返回按 VM 标识索引的不可变聚合指标。
      *
      * @return VM ID 到每 VM 指标的映射
      */
-    public Map<Integer, VmMetrics> getVmMetrics() { return vmMetrics; }
+    public Map<Integer, VmMetrics> getVmMetrics() {
+        return vmMetrics;
+    }
+
     public double getTotalVmModeledBusyIntervalSeconds() {
         return totalVmModeledBusyIntervalSeconds;
     }
@@ -1037,26 +1229,34 @@ public final class SimulationMetrics {
      *
      * @return 是否请求 deadline 观测
      */
-    public boolean isDeadlineObservationEnabled() { return deadlineObservationEnabled; }
+    public boolean isDeadlineObservationEnabled() {
+        return deadlineObservationEnabled;
+    }
     /**
      * 返回 deadline 比较所使用的时间轴。
      *
      * @return 固定为 {@code SIMULATION_END_SECONDS}，即历史 makespan 的时间轴
      */
-    public String getDeadlineObservationTimeBasis() { return deadlineObservationTimeBasis; }
+    public String getDeadlineObservationTimeBasis() {
+        return deadlineObservationTimeBasis;
+    }
     /**
      * 返回 {@code NOT_REQUESTED}、{@code MET}、{@code MISSED_LATE} 或
      * {@code MISSED_INCOMPLETE_WORKFLOW}。
      *
      * @return deadline 观测的机器可读结果
      */
-    public String getDeadlineObservationOutcome() { return deadlineObservationOutcome; }
+    public String getDeadlineObservationOutcome() {
+        return deadlineObservationOutcome;
+    }
     /**
      * 仅报告 SLA 观测，不会影响调度决策。
      *
      * @return 工作流是否满足已请求的 deadline
      */
-    public boolean isDeadlineMet() { return deadlineMet; }
+    public boolean isDeadlineMet() {
+        return deadlineMet;
+    }
     /**
      * 已启用时为 {@code deadline - makespan}，未请求 deadline 时为零。
      *
@@ -1066,7 +1266,9 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的 deadline 余量
      */
-    public double getDeadlineSlackSeconds() { return deadlineSlackSeconds; }
+    public double getDeadlineSlackSeconds() {
+        return deadlineSlackSeconds;
+    }
     /**
      * 已启用时为 {@code max(0, makespan - deadline)}，未请求时为零。
      *
@@ -1074,13 +1276,17 @@ public final class SimulationMetrics {
      *
      * @return 以模拟秒表示的 deadline 迟延
      */
-    public double getDeadlineTardinessSeconds() { return deadlineTardinessSeconds; }
+    public double getDeadlineTardinessSeconds() {
+        return deadlineTardinessSeconds;
+    }
     /**
      * 与其 Job 信封完全相等的单任务计算窗口数。
      *
      * @return 精确任务时序观测数
      */
-    public int getExactTaskTimingObservationCount() { return exactTaskTimingObservationCount; }
+    public int getExactTaskTimingObservationCount() {
+        return exactTaskTimingObservationCount;
+    }
     /**
      * 与其 Job 信封不同的 Task 窗口数。
      *
@@ -1104,8 +1310,12 @@ public final class SimulationMetrics {
         private final double modeledIntervalUtilization;
         private final double reportedCpuTimeOverMakespan;
 
-        private VmMetrics(int vmId, int jobOutcomeCount, double reportedCpuTimeSeconds,
-                double modeledBusyIntervalSeconds, double modeledIntervalUtilization,
+        private VmMetrics(
+                int vmId,
+                int jobOutcomeCount,
+                double reportedCpuTimeSeconds,
+                double modeledBusyIntervalSeconds,
+                double modeledIntervalUtilization,
                 double reportedCpuTimeOverMakespan) {
             this.vmId = vmId;
             this.jobOutcomeCount = jobOutcomeCount;
@@ -1115,12 +1325,29 @@ public final class SimulationMetrics {
             this.reportedCpuTimeOverMakespan = reportedCpuTimeOverMakespan;
         }
 
-        public int getVmId() { return vmId; }
-        public int getJobOutcomeCount() { return jobOutcomeCount; }
-        public double getReportedCpuTimeSeconds() { return reportedCpuTimeSeconds; }
-        public double getModeledBusyIntervalSeconds() { return modeledBusyIntervalSeconds; }
-        public double getModeledIntervalUtilization() { return modeledIntervalUtilization; }
-        public double getReportedCpuTimeOverMakespan() { return reportedCpuTimeOverMakespan; }
+        public int getVmId() {
+            return vmId;
+        }
+
+        public int getJobOutcomeCount() {
+            return jobOutcomeCount;
+        }
+
+        public double getReportedCpuTimeSeconds() {
+            return reportedCpuTimeSeconds;
+        }
+
+        public double getModeledBusyIntervalSeconds() {
+            return modeledBusyIntervalSeconds;
+        }
+
+        public double getModeledIntervalUtilization() {
+            return modeledIntervalUtilization;
+        }
+
+        public double getReportedCpuTimeOverMakespan() {
+            return reportedCpuTimeOverMakespan;
+        }
     }
 
     private static final class MutableVmMetrics {
@@ -1141,7 +1368,11 @@ public final class SimulationMetrics {
 
         private VmMetrics freeze(double makespan) {
             double busy = unionLength(intervals);
-            return new VmMetrics(vmId, jobs, cpuTime, busy,
+            return new VmMetrics(
+                    vmId,
+                    jobs,
+                    cpuTime,
+                    busy,
                     makespan > 0.0 ? busy / makespan : 0.0,
                     makespan > 0.0 ? cpuTime / makespan : 0.0);
         }
@@ -1258,8 +1489,7 @@ public final class SimulationMetrics {
         return result;
     }
 
-    private static Set<Integer> logicalTaskIds(List<Task> sourceTasks,
-            List<SimulationReport.TaskOutcome> outcomes) {
+    private static Set<Integer> logicalTaskIds(List<Task> sourceTasks, List<SimulationReport.TaskOutcome> outcomes) {
         Set<Integer> result = new HashSet<Integer>();
         if (sourceTasks != null) {
             for (Task task : sourceTasks) {
@@ -1277,10 +1507,8 @@ public final class SimulationMetrics {
     }
 
     /** 建立 Job outcome 的唯一 ID 索引，避免下游指标静默覆盖执行尝试。 */
-    private static Map<Integer, SimulationReport.JobOutcome> jobOutcomesById(
-            List<SimulationReport.JobOutcome> jobs) {
-        Map<Integer, SimulationReport.JobOutcome> result =
-                new LinkedHashMap<Integer, SimulationReport.JobOutcome>();
+    private static Map<Integer, SimulationReport.JobOutcome> jobOutcomesById(List<SimulationReport.JobOutcome> jobs) {
+        Map<Integer, SimulationReport.JobOutcome> result = new LinkedHashMap<Integer, SimulationReport.JobOutcome>();
         if (jobs == null) {
             throw new IllegalArgumentException("Job outcomes cannot be null");
         }
@@ -1289,8 +1517,8 @@ public final class SimulationMetrics {
                 throw new IllegalStateException("Simulation metrics received a null Job outcome");
             }
             if (result.put(job.getJobId(), job) != null) {
-                throw new IllegalStateException("Simulation metrics received duplicate Job outcome ID "
-                        + job.getJobId());
+                throw new IllegalStateException(
+                        "Simulation metrics received duplicate Job outcome ID " + job.getJobId());
             }
         }
         return result;
@@ -1302,8 +1530,8 @@ public final class SimulationMetrics {
      * <p>报告捕获时所有 completed Job 都已可用，因此任何 retry 事件没有对应 Job outcome
      * 都表示证据包不完整，而不是一个可忽略的部分观测。</p>
      */
-    private static Set<Integer> retryJobIds(List<SimulationEvent> events,
-            Map<Integer, SimulationReport.JobOutcome> jobsById) {
+    private static Set<Integer> retryJobIds(
+            List<SimulationEvent> events, Map<Integer, SimulationReport.JobOutcome> jobsById) {
         Set<Integer> result = new HashSet<Integer>();
         if (events == null) {
             throw new IllegalArgumentException("Simulation events cannot be null");
@@ -1324,12 +1552,10 @@ public final class SimulationMetrics {
             }
             SimulationReport.JobOutcome retry = jobsById.get(retryJobId);
             if (retry == null) {
-                throw new IllegalStateException("Retry creation event has no completed Job outcome for "
-                        + retryJobId);
+                throw new IllegalStateException("Retry creation event has no completed Job outcome for " + retryJobId);
             }
             if (retry.getClassType() != Parameters.ClassType.COMPUTE.value) {
-                throw new IllegalStateException("Retry Job " + retryJobId
-                        + " is not a compute Job outcome");
+                throw new IllegalStateException("Retry Job " + retryJobId + " is not a compute Job outcome");
             }
             int failedJobId = requiredIntegerAttribute(event, "failedJobId", "Retry creation event");
             if (failedJobId == retryJobId.intValue()) {
@@ -1337,12 +1563,12 @@ public final class SimulationMetrics {
             }
             SimulationReport.JobOutcome failed = jobsById.get(Integer.valueOf(failedJobId));
             if (failed == null) {
-                throw new IllegalStateException("Retry Job " + retryJobId
-                        + " references missing failed Job " + failedJobId);
+                throw new IllegalStateException(
+                        "Retry Job " + retryJobId + " references missing failed Job " + failedJobId);
             }
             if (failed.getStatus() != Cloudlet.FAILED) {
-                throw new IllegalStateException("Retry Job " + retryJobId
-                        + " references a parent that is not failed: " + failedJobId);
+                throw new IllegalStateException(
+                        "Retry Job " + retryJobId + " references a parent that is not failed: " + failedJobId);
             }
         }
         return result;
@@ -1353,8 +1579,7 @@ public final class SimulationMetrics {
             List<SimulationReport.JobOutcome> jobs, Set<Integer> logicalTaskIds) {
         Map<Integer, Double> result = new LinkedHashMap<Integer, Double>();
         for (SimulationReport.JobOutcome job : jobs) {
-            if (job.getClassType() != Parameters.ClassType.COMPUTE.value
-                    || job.getStatus() != Cloudlet.SUCCESS) {
+            if (job.getClassType() != Parameters.ClassType.COMPUTE.value || job.getStatus() != Cloudlet.SUCCESS) {
                 continue;
             }
             for (Integer taskId : job.getTaskIds()) {
@@ -1376,8 +1601,7 @@ public final class SimulationMetrics {
         }
         double result = Double.NEGATIVE_INFINITY;
         for (Double finish : finishes.values()) {
-            if (finish == null || Double.isNaN(finish.doubleValue())
-                    || Double.isInfinite(finish.doubleValue())) {
+            if (finish == null || Double.isNaN(finish.doubleValue()) || Double.isInfinite(finish.doubleValue())) {
                 throw new IllegalStateException("Logical Task completion evidence has invalid Job finish time");
             }
             result = Math.max(result, finish.doubleValue());
@@ -1385,8 +1609,10 @@ public final class SimulationMetrics {
         return result;
     }
 
-    private static int logicalTaskAttemptCount(List<SimulationReport.TaskOutcome> outcomes,
-            Map<Integer, SimulationReport.JobOutcome> jobsById, Set<Integer> logicalTaskIds) {
+    private static int logicalTaskAttemptCount(
+            List<SimulationReport.TaskOutcome> outcomes,
+            Map<Integer, SimulationReport.JobOutcome> jobsById,
+            Set<Integer> logicalTaskIds) {
         int result = 0;
         if (outcomes == null) {
             throw new IllegalArgumentException("Task outcomes cannot be null");
@@ -1408,8 +1634,8 @@ public final class SimulationMetrics {
         return result;
     }
 
-    private static int retriedLogicalTaskCount(Set<Integer> retryJobIds,
-            Map<Integer, SimulationReport.JobOutcome> jobsById, Set<Integer> logicalTaskIds) {
+    private static int retriedLogicalTaskCount(
+            Set<Integer> retryJobIds, Map<Integer, SimulationReport.JobOutcome> jobsById, Set<Integer> logicalTaskIds) {
         Set<Integer> result = new HashSet<Integer>();
         for (Integer retryJobId : retryJobIds) {
             SimulationReport.JobOutcome retry = jobsById.get(retryJobId);
@@ -1452,8 +1678,10 @@ public final class SimulationMetrics {
             throw new IllegalStateException(subject + " is missing numeric " + key);
         }
         double number = ((Number) value).doubleValue();
-        if (number < Integer.MIN_VALUE || number > Integer.MAX_VALUE
-                || Math.rint(number) != number || Double.isNaN(number)
+        if (number < Integer.MIN_VALUE
+                || number > Integer.MAX_VALUE
+                || Math.rint(number) != number
+                || Double.isNaN(number)
                 || Double.isInfinite(number)) {
             throw new IllegalStateException(subject + " has invalid integer " + key);
         }
@@ -1466,8 +1694,11 @@ public final class SimulationMetrics {
             throw new IllegalStateException("Planning event is missing numeric " + key);
         }
         double number = ((Number) value).doubleValue();
-        if (number < 0.0 || number > Long.MAX_VALUE || Math.rint(number) != number
-                || Double.isNaN(number) || Double.isInfinite(number)) {
+        if (number < 0.0
+                || number > Long.MAX_VALUE
+                || Math.rint(number) != number
+                || Double.isNaN(number)
+                || Double.isInfinite(number)) {
             throw new IllegalStateException("Planning event has invalid " + key);
         }
         return ((Number) value).longValue();
@@ -1477,8 +1708,7 @@ public final class SimulationMetrics {
         return count == 0 ? 0.0 : sum / count;
     }
 
-    private static String deadlineOutcome(boolean enabled, boolean workflowCompleted,
-            int exactSlackSign) {
+    private static String deadlineOutcome(boolean enabled, boolean workflowCompleted, int exactSlackSign) {
         if (!enabled) {
             return "NOT_REQUESTED";
         }

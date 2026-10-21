@@ -20,10 +20,10 @@ import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
 import org.workflowsim.platform.PlatformProfile;
-import org.workflowsim.utils.ReplicaCatalog;
-import org.workflowsim.utils.SimulationConfig;
 import org.workflowsim.utils.Parameters.PlanningAlgorithm;
 import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
+import org.workflowsim.utils.ReplicaCatalog;
+import org.workflowsim.utils.SimulationConfig;
 
 /**
  * C06：LOCAL_HEFT 规划→执行镜像端到端契约（审查工程 Phase 2，H-9 系统化）。
@@ -84,8 +84,7 @@ class PlannerRuntimeMirrorIntegrationTest {
      * 逐任务断言 VM 绑定/计划开始/计划完成 0 容差镜像
      * （LOCAL_HEFT / LOCAL_CPOP / LOCAL_PEFT，AbstractLocalCommPlanningAlgorithm 家族）。
      */
-    private void mirrorPlannedWindowsAgainstActualRuntime(PlanningAlgorithm algorithm)
-            throws Exception {
+    private void mirrorPlannedWindowsAgainstActualRuntime(PlanningAlgorithm algorithm) throws Exception {
         Path workflow = layeredDax();
         PlatformProfile platform = mirrorPlatform();
         SimulationConfig config = SimulationConfig.builder(workflow.toString(), 2)
@@ -97,12 +96,11 @@ class PlannerRuntimeMirrorIntegrationTest {
                 .build();
 
         SimulationReport report = new SimulationRunner().run(config, platform);
-        assertEquals(true, report.getMetrics().isAllLogicalTasksCompletedSuccessfully(),
-                "镜像基线要求仿真完整成功：" + algorithm);
+        assertEquals(true, report.getMetrics().isAllLogicalTasksCompletedSuccessfully(), "镜像基线要求仿真完整成功：" + algorithm);
 
         List<Task> reparsed = reparse(workflow, algorithm);
-        org.workflowsim.planning.BasePlanningAlgorithm planner = createPlanner(algorithm,
-                new PlanningContext(config, platform));
+        org.workflowsim.planning.BasePlanningAlgorithm planner =
+                createPlanner(algorithm, new PlanningContext(config, platform));
         planner.setTaskList(reparsed);
         List<CondorVM> vms = new ArrayList<CondorVM>();
         for (PlatformProfile.VmSpec spec : platform.getVms()) {
@@ -117,14 +115,18 @@ class PlannerRuntimeMirrorIntegrationTest {
                 (org.workflowsim.planning.AbstractLocalCommPlanningAlgorithm) planner;
         for (SimulationReport.TaskOutcome outcome : outcomes) {
             Task planned = findById(reparsed, outcome.getTaskId());
-            assertEquals(planned.getVmId(), outcome.getVmId(), 0,
-                    algorithm + " 任务 " + outcome.getTaskId() + " 的 VM 绑定必须镜像");
-            assertEquals(planned.getStaticScheduleStartTime(), outcome.getStartTime(),
-                    ZERO_TOLERANCE, algorithm + " 任务 " + outcome.getTaskId()
-                            + " 计划开始必须逐位镜像");
-            assertEquals(localPlanner.plannedFinishOf(planned).doubleValue(), outcome.getFinishTime(),
-                    ZERO_TOLERANCE, algorithm + " 任务 " + outcome.getTaskId()
-                            + " 计划完成必须逐位镜像");
+            assertEquals(
+                    planned.getVmId(), outcome.getVmId(), 0, algorithm + " 任务 " + outcome.getTaskId() + " 的 VM 绑定必须镜像");
+            assertEquals(
+                    planned.getStaticScheduleStartTime(),
+                    outcome.getStartTime(),
+                    ZERO_TOLERANCE,
+                    algorithm + " 任务 " + outcome.getTaskId() + " 计划开始必须逐位镜像");
+            assertEquals(
+                    localPlanner.plannedFinishOf(planned).doubleValue(),
+                    outcome.getFinishTime(),
+                    ZERO_TOLERANCE,
+                    algorithm + " 任务 " + outcome.getTaskId() + " 计划完成必须逐位镜像");
         }
     }
 
@@ -153,13 +155,20 @@ class PlannerRuntimeMirrorIntegrationTest {
         for (int layer = 0; layer < 3; layer++) {
             int count = layer == 1 ? 2 : layer == 0 ? 2 : 2;
             for (int i = 0; i < count; i++) {
-                dax.append("  <job id=\"t").append(id++).append("\" name=\"l").append(layer)
-                        .append("\" runtime=\"").append(50 + 10 * i).append("\">\n");
+                dax.append("  <job id=\"t")
+                        .append(id++)
+                        .append("\" name=\"l")
+                        .append(layer)
+                        .append("\" runtime=\"")
+                        .append(50 + 10 * i)
+                        .append("\">\n");
                 if (layer > 0) {
-                    dax.append("    <uses name=\"in-").append(id - 1)
+                    dax.append("    <uses name=\"in-")
+                            .append(id - 1)
                             .append(".bin\" link=\"input\" size=\"7000000\"/>\n");
                 }
-                dax.append("    <uses name=\"out-").append(id - 1)
+                dax.append("    <uses name=\"out-")
+                        .append(id - 1)
                         .append(".bin\" link=\"output\" size=\"7000000\"/>\n");
                 dax.append("  </job>\n");
             }
@@ -179,25 +188,24 @@ class PlannerRuntimeMirrorIntegrationTest {
     private static PlatformProfile mirrorPlatform() {
         PlatformProfile.Builder builder = PlatformProfile.builder("mirror-platform");
         builder.addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 10_000L, 1_000_000L));
-        builder.addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+        builder.addVm(new PlatformProfile.VmSpec(
+                0, 1000.0, 1, 512, 1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         builder.addHost(new PlatformProfile.HostSpec(1, 2, 2000.0, 2048, 10_000L, 1_000_000L));
-        builder.addVm(new PlatformProfile.VmSpec(1, 1000.0, 1, 512,
-                1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+        builder.addVm(new PlatformProfile.VmSpec(
+                1, 1000.0, 1, 512, 1_000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         return builder.build();
     }
 
     private static CondorVM mirrorVm(int id, double mips, long bandwidth) {
-        return new CondorVM(id, 0, mips, 1, 512, bandwidth, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, 1, 512, bandwidth, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     private List<Task> reparse(Path workflow, PlanningAlgorithm algorithm) {
         ReplicaCatalog.reset();
         ReplicaCatalog.init(ReplicaCatalog.FileSystem.LOCAL);
         org.workflowsim.utils.Parameters.reset();
-        org.workflowsim.utils.Parameters.init(2, workflow.toString(), null, null, null, null,
-                SchedulingAlgorithm.STATIC, algorithm, null, 0L);
+        org.workflowsim.utils.Parameters.init(
+                2, workflow.toString(), null, null, null, null, SchedulingAlgorithm.STATIC, algorithm, null, 0L);
         WorkflowParser parser = new WorkflowParser(0);
         parser.parse();
         return parser.getTaskList();

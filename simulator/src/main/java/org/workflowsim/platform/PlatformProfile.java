@@ -37,10 +37,10 @@ public final class PlatformProfile {
         this.name = builder.name;
         this.hosts = Collections.unmodifiableList(new ArrayList<>(builder.hosts));
         this.vms = Collections.unmodifiableList(new ArrayList<>(builder.vms));
-        this.pinnedVmHostIds = Collections.unmodifiableMap(
-                new LinkedHashMap<Integer, Integer>(builder.pinnedVmHostIds));
-        this.vmHostAssignments = Collections.unmodifiableMap(
-                new LinkedHashMap<Integer, Integer>(builder.vmHostAssignments));
+        this.pinnedVmHostIds =
+                Collections.unmodifiableMap(new LinkedHashMap<Integer, Integer>(builder.pinnedVmHostIds));
+        this.vmHostAssignments =
+                Collections.unmodifiableMap(new LinkedHashMap<Integer, Integer>(builder.vmHostAssignments));
         this.storage = builder.storage;
         this.costs = builder.costs;
         this.networkTopology = builder.networkTopology;
@@ -84,7 +84,9 @@ public final class PlatformProfile {
     }
 
     /** @return explicit bounded dataflow store, or null for original models */
-    public org.workflowsim.data.v2.DataflowStorageSpec getSourceStorage(){return sourceStorage;}
+    public org.workflowsim.data.v2.DataflowStorageSpec getSourceStorage() {
+        return sourceStorage;
+    }
 
     public CostSpec getCosts() {
         return costs;
@@ -118,17 +120,19 @@ public final class PlatformProfile {
         private final String name;
         private final List<HostSpec> hosts = new ArrayList<>();
         private final List<VmSpec> vms = new ArrayList<>();
-        private final java.util.Map<Integer, Integer> pinnedVmHostIds =
-                new LinkedHashMap<Integer, Integer>();
-        private java.util.Map<Integer, Integer> vmHostAssignments =
-                Collections.emptyMap();
+        private final java.util.Map<Integer, Integer> pinnedVmHostIds = new LinkedHashMap<Integer, Integer>();
+        private java.util.Map<Integer, Integer> vmHostAssignments = Collections.emptyMap();
         private StorageSpec storage = new StorageSpec(1_000_000_000_000L, 15);
         private CostSpec costs = new CostSpec(3.0, 0.05, 0.1, 0.1);
         private org.workflowsim.network.NetworkTopologySpec networkTopology;
         private org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
 
         /** @param value explicit bounded source/storage resources @return this builder */
-        public Builder sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec value){sourceStorage=requireNonNull(value,"Dataflow source storage");return this;}
+        public Builder sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec value) {
+            sourceStorage = requireNonNull(value, "Dataflow source storage");
+            return this;
+        }
+
         private Builder(String name) {
             if (name == null || name.trim().isEmpty()) {
                 throw new IllegalArgumentException("Platform profile name cannot be empty");
@@ -176,8 +180,7 @@ public final class PlatformProfile {
             }
             Integer previous = pinnedVmHostIds.put(vmId, hostId);
             if (previous != null && previous.intValue() != hostId) {
-                throw new IllegalArgumentException("VM " + vmId + " is already pinned to Host "
-                        + previous);
+                throw new IllegalArgumentException("VM " + vmId + " is already pinned to Host " + previous);
             }
             return this;
         }
@@ -234,12 +237,16 @@ public final class PlatformProfile {
             }
             validateUniqueHostIds(hosts);
             validateUniqueVmIds(vms);
-            if(sourceStorage!=null){boolean found=false;for(HostSpec host:hosts)if(host.getId()==sourceStorage.getAttachmentHostId())found=true;if(!found)throw new IllegalArgumentException("Dataflow storage attachment references an undeclared host");}
+            if (sourceStorage != null) {
+                boolean found = false;
+                for (HostSpec host : hosts) if (host.getId() == sourceStorage.getAttachmentHostId()) found = true;
+                if (!found)
+                    throw new IllegalArgumentException("Dataflow storage attachment references an undeclared host");
+            }
             validatePinnedVmHostIds(hosts, vms, pinnedVmHostIds);
             for (VmSpec vm : vms) {
                 if (!canFitOnAnyHost(vm, hosts)) {
-                    throw new IllegalArgumentException("VM " + vm.getId()
-                            + " cannot fit on any declared host");
+                    throw new IllegalArgumentException("VM " + vm.getId() + " cannot fit on any declared host");
                 }
             }
             validateAggregateCapacity(hosts, vms);
@@ -278,8 +285,8 @@ public final class PlatformProfile {
             return false;
         }
 
-        private static void validatePinnedVmHostIds(List<HostSpec> hosts, List<VmSpec> vms,
-                java.util.Map<Integer, Integer> pinned) {
+        private static void validatePinnedVmHostIds(
+                List<HostSpec> hosts, List<VmSpec> vms, java.util.Map<Integer, Integer> pinned) {
             Set<Integer> hostIds = new HashSet<Integer>();
             for (HostSpec host : hosts) {
                 hostIds.add(host.getId());
@@ -290,12 +297,12 @@ public final class PlatformProfile {
             }
             for (java.util.Map.Entry<Integer, Integer> entry : pinned.entrySet()) {
                 if (!vmIds.contains(entry.getKey())) {
-                    throw new IllegalArgumentException("Pinned VM " + entry.getKey()
-                            + " is not declared in this profile");
+                    throw new IllegalArgumentException(
+                            "Pinned VM " + entry.getKey() + " is not declared in this profile");
                 }
                 if (!hostIds.contains(entry.getValue())) {
-                    throw new IllegalArgumentException("Pinned Host " + entry.getValue()
-                            + " is not declared in this profile");
+                    throw new IllegalArgumentException(
+                            "Pinned Host " + entry.getValue() + " is not declared in this profile");
                 }
             }
         }
@@ -314,12 +321,12 @@ public final class PlatformProfile {
             java.util.Map<Integer, Integer> assignments = new LinkedHashMap<Integer, Integer>();
             for (VmSpec vm : vms) {
                 Integer pinnedHostId = pinned.get(vm.getId());
-                PlacementCapacity selected = pinnedHostId == null
-                        ? selectDefaultHost(capacities, vm) : findHost(capacities, pinnedHostId);
+                PlacementCapacity selected =
+                        pinnedHostId == null ? selectDefaultHost(capacities, vm) : findHost(capacities, pinnedHostId);
                 if (selected == null || !selected.canHost(vm)) {
-                    String detail = pinnedHostId == null ? "No deterministic host placement for VM "
-                            + vm.getId() : "Pinned VM " + vm.getId() + " cannot be placed on Host "
-                            + pinnedHostId;
+                    String detail = pinnedHostId == null
+                            ? "No deterministic host placement for VM " + vm.getId()
+                            : "Pinned VM " + vm.getId() + " cannot be placed on Host " + pinnedHostId;
                     throw new IllegalArgumentException(detail + " under declared resource capacity");
                 }
                 selected.allocate(vm);
@@ -374,8 +381,7 @@ public final class PlatformProfile {
                 vmBandwidth += vm.getBandwidth();
                 vmStorage += vm.getImageSizeMb();
             }
-            if (vmPes > hostPes || vmRam > hostRam || vmBandwidth > hostBandwidth
-                    || vmStorage > hostStorage) {
+            if (vmPes > hostPes || vmRam > hostRam || vmBandwidth > hostBandwidth || vmStorage > hostStorage) {
                 throw new IllegalArgumentException("Aggregate VM demand exceeds declared host capacity");
             }
         }
@@ -407,9 +413,11 @@ public final class PlatformProfile {
             }
 
             private boolean canHost(VmSpec vm) {
-                return vm.getPes() <= remainingPes && vm.getMips() <= mipsPerPe
+                return vm.getPes() <= remainingPes
+                        && vm.getMips() <= mipsPerPe
                         && vm.getMips() * vm.getPes() <= remainingMips
-                        && vm.getRamMb() <= remainingRamMb && vm.getBandwidth() <= remainingBandwidth
+                        && vm.getRamMb() <= remainingRamMb
+                        && vm.getBandwidth() <= remainingBandwidth
                         && vm.getImageSizeMb() <= remainingStorageMb;
             }
 
@@ -444,10 +452,8 @@ public final class PlatformProfile {
          * @param storageMb 本地存储容量，单位 MB，必须为正
          * @throws IllegalArgumentException 当任一资源参数不合法时抛出
          */
-        public HostSpec(int id, int pes, double mipsPerPe, int ramMb,
-                long bandwidth, long storageMb) {
-            if (id < 0 || pes <= 0 || !positiveFinite(mipsPerPe) || ramMb <= 0
-                    || bandwidth <= 0L || storageMb <= 0L) {
+        public HostSpec(int id, int pes, double mipsPerPe, int ramMb, long bandwidth, long storageMb) {
+            if (id < 0 || pes <= 0 || !positiveFinite(mipsPerPe) || ramMb <= 0 || bandwidth <= 0L || storageMb <= 0L) {
                 throw new IllegalArgumentException("Invalid host specification for ID " + id);
             }
             this.id = id;
@@ -458,12 +464,29 @@ public final class PlatformProfile {
             this.storageMb = storageMb;
         }
 
-        public int getId() { return id; }
-        public int getPes() { return pes; }
-        public double getMipsPerPe() { return mipsPerPe; }
-        public int getRamMb() { return ramMb; }
-        public long getBandwidth() { return bandwidth; }
-        public long getStorageMb() { return storageMb; }
+        public int getId() {
+            return id;
+        }
+
+        public int getPes() {
+            return pes;
+        }
+
+        public double getMipsPerPe() {
+            return mipsPerPe;
+        }
+
+        public int getRamMb() {
+            return ramMb;
+        }
+
+        public long getBandwidth() {
+            return bandwidth;
+        }
+
+        public long getStorageMb() {
+            return storageMb;
+        }
     }
 
     /** 一个抽象 VM 的不可变资源、调度器和可选计价规格。 */
@@ -492,8 +515,15 @@ public final class PlatformProfile {
          * @param schedulerMode VM 内 Cloudlet 调度方式，不能为空
          * @throws IllegalArgumentException 当任一资源参数不合法时抛出
          */
-        public VmSpec(int id, double mips, int pes, int ramMb, long bandwidth,
-                long imageSizeMb, String vmm, CloudletSchedulerMode schedulerMode) {
+        public VmSpec(
+                int id,
+                double mips,
+                int pes,
+                int ramMb,
+                long bandwidth,
+                long imageSizeMb,
+                String vmm,
+                CloudletSchedulerMode schedulerMode) {
             this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null);
         }
 
@@ -513,10 +543,24 @@ public final class PlatformProfile {
          * @param costs 可选 VM 级别成本规格；是否允许为空由所选成本模型决定
          * @throws IllegalArgumentException 当任一资源参数不合法时抛出
          */
-        public VmSpec(int id, double mips, int pes, int ramMb, long bandwidth,
-                long imageSizeMb, String vmm, CloudletSchedulerMode schedulerMode, CostSpec costs) {
-            if (id < 0 || !positiveFinite(mips) || pes <= 0 || ramMb <= 0
-                    || bandwidth <= 0L || imageSizeMb <= 0L || vmm == null || vmm.trim().isEmpty()
+        public VmSpec(
+                int id,
+                double mips,
+                int pes,
+                int ramMb,
+                long bandwidth,
+                long imageSizeMb,
+                String vmm,
+                CloudletSchedulerMode schedulerMode,
+                CostSpec costs) {
+            if (id < 0
+                    || !positiveFinite(mips)
+                    || pes <= 0
+                    || ramMb <= 0
+                    || bandwidth <= 0L
+                    || imageSizeMb <= 0L
+                    || vmm == null
+                    || vmm.trim().isEmpty()
                     || schedulerMode == null) {
                 throw new IllegalArgumentException("Invalid VM specification for ID " + id);
             }
@@ -531,16 +575,45 @@ public final class PlatformProfile {
             this.costs = costs;
         }
 
-        public int getId() { return id; }
-        public double getMips() { return mips; }
-        public int getPes() { return pes; }
-        public int getRamMb() { return ramMb; }
-        public long getBandwidth() { return bandwidth; }
-        public long getImageSizeMb() { return imageSizeMb; }
-        public String getVmm() { return vmm; }
-        public CloudletSchedulerMode getSchedulerMode() { return schedulerMode; }
-        public boolean hasCosts() { return costs != null; }
-        public CostSpec getCosts() { return costs; }
+        public int getId() {
+            return id;
+        }
+
+        public double getMips() {
+            return mips;
+        }
+
+        public int getPes() {
+            return pes;
+        }
+
+        public int getRamMb() {
+            return ramMb;
+        }
+
+        public long getBandwidth() {
+            return bandwidth;
+        }
+
+        public long getImageSizeMb() {
+            return imageSizeMb;
+        }
+
+        public String getVmm() {
+            return vmm;
+        }
+
+        public CloudletSchedulerMode getSchedulerMode() {
+            return schedulerMode;
+        }
+
+        public boolean hasCosts() {
+            return costs != null;
+        }
+
+        public CostSpec getCosts() {
+            return costs;
+        }
     }
 
     /** 抽象共享存储的不可变容量与最大传输速率规格。 */
@@ -564,8 +637,13 @@ public final class PlatformProfile {
             this.maxTransferRateMbPerSecond = maxTransferRateMbPerSecond;
         }
 
-        public long getCapacityMb() { return capacityMb; }
-        public int getMaxTransferRateMbPerSecond() { return maxTransferRateMbPerSecond; }
+        public long getCapacityMb() {
+            return capacityMb;
+        }
+
+        public int getMaxTransferRateMbPerSecond() {
+            return maxTransferRateMbPerSecond;
+        }
     }
 
     /** 数据中心或 VM 使用的不可变抽象成本规格。 */
@@ -586,8 +664,10 @@ public final class PlatformProfile {
          * @throws IllegalArgumentException 当任一成本不是非负有限值时抛出
          */
         public CostSpec(double cpuPerSecond, double memory, double storage, double bandwidth) {
-            if (!nonNegativeFinite(cpuPerSecond) || !nonNegativeFinite(memory)
-                    || !nonNegativeFinite(storage) || !nonNegativeFinite(bandwidth)) {
+            if (!nonNegativeFinite(cpuPerSecond)
+                    || !nonNegativeFinite(memory)
+                    || !nonNegativeFinite(storage)
+                    || !nonNegativeFinite(bandwidth)) {
                 throw new IllegalArgumentException("Datacenter costs must be finite and non-negative");
             }
             this.cpuPerSecond = cpuPerSecond;
@@ -596,10 +676,21 @@ public final class PlatformProfile {
             this.bandwidth = bandwidth;
         }
 
-        public double getCpuPerSecond() { return cpuPerSecond; }
-        public double getMemory() { return memory; }
-        public double getStorage() { return storage; }
-        public double getBandwidth() { return bandwidth; }
+        public double getCpuPerSecond() {
+            return cpuPerSecond;
+        }
+
+        public double getMemory() {
+            return memory;
+        }
+
+        public double getStorage() {
+            return storage;
+        }
+
+        public double getBandwidth() {
+            return bandwidth;
+        }
     }
 
     private static boolean positiveFinite(double value) {

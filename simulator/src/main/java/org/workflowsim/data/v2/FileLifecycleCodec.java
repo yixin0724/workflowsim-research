@@ -27,9 +27,10 @@ public final class FileLifecycleCodec {
     static final String VISIBILITY = "PER_FILE_SETTLEMENT_OBSERVATION_V2";
     static final String SELECTION = "VISIBLE_LOCAL_OR_MAX_ISOLATED_RATE_STABLE_LOCATION_V2";
     static final String SOURCE_ACCESS = "UNBOUNDED_OFF_FABRIC_SOURCE_INPUT_V2";
-    private static final Gson JSON = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
+    private static final Gson JSON =
+            new GsonBuilder().serializeNulls().setPrettyPrinting().create();
 
-    private FileLifecycleCodec() { }
+    private FileLifecycleCodec() {}
 
     /** Immutable evidence and independently recomputed lifecycle counts, never wire summaries. */
     public static final class Decoded {
@@ -42,23 +43,41 @@ public final class FileLifecycleCodec {
         }
 
         /** @return immutable reconstructed capture */
-        public FileLifecycleEvidence getEvidence() { return result.evidence; }
+        public FileLifecycleEvidence getEvidence() {
+            return result.evidence;
+        }
         /** @return detached validated transport tree */
-        public JsonObject getDocument() { return document.deepCopy(); }
+        public JsonObject getDocument() {
+            return document.deepCopy();
+        }
         /** @return no active copies and all requested attempts terminal; unrequested Tasks are allowed */
-        public boolean isQuiescent() { return result.quiescent; }
+        public boolean isQuiescent() {
+            return result.quiescent;
+        }
         /** @return distinct requested Job attempts */
-        public int getRequestedJobCount() { return result.requestedJobs; }
+        public int getRequestedJobCount() {
+            return result.requestedJobs;
+        }
         /** @return terminal Job attempts, including failures */
-        public int getCompletedJobCount() { return result.completedJobs; }
+        public int getCompletedJobCount() {
+            return result.completedJobs;
+        }
         /** @return positive-copy admissions, not input references */
-        public long getCopyCount() { return result.copies; }
+        public long getCopyCount() {
+            return result.copies;
+        }
         /** @return observed positive-copy settlements */
-        public long getCompletedCopyCount() { return result.completedCopies; }
+        public long getCompletedCopyCount() {
+            return result.completedCopies;
+        }
         /** @return admitted positive copies without a settlement */
-        public int getActiveCopyCount() { return result.activeCopies; }
+        public int getActiveCopyCount() {
+            return result.activeCopies;
+        }
         /** @return immutable logical Task IDs with at least one successful terminal attempt */
-        public Set<Integer> getSuccessfullyCompletedTaskIds() { return result.successfulTasks; }
+        public Set<Integer> getSuccessfullyCompletedTaskIds() {
+            return result.successfulTasks;
+        }
     }
 
     /**
@@ -74,7 +93,8 @@ public final class FileLifecycleCodec {
     /** Shared explicit encoding only; callers supply a closed contract, never a wire-selected grammar. */
     static JsonObject document(FileLifecycleEvidence evidence, LifecycleContract contract, boolean storeBackedInputs) {
         if (evidence == null) throw new IllegalArgumentException("File lifecycle evidence is required");
-        if (contract == null || (!contract.storage && storeBackedInputs)) throw new IllegalArgumentException("Invalid lifecycle contract");
+        if (contract == null || (!contract.storage && storeBackedInputs))
+            throw new IllegalArgumentException("Invalid lifecycle contract");
         JsonObject root = new JsonObject();
         root.addProperty("schema", contract.schema);
         root.addProperty("modelKind", evidence.isShared() ? contract.sharedKind : contract.isolatedKind);
@@ -91,7 +111,11 @@ public final class FileLifecycleCodec {
         policies.addProperty("sourceAccess", contract.sourceAccess);
         policies.addProperty("sharing", evidence.isShared() ? "SHARED_MAX_MIN" : "ISOLATED_PATH_BOTTLENECK");
         if (contract.storage) {
-            policies.addProperty("inputAccess", storeBackedInputs ? StorageLifecycleCodec.STORE_INPUT_ACCESS : StorageLifecycleCodec.LOCAL_INPUT_ACCESS);
+            policies.addProperty(
+                    "inputAccess",
+                    storeBackedInputs
+                            ? StorageLifecycleCodec.STORE_INPUT_ACCESS
+                            : StorageLifecycleCodec.LOCAL_INPUT_ACCESS);
             policies.addProperty("outputCommit", StorageLifecycleCodec.OUTPUT_COMMIT);
         }
         root.add("policies", policies);
@@ -118,7 +142,9 @@ public final class FileLifecycleCodec {
     }
 
     /** @param evidence complete capture @return strict JSON with explicit nullable fields */
-    public static String encode(FileLifecycleEvidence evidence) { return JSON.toJson(document(evidence)); }
+    public static String encode(FileLifecycleEvidence evidence) {
+        return JSON.toJson(document(evidence));
+    }
 
     /**
      * Parse strict JSON using the existing lexical-only reader, without invoking V1 semantics.
@@ -126,7 +152,9 @@ public final class FileLifecycleCodec {
      * @return independently validated immutable evidence and counts
      * @throws IllegalArgumentException for malformed, unsupported or unverifiable input
      */
-    public static Decoded decode(String json) { return decodeDocument(NetworkLedgerCodec.parseDocument(json)); }
+    public static Decoded decode(String json) {
+        return decodeDocument(NetworkLedgerCodec.parseDocument(json));
+    }
 
     /**
      * Validate only a resolved plan, including scopes, writers and control ancestry. This
@@ -135,7 +163,9 @@ public final class FileLifecycleCodec {
      * @param plan standalone filePlan object
      * @throws IllegalArgumentException for malformed or unsupported logical plans
      */
-    public static void validatePlanDocument(JsonObject plan) { FileLifecycleValidator.validatePlanDocument(plan); }
+    public static void validatePlanDocument(JsonObject plan) {
+        FileLifecycleValidator.validatePlanDocument(plan);
+    }
 
     /**
      * Validate a transport tree and retain only defensive snapshots. No DTO private fields are

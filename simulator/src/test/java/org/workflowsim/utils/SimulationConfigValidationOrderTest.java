@@ -14,26 +14,50 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Required-model validation must not depend on whether an arrival offset is nonzero. */
 class SimulationConfigValidationOrderTest {
     private enum RequiredModel {
-        OVERHEAD, CLUSTERING, SCHEDULER, PLANNER, FILE_SYSTEM, COST, FAILURE, DATA_MOVEMENT;
+        OVERHEAD,
+        CLUSTERING,
+        SCHEDULER,
+        PLANNER,
+        FILE_SYSTEM,
+        COST,
+        FAILURE,
+        DATA_MOVEMENT;
 
         void removeFrom(SimulationConfig.Builder builder) {
             switch (this) {
-                case OVERHEAD: builder.overheadModel(null); break;
-                case CLUSTERING: builder.clusteringParameters(null); break;
-                case SCHEDULER: builder.schedulingAlgorithm(null); break;
-                case PLANNER: builder.planningAlgorithm(null); break;
-                case FILE_SYSTEM: builder.fileSystem(null); break;
-                case COST: builder.costModel(null); break;
-                case FAILURE: builder.failureModel(null); break;
-                case DATA_MOVEMENT: builder.dataMovementModel(null); break;
-                default: throw new AssertionError(this);
+                case OVERHEAD:
+                    builder.overheadModel(null);
+                    break;
+                case CLUSTERING:
+                    builder.clusteringParameters(null);
+                    break;
+                case SCHEDULER:
+                    builder.schedulingAlgorithm(null);
+                    break;
+                case PLANNER:
+                    builder.planningAlgorithm(null);
+                    break;
+                case FILE_SYSTEM:
+                    builder.fileSystem(null);
+                    break;
+                case COST:
+                    builder.costModel(null);
+                    break;
+                case FAILURE:
+                    builder.failureModel(null);
+                    break;
+                case DATA_MOVEMENT:
+                    builder.dataMovementModel(null);
+                    break;
+                default:
+                    throw new AssertionError(this);
             }
         }
     }
 
     static Stream<Arguments> requiredModels() {
-        return Stream.of(RequiredModel.values()).flatMap(model ->
-                Stream.of(0.0, 1.0).map(arrival -> Arguments.of(model, arrival)));
+        return Stream.of(RequiredModel.values())
+                .flatMap(model -> Stream.of(0.0, 1.0).map(arrival -> Arguments.of(model, arrival)));
     }
 
     @ParameterizedTest(name = "required {0}, arrival={1}")
@@ -50,9 +74,11 @@ class SimulationConfigValidationOrderTest {
     @ValueSource(doubles = {0.0, 1.0})
     void validRequiredModelsStillAllowDefaultAndStaggeredArrival(double arrival) {
         SimulationConfig config = SimulationConfig.builder("not-parsed.dax", 1)
-                .workflowArrivalSeconds(Collections.singletonList(arrival)).build();
+                .workflowArrivalSeconds(Collections.singletonList(arrival))
+                .build();
         assertEquals(arrival, config.getWorkflowArrivalSeconds().get(0).doubleValue(), 0.0);
-        assertEquals(ClusteringParameters.ClusteringMethod.NONE,
+        assertEquals(
+                ClusteringParameters.ClusteringMethod.NONE,
                 config.getClusteringParameters().getClusteringMethod());
     }
 }

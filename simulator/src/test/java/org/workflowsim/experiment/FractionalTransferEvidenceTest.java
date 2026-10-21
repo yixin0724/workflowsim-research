@@ -33,10 +33,21 @@ class FractionalTransferEvidenceTest {
     private static final double MIN_HOLD_SECONDS = 0.1;
     private static final double TIME_EPSILON = 1.0e-9;
 
-    private enum InputFormat { DAX, WFCOMMONS }
-    private enum Track { LEGACY, NO_CONTENTION, ENDPOINT_CONTENTION, FAT_TREE_CONTENTION }
+    private enum InputFormat {
+        DAX,
+        WFCOMMONS
+    }
 
-    @TempDir Path temporary;
+    private enum Track {
+        LEGACY,
+        NO_CONTENTION,
+        ENDPOINT_CONTENTION,
+        FAT_TREE_CONTENTION
+    }
+
+    @TempDir
+    Path temporary;
+
     private boolean loggingWasDisabled;
 
     @BeforeEach
@@ -46,7 +57,9 @@ class FractionalTransferEvidenceTest {
     }
 
     @AfterEach
-    void restoreLogging() { Log.setDisabled(loggingWasDisabled); }
+    void restoreLogging() {
+        Log.setDisabled(loggingWasDisabled);
+    }
 
     @ParameterizedTest(name = "fractional demand {0}/{1}")
     @MethodSource("allTracks")
@@ -57,11 +70,19 @@ class FractionalTransferEvidenceTest {
         assertEquals(1, trace.report.getMetrics().getDataStageInModelObservationCount());
         assertEquals(1.0, number(trace.stageIn, "modeledTransferFileCount"), 0.0);
         assertAll(
-                () -> assertEquals(INPUT_BYTES, trace.report.getWorkflowProfile().getTotalDistinctFileBytes(), 0.0),
-                () -> assertEquals(INPUT_BYTES, trace.report.getWorkflowProfile().getTotalDistinctExternalInputBytes(), 0.0),
-                () -> assertEquals(INPUT_BYTES, number(trace.stageIn, "requiredFileBytes"), 0.0,
+                () -> assertEquals(
+                        INPUT_BYTES, trace.report.getWorkflowProfile().getTotalDistinctFileBytes(), 0.0),
+                () -> assertEquals(
+                        INPUT_BYTES, trace.report.getWorkflowProfile().getTotalDistinctExternalInputBytes(), 0.0),
+                () -> assertEquals(
+                        INPUT_BYTES,
+                        number(trace.stageIn, "requiredFileBytes"),
+                        0.0,
                         "DATA_STAGE_IN_MODELED must not narrow accepted double bytes to long"),
-                () -> assertEquals(INPUT_BYTES, trace.report.getMetrics().getTotalModeledRequiredInputBytes(), 0.0,
+                () -> assertEquals(
+                        INPUT_BYTES,
+                        trace.report.getMetrics().getTotalModeledRequiredInputBytes(),
+                        0.0,
                         "the metric must retain the same fractional input demand"));
     }
 
@@ -74,7 +95,10 @@ class FractionalTransferEvidenceTest {
                 .collect(Collectors.toList());
         assertEquals(1, creation.size());
         assertEquals(1.0, number(creation.get(0), "inputFileCount"), 0.0);
-        assertEquals(INPUT_BYTES, number(creation.get(0), "inputBytes"), 0.0,
+        assertEquals(
+                INPUT_BYTES,
+                number(creation.get(0), "inputBytes"),
+                0.0,
                 "The bootstrap event must preserve the same accepted fractional demand");
     }
 
@@ -87,15 +111,22 @@ class FractionalTransferEvidenceTest {
         assertEquals(0.5 / 1_000_000.0, number(trace.stageIn, "modeledTransferSeconds"), 1.0e-15);
         assertEquals(trace.ready.getSimulationTime(), trace.stageIn.getSimulationTime(), TIME_EPSILON);
         assertAll(
-                () -> assertEquals(MIN_HOLD_SECONDS,
-                        trace.decision.getSimulationTime() - trace.ready.getSimulationTime(), TIME_EPSILON,
+                () -> assertEquals(
+                        MIN_HOLD_SECONDS,
+                        trace.decision.getSimulationTime() - trace.ready.getSimulationTime(),
+                        TIME_EPSILON,
                         "a positive sub-interval transfer cannot take the zero-transfer dispatch path"),
-                () -> assertEquals(MIN_HOLD_SECONDS,
-                        trace.job.getStartTime() - trace.ready.getSimulationTime(), TIME_EPSILON),
-                () -> assertEquals(MIN_HOLD_SECONDS,
-                        number(trace.taskExecution, "taskStartTime") - trace.stageIn.getSimulationTime(), TIME_EPSILON));
+                () -> assertEquals(
+                        MIN_HOLD_SECONDS, trace.job.getStartTime() - trace.ready.getSimulationTime(), TIME_EPSILON),
+                () -> assertEquals(
+                        MIN_HOLD_SECONDS,
+                        number(trace.taskExecution, "taskStartTime") - trace.stageIn.getSimulationTime(),
+                        TIME_EPSILON));
         if (track == Track.ENDPOINT_CONTENTION || track == Track.FAT_TREE_CONTENTION) {
-            assertEquals(1.0, number(trace.stageIn, "contentionTransferGroupCount"), 0.0,
+            assertEquals(
+                    1.0,
+                    number(trace.stageIn, "contentionTransferGroupCount"),
+                    0.0,
                     "the positive external input must create one transfer group");
         }
     }
@@ -110,7 +141,8 @@ class FractionalTransferEvidenceTest {
                 () -> assertEquals(0.0, trace.report.getMetrics().getTotalModeledRequiredInputBytes(), 0.0),
                 () -> assertEquals(trace.ready.getSimulationTime(), trace.decision.getSimulationTime(), TIME_EPSILON),
                 () -> assertEquals(trace.ready.getSimulationTime(), trace.job.getStartTime(), TIME_EPSILON),
-                () -> assertEquals(trace.ready.getSimulationTime(), number(trace.taskExecution, "taskStartTime"), TIME_EPSILON));
+                () -> assertEquals(
+                        trace.ready.getSimulationTime(), number(trace.taskExecution, "taskStartTime"), TIME_EPSILON));
         if (track == Track.ENDPOINT_CONTENTION || track == Track.FAT_TREE_CONTENTION) {
             assertEquals(0.0, number(trace.stageIn, "contentionTransferGroupCount"), 0.0);
         }
@@ -121,8 +153,8 @@ class FractionalTransferEvidenceTest {
         Files.write(input, workflow(format, bytes).getBytes(StandardCharsets.UTF_8));
         PlatformProfile.Builder platform = PlatformProfile.builder("fractional-transfer-" + track)
                 .addHost(new PlatformProfile.HostSpec(0, 2, 2000.0, 2048, 10000L, 1000000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512, 1L, 10000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1L, 10000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .pinVmToHost(0, 0);
         if (track == Track.FAT_TREE_CONTENTION) {
             platform.networkTopology(NetworkTopologySpec.fatTree(2, 1.0));
@@ -134,19 +166,26 @@ class FractionalTransferEvidenceTest {
                 .dataMovementModel(model(track))
                 .failureModel(FailureModelConfig.disabled())
                 .overheadModel(OverheadModelConfig.none())
-                .randomSeed(13L).runtimeScale(1.0).runtimeReferenceMips(1000.0)
+                .randomSeed(13L)
+                .runtimeScale(1.0)
+                .runtimeReferenceMips(1000.0)
                 .cloudSimMinEventIntervalSeconds(MIN_HOLD_SECONDS)
                 .build();
         SimulationReport report = new SimulationRunner().run(config, platform.build());
         assertTrue(report.isWorkflowCompletedSuccessfully());
         List<Integer> computeIds = report.getJobs().stream()
                 .filter(job -> job.getClassType() == Parameters.ClassType.COMPUTE.value)
-                .map(SimulationReport.JobOutcome::getJobId).collect(Collectors.toList());
+                .map(SimulationReport.JobOutcome::getJobId)
+                .collect(Collectors.toList());
         assertEquals(1, computeIds.size(), "the probe must contain exactly one compute Job");
         int computeId = computeIds.get(0);
         SimulationReport.JobOutcome compute = report.getJobs().stream()
-                .filter(job -> job.getJobId() == computeId).findFirst().get();
-        return new Trace(report, compute,
+                .filter(job -> job.getJobId() == computeId)
+                .findFirst()
+                .get();
+        return new Trace(
+                report,
+                compute,
                 onlyEvent(report, SimulationEventType.JOB_READY, computeId),
                 onlyEvent(report, SimulationEventType.DATA_STAGE_IN_MODELED, computeId),
                 onlyEvent(report, SimulationEventType.SCHEDULING_DECISION, computeId),
@@ -154,22 +193,28 @@ class FractionalTransferEvidenceTest {
     }
 
     private static Stream<Arguments> allTracks() {
-        return Arrays.stream(InputFormat.values()).flatMap(format -> Arrays.stream(Track.values())
-                .map(track -> Arguments.of(format, track)));
+        return Arrays.stream(InputFormat.values())
+                .flatMap(format -> Arrays.stream(Track.values()).map(track -> Arguments.of(format, track)));
     }
 
     private static Stream<Arguments> preExecutionTracks() {
         return Arrays.stream(InputFormat.values()).flatMap(format -> Arrays.stream(Track.values())
-                .filter(track -> track != Track.LEGACY).map(track -> Arguments.of(format, track)));
+                .filter(track -> track != Track.LEGACY)
+                .map(track -> Arguments.of(format, track)));
     }
 
     private static DataMovementModel model(Track track) {
         switch (track) {
-            case LEGACY: return DataMovementModel.legacyWorkflowsimV1();
-            case NO_CONTENTION: return DataMovementModel.preExecutionTransferDelayV1();
-            case ENDPOINT_CONTENTION: return DataMovementModel.preExecutionTransferDelayWithContentionV1();
-            case FAT_TREE_CONTENTION: return DataMovementModel.fatTreeContentionV1();
-            default: throw new AssertionError(track);
+            case LEGACY:
+                return DataMovementModel.legacyWorkflowsimV1();
+            case NO_CONTENTION:
+                return DataMovementModel.preExecutionTransferDelayV1();
+            case ENDPOINT_CONTENTION:
+                return DataMovementModel.preExecutionTransferDelayWithContentionV1();
+            case FAT_TREE_CONTENTION:
+                return DataMovementModel.fatTreeContentionV1();
+            default:
+                throw new AssertionError(track);
         }
     }
 
@@ -189,7 +234,8 @@ class FractionalTransferEvidenceTest {
 
     private static SimulationEvent onlyEvent(SimulationReport report, SimulationEventType type, int jobId) {
         List<SimulationEvent> events = report.getEvents().stream()
-                .filter(event -> event.getType() == type && Integer.valueOf(jobId).equals(event.getJobId()))
+                .filter(event ->
+                        event.getType() == type && Integer.valueOf(jobId).equals(event.getJobId()))
                 .collect(Collectors.toList());
         assertEquals(1, events.size(), "expected one " + type + " event for compute Job " + jobId);
         return events.get(0);
@@ -209,10 +255,19 @@ class FractionalTransferEvidenceTest {
         private final SimulationEvent decision;
         private final SimulationEvent taskExecution;
 
-        private Trace(SimulationReport report, SimulationReport.JobOutcome job, SimulationEvent ready,
-                SimulationEvent stageIn, SimulationEvent decision, SimulationEvent taskExecution) {
-            this.report = report; this.job = job; this.ready = ready; this.stageIn = stageIn;
-            this.decision = decision; this.taskExecution = taskExecution;
+        private Trace(
+                SimulationReport report,
+                SimulationReport.JobOutcome job,
+                SimulationEvent ready,
+                SimulationEvent stageIn,
+                SimulationEvent decision,
+                SimulationEvent taskExecution) {
+            this.report = report;
+            this.job = job;
+            this.ready = ready;
+            this.stageIn = stageIn;
+            this.decision = decision;
+            this.taskExecution = taskExecution;
         }
     }
 }

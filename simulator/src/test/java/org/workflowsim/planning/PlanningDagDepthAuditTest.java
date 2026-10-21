@@ -47,8 +47,8 @@ class PlanningDagDepthAuditTest {
     @Test
     void localUpwardRanksAcceptForwardIdsAtDepth4096() throws Exception {
         List<Task> path = chain(false);
-        LocalHeftPlanningAlgorithm planner = new LocalHeftPlanningAlgorithm(
-                context(PlanningAlgorithm.LOCAL_HEFT, true));
+        LocalHeftPlanningAlgorithm planner =
+                new LocalHeftPlanningAlgorithm(context(PlanningAlgorithm.LOCAL_HEFT, true));
         inputs(planner, path);
         // prepare() isolates the common LOCAL upward-rank pass from reservation insertion.
         onBoundedStack("local-upward", () -> {
@@ -62,8 +62,8 @@ class PlanningDagDepthAuditTest {
     @Test
     void localCpopDownwardRanksAcceptReverseIdsAtDepth4096() throws Exception {
         List<Task> path = chain(true);
-        LocalCpopPlanningAlgorithm planner = new LocalCpopPlanningAlgorithm(
-                context(PlanningAlgorithm.LOCAL_CPOP, true));
+        LocalCpopPlanningAlgorithm planner =
+                new LocalCpopPlanningAlgorithm(context(PlanningAlgorithm.LOCAL_CPOP, true));
         inputs(planner, path);
         // Reverse IDs prewarm upward ranks from the exit, exposing the separate parent walk.
         onBoundedStack("local-downward", () -> {
@@ -72,7 +72,8 @@ class PlanningDagDepthAuditTest {
             for (int index = 0; index < path.size(); index++) {
                 assertEquals(index, planner.downwardRankOf(path.get(index)), 0.0);
                 assertEquals(DEPTH, planner.priorityOf(path.get(index)), 0.0);
-                assertEquals(path.get(index).getCloudletId(),
+                assertEquals(
+                        path.get(index).getCloudletId(),
                         planner.getCriticalPathTaskIds().get(index).intValue());
             }
             assertEquals(Integer.valueOf(VM_ID), planner.getCriticalProcessorVmId());
@@ -82,8 +83,8 @@ class PlanningDagDepthAuditTest {
     @Test
     void localPeftOctAcceptsDepth4096AfterReverseIdRanksArePrepared() throws Exception {
         List<Task> path = chain(true);
-        LocalPeftPlanningAlgorithm planner = new LocalPeftPlanningAlgorithm(
-                context(PlanningAlgorithm.LOCAL_PEFT, true));
+        LocalPeftPlanningAlgorithm planner =
+                new LocalPeftPlanningAlgorithm(context(PlanningAlgorithm.LOCAL_PEFT, true));
         inputs(planner, path);
         onBoundedStack("local-oct", () -> {
             planner.prepare();
@@ -92,8 +93,7 @@ class PlanningDagDepthAuditTest {
             CondorVM vm = planner.vms().get(0);
             for (int index = 0; index < path.size(); index++) {
                 // PEFT counts successor work, never current work, and the exit is exactly zero.
-                assertEquals(DEPTH - index - 1,
-                        planner.optimisticCostOf(path.get(index), vm), 0.0);
+                assertEquals(DEPTH - index - 1, planner.optimisticCostOf(path.get(index), vm), 0.0);
             }
         });
     }
@@ -101,8 +101,8 @@ class PlanningDagDepthAuditTest {
     @Test
     void sharedUpwardRanksAcceptForwardIdsAtDepth4096() throws Exception {
         List<Task> path = chain(false);
-        SharedStorageHeftPlanningAlgorithm planner = new SharedStorageHeftPlanningAlgorithm(
-                context(PlanningAlgorithm.SHARED_STORAGE_HEFT, false));
+        SharedStorageHeftPlanningAlgorithm planner =
+                new SharedStorageHeftPlanningAlgorithm(context(PlanningAlgorithm.SHARED_STORAGE_HEFT, false));
         inputs(planner, path);
         // Every shared DAG strategy enters this same upward-rank implementation.
         onBoundedStack("shared-upward", () -> {
@@ -114,18 +114,21 @@ class PlanningDagDepthAuditTest {
     @Test
     void sharedCpopDownwardRanksAcceptReverseIdsAtDepth4096() throws Exception {
         List<Task> path = chain(true);
-        SharedStorageCpopPlanningAlgorithm planner = new SharedStorageCpopPlanningAlgorithm(
-                context(PlanningAlgorithm.SHARED_STORAGE_CPOP, false));
+        SharedStorageCpopPlanningAlgorithm planner =
+                new SharedStorageCpopPlanningAlgorithm(context(PlanningAlgorithm.SHARED_STORAGE_CPOP, false));
         inputs(planner, path);
         onBoundedStack("shared-downward", () -> {
             planner.run();
             SharedStorageDagPlanTrace trace = planner.getLastPlanTrace();
             assertSharedChain(trace, path);
             for (int index = 0; index < path.size(); index++) {
-                SharedStorageDagPlanTrace.TaskPlan task = trace.getTaskPlan(path.get(index).getCloudletId());
+                SharedStorageDagPlanTrace.TaskPlan task =
+                        trace.getTaskPlan(path.get(index).getCloudletId());
                 assertEquals(index, task.getCpopDownwardRankSeconds(), 0.0);
                 assertEquals(DEPTH, task.getCpopPrioritySeconds(), 0.0);
-                assertEquals(path.get(index).getCloudletId(), trace.getCriticalPathTaskIds().get(index).intValue());
+                assertEquals(
+                        path.get(index).getCloudletId(),
+                        trace.getCriticalPathTaskIds().get(index).intValue());
             }
             assertEquals(Integer.valueOf(VM_ID), trace.getCriticalProcessorVmId());
         });
@@ -134,8 +137,8 @@ class PlanningDagDepthAuditTest {
     @Test
     void sharedPeftOctAcceptsReverseIdsAtDepth4096() throws Exception {
         List<Task> path = chain(true);
-        SharedStoragePeftPlanningAlgorithm planner = new SharedStoragePeftPlanningAlgorithm(
-                context(PlanningAlgorithm.SHARED_STORAGE_PEFT, false));
+        SharedStoragePeftPlanningAlgorithm planner =
+                new SharedStoragePeftPlanningAlgorithm(context(PlanningAlgorithm.SHARED_STORAGE_PEFT, false));
         inputs(planner, path);
         // Upward ranks are already shallow; the first ready task still asks for the root OCT.
         onBoundedStack("shared-oct", () -> {
@@ -143,7 +146,8 @@ class PlanningDagDepthAuditTest {
             SharedStorageDagPlanTrace trace = planner.getLastPlanTrace();
             assertSharedChain(trace, path);
             for (int index = 0; index < path.size(); index++) {
-                SharedStorageDagPlanTrace.TaskPlan task = trace.getTaskPlan(path.get(index).getCloudletId());
+                SharedStorageDagPlanTrace.TaskPlan task =
+                        trace.getTaskPlan(path.get(index).getCloudletId());
                 assertEquals(DEPTH - index - 1, task.getPeftRankOctSeconds(), 0.0);
                 assertEquals(DEPTH - index - 1, task.getPeftOptimisticCostAtSelectedVmSeconds(), 0.0);
                 assertEquals(Integer.valueOf(index + 1), task.getPeftSelectionOrder());
@@ -167,15 +171,22 @@ class PlanningDagDepthAuditTest {
 
     private static void inputs(BasePlanningAlgorithm planner, List<Task> path) {
         planner.setTaskList(new ArrayList<Task>(path));
-        planner.setVmList(Collections.singletonList(new CondorVM(VM_ID, 0, 1000.0, 1,
-                512, 1000L, 10000L, "Xen", new CloudletSchedulerSpaceShared())));
+        planner.setVmList(Collections.singletonList(
+                new CondorVM(VM_ID, 0, 1000.0, 1, 512, 1000L, 10000L, "Xen", new CloudletSchedulerSpaceShared())));
     }
 
     private static PlanningContext context(PlanningAlgorithm algorithm, boolean local) {
         PlatformProfile platform = PlatformProfile.builder("planning-depth-audit")
                 .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1000L, 100000L))
-                .addVm(new PlatformProfile.VmSpec(VM_ID, 1000.0, 1, 512, 1000L, 10000L,
-                        "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                .addVm(new PlatformProfile.VmSpec(
+                        VM_ID,
+                        1000.0,
+                        1,
+                        512,
+                        1000L,
+                        10000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                 .pinVmToHost(VM_ID, 0)
                 .build();
         SimulationConfig.Builder config = SimulationConfig.builder("planning-depth-audit.dax", 1)
@@ -214,13 +225,17 @@ class PlanningDagDepthAuditTest {
 
     private static void onBoundedStack(String name, Runnable action) throws InterruptedException {
         AtomicReference<Throwable> failure = new AtomicReference<Throwable>();
-        Thread worker = new Thread(null, () -> {
-            try {
-                action.run();
-            } catch (Throwable problem) {
-                failure.set(problem);
-            }
-        }, "planning-depth-audit-" + name, 256L * 1024L);
+        Thread worker = new Thread(
+                null,
+                () -> {
+                    try {
+                        action.run();
+                    } catch (Throwable problem) {
+                        failure.set(problem);
+                    }
+                },
+                "planning-depth-audit-" + name,
+                256L * 1024L);
         // Stack size is a JVM hint. Fixed input size is the bound even if a JVM ignores the hint.
         worker.setDaemon(true);
         worker.start();

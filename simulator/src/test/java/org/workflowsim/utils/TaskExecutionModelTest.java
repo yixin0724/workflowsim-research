@@ -30,7 +30,8 @@ class TaskExecutionModelTest {
         assertEquals(limit, TaskExecutionModel.requireRepresentableLength(limit, 1));
         assertEquals(limit / 2, TaskExecutionModel.requireRepresentableLength(limit / 2, 2));
         assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.requireRepresentableLength(limit + 1, 1));
-        assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.requireRepresentableLength(limit / 2 + 1, 2));
+        assertThrows(
+                IllegalArgumentException.class, () -> TaskExecutionModel.requireRepresentableLength(limit / 2 + 1, 2));
         assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.requireRepresentableLength(0, 1));
         assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.requireRepresentableLength(1, 0));
     }
@@ -41,8 +42,7 @@ class TaskExecutionModelTest {
         task.setVmExecutionCostSeconds(Collections.singletonMap(7, 0.1));
         assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.executionLengthMi(task, 7, 1.0));
         task.setVmExecutionCostSeconds(Collections.singletonMap(7, 10_000_000.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> TaskExecutionModel.executionLengthMi(task, 7, 1_000_000.0));
+        assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.executionLengthMi(task, 7, 1_000_000.0));
         task.setVmExecutionCostSeconds(Collections.singletonMap(7, Double.MAX_VALUE));
         assertThrows(IllegalArgumentException.class, () -> TaskExecutionModel.executionLengthMi(task, 7, 1000.0));
     }

@@ -14,7 +14,9 @@ import java.util.TreeMap;
 public final class OverheadModelConfig {
 
     private static final OverheadModelConfig NONE = new OverheadModelConfig(
-            0, 0.0, Collections.<Integer, DistributionSpec>emptyMap(),
+            0,
+            0.0,
+            Collections.<Integer, DistributionSpec>emptyMap(),
             Collections.<Integer, DistributionSpec>emptyMap(),
             Collections.<Integer, DistributionSpec>emptyMap(),
             Collections.<Integer, DistributionSpec>emptyMap());
@@ -26,7 +28,9 @@ public final class OverheadModelConfig {
     private final Map<Integer, DistributionSpec> postDelays;
     private final Map<Integer, DistributionSpec> clusteringDelays;
 
-    private OverheadModelConfig(int workflowEngineDelayInterval, double bandwidth,
+    private OverheadModelConfig(
+            int workflowEngineDelayInterval,
+            double bandwidth,
             Map<Integer, DistributionSpec> workflowEngineDelays,
             Map<Integer, DistributionSpec> queueDelays,
             Map<Integer, DistributionSpec> postDelays,
@@ -73,17 +77,29 @@ public final class OverheadModelConfig {
     }
 
     /** @return WED 子批次最大作业数；0 表示不拆分，非空批次仍应用已配置延迟 */
-    public int getWorkflowEngineDelayInterval() { return workflowEngineDelayInterval; }
+    public int getWorkflowEngineDelayInterval() {
+        return workflowEngineDelayInterval;
+    }
     /** @return 旧开销模型使用的逻辑带宽 */
-    public double getBandwidth() { return bandwidth; }
+    public double getBandwidth() {
+        return bandwidth;
+    }
     /** @return 以任务深度为键的工作流引擎延迟分布 */
-    public Map<Integer, DistributionSpec> getWorkflowEngineDelays() { return workflowEngineDelays; }
+    public Map<Integer, DistributionSpec> getWorkflowEngineDelays() {
+        return workflowEngineDelays;
+    }
     /** @return 以任务深度为键的队列延迟分布 */
-    public Map<Integer, DistributionSpec> getQueueDelays() { return queueDelays; }
+    public Map<Integer, DistributionSpec> getQueueDelays() {
+        return queueDelays;
+    }
     /** @return 以任务深度为键的后处理延迟分布 */
-    public Map<Integer, DistributionSpec> getPostDelays() { return postDelays; }
+    public Map<Integer, DistributionSpec> getPostDelays() {
+        return postDelays;
+    }
     /** @return 以任务深度为键的聚类延迟分布 */
-    public Map<Integer, DistributionSpec> getClusteringDelays() { return clusteringDelays; }
+    public Map<Integer, DistributionSpec> getClusteringDelays() {
+        return clusteringDelays;
+    }
 
     /**
      * 为已设定随机种子的会话创建新的、有状态的旧式开销参数。
@@ -91,11 +107,13 @@ public final class OverheadModelConfig {
      * @return 供历史执行路径使用的开销参数
      */
     public OverheadParameters createParameters() {
-        return new OverheadParameters(workflowEngineDelayInterval,
+        return new OverheadParameters(
+                workflowEngineDelayInterval,
                 createGenerators(workflowEngineDelays, "overhead.workflow-engine"),
                 createGenerators(queueDelays, "overhead.queue"),
                 createGenerators(postDelays, "overhead.post"),
-                createGenerators(clusteringDelays, "overhead.clustering"), bandwidth);
+                createGenerators(clusteringDelays, "overhead.clustering"),
+                bandwidth);
     }
 
     private static Map<Integer, DistributionSpec> copyLegacy(Map<Integer, DistributionGenerator> source) {
@@ -106,11 +124,12 @@ public final class OverheadModelConfig {
         for (Map.Entry<Integer, DistributionGenerator> entry : source.entrySet()) {
             DistributionGenerator generator = entry.getValue();
             if (generator == null) {
-                throw new IllegalArgumentException("Legacy overhead generator for depth "
-                        + entry.getKey() + " is null");
+                throw new IllegalArgumentException(
+                        "Legacy overhead generator for depth " + entry.getKey() + " is null");
             }
-            result.put(entry.getKey(), DistributionSpec.of(generator.getFamily(),
-                    generator.getScale(), generator.getShape()));
+            result.put(
+                    entry.getKey(),
+                    DistributionSpec.of(generator.getFamily(), generator.getScale(), generator.getShape()));
         }
         return result;
     }
@@ -122,8 +141,7 @@ public final class OverheadModelConfig {
         }
         Map<Integer, DistributionGenerator> result = new LinkedHashMap<>();
         for (Map.Entry<Integer, DistributionSpec> entry : specs.entrySet()) {
-            result.put(entry.getKey(), entry.getValue().createGenerator(
-                    prefix + ".depth" + entry.getKey()));
+            result.put(entry.getKey(), entry.getValue().createGenerator(prefix + ".depth" + entry.getKey()));
         }
         return result;
     }
@@ -202,12 +220,19 @@ public final class OverheadModelConfig {
          * @return 不可变开销模型
          */
         public OverheadModelConfig build() {
-            if (workflowEngineDelayInterval < 0 || Double.isNaN(bandwidth)
-                    || Double.isInfinite(bandwidth) || bandwidth < 0.0) {
+            if (workflowEngineDelayInterval < 0
+                    || Double.isNaN(bandwidth)
+                    || Double.isInfinite(bandwidth)
+                    || bandwidth < 0.0) {
                 throw new IllegalArgumentException("Overhead interval and bandwidth must be finite and non-negative");
             }
-            return new OverheadModelConfig(workflowEngineDelayInterval, bandwidth,
-                    workflowEngineDelays, queueDelays, postDelays, clusteringDelays);
+            return new OverheadModelConfig(
+                    workflowEngineDelayInterval,
+                    bandwidth,
+                    workflowEngineDelays,
+                    queueDelays,
+                    postDelays,
+                    clusteringDelays);
         }
     }
 }

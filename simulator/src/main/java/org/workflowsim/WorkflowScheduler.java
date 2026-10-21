@@ -31,20 +31,20 @@ import org.cloudbus.cloudsim.lists.VmList;
 import org.workflowsim.exception.SimulationConfigurationException;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
-import org.workflowsim.scheduling.DataAwareSchedulingAlgorithm;
 import org.workflowsim.scheduling.BaseSchedulingAlgorithm;
+import org.workflowsim.scheduling.DataAwareSchedulingAlgorithm;
 import org.workflowsim.scheduling.FCFSSchedulingAlgorithm;
-import org.workflowsim.scheduling.ReadyBatchMaxMinSchedulingAlgorithm;
-import org.workflowsim.scheduling.ReadyBatchMCTSchedulingAlgorithm;
-import org.workflowsim.scheduling.ReadyBatchMinMinSchedulingAlgorithm;
-import org.workflowsim.scheduling.ReadyBatchRoundRobinSchedulingAlgorithm;
-import org.workflowsim.scheduling.RlPolicySchedulingAlgorithm;
 import org.workflowsim.scheduling.FastestVmSchedulingAlgorithm;
 import org.workflowsim.scheduling.FirstFitIdleSchedulingAlgorithm;
 import org.workflowsim.scheduling.LjfFastestIdleSchedulingAlgorithm;
+import org.workflowsim.scheduling.ReadyBatchMCTSchedulingAlgorithm;
+import org.workflowsim.scheduling.ReadyBatchMaxMinSchedulingAlgorithm;
+import org.workflowsim.scheduling.ReadyBatchMinMinSchedulingAlgorithm;
+import org.workflowsim.scheduling.ReadyBatchRoundRobinSchedulingAlgorithm;
+import org.workflowsim.scheduling.RlPolicySchedulingAlgorithm;
 import org.workflowsim.scheduling.SptFastestIdleSchedulingAlgorithm;
-import org.workflowsim.scheduling.StaticSchedulingAlgorithm;
 import org.workflowsim.scheduling.StaticSchedulePlan;
+import org.workflowsim.scheduling.StaticSchedulingAlgorithm;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 
@@ -69,11 +69,14 @@ public class WorkflowScheduler extends DatacenterBroker {
 
     /** 创建当前策略实例时使用的配置枚举值。 */
     private SchedulingAlgorithm activeSchedulingPolicyType;
+
     private SimulationEventRecorder eventRecorder = SimulationEventRecorder.disabled();
     private StaticSchedulePlan staticSchedulePlan = StaticSchedulePlan.empty();
     private boolean strictDataflowBindings;
     /** Require an intact input-prepared compute binding, without changing stage-in fallback. */
-    public void enableDataflowBindingGuard(){strictDataflowBindings=true;}
+    public void enableDataflowBindingGuard() {
+        strictDataflowBindings = true;
+    }
     /**
      * VM 创建成功时冻结的 VM 到 Host 映射。
      *
@@ -135,8 +138,7 @@ public class WorkflowScheduler extends DatacenterBroker {
      * @return 不可修改的 VM 编号到 Host 编号映射
      */
     public Map<Integer, Integer> getCreatedVmHostAssignments() {
-        return Collections.unmodifiableMap(
-                new LinkedHashMap<Integer, Integer>(createdVmHostAssignments));
+        return Collections.unmodifiableMap(new LinkedHashMap<Integer, Integer>(createdVmHostAssignments));
     }
 
     /**
@@ -162,19 +164,19 @@ public class WorkflowScheduler extends DatacenterBroker {
     @Override
     public void processEvent(SimEvent ev) {
         switch (ev.getTag()) {
-            // 请求各数据中心资源特征。
+                // 请求各数据中心资源特征。
             case CloudSimTags.RESOURCE_CHARACTERISTICS_REQUEST:
                 processResourceCharacteristicsRequest(ev);
                 break;
-            // 接收数据中心资源特征。
+                // 接收数据中心资源特征。
             case CloudSimTags.RESOURCE_CHARACTERISTICS:
                 processResourceCharacteristics(ev);
                 break;
-            // 接收 VM 创建确认。
+                // 接收 VM 创建确认。
             case CloudSimTags.VM_CREATE_ACK:
                 processVmCreate(ev);
                 break;
-            // 接收作业完成或由完成检查触发的返回事件。
+                // 接收作业完成或由完成检查触发的返回事件。
             case WorkflowSimTags.CLOUDLET_CHECK:
                 processCloudletReturn(ev);
                 break;
@@ -211,7 +213,7 @@ public class WorkflowScheduler extends DatacenterBroker {
 
         // 新增策略时必须同步维护 Parameters 中的可报告算法枚举。
         switch (name) {
-            // FCFS 是默认在线调度策略。
+                // FCFS 是默认在线调度策略。
             case FCFS:
                 algorithm = new FCFSSchedulingAlgorithm();
                 break;
@@ -256,7 +258,6 @@ public class WorkflowScheduler extends DatacenterBroker {
             default:
                 algorithm = new StaticSchedulingAlgorithm();
                 break;
-
         }
         return algorithm;
     }
@@ -300,12 +301,14 @@ public class WorkflowScheduler extends DatacenterBroker {
                 getVmsCreatedList().add(VmList.getById(getVmList(), vmId));
                 CondorVM createdVm = (CondorVM) VmList.getById(getVmsCreatedList(), vmId);
                 if (createdVm.getHost() == null) {
-                    throw new IllegalStateException(getName() + " received successful creation for VM #"
-                            + vmId + " without a Host assignment");
+                    throw new IllegalStateException(
+                            getName() + " received successful creation for VM #" + vmId + " without a Host assignment");
                 }
-                if (createdVmHostAssignments.put(createdVm.getId(), createdVm.getHost().getId()) != null) {
-                    throw new IllegalStateException(getName() + " received duplicate successful creation for VM #"
-                            + vmId);
+                if (createdVmHostAssignments.put(
+                                createdVm.getId(), createdVm.getHost().getId())
+                        != null) {
+                    throw new IllegalStateException(
+                            getName() + " received duplicate successful creation for VM #" + vmId);
                 }
                 Log.printLine(CloudSim.clock() + ": " + getName() + ": VM #" + vmId
                         + " has been created in Datacenter #" + datacenterId + ", Host #"
@@ -317,8 +320,8 @@ public class WorkflowScheduler extends DatacenterBroker {
             // 标准 SimulationRunner 路径下平台布局已预校验（PLAT-2/PLAT-5），VM 必可
             // 放置，此处不会触发；若触发则条件计数永不满足，看门狗报停滞（R8 审计
             // P1-6 评估后保留日志行为，fail-fast 会误伤多集群试放语义）。
-            Log.printLine(CloudSim.clock() + ": " + getName() + ": Creation of VM #" + vmId
-                    + " failed in Datacenter #" + datacenterId);
+            Log.printLine(CloudSim.clock() + ": " + getName() + ": Creation of VM #" + vmId + " failed in Datacenter #"
+                    + datacenterId);
         }
 
         incrementVmsAcks();
@@ -373,7 +376,7 @@ public class WorkflowScheduler extends DatacenterBroker {
         BaseSchedulingAlgorithm scheduler = getSchedulingPolicy();
         if (scheduler instanceof StaticSchedulingAlgorithm) {
             ((StaticSchedulingAlgorithm) scheduler).setStaticSchedulePlan(staticSchedulePlan);
-            if(strictDataflowBindings)((StaticSchedulingAlgorithm)scheduler).requireDataflowBindings();
+            if (strictDataflowBindings) ((StaticSchedulingAlgorithm) scheduler).requireDataflowBindings();
         }
         scheduler.getScheduledList().clear();
         scheduler.setCloudletList(getCloudletList());
@@ -393,17 +396,27 @@ public class WorkflowScheduler extends DatacenterBroker {
             // 被包装成"调度算法失败"的执行语义。
             throw exception;
         } catch (Exception exception) {
-            throw new IllegalStateException("Scheduling algorithm "
-                    + Parameters.getSchedulingAlgorithm() + " failed", exception);
+            throw new IllegalStateException(
+                    "Scheduling algorithm " + Parameters.getSchedulingAlgorithm() + " failed", exception);
         }
         long decisionElapsed = System.nanoTime() - decisionStart;
 
         List<Cloudlet> scheduledList = scheduler.getScheduledList();
-        eventRecorder.record(SimulationEventType.SCHEDULING_CYCLE, CloudSim.clock(), null,
-                SimulationEventRecorder.attributes("schedulingAlgorithm",
-                        Parameters.getSchedulingAlgorithm().name(), "readyJobCount", readyJobs,
-                        "idleVmCount", idleVms, "scheduledJobCount", scheduledList.size(),
-                        "decisionElapsedNanos", decisionElapsed));
+        eventRecorder.record(
+                SimulationEventType.SCHEDULING_CYCLE,
+                CloudSim.clock(),
+                null,
+                SimulationEventRecorder.attributes(
+                        "schedulingAlgorithm",
+                        Parameters.getSchedulingAlgorithm().name(),
+                        "readyJobCount",
+                        readyJobs,
+                        "idleVmCount",
+                        idleVms,
+                        "scheduledJobCount",
+                        scheduledList.size(),
+                        "decisionElapsedNanos",
+                        decisionElapsed));
         for (Cloudlet cloudlet : scheduledList) {
             Job job = (Job) cloudlet;
             int vmId = cloudlet.getVmId();
@@ -411,11 +424,20 @@ public class WorkflowScheduler extends DatacenterBroker {
             if (Parameters.getOverheadParams().getQueueDelay() != null) {
                 delay = Parameters.getOverheadParams().getQueueDelay(cloudlet);
             }
-            eventRecorder.record(SimulationEventType.SCHEDULING_DECISION, CloudSim.clock(), job,
-                    SimulationEventRecorder.attributes("schedulingAlgorithm",
-                            Parameters.getSchedulingAlgorithm().name(), "queueDelaySeconds", delay));
+            eventRecorder.record(
+                    SimulationEventType.SCHEDULING_DECISION,
+                    CloudSim.clock(),
+                    job,
+                    SimulationEventRecorder.attributes(
+                            "schedulingAlgorithm",
+                            Parameters.getSchedulingAlgorithm().name(),
+                            "queueDelaySeconds",
+                            delay));
             schedule(getVmsToDatacentersMap().get(vmId), delay, CloudSimTags.CLOUDLET_SUBMIT, cloudlet);
-            eventRecorder.record(SimulationEventType.JOB_DISPATCHED, CloudSim.clock(), job,
+            eventRecorder.record(
+                    SimulationEventType.JOB_DISPATCHED,
+                    CloudSim.clock(),
+                    job,
                     SimulationEventRecorder.attributes("queueDelaySeconds", delay));
         }
         getCloudletList().removeAll(scheduledList);
@@ -447,11 +469,22 @@ public class WorkflowScheduler extends DatacenterBroker {
         if (Parameters.getOverheadParams().getPostDelay() != null) {
             delay = Parameters.getOverheadParams().getPostDelay(job);
         }
-        eventRecorder.record(SimulationEventType.JOB_RETURNED, CloudSim.clock(), job,
-                SimulationEventRecorder.attributes("postDelaySeconds", delay,
-                        "jobStatus", job.getCloudletStatus(), "taskStatuses", taskStatuses(job)));
+        eventRecorder.record(
+                SimulationEventType.JOB_RETURNED,
+                CloudSim.clock(),
+                job,
+                SimulationEventRecorder.attributes(
+                        "postDelaySeconds",
+                        delay,
+                        "jobStatus",
+                        job.getCloudletStatus(),
+                        "taskStatuses",
+                        taskStatuses(job)));
         if (job.getCloudletStatus() == Cloudlet.FAILED) {
-            eventRecorder.record(SimulationEventType.JOB_FAILED, CloudSim.clock(), job,
+            eventRecorder.record(
+                    SimulationEventType.JOB_FAILED,
+                    CloudSim.clock(),
+                    job,
                     SimulationEventRecorder.attributes("failedStatus", true));
         }
         schedule(this.workflowEngineId, delay, CloudSimTags.CLOUDLET_RETURN, cloudlet);
@@ -464,7 +497,6 @@ public class WorkflowScheduler extends DatacenterBroker {
         if (!getCloudletList().isEmpty()) {
             schedule(this.getId(), 0.0, WorkflowSimTags.CLOUDLET_UPDATE);
         }
-
     }
 
     /** CloudSim VM 编号可由外部配置，不能假设它等于列表下标。 */

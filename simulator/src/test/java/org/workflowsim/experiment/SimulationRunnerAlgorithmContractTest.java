@@ -17,9 +17,10 @@ class SimulationRunnerAlgorithmContractTest {
 
     @Test
     void configurationRejectsAnUnselectedSchedulerInsteadOfFallingBackToStatic() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder("workflow.dax", 1)
-                        .schedulingAlgorithm(SchedulingAlgorithm.INVALID).build());
+        IllegalArgumentException exception =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder("workflow.dax", 1)
+                        .schedulingAlgorithm(SchedulingAlgorithm.INVALID)
+                        .build());
 
         assertTrue(exception.getMessage().contains("not a runnable configuration"));
     }
@@ -45,22 +46,22 @@ class SimulationRunnerAlgorithmContractTest {
                         .build())
                 .build();
 
-        SimulationConfigurationException exception = assertThrows(SimulationConfigurationException.class,
-                () -> new SimulationRunner().run(config,
-                        PlatformProfiles.homogeneousLocal("legacy-reclustering", 1)));
+        SimulationConfigurationException exception =
+                assertThrows(SimulationConfigurationException.class, () -> new SimulationRunner()
+                        .run(config, PlatformProfiles.homogeneousLocal("legacy-reclustering", 1)));
         assertTrue(exception.getMessage().contains("FTCLUSTERING_DC"));
     }
 
     @Test
     void standardRunnerRejectsUnverifiedTaskClusteringModes() {
         SimulationConfig config = SimulationConfig.builder("workflow.dax", 1)
-                .clusteringParameters(new ClusteringParameters(1, 0,
-                        ClusteringParameters.ClusteringMethod.HORIZONTAL, null))
+                .clusteringParameters(
+                        new ClusteringParameters(1, 0, ClusteringParameters.ClusteringMethod.HORIZONTAL, null))
                 .build();
 
-        SimulationConfigurationException exception = assertThrows(SimulationConfigurationException.class,
-                () -> new SimulationRunner().run(config,
-                        PlatformProfiles.homogeneousLocal("clustered", 1)));
+        SimulationConfigurationException exception =
+                assertThrows(SimulationConfigurationException.class, () -> new SimulationRunner()
+                        .run(config, PlatformProfiles.homogeneousLocal("clustered", 1)));
         assertTrue(exception.getMessage().contains("HORIZONTAL"));
     }
 
@@ -68,24 +69,23 @@ class SimulationRunnerAlgorithmContractTest {
     void standardRunnerRejectsTimeSharedVmsUntilTheirReadyJobSemanticsAreVerified() {
         SimulationConfig config = SimulationConfig.builder("workflow.dax", 1).build();
         PlatformProfile platform = PlatformProfile.builder("time-shared")
-                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0,
-                        1024, 1_000L, 10_000L))
-                .addVm(new PlatformProfile.VmSpec(0, 1000.0, 1, 512,
-                        1_000L, 1_000L, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.TIME_SHARED))
+                .addHost(new PlatformProfile.HostSpec(0, 1, 1000.0, 1024, 1_000L, 10_000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0, 1000.0, 1, 512, 1_000L, 1_000L, "Xen", PlatformProfile.CloudletSchedulerMode.TIME_SHARED))
                 .build();
 
-        SimulationConfigurationException exception = assertThrows(SimulationConfigurationException.class,
-                () -> new SimulationRunner().run(config, platform));
+        SimulationConfigurationException exception = assertThrows(
+                SimulationConfigurationException.class, () -> new SimulationRunner().run(config, platform));
         assertTrue(exception.getMessage().contains("TIME_SHARED"));
     }
 
     private static void assertLegacySchedulerRejected(SchedulingAlgorithm schedulingAlgorithm) {
         SimulationConfig config = SimulationConfig.builder("workflow.dax", 1)
-                .schedulingAlgorithm(schedulingAlgorithm).build();
-        SimulationConfigurationException exception = assertThrows(SimulationConfigurationException.class,
-                () -> new SimulationRunner().run(config,
-                        PlatformProfiles.homogeneousLocal("legacy-scheduler", 1)));
+                .schedulingAlgorithm(schedulingAlgorithm)
+                .build();
+        SimulationConfigurationException exception =
+                assertThrows(SimulationConfigurationException.class, () -> new SimulationRunner()
+                        .run(config, PlatformProfiles.homogeneousLocal("legacy-scheduler", 1)));
         assertTrue(exception.getMessage().contains("not supported by SimulationRunner"));
     }
 }

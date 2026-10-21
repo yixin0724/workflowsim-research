@@ -43,6 +43,4 @@ public interface PlanningAlgorithmInterface {
 
     /** 执行一次离线规划。 */
     public void run() throws Exception;
-
-
 }

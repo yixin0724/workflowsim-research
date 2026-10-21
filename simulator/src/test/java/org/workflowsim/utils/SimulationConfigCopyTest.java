@@ -18,8 +18,7 @@ class SimulationConfigCopyTest {
         // 有意设置所有可复制的非默认选项，避免新增字段在 withRandomSeed 中被静默遗漏。
         SimulationConfig original = SimulationConfig.builder(Arrays.asList("first.dax", "second.dax"), 2)
                 .overheadModel(OverheadModelConfig.none())
-                .clusteringParameters(new ClusteringParameters(0, 0,
-                        ClusteringParameters.ClusteringMethod.NONE, null))
+                .clusteringParameters(new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null))
                 .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
                 .planningAlgorithm(PlanningAlgorithm.INVALID)
                 .reduceMethod("none")
@@ -49,12 +48,15 @@ class SimulationConfigCopyTest {
         assertEquals(99L, copy.getRandomSeed());
         assertEquals(original.getRuntimeScale(), copy.getRuntimeScale(), 0.0);
         assertEquals(original.getRuntimeReferenceMips(), copy.getRuntimeReferenceMips(), 0.0);
-        assertEquals(original.getCloudSimMinEventIntervalSeconds(),
-                copy.getCloudSimMinEventIntervalSeconds(), 0.0);
+        assertEquals(original.getCloudSimMinEventIntervalSeconds(), copy.getCloudSimMinEventIntervalSeconds(), 0.0);
         assertEquals(original.getCostModel(), copy.getCostModel());
         assertEquals(original.getFailureModel(), copy.getFailureModel());
-        assertEquals(original.getDataMovementModel().getKind(), copy.getDataMovementModel().getKind());
-        assertEquals(original.getDataMovementModel().getAccessLinkBandwidthMbPerSecond(),
-                copy.getDataMovementModel().getAccessLinkBandwidthMbPerSecond(), 0.0);
+        assertEquals(
+                original.getDataMovementModel().getKind(),
+                copy.getDataMovementModel().getKind());
+        assertEquals(
+                original.getDataMovementModel().getAccessLinkBandwidthMbPerSecond(),
+                copy.getDataMovementModel().getAccessLinkBandwidthMbPerSecond(),
+                0.0);
     }
 }

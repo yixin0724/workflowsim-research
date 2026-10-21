@@ -21,15 +21,16 @@ public final class SharedStorageDagPlanTrace {
     private final List<Integer> criticalPathTaskIds;
     private final Integer criticalProcessorVmId;
 
-    SharedStorageDagPlanTrace(String strategy, double stageInFinishSeconds,
-            Map<Integer, TaskPlan> taskPlans, List<Integer> criticalPathTaskIds,
+    SharedStorageDagPlanTrace(
+            String strategy,
+            double stageInFinishSeconds,
+            Map<Integer, TaskPlan> taskPlans,
+            List<Integer> criticalPathTaskIds,
             Integer criticalProcessorVmId) {
         this.strategy = strategy;
         this.stageInFinishSeconds = stageInFinishSeconds;
-        this.taskPlans = Collections.unmodifiableMap(
-                new LinkedHashMap<Integer, TaskPlan>(taskPlans));
-        this.criticalPathTaskIds = Collections.unmodifiableList(
-                new ArrayList<Integer>(criticalPathTaskIds));
+        this.taskPlans = Collections.unmodifiableMap(new LinkedHashMap<Integer, TaskPlan>(taskPlans));
+        this.criticalPathTaskIds = Collections.unmodifiableList(new ArrayList<Integer>(criticalPathTaskIds));
         this.criticalProcessorVmId = criticalProcessorVmId;
     }
 
@@ -79,13 +80,22 @@ public final class SharedStorageDagPlanTrace {
         private final double plannedFinishSeconds;
         private final double plannedDataStageInSeconds;
 
-        TaskPlan(int taskId, int vmId, double upwardRankSeconds,
-                Double cpopDownwardRankSeconds, Double cpopPrioritySeconds,
-                Double dlsDynamicLevelAtSelection, Integer dlsSelectionOrder,
-                Double etfEarliestStartAtSelection, Integer etfSelectionOrder,
-                Double peftRankOctSeconds, Double peftOptimisticCostAtSelectedVmSeconds,
-                Double peftEftPlusOptimisticCostSeconds, Integer peftSelectionOrder,
-                double plannedStartSeconds, double plannedFinishSeconds,
+        TaskPlan(
+                int taskId,
+                int vmId,
+                double upwardRankSeconds,
+                Double cpopDownwardRankSeconds,
+                Double cpopPrioritySeconds,
+                Double dlsDynamicLevelAtSelection,
+                Integer dlsSelectionOrder,
+                Double etfEarliestStartAtSelection,
+                Integer etfSelectionOrder,
+                Double peftRankOctSeconds,
+                Double peftOptimisticCostAtSelectedVmSeconds,
+                Double peftEftPlusOptimisticCostSeconds,
+                Integer peftSelectionOrder,
+                double plannedStartSeconds,
+                double plannedFinishSeconds,
                 double plannedDataStageInSeconds) {
             this.taskId = taskId;
             this.vmId = vmId;

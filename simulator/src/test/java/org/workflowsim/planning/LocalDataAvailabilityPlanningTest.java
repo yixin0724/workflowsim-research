@@ -99,8 +99,8 @@ class LocalDataAvailabilityPlanningTest {
         twoFileConsumer.addFile(file("g", 20000000.0, FileType.INPUT));
         oneFileConsumer.addFile(file("f", 10000000.0, FileType.INPUT));
         List<CondorVM> machines = vms(1.0, 1, 1.0, 1);
-        AbstractLocalCommPlanningAlgorithm planner = localPlanner(PlanningAlgorithm.LOCAL_HEFT,
-                Arrays.asList(root, twoFileConsumer, oneFileConsumer), machines);
+        AbstractLocalCommPlanningAlgorithm planner = localPlanner(
+                PlanningAlgorithm.LOCAL_HEFT, Arrays.asList(root, twoFileConsumer, oneFileConsumer), machines);
         planner.prepare();
         planner.allocate(root, machines.get(0), 110.1);
         planner.allocate(twoFileConsumer, machines.get(1), 110.1);
@@ -125,8 +125,8 @@ class LocalDataAvailabilityPlanningTest {
         firstConsumer.addFile(file("shared-external", 10000000.0, FileType.INPUT));
         laterConsumer.addFile(file("shared-external", 10000000.0, FileType.INPUT));
         List<CondorVM> machines = vms(1.0, 1, 1.0, 1);
-        AbstractLocalCommPlanningAlgorithm planner = localPlanner(PlanningAlgorithm.LOCAL_HEFT,
-                Arrays.asList(blocker, firstConsumer, gate, laterConsumer), machines);
+        AbstractLocalCommPlanningAlgorithm planner = localPlanner(
+                PlanningAlgorithm.LOCAL_HEFT, Arrays.asList(blocker, firstConsumer, gate, laterConsumer), machines);
         planner.prepare();
         planner.allocate(blocker, machines.get(1), 110.1);
         planner.allocate(firstConsumer, machines.get(1), 110.1);
@@ -150,19 +150,21 @@ class LocalDataAvailabilityPlanningTest {
         Task root = projectedTasks(costs).get(0);
         root.addFile(file("tiny-external", 10000.0, FileType.INPUT));
         List<CondorVM> machines = vms(1.0, 1, 1.0, 1);
-        AbstractLocalCommPlanningAlgorithm planner = localPlanner(PlanningAlgorithm.LOCAL_HEFT,
-                Collections.singletonList(root), machines);
+        AbstractLocalCommPlanningAlgorithm planner =
+                localPlanner(PlanningAlgorithm.LOCAL_HEFT, Collections.singletonList(root), machines);
         planner.run();
         // 0.01s transfer is held for the configured 0.1s minimum, then2s computation.
         assertEquals(110.2, root.getStaticScheduleStartTime(), EPSILON);
         assertEquals(112.2, planner.plannedFinishOf(root).doubleValue(), EPSILON);
 
-        Path input = workflow(directory, "tiny-external.dax",
+        Path input = workflow(
+                directory,
+                "tiny-external.dax",
                 "<job id=\"root\" name=\"root\" runtime=\"100\">"
-                + "<uses file=\"tiny-external\" link=\"input\" size=\"10000\"/></job>");
+                        + "<uses file=\"tiny-external\" link=\"input\" size=\"10000\"/></job>");
         Log.disable();
-        SimulationReport report = new SimulationRunner().run(
-                config(input.toString(), PlanningAlgorithm.LOCAL_HEFT, costs, true), platform(machines));
+        SimulationReport report = new SimulationRunner()
+                .run(config(input.toString(), PlanningAlgorithm.LOCAL_HEFT, costs, true), platform(machines));
         assertEquals(110.2, computeJob(report, 1).getStartTime(), EPSILON);
         assertEquals(112.2, computeJob(report, 1).getFinishTime(), EPSILON);
     }
@@ -170,8 +172,8 @@ class LocalDataAvailabilityPlanningTest {
     @Test
     void aRootWithoutInputsStillStartsAtTheBootstrapBoundary() throws Exception {
         Task root = projectedTask(1, 100L, 2.0, 100.0);
-        AbstractLocalCommPlanningAlgorithm planner = localPlanner(PlanningAlgorithm.LOCAL_HEFT,
-                Collections.singletonList(root), vms(1.0, 1, 1.0, 1));
+        AbstractLocalCommPlanningAlgorithm planner =
+                localPlanner(PlanningAlgorithm.LOCAL_HEFT, Collections.singletonList(root), vms(1.0, 1, 1.0, 1));
         planner.run();
         assertEquals(110.1, root.getStaticScheduleStartTime(), EPSILON);
         assertEquals(112.1, planner.plannedFinishOf(root).doubleValue(), EPSILON);
@@ -180,8 +182,9 @@ class LocalDataAvailabilityPlanningTest {
     @Test
     void peftManifestDescribesDependencyReadySelectionNotTheObsoleteFailure() {
         String contract = org.workflowsim.experiment.AlgorithmCatalog.forConfiguration(
-                config("planning-regression.dax", PlanningAlgorithm.LOCAL_PEFT, null, true))
-                .get("planner").toString();
+                        config("planning-regression.dax", PlanningAlgorithm.LOCAL_PEFT, null, true))
+                .get("planner")
+                .toString();
         assertTrue(contract.contains("dependency-ready"), contract);
         assertFalse(contract.contains("a child outranking its parent fails fast"), contract);
     }
@@ -205,17 +208,19 @@ class LocalDataAvailabilityPlanningTest {
         double[] expectedFinishes = {111.1, 116.1, 123.1, 124.1};
         assertPlan(planner, tasks, expectedVms, expectedStarts, expectedFinishes);
 
-        Path input = workflow(directory, "future-replica-" + algorithm.name() + ".dax",
+        Path input = workflow(
+                directory,
+                "future-replica-" + algorithm.name() + ".dax",
                 "<job id=\"R\" name=\"R\" runtime=\"100\">"
-                + "<uses file=\"f\" link=\"output\" size=\"10000000\"/></job>\n"
-                + "<job id=\"C\" name=\"C\" runtime=\"100\"/>\n"
-                + "<job id=\"A\" name=\"A\" runtime=\"100\">"
-                + "<uses file=\"f\" link=\"input\" size=\"10000000\"/></job>\n"
-                + "<job id=\"B\" name=\"B\" runtime=\"100\">"
-                + "<uses file=\"f\" link=\"input\" size=\"10000000\"/></job>\n"
-                + "<child ref=\"C\"><parent ref=\"R\"/></child>\n"
-                + "<child ref=\"A\"><parent ref=\"R\"/></child>\n"
-                + "<child ref=\"B\"><parent ref=\"R\"/></child>");
+                        + "<uses file=\"f\" link=\"output\" size=\"10000000\"/></job>\n"
+                        + "<job id=\"C\" name=\"C\" runtime=\"100\"/>\n"
+                        + "<job id=\"A\" name=\"A\" runtime=\"100\">"
+                        + "<uses file=\"f\" link=\"input\" size=\"10000000\"/></job>\n"
+                        + "<job id=\"B\" name=\"B\" runtime=\"100\">"
+                        + "<uses file=\"f\" link=\"input\" size=\"10000000\"/></job>\n"
+                        + "<child ref=\"C\"><parent ref=\"R\"/></child>\n"
+                        + "<child ref=\"A\"><parent ref=\"R\"/></child>\n"
+                        + "<child ref=\"B\"><parent ref=\"R\"/></child>");
         assertRuntime(input, algorithm, costs, machines, expectedVms, expectedStarts, expectedFinishes, 124.1);
     }
 
@@ -231,9 +236,11 @@ class LocalDataAvailabilityPlanningTest {
         double[] expectedStarts = {120.1};
         double[] expectedFinishes = {122.1};
         assertPlan(planner, tasks, expectedVms, expectedStarts, expectedFinishes);
-        Path input = workflow(directory, "external-root-" + algorithm.name() + ".dax",
+        Path input = workflow(
+                directory,
+                "external-root-" + algorithm.name() + ".dax",
                 "<job id=\"root\" name=\"root\" runtime=\"100\">"
-                + "<uses file=\"external\" link=\"input\" size=\"10000000\"/></job>");
+                        + "<uses file=\"external\" link=\"input\" size=\"10000000\"/></job>");
         assertRuntime(input, algorithm, costs, machines, expectedVms, expectedStarts, expectedFinishes, 122.1);
     }
 
@@ -250,16 +257,22 @@ class LocalDataAvailabilityPlanningTest {
         double[] expectedStarts = {110.1, 122.1};
         double[] expectedFinishes = {112.1, 125.1};
         assertPlan(planner, tasks, expectedVms, expectedStarts, expectedFinishes);
-        Path input = workflow(directory, "external-child-" + algorithm.name() + ".dax",
+        Path input = workflow(
+                directory,
+                "external-child-" + algorithm.name() + ".dax",
                 "<job id=\"root\" name=\"root\" runtime=\"100\"/>\n"
-                + "<job id=\"child\" name=\"child\" runtime=\"100\">"
-                + "<uses file=\"external\" link=\"input\" size=\"10000000\"/></job>\n"
-                + "<child ref=\"child\"><parent ref=\"root\"/></child>");
+                        + "<job id=\"child\" name=\"child\" runtime=\"100\">"
+                        + "<uses file=\"external\" link=\"input\" size=\"10000000\"/></job>\n"
+                        + "<child ref=\"child\"><parent ref=\"root\"/></child>");
         assertRuntime(input, algorithm, costs, machines, expectedVms, expectedStarts, expectedFinishes, 125.1);
     }
 
-    private static void assertPlan(AbstractLocalCommPlanningAlgorithm planner, List<Task> tasks,
-            int[] expectedVms, double[] expectedStarts, double[] expectedFinishes) {
+    private static void assertPlan(
+            AbstractLocalCommPlanningAlgorithm planner,
+            List<Task> tasks,
+            int[] expectedVms,
+            double[] expectedStarts,
+            double[] expectedFinishes) {
         for (int index = 0; index < tasks.size(); index++) {
             Task task = tasks.get(index);
             String message = planner.label() + " task " + task.getCloudletId();
@@ -270,12 +283,19 @@ class LocalDataAvailabilityPlanningTest {
         }
     }
 
-    private static void assertRuntime(Path input, PlanningAlgorithm algorithm, double[][] costs,
-            List<CondorVM> machines, int[] expectedVms, double[] expectedStarts,
-            double[] expectedFinishes, double expectedMakespan) throws Exception {
+    private static void assertRuntime(
+            Path input,
+            PlanningAlgorithm algorithm,
+            double[][] costs,
+            List<CondorVM> machines,
+            int[] expectedVms,
+            double[] expectedStarts,
+            double[] expectedFinishes,
+            double expectedMakespan)
+            throws Exception {
         Log.disable();
-        SimulationReport report = new SimulationRunner().run(
-                config(input.toString(), algorithm, costs, true), platform(machines));
+        SimulationReport report =
+                new SimulationRunner().run(config(input.toString(), algorithm, costs, true), platform(machines));
         for (int index = 0; index < expectedVms.length; index++) {
             SimulationReport.JobOutcome job = computeJob(report, index + 1);
             String message = algorithm.name() + " task " + (index + 1);

@@ -76,8 +76,11 @@ public class FailureMonitor {
     }
 
     private static void requireInitialized() {
-        if (vm2record == null || type2record == null || vmDepth2record == null
-                || jobid2record == null || recordList == null) {
+        if (vm2record == null
+                || type2record == null
+                || vmDepth2record == null
+                || jobid2record == null
+                || recordList == null) {
             throw new IllegalStateException("FailureMonitor is not initialized for this simulation run");
         }
     }
@@ -109,9 +112,9 @@ public class FailureMonitor {
         double a = 0.0;
         switch (FailureParameters.getMonitorMode()) {
             case MONITOR_JOB:
-            /**
-             * MONITOR_JOB 在此旧实现中按全局记录处理。
-             */
+                /**
+                 * MONITOR_JOB 在此旧实现中按全局记录处理。
+                 */
             case MONITOR_ALL:
                 a = analyze(0, record.depth);
                 break;
@@ -121,7 +124,7 @@ public class FailureMonitor {
             case MONITOR_VM_JOB:
                 a = analyzeVmDepth(record.vmId, record.depth);
                 break;
-            // MONITOR_NONE 不分析聚类因子，保持 a=0.0 走全任务数兜底（遗留故障路径历史语义）。
+                // MONITOR_NONE 不分析聚类因子，保持 a=0.0 走全任务数兜底（遗留故障路径历史语义）。
             default:
                 break;
         }
@@ -153,7 +156,6 @@ public class FailureMonitor {
 
         switch (FailureParameters.getMonitorMode()) {
             case MONITOR_VM:
-
                 if (!vm2record.containsKey(record.vmId)) {
                     vm2record.put(record.vmId, new ArrayList<>());
                 }
@@ -161,7 +163,6 @@ public class FailureMonitor {
 
                 break;
             case MONITOR_JOB:
-
                 if (!type2record.containsKey(record.depth)) {
                     type2record.put(record.depth, new ArrayList<>());
                 }
@@ -169,7 +170,6 @@ public class FailureMonitor {
 
                 break;
             case MONITOR_VM_JOB:
-
                 String key = vmDepthKey(record.vmId, record.depth);
                 if (!vmDepth2record.containsKey(key)) {
                     vmDepth2record.put(key, new ArrayList<FailureRecord>());
@@ -179,7 +179,7 @@ public class FailureMonitor {
                 break;
             case MONITOR_NONE:
                 break;
-            // 唯一走 default 的是 MONITOR_ALL：不建分组索引，analyze 按 recordList 全量汇总。
+                // 唯一走 default 的是 MONITOR_ALL：不建分组索引，analyze 按 recordList 全量汇总。
             default:
                 break;
         }
@@ -204,7 +204,6 @@ public class FailureMonitor {
         int sumJobs = 0;
         switch (FailureParameters.getMonitorMode()) {
             case MONITOR_ALL:
-
                 for (FailureRecord record : recordList) {
                     sumFailures += record.failedTasksNum;
                     sumJobs += record.allTaskNum;
@@ -213,7 +212,6 @@ public class FailureMonitor {
                 break;
 
             case MONITOR_JOB:
-
                 if (type2record.containsKey(type)) {
                     for (FailureRecord record : type2record.get(type)) {
 
@@ -224,7 +222,6 @@ public class FailureMonitor {
 
                 break;
             case MONITOR_VM:
-
                 if (vm2record.containsKey(type)) {
                     for (FailureRecord record : vm2record.get(type)) {
 
@@ -236,11 +233,10 @@ public class FailureMonitor {
                 break;
             case MONITOR_VM_JOB:
                 throw new IllegalStateException("MONITOR_VM_JOB requires analyzeVmDepth(vmId, depth)");
-            // 唯一走 default 的是 MONITOR_NONE：无监控记录，两计数保持 0 → 返回 0。
+                // 唯一走 default 的是 MONITOR_NONE：无监控记录，两计数保持 0 → 返回 0。
             default:
                 break;
         }
-
 
         if (sumFailures == 0) {
             return 0;
@@ -261,8 +257,7 @@ public class FailureMonitor {
         if (vmId < 0 || depth < 0) {
             throw new IllegalArgumentException("VM ID and task depth must be non-negative");
         }
-        if (FailureParameters.getMonitorMode()
-                != FailureParameters.FTCMonitor.MONITOR_VM_JOB) {
+        if (FailureParameters.getMonitorMode() != FailureParameters.FTCMonitor.MONITOR_VM_JOB) {
             throw new IllegalStateException("analyzeVmDepth requires MONITOR_VM_JOB");
         }
 

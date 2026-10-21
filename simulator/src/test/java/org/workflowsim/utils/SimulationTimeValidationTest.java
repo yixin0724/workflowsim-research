@@ -19,23 +19,28 @@ class SimulationTimeValidationTest {
 
     @BeforeEach
     void initializeKernel() {
-        session = SimulationSession.open(SimulationConfig.builder("not-parsed.dax", 1).build());
+        session = SimulationSession.open(
+                SimulationConfig.builder("not-parsed.dax", 1).build());
         session.initializeCloudSim(1, Calendar.getInstance(), false);
         Log.disable();
     }
 
     @AfterEach
     void closeSession() {
-        if (session != null) { session.close(); }
+        if (session != null) {
+            session.close();
+        }
         Log.enable();
     }
 
     @Test
     void completionTimeCannotOverflowOrRoundBackToTheCurrentClock() {
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationTiming.earliestCloudletCompletionTime(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE));
-        assertThrows(IllegalArgumentException.class,
-                () -> SimulationTiming.earliestCloudletCompletionTime(1e20, 1e20, 0.1));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> SimulationTiming.earliestCloudletCompletionTime(
+                        Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE));
+        assertThrows(
+                IllegalArgumentException.class, () -> SimulationTiming.earliestCloudletCompletionTime(1e20, 1e20, 0.1));
     }
 
     @Test
@@ -84,13 +89,23 @@ class SimulationTimeValidationTest {
             this.priority = priority;
         }
 
-        @Override public void startEntity() { schedule(getId(), firstDelay, 701); }
-        @Override public void shutdownEntity() { }
-        @Override public void processEvent(SimEvent event) {
+        @Override
+        public void startEntity() {
+            schedule(getId(), firstDelay, 701);
+        }
+
+        @Override
+        public void shutdownEntity() {}
+
+        @Override
+        public void processEvent(SimEvent event) {
             if (event.getTag() == 701) {
                 reachedLargeClock = true;
-                if (priority) { CloudSim.sendFirst(getId(), getId(), nextDelay, 702, null); }
-                else { CloudSim.send(getId(), getId(), nextDelay, 702, null); }
+                if (priority) {
+                    CloudSim.sendFirst(getId(), getId(), nextDelay, 702, null);
+                } else {
+                    CloudSim.send(getId(), getId(), nextDelay, 702, null);
+                }
             } else {
                 CloudSim.stopSimulation();
             }

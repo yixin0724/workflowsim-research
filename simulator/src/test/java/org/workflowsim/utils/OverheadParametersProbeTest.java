@@ -36,15 +36,13 @@ class OverheadParametersProbeTest {
 
     private static Map<Integer, DistributionGenerator> delayMap(int key) {
         Map<Integer, DistributionGenerator> map = new HashMap<Integer, DistributionGenerator>();
-        map.put(key, new DistributionGenerator(
-                DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0));
+        map.put(key, new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 100.0));
         return map;
     }
 
     @Test
     void depthKeyMatchesSamplePositiveDelaysForEveryChannel() {
-        OverheadParameters op = new OverheadParameters(7,
-                delayMap(2), delayMap(2), delayMap(2), delayMap(2), 42.0);
+        OverheadParameters op = new OverheadParameters(7, delayMap(2), delayMap(2), delayMap(2), delayMap(2), 42.0);
         Job job = jobWithDepth(2);
 
         assertTrue(op.getClustDelay(job) > 0.0, "深度命中的聚类延迟必须为正采样");
@@ -58,8 +56,7 @@ class OverheadParametersProbeTest {
 
     @Test
     void depthZeroServesAsDefaultForUnmappedDepths() {
-        OverheadParameters op = new OverheadParameters(0,
-                delayMap(0), delayMap(0), delayMap(0), delayMap(0), 0.0);
+        OverheadParameters op = new OverheadParameters(0, delayMap(0), delayMap(0), delayMap(0), delayMap(0), 0.0);
         Job job = jobWithDepth(3);
 
         assertTrue(op.getClustDelay(job) > 0.0, "缺少深度项时应回退到深度 0 默认项");
@@ -73,8 +70,7 @@ class OverheadParametersProbeTest {
 
     @Test
     void unmappedDepthWithoutDefaultYieldsZero() {
-        OverheadParameters op = new OverheadParameters(0,
-                delayMap(5), delayMap(5), delayMap(5), delayMap(5), 0.0);
+        OverheadParameters op = new OverheadParameters(0, delayMap(5), delayMap(5), delayMap(5), delayMap(5), 0.0);
         Job job = jobWithDepth(2);
 
         assertEquals(0.0, op.getClustDelay(job), 0.0);
@@ -101,8 +97,7 @@ class OverheadParametersProbeTest {
 
     @Test
     void nullJobAndEmptyBatchLogUnsupportedAndYieldZero() {
-        OverheadParameters op = new OverheadParameters(0,
-                delayMap(0), delayMap(0), delayMap(0), delayMap(0), 0.0);
+        OverheadParameters op = new OverheadParameters(0, delayMap(0), delayMap(0), delayMap(0), delayMap(0), 0.0);
 
         // 空作业/空批次的历史语义是打印 "Not yet supported" 并返回 0；静音控制台。
         Log.disable();

@@ -109,7 +109,6 @@ public class BlockClustering extends BasicClustering {
             }
         }
 
-
         if (clusterNum > 0) {
             bundleClustering();
         } else if (clusterSize > 0) {
@@ -140,7 +139,8 @@ public class BlockClustering extends BasicClustering {
                 while (node != null) {
                     if (node.getChildList().size() == 1) {
                         Task child = node.getChildList().get(0);
-                        if (!getCheck(child.getCloudletId()) && child.getParentList().size() == 1) {
+                        if (!getCheck(child.getCloudletId())
+                                && child.getParentList().size() == 1) {
                             setCheck(child.getCloudletId());
                             sucList.add(child);
                             node = child;
@@ -197,9 +197,7 @@ public class BlockClustering extends BasicClustering {
 
                 addTasks2Job(searchList(list.subList(start, end + 1)));
             }
-
         }
-
     }
 
     /**
@@ -223,7 +221,6 @@ public class BlockClustering extends BasicClustering {
                 }
                 addTasks2Job(searchList(list.subList(start, end + 1)));
             } while (end < num - 1);
-
         }
     }
 }

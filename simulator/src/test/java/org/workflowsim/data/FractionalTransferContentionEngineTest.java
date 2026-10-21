@@ -44,8 +44,7 @@ class FractionalTransferContentionEngineTest {
     @Test
     void doubleEndpointOverloadPreservesHalfAByte() {
         TransferContentionEngine engine = new TransferContentionEngine();
-        TransferContentionEngine.AdvanceResult start =
-                engine.addTransfer(1L, 0.5, "SOURCE", "VM:0", 1_000_000.0, 0.0);
+        TransferContentionEngine.AdvanceResult start = engine.addTransfer(1L, 0.5, "SOURCE", "VM:0", 1_000_000.0, 0.0);
         assertEquals(0.0000005, start.getNextCompletionTime(), 1.0e-20);
         assertEquals(Collections.singletonList(1L), engine.advance(0.0000005).getCompletedTransferIds());
     }
@@ -54,12 +53,15 @@ class FractionalTransferContentionEngineTest {
     void invalidOrUnrepresentablePositiveDemandsAreRejectedBeforeRegistration() {
         TransferContentionEngine engine = new TransferContentionEngine();
         for (double bytes : new double[] {0.0, -0.5, Double.NaN, Double.POSITIVE_INFINITY}) {
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(
+                    IllegalArgumentException.class,
                     () -> engine.addTransfer(1L, bytes, Collections.<String>emptyList(), 1.0, 0.0));
         }
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> engine.addTransfer(1L, Double.MIN_VALUE, Collections.<String>emptyList(), 1_000_000.0, 0.0));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> engine.addTransfer(1L, Double.MAX_VALUE, Collections.<String>emptyList(), Double.MIN_VALUE, 0.0));
         assertEquals(0, engine.activeTransferCount());
     }
@@ -67,32 +69,44 @@ class FractionalTransferContentionEngineTest {
     @Test
     void positiveNonlocalBytesCannotSilentlyBecomeZeroEstimatedSeconds(@TempDir Path directory) throws Exception {
         Path input = directory.resolve("underflow.dax");
-        Files.write(input, ("<adag version=\"2.1\"><job id=\"root\" runtime=\"1\">"
-                + "<uses file=\"tiny\" link=\"input\" size=\"" + Double.toString(Double.MIN_VALUE)
-                + "\"/></job></adag>").getBytes(StandardCharsets.UTF_8));
+        Files.write(
+                input,
+                ("<adag version=\"2.1\"><job id=\"root\" runtime=\"1\">"
+                                + "<uses file=\"tiny\" link=\"input\" size=\"" + Double.toString(Double.MIN_VALUE)
+                                + "\"/></job></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
         boolean disabled = Log.isDisabled();
         Log.disable();
         try {
             for (DataMovementModel model : new DataMovementModel[] {
-                    DataMovementModel.preExecutionTransferDelayV1(),
-                    DataMovementModel.preExecutionTransferDelayWithContentionV1(),
-                    DataMovementModel.fatTreeContentionV1()}) {
+                DataMovementModel.preExecutionTransferDelayV1(),
+                DataMovementModel.preExecutionTransferDelayWithContentionV1(),
+                DataMovementModel.fatTreeContentionV1()
+            }) {
                 PlatformProfile.Builder platform = PlatformProfile.builder("unrepresentable-transfer")
                         .addHost(new PlatformProfile.HostSpec(0, 2, 2000, 2048, 10000, 1000000))
-                        .addVm(new PlatformProfile.VmSpec(0, 1000, 1, 512,
-                                1, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
+                        .addVm(new PlatformProfile.VmSpec(
+                                0, 1000, 1, 512, 1, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                         .pinVmToHost(0, 0);
-                if (model.isFatTreeContentionV1()) { platform.networkTopology(NetworkTopologySpec.fatTree(2, 1)); }
+                if (model.isFatTreeContentionV1()) {
+                    platform.networkTopology(NetworkTopologySpec.fatTree(2, 1));
+                }
                 SimulationConfig config = SimulationConfig.builder(input.toString(), 1)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.STATIC_MET)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL).dataMovementModel(model).build();
+                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                        .dataMovementModel(model)
+                        .build();
                 PlatformProfile profile = platform.build();
                 Exception failure = assertThrows(Exception.class, () -> new SimulationRunner().run(config, profile));
                 Throwable root = failure;
-                while (root.getCause() != null && root.getCause() != root) { root = root.getCause(); }
+                while (root.getCause() != null && root.getCause() != root) {
+                    root = root.getCause();
+                }
                 assertTrue(root.getMessage().contains("Positive nonlocal bytes"), root.toString());
             }
-        } finally { Log.setDisabled(disabled); }
+        } finally {
+            Log.setDisabled(disabled);
+        }
     }
 }

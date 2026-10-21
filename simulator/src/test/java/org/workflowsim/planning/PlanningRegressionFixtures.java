@@ -27,26 +27,30 @@ final class PlanningRegressionFixtures {
     static final int[] VM_IDS = {3, 8};
     static final double EPSILON = 1.0e-9;
 
-    private PlanningRegressionFixtures() {
-    }
+    private PlanningRegressionFixtures() {}
 
     static List<CondorVM> vms(double firstMips, int firstPes, double secondMips, int secondPes) {
         return Arrays.asList(vm(3, firstMips, firstPes), vm(8, secondMips, secondPes));
     }
 
     private static CondorVM vm(int id, double mips, int pes) {
-        return new CondorVM(id, 0, mips, pes, 512, 1L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, mips, pes, 512, 1L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
     static PlatformProfile platform(List<CondorVM> vms) {
         PlatformProfile.Builder builder = PlatformProfile.builder("planning-semantics-regression");
         for (int index = 0; index < vms.size(); index++) {
             CondorVM vm = vms.get(index);
-            builder.addHost(new PlatformProfile.HostSpec(index, vm.getNumberOfPes(), vm.getMips(),
-                    2048, 10000L, 1000000L));
-            builder.addVm(new PlatformProfile.VmSpec(vm.getId(), vm.getMips(), vm.getNumberOfPes(),
-                    512, vm.getBw(), 10000L, "Xen",
+            builder.addHost(
+                    new PlatformProfile.HostSpec(index, vm.getNumberOfPes(), vm.getMips(), 2048, 10000L, 1000000L));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    vm.getId(),
+                    vm.getMips(),
+                    vm.getNumberOfPes(),
+                    512,
+                    vm.getBw(),
+                    10000L,
+                    "Xen",
                     PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             builder.pinVmToHost(vm.getId(), index);
         }
@@ -81,8 +85,8 @@ final class PlanningRegressionFixtures {
         return file;
     }
 
-    static SimulationConfig config(String workflow, Parameters.PlanningAlgorithm algorithm,
-            double[][] costs, boolean local) {
+    static SimulationConfig config(
+            String workflow, Parameters.PlanningAlgorithm algorithm, double[][] costs, boolean local) {
         SimulationConfig.Builder builder = SimulationConfig.builder(workflow, VM_IDS.length)
                 .planningAlgorithm(algorithm)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
@@ -104,10 +108,10 @@ final class PlanningRegressionFixtures {
         return builder.build();
     }
 
-    static AbstractLocalCommPlanningAlgorithm localPlanner(Parameters.PlanningAlgorithm algorithm,
-            List<Task> tasks, List<CondorVM> vms) {
-        PlanningContext context = new PlanningContext(
-                config("planning-regression.dax", algorithm, null, true), platform(vms));
+    static AbstractLocalCommPlanningAlgorithm localPlanner(
+            Parameters.PlanningAlgorithm algorithm, List<Task> tasks, List<CondorVM> vms) {
+        PlanningContext context =
+                new PlanningContext(config("planning-regression.dax", algorithm, null, true), platform(vms));
         AbstractLocalCommPlanningAlgorithm planner;
         switch (algorithm) {
             case LOCAL_HEFT:

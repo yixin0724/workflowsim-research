@@ -29,16 +29,13 @@ class PSOPlanningAlgorithmTest {
         List<CondorVM> vms = Arrays.asList(vm(0, 1000.0), vm(1, 2000.0));
 
         // [0,0]: cost=1+2=3, makespan=3 → 0.8*3+0.2*3
-        assertEquals(3.0, PsoFitnessFunction.evaluate(new int[]{0, 0}, tasks, vms, 0.8), EPS);
+        assertEquals(3.0, PsoFitnessFunction.evaluate(new int[] {0, 0}, tasks, vms, 0.8), EPS);
         // [1,1]: exec 0.5/1.0, cost=0.5*2+1.0*2=3, makespan=1.5
-        assertEquals(0.8 * 3.0 + 0.2 * 1.5,
-                PsoFitnessFunction.evaluate(new int[]{1, 1}, tasks, vms, 0.8), EPS);
+        assertEquals(0.8 * 3.0 + 0.2 * 1.5, PsoFitnessFunction.evaluate(new int[] {1, 1}, tasks, vms, 0.8), EPS);
         // [0,1]: cost=1.0*1+1.0*2=3, makespan=1.0（全局最优）
-        assertEquals(0.8 * 3.0 + 0.2 * 1.0,
-                PsoFitnessFunction.evaluate(new int[]{0, 1}, tasks, vms, 0.8), EPS);
+        assertEquals(0.8 * 3.0 + 0.2 * 1.0, PsoFitnessFunction.evaluate(new int[] {0, 1}, tasks, vms, 0.8), EPS);
         // [1,0]: cost=0.5*2+2.0*1=3, makespan=2.0
-        assertEquals(0.8 * 3.0 + 0.2 * 2.0,
-                PsoFitnessFunction.evaluate(new int[]{1, 0}, tasks, vms, 0.8), EPS);
+        assertEquals(0.8 * 3.0 + 0.2 * 2.0, PsoFitnessFunction.evaluate(new int[] {1, 0}, tasks, vms, 0.8), EPS);
     }
 
     @Test
@@ -81,7 +78,8 @@ class PSOPlanningAlgorithmTest {
         run(tasks, vms);
 
         for (Task task : tasks) {
-            assertTrue(task.getVmId() == 0 || task.getVmId() == 1 || task.getVmId() == 2,
+            assertTrue(
+                    task.getVmId() == 0 || task.getVmId() == 1 || task.getVmId() == 2,
                     "task " + task.getCloudletId() + " mapped to unknown VM " + task.getVmId());
         }
     }
@@ -105,8 +103,8 @@ class PSOPlanningAlgorithmTest {
         PSOPlanningAlgorithm planner = new PSOPlanningAlgorithm();
         planner.setTaskList(tasks());
         planner.setVmList(Arrays.asList(vm(0, 1000.0), vm(1, 0.0)));
-        IllegalStateException failure = org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalStateException.class, planner::run);
+        IllegalStateException failure =
+                org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, planner::run);
         assertTrue(failure.getMessage().contains("finite positive MIPS"), failure.getMessage());
         assertTrue(failure.getMessage().contains("VM #1"), failure.getMessage());
     }
@@ -144,21 +142,24 @@ class PSOPlanningAlgorithmTest {
                 }
             }
         }
-        double randomFitness = PsoFitnessFunction.evaluate(
-                randomPosition, randomTasks, vms, PSOPlanningAlgorithm.COST_WEIGHT);
+        double randomFitness =
+                PsoFitnessFunction.evaluate(randomPosition, randomTasks, vms, PSOPlanningAlgorithm.COST_WEIGHT);
 
-        assertTrue(psoFitness <= randomFitness + EPS,
-                "PSO 适应度 " + psoFitness + " 不得劣于同种子 RANDOM 适应度 " + randomFitness);
+        assertTrue(psoFitness <= randomFitness + EPS, "PSO 适应度 " + psoFitness + " 不得劣于同种子 RANDOM 适应度 " + randomFitness);
     }
 
     private static List<Task> tasks() {
-        return Arrays.asList(new Task(1, 1500), new Task(2, 800), new Task(3, 2200),
-                new Task(4, 600), new Task(5, 1800));
+        return Arrays.asList(
+                new Task(1, 1500), new Task(2, 800), new Task(3, 2200), new Task(4, 600), new Task(5, 1800));
     }
 
     private static List<Integer> vmAssignments(List<Task> tasks) {
-        return Arrays.asList(tasks.get(0).getVmId(), tasks.get(1).getVmId(),
-                tasks.get(2).getVmId(), tasks.get(3).getVmId(), tasks.get(4).getVmId());
+        return Arrays.asList(
+                tasks.get(0).getVmId(),
+                tasks.get(1).getVmId(),
+                tasks.get(2).getVmId(),
+                tasks.get(3).getVmId(),
+                tasks.get(4).getVmId());
     }
 
     private static void run(List<Task> tasks, List<CondorVM> vms) {
@@ -169,7 +170,6 @@ class PSOPlanningAlgorithmTest {
     }
 
     private static CondorVM vm(int id, double mips) {
-        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen",
-                new CloudletSchedulerTimeShared());
+        return new CondorVM(id, 0, mips, 1, 512, 1000, 10_000, "Xen", new CloudletSchedulerTimeShared());
     }
 }

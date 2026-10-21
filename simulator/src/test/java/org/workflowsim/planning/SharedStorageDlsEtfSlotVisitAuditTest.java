@@ -30,7 +30,8 @@ import org.workflowsim.planning.SharedStorageDlsEtfSlotAuditSupport.Kernel;
 class SharedStorageDlsEtfSlotVisitAuditTest {
     @Test
     void dlsEqualWideRootsScanAtMostOncePerOccupancyGeneration() {
-        assertAll("DLS bounded widths",
+        assertAll(
+                "DLS bounded widths",
                 () -> checkWide(Strategy.DLS, 64),
                 () -> checkWide(Strategy.DLS, 128),
                 () -> checkWide(Strategy.DLS, 256));
@@ -38,7 +39,8 @@ class SharedStorageDlsEtfSlotVisitAuditTest {
 
     @Test
     void etfEqualWideRootsScanAtMostOncePerOccupancyGeneration() {
-        assertAll("ETF bounded widths",
+        assertAll(
+                "ETF bounded widths",
                 () -> checkWide(Strategy.ETF, 64),
                 () -> checkWide(Strategy.ETF, 128),
                 () -> checkWide(Strategy.ETF, 256));
@@ -72,7 +74,8 @@ class SharedStorageDlsEtfSlotVisitAuditTest {
                 + originalVisits + " visits/" + originalScans + " passes; reuse budget="
                 + reusedVisitBudget + " visits/" + count + " passes";
         System.out.println("SLOT_VISIT_AUDIT " + evidence);
-        assertAll(evidence,
+        assertAll(
+                evidence,
                 () -> assertTrue(kernel.visits() <= reusedVisitBudget, evidence),
                 () -> assertTrue(kernel.scans() <= count, evidence));
     }
@@ -113,7 +116,8 @@ class SharedStorageDlsEtfSlotVisitAuditTest {
             SharedStorageDagPlanTrace trace = kernel.schedule();
             double next = BOOTSTRAP;
             for (int index = 0; index < count; index++) {
-                SharedStorageDagPlanTrace.TaskPlan plan = trace.getTaskPlan(tasks.get(index).getCloudletId());
+                SharedStorageDagPlanTrace.TaskPlan plan =
+                        trace.getTaskPlan(tasks.get(index).getCloudletId());
                 assertEquals(bits(next), bits(plan.getPlannedStartSeconds()));
                 assertEquals(bits(next + 1.0), bits(plan.getPlannedFinishSeconds()));
                 assertEquals(bits(count - index), bits(plan.getUpwardRankSeconds()));
@@ -137,7 +141,8 @@ class SharedStorageDlsEtfSlotVisitAuditTest {
             for (int step = 0; step < count; step++) {
                 int index = count - step - 1;
                 double duration = index + 1.0;
-                SharedStorageDagPlanTrace.TaskPlan plan = trace.getTaskPlan(tasks.get(index).getCloudletId());
+                SharedStorageDagPlanTrace.TaskPlan plan =
+                        trace.getTaskPlan(tasks.get(index).getCloudletId());
                 assertEquals(bits(next), bits(plan.getPlannedStartSeconds()));
                 assertEquals(bits(next + duration), bits(plan.getPlannedFinishSeconds()));
                 assertSelection(strategy, plan, step + 1, duration, next);
@@ -162,18 +167,20 @@ class SharedStorageDlsEtfSlotVisitAuditTest {
                 Kernel kernel = new Kernel(strategy, kernelTasks, Collections.singletonList(vm(7, 1000.0, 1)));
                 SharedStorageDagPlanTrace counted = kernel.schedule();
                 List<Task> publicTasks = connected ? chain(8) : independentTasks(8, false);
-                SharedStorageDagPlanTrace normal = runPublic(publicPlanner(strategy, publicTasks,
-                        Collections.singletonList(vm(7, 1000.0, 1))));
+                SharedStorageDagPlanTrace normal =
+                        runPublic(publicPlanner(strategy, publicTasks, Collections.singletonList(vm(7, 1000.0, 1))));
                 assertEquals(snapshot(normal), snapshot(counted), strategy + " connected=" + connected);
             }
         }
     }
 
-    private static void assertSelection(Strategy strategy, SharedStorageDagPlanTrace.TaskPlan plan,
-            int order, double rank, double start) {
+    private static void assertSelection(
+            Strategy strategy, SharedStorageDagPlanTrace.TaskPlan plan, int order, double rank, double start) {
         if (strategy == Strategy.DLS) {
             assertEquals(Integer.valueOf(order), plan.getDlsSelectionOrder());
-            assertEquals(bits(rank - start), bits(plan.getDlsDynamicLevelAtSelection().doubleValue()));
+            assertEquals(
+                    bits(rank - start),
+                    bits(plan.getDlsDynamicLevelAtSelection().doubleValue()));
         } else {
             assertEquals(Integer.valueOf(order), plan.getEtfSelectionOrder());
             assertEquals(bits(start), bits(plan.getEtfEarliestStartAtSelection().doubleValue()));

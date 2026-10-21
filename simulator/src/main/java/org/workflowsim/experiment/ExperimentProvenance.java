@@ -30,8 +30,7 @@ final class ExperimentProvenance {
     private static final String CORE_ARTIFACT_ID = "workflowsim";
     private static final String CORE_VERSION = "1.0";
 
-    private ExperimentProvenance() {
-    }
+    private ExperimentProvenance() {}
 
     static Map<String, Object> capture() {
         return capture(null);
@@ -40,8 +39,8 @@ final class ExperimentProvenance {
     static Map<String, Object> capture(ExperimentEvidenceContext context) {
         Map<String, Object> values = new LinkedHashMap<String, Object>();
         values.put("schema", SCHEMA_V3);
-        values.put("core", componentIdentity(SimulationRunner.class, CORE_GROUP_ID,
-                CORE_ARTIFACT_ID, CORE_VERSION, null));
+        values.put(
+                "core", componentIdentity(SimulationRunner.class, CORE_GROUP_ID, CORE_ARTIFACT_ID, CORE_VERSION, null));
         values.put("study", context == null ? null : context.asMap());
 
         Map<String, Object> execution = new LinkedHashMap<String, Object>();
@@ -55,8 +54,8 @@ final class ExperimentProvenance {
         return values;
     }
 
-    static Map<String, Object> componentIdentity(Class<?> anchor, String groupId, String artifactId,
-            String version, String sourceSubpath) {
+    static Map<String, Object> componentIdentity(
+            Class<?> anchor, String groupId, String artifactId, String version, String sourceSubpath) {
         if (anchor == null || isBlank(groupId) || isBlank(artifactId) || isBlank(version)) {
             throw new IllegalArgumentException("Component anchor and Maven coordinates are required");
         }
@@ -68,12 +67,12 @@ final class ExperimentProvenance {
 
         Path codeSourcePath = codeSourcePath(anchor);
         values.put("codeSource", codeSource(anchor));
-        values.put("binarySha256", codeSourcePath != null && Files.isRegularFile(codeSourcePath)
-                ? fingerprint(codeSourcePath) : null);
+        values.put(
+                "binarySha256",
+                codeSourcePath != null && Files.isRegularFile(codeSourcePath) ? fingerprint(codeSourcePath) : null);
 
         Path moduleRoot = moduleRoot(anchor);
-        values.put("modulePomSha256", moduleRoot == null ? null
-                : fingerprintOrNull(moduleRoot.resolve("pom.xml")));
+        values.put("modulePomSha256", moduleRoot == null ? null : fingerprintOrNull(moduleRoot.resolve("pom.xml")));
         Path sourceRoot = moduleRoot == null ? null : moduleRoot.resolve("src/main/java");
         String normalizedSubpath = normalizeSourceSubpath(sourceSubpath);
         if (sourceRoot != null && normalizedSubpath != null) {
@@ -103,7 +102,8 @@ final class ExperimentProvenance {
         }
         Path normalized = location.toAbsolutePath().normalize();
         Path target;
-        if (Files.isDirectory(normalized) && "classes".equals(normalized.getFileName().toString())) {
+        if (Files.isDirectory(normalized)
+                && "classes".equals(normalized.getFileName().toString())) {
             target = normalized.getParent();
         } else if (Files.isRegularFile(normalized)
                 && normalized.getFileName().toString().endsWith(".jar")) {
@@ -111,7 +111,9 @@ final class ExperimentProvenance {
         } else {
             return null;
         }
-        if (target == null || target.getFileName() == null || !"target".equals(target.getFileName().toString())) {
+        if (target == null
+                || target.getFileName() == null
+                || !"target".equals(target.getFileName().toString())) {
             return null;
         }
         Path root = target.getParent();
@@ -170,7 +172,7 @@ final class ExperimentProvenance {
     private static void collectJavaFiles(Path directory, List<Path> results) {
         try (java.util.stream.Stream<Path> stream = Files.walk(directory)) {
             stream.filter(path -> Files.isRegularFile(path)
-                    && path.getFileName().toString().endsWith(".java"))
+                            && path.getFileName().toString().endsWith(".java"))
                     .forEach(results::add);
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to fingerprint source tree " + directory, exception);
@@ -181,8 +183,7 @@ final class ExperimentProvenance {
         if (sourceRoot == null || !Files.isDirectory(sourceRoot)) {
             return "unavailable: class code source is not a Maven target/classes directory";
         }
-        return sourceSubpath == null ? "src/main/java/**/*.java"
-                : "src/main/java/" + sourceSubpath + "/**/*.java";
+        return sourceSubpath == null ? "src/main/java/**/*.java" : "src/main/java/" + sourceSubpath + "/**/*.java";
     }
 
     private static String normalizeSourceSubpath(String sourceSubpath) {
@@ -199,7 +200,9 @@ final class ExperimentProvenance {
     private static Path codeSourcePath(Class<?> anchor) {
         try {
             URL url = anchor.getProtectionDomain().getCodeSource().getLocation();
-            return url == null ? null : java.nio.file.Paths.get(url.toURI()).toAbsolutePath().normalize();
+            return url == null
+                    ? null
+                    : java.nio.file.Paths.get(url.toURI()).toAbsolutePath().normalize();
         } catch (SecurityException | URISyntaxException | IllegalArgumentException exception) {
             return null;
         }

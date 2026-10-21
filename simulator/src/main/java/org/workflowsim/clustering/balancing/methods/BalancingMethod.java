@@ -1,19 +1,19 @@
 /*
- * 
+ *
  *   Copyright 2012-2013 University Of Southern California
- * 
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *   Unless required by applicable law or agreed to in writing,
  *   software distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- * 
+ *
  */
 package org.workflowsim.clustering.balancing.methods;
 
@@ -26,7 +26,7 @@ import org.workflowsim.clustering.TaskSet;
 
 /**
  * 所有均衡聚类方法的公共基类。
- * 
+ *
  * @author Weiwei Chen
  * @since WorkflowSim Toolkit 1.0
  * @date Apr 9, 2013
@@ -35,7 +35,7 @@ public class BalancingMethod {
 
     /** 逻辑任务到任务集合的映射。 */
     private final Map<Task, TaskSet> taskMap;
-    
+
     /**
      * 按 DAG 层组织的任务集合。
      */
@@ -82,7 +82,7 @@ public class BalancingMethod {
     public int getClusterNum() {
         return this.clusterNum;
     }
-    
+
     /**
      * 将 {@code tail} 中全部任务合并到 {@code head}，并同步更新任务映射和
      * 相邻集合关系。该操作可被垂直均衡策略复用。
@@ -148,7 +148,7 @@ public class BalancingMethod {
      */
     public void cleanTaskSetChecked() {
         Collection sets = getTaskMap().values();
-        for (Iterator it = sets.iterator(); it.hasNext();) {
+        for (Iterator it = sets.iterator(); it.hasNext(); ) {
             TaskSet set = (TaskSet) it.next();
             set.hasChecked = false;
         }

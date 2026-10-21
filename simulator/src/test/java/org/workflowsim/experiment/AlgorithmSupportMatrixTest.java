@@ -27,8 +27,10 @@ class AlgorithmSupportMatrixTest {
                 SchedulingAlgorithm.STATIC,
                 SchedulingAlgorithm.RL_POLICY);
         EnumSet<SchedulingAlgorithm> unavailable = EnumSet.of(
-                SchedulingAlgorithm.MINMIN, SchedulingAlgorithm.MAXMIN,
-                SchedulingAlgorithm.MCT, SchedulingAlgorithm.ROUNDROBIN,
+                SchedulingAlgorithm.MINMIN,
+                SchedulingAlgorithm.MAXMIN,
+                SchedulingAlgorithm.MCT,
+                SchedulingAlgorithm.ROUNDROBIN,
                 SchedulingAlgorithm.INVALID);
 
         assertExactPartition(SchedulingAlgorithm.class, supported, unavailable);
@@ -86,8 +88,9 @@ class AlgorithmSupportMatrixTest {
             if (AlgorithmCatalog.isSupportedBySimulationRunner(algorithm)) {
                 assertFalse(verification.contains("NOT_SUPPORTED"), algorithm.name());
             } else {
-                assertTrue(verification.contains("NOT_SUPPORTED")
-                        || "NOT_APPLICABLE".equals(verification), algorithm.name());
+                assertTrue(
+                        verification.contains("NOT_SUPPORTED") || "NOT_APPLICABLE".equals(verification),
+                        algorithm.name());
             }
         }
         for (PlanningAlgorithm algorithm : PlanningAlgorithm.values()) {
@@ -112,9 +115,10 @@ class AlgorithmSupportMatrixTest {
         return SimulationConfig.builder("workflow.dax", 1)
                 .schedulingAlgorithm(algorithm)
                 // DATA 算法的局部性判定要求 LOCAL 文件系统模式（PLAT-7 校验）。
-                .fileSystem(algorithm == SchedulingAlgorithm.DATA
-                        ? ReplicaCatalog.FileSystem.LOCAL
-                        : ReplicaCatalog.FileSystem.SHARED)
+                .fileSystem(
+                        algorithm == SchedulingAlgorithm.DATA
+                                ? ReplicaCatalog.FileSystem.LOCAL
+                                : ReplicaCatalog.FileSystem.SHARED)
                 .build();
     }
 
@@ -140,8 +144,7 @@ class AlgorithmSupportMatrixTest {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void assertExactPartition(Class<? extends Enum> enumType,
-            EnumSet supported, EnumSet unavailable) {
+    private static void assertExactPartition(Class<? extends Enum> enumType, EnumSet supported, EnumSet unavailable) {
         EnumSet combined = EnumSet.copyOf(supported);
         combined.addAll(unavailable);
         assertEquals(EnumSet.allOf(enumType), combined);

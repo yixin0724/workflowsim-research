@@ -25,9 +25,9 @@ class WorkflowDatacenterOutputCommitTest {
 
         assertEquals(1, WorkflowDatacenter.registerSuccessfulTaskOutputs(successful, "7"));
         assertEquals(0, WorkflowDatacenter.registerSuccessfulTaskOutputs(failed, "7"));
-        assertEquals(Collections.singletonList("7"),
-                ReplicaCatalog.getStorageList("successful-output"));
-        assertNull(ReplicaCatalog.getStorageList("failed-output"),
+        assertEquals(Collections.singletonList("7"), ReplicaCatalog.getStorageList("successful-output"));
+        assertNull(
+                ReplicaCatalog.getStorageList("failed-output"),
                 "A failed Task output must not become a readable logical replica");
     }
 

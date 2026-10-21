@@ -41,9 +41,7 @@ public class Job extends Task {
      * @param jobId 作业唯一编号
      * @param jobLength 待执行的作业长度，单位为百万条指令（MI）
      */
-    public Job(
-            final int jobId,
-            final long jobLength) {
+    public Job(final int jobId, final long jobLength) {
 
         super(jobId, jobLength);
         this.taskList = new ArrayList<>();

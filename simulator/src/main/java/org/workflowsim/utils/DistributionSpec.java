@@ -18,8 +18,13 @@ public final class DistributionSpec {
     private final Double priorScale;
     private final Double likelihoodPrior;
 
-    private DistributionSpec(DistributionFamily family, double scale, double shape,
-            Double priorShape, Double priorScale, Double likelihoodPrior) {
+    private DistributionSpec(
+            DistributionFamily family,
+            double scale,
+            double shape,
+            Double priorShape,
+            Double priorScale,
+            Double likelihoodPrior) {
         this.family = family;
         this.scale = scale;
         this.shape = shape;
@@ -52,25 +57,41 @@ public final class DistributionSpec {
      * @param likelihoodPrior 似然先验参数
      * @return 已验证的分布描述
      */
-    public static DistributionSpec withPriors(DistributionFamily family, double scale, double shape,
-            double priorShape, double priorScale, double likelihoodPrior) {
+    public static DistributionSpec withPriors(
+            DistributionFamily family,
+            double scale,
+            double shape,
+            double priorShape,
+            double priorScale,
+            double likelihoodPrior) {
         validate(family, scale, shape, priorShape, priorScale, likelihoodPrior);
-        return new DistributionSpec(family, scale, shape,
-                priorShape, priorScale, likelihoodPrior);
+        return new DistributionSpec(family, scale, shape, priorShape, priorScale, likelihoodPrior);
     }
 
     /** @return 分布族 */
-    public DistributionFamily getFamily() { return family; }
+    public DistributionFamily getFamily() {
+        return family;
+    }
     /** @return 尺度参数 */
-    public double getScale() { return scale; }
+    public double getScale() {
+        return scale;
+    }
     /** @return 形状参数 */
-    public double getShape() { return shape; }
+    public double getShape() {
+        return shape;
+    }
     /** @return 先验形状参数；未配置先验时为 {@code null} */
-    public Double getPriorShape() { return priorShape; }
+    public Double getPriorShape() {
+        return priorShape;
+    }
     /** @return 先验尺度参数；未配置先验时为 {@code null} */
-    public Double getPriorScale() { return priorScale; }
+    public Double getPriorScale() {
+        return priorScale;
+    }
     /** @return 似然先验参数；未配置先验时为 {@code null} */
-    public Double getLikelihoodPrior() { return likelihoodPrior; }
+    public Double getLikelihoodPrior() {
+        return likelihoodPrior;
+    }
 
     /**
      * 基于指定的命名随机流创建一个新的分布生成器。
@@ -82,12 +103,16 @@ public final class DistributionSpec {
         if (priorShape == null) {
             return new DistributionGenerator(family, scale, shape, randomStream);
         }
-        return new DistributionGenerator(family, scale, shape,
-                priorShape, priorScale, likelihoodPrior, randomStream);
+        return new DistributionGenerator(family, scale, shape, priorShape, priorScale, likelihoodPrior, randomStream);
     }
 
-    private static void validate(DistributionFamily family, double scale, double shape,
-            Double priorShape, Double priorScale, Double likelihoodPrior) {
+    private static void validate(
+            DistributionFamily family,
+            double scale,
+            double shape,
+            Double priorShape,
+            Double priorScale,
+            Double likelihoodPrior) {
         if (family == null || !isFinite(scale) || !isFinite(shape)) {
             throw new IllegalArgumentException("Distribution family and finite parameters are required");
         }
@@ -96,8 +121,8 @@ public final class DistributionSpec {
         }
         boolean anyPrior = priorShape != null || priorScale != null || likelihoodPrior != null;
         boolean allPriors = priorShape != null && priorScale != null && likelihoodPrior != null;
-        if (anyPrior != allPriors || (allPriors && (!isFinite(priorShape)
-                || !isFinite(priorScale) || !isFinite(likelihoodPrior)))) {
+        if (anyPrior != allPriors
+                || (allPriors && (!isFinite(priorShape) || !isFinite(priorScale) || !isFinite(likelihoodPrior)))) {
             throw new IllegalArgumentException("Distribution priors must be supplied together and be finite");
         }
     }

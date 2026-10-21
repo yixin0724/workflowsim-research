@@ -52,7 +52,7 @@ public final class WfCommonsJsonParser {
 
     /**
      * 任务的最小 Cloudlet 长度（MI）。
-     * 
+     *
      * <p>使用 {@link SimulationConstants#MIN_TASK_LENGTH_MI} 确保数值稳定性。</p>
      */
     private static final long MIN_CLOUDLET_LENGTH = SimulationConstants.MIN_TASK_LENGTH_MI;
@@ -118,8 +118,8 @@ public final class WfCommonsJsonParser {
         }
 
         validateInstance(instance, file);
-        WorkflowInputReport report = new WorkflowInputReport(file.getPath(),
-                WorkflowInputReport.Format.WFCOMMONS_JSON, instance.schemaVersion);
+        WorkflowInputReport report = new WorkflowInputReport(
+                file.getPath(), WorkflowInputReport.Format.WFCOMMONS_JSON, instance.schemaVersion);
         Map<String, Double> fileSizes = indexFileSizes(instance.workflow.specification.files);
         Map<String, Double> runtimes = indexRuntimes(instance.workflow.execution.tasks);
         Map<String, SpecTask> specTasks = indexSpecTasks(instance.workflow.specification.tasks);
@@ -138,10 +138,22 @@ public final class WfCommonsJsonParser {
             task.setUserId(userId);
 
             List<FileItem> taskFiles = new ArrayList<>();
-            addFiles(taskFiles, fileItemsByNameAndType, specTask.inputFiles, fileSizes,
-                    FileType.INPUT, fileNamespace, firstDeclaredInputs);
-            addFiles(taskFiles, fileItemsByNameAndType, specTask.outputFiles, fileSizes,
-                    FileType.OUTPUT, fileNamespace, firstDeclaredInputs);
+            addFiles(
+                    taskFiles,
+                    fileItemsByNameAndType,
+                    specTask.inputFiles,
+                    fileSizes,
+                    FileType.INPUT,
+                    fileNamespace,
+                    firstDeclaredInputs);
+            addFiles(
+                    taskFiles,
+                    fileItemsByNameAndType,
+                    specTask.outputFiles,
+                    fileSizes,
+                    FileType.OUTPUT,
+                    fileNamespace,
+                    firstDeclaredInputs);
 
             for (FileItem taskFile : taskFiles) {
                 task.addRequiredFile(taskFile.getName());
@@ -160,8 +172,7 @@ public final class WfCommonsJsonParser {
         // F-009：结构校验全部通过，才把首轮 INPUT 声明提交进全局副本目录。
         commitFirstDeclaredInputs(firstDeclaredInputs);
 
-        Log.printLine("Parsed WfCommons JSON " + file.getName() + " with "
-                + tasks.size() + " tasks.");
+        Log.printLine("Parsed WfCommons JSON " + file.getName() + " with " + tasks.size() + " tasks.");
         return new ParseResult(tasks, nextTaskId, report);
     }
 
@@ -176,20 +187,16 @@ public final class WfCommonsJsonParser {
             throw new IOException("WfCommons JSON is missing workflow.specification: " + file.getAbsolutePath());
         }
         if (instance.workflow.specification.tasks == null) {
-            throw new IOException("WfCommons JSON is missing workflow.specification.tasks: "
-                    + file.getAbsolutePath());
+            throw new IOException("WfCommons JSON is missing workflow.specification.tasks: " + file.getAbsolutePath());
         }
         if (instance.workflow.specification.tasks.isEmpty()) {
-            throw new IOException("WfCommons JSON workflow contains no specification tasks: "
-                    + file.getAbsolutePath());
+            throw new IOException("WfCommons JSON workflow contains no specification tasks: " + file.getAbsolutePath());
         }
         if (instance.workflow.specification.files == null) {
-            throw new IOException("WfCommons JSON is missing workflow.specification.files: "
-                    + file.getAbsolutePath());
+            throw new IOException("WfCommons JSON is missing workflow.specification.files: " + file.getAbsolutePath());
         }
         if (instance.workflow.execution == null || instance.workflow.execution.tasks == null) {
-            throw new IOException("WfCommons JSON is missing workflow.execution.tasks: "
-                    + file.getAbsolutePath());
+            throw new IOException("WfCommons JSON is missing workflow.execution.tasks: " + file.getAbsolutePath());
         }
     }
 
@@ -199,15 +206,16 @@ public final class WfCommonsJsonParser {
             if (file.id == null || file.id.length() == 0) {
                 continue;
             }
-            if (file.sizeInBytes == null || Double.isNaN(file.sizeInBytes)
-                    || Double.isInfinite(file.sizeInBytes) || file.sizeInBytes < 0.0) {
+            if (file.sizeInBytes == null
+                    || Double.isNaN(file.sizeInBytes)
+                    || Double.isInfinite(file.sizeInBytes)
+                    || file.sizeInBytes < 0.0) {
                 throw new WorkflowValidationException("Invalid WfCommons file size for " + file.id);
             }
             // R8 审计修复（架构通道 P1-4）：重复文件 id 原为 last-wins 静默覆盖，
             // 两处声明尺寸不同时传输字节数取决于 JSON 声明顺序。fail-fast。
             Double previousSize = fileSizes.put(file.id, file.sizeInBytes);
-            if (previousSize != null
-                    && Double.compare(previousSize.doubleValue(), file.sizeInBytes) != 0) {
+            if (previousSize != null && Double.compare(previousSize.doubleValue(), file.sizeInBytes) != 0) {
                 throw new WorkflowValidationException("Duplicate WfCommons file id " + file.id
                         + " with conflicting sizes: " + previousSize + " vs " + file.sizeInBytes);
             }
@@ -227,8 +235,7 @@ public final class WfCommonsJsonParser {
             // R8 审计修复（架构通道 P1-4）：重复 execution task id 原为 last-wins
             // 静默覆盖，任务长度取决于 JSON 声明顺序。fail-fast。
             Double previousRuntime = runtimes.put(task.id, task.runtimeInSeconds);
-            if (previousRuntime != null
-                    && Double.compare(previousRuntime.doubleValue(), task.runtimeInSeconds) != 0) {
+            if (previousRuntime != null && Double.compare(previousRuntime.doubleValue(), task.runtimeInSeconds) != 0) {
                 throw new WorkflowValidationException("Duplicate WfCommons execution task id "
                         + task.id + " with conflicting runtimes: " + previousRuntime
                         + " vs " + task.runtimeInSeconds);
@@ -256,28 +263,29 @@ public final class WfCommonsJsonParser {
         if (runtime == null) {
             throw new IllegalArgumentException("Missing WfCommons execution runtime for task " + taskId);
         }
-        if (Double.isNaN(runtime.doubleValue()) || Double.isInfinite(runtime.doubleValue())
+        if (Double.isNaN(runtime.doubleValue())
+                || Double.isInfinite(runtime.doubleValue())
                 || runtime.doubleValue() < 0.0) {
             throw new IllegalArgumentException("Negative WfCommons runtime for task " + taskId);
         }
         return runtime.doubleValue();
     }
 
-    private static long toCloudletLength(double runtimeSeconds, String taskId,
-            WorkflowInputReport report) {
-        double length = Parameters.getRuntimeReferenceMips() * runtimeSeconds
-                * Parameters.getRuntimeScale();
+    private static long toCloudletLength(double runtimeSeconds, String taskId, WorkflowInputReport report) {
+        double length = Parameters.getRuntimeReferenceMips() * runtimeSeconds * Parameters.getRuntimeScale();
         // R8 审计修复（架构通道 P1-4）：镜像 DAX 路径的溢出防护——超大 runtime ×
         // 参考 MIPS × scale 可能为 Infinity 或超过 Long.MAX_VALUE，原实现经
         // (long) 强转静默钳到 Long.MAX_VALUE，产生无法追溯的长度污染。
         if (Double.isNaN(length) || Double.isInfinite(length) || length > Long.MAX_VALUE) {
-            throw new WorkflowValidationException("Invalid converted runtime for WfCommons task "
-                    + taskId + ": " + runtimeSeconds + " s overflows cloudlet length");
+            throw new WorkflowValidationException("Invalid converted runtime for WfCommons task " + taskId + ": "
+                    + runtimeSeconds + " s overflows cloudlet length");
         }
         if (length < MIN_CLOUDLET_LENGTH) {
             report.recordNormalization(
                     WorkflowInputReport.NormalizationKind.TASK_RUNTIME_FLOORED_TO_MINIMUM,
-                    taskId, length, MIN_CLOUDLET_LENGTH);
+                    taskId,
+                    length,
+                    MIN_CLOUDLET_LENGTH);
             length = MIN_CLOUDLET_LENGTH;
         }
         return Math.max(MIN_CLOUDLET_LENGTH, (long) length);
@@ -299,8 +307,7 @@ public final class WfCommonsJsonParser {
                 continue;
             }
             String scopedFileName = scopedFileName(fileNamespace, fileName);
-            FileItem item = getOrCreateFileItem(fileItemsByNameAndType, fileName,
-                    scopedFileName, fileSizes, fileType);
+            FileItem item = getOrCreateFileItem(fileItemsByNameAndType, fileName, scopedFileName, fileSizes, fileType);
             taskFiles.add(item);
             // F-009 修复（2026-10-19）：解析期只登记进本地首轮声明表，
             // 全部结构/DAG 校验通过后由 commitFirstDeclaredInputs 提交全局目录；
@@ -336,8 +343,7 @@ public final class WfCommonsJsonParser {
 
         Double size = fileSizes.get(originalFileName);
         if (size == null) {
-            throw new WorkflowValidationException("Task references an undeclared WfCommons file "
-                    + originalFileName);
+            throw new WorkflowValidationException("Task references an undeclared WfCommons file " + originalFileName);
         }
         double sizeBytes = size.doubleValue();
         item = new FileItem(scopedFileName, sizeBytes);
@@ -360,9 +366,7 @@ public final class WfCommonsJsonParser {
     }
 
     private static void connectDependencies(
-            List<SpecTask> specTaskList,
-            Map<String, SpecTask> specTasks,
-            Map<String, Task> tasksByWfCommonsId) {
+            List<SpecTask> specTaskList, Map<String, SpecTask> specTasks, Map<String, Task> tasksByWfCommonsId) {
         Set<Long> linkedEdges = new HashSet<>();
         for (SpecTask specTask : specTaskList) {
             Task task = tasksByWfCommonsId.get(specTask.id);
@@ -376,8 +380,8 @@ public final class WfCommonsJsonParser {
      *
      * <p>不能通过取父边和子边的并集来“修复”输入，否则会掩盖研究实例自身的格式错误。</p>
      */
-    private static void validateDeclaredDependencySymmetry(List<SpecTask> specTaskList,
-            Map<String, SpecTask> specTasks) {
+    private static void validateDeclaredDependencySymmetry(
+            List<SpecTask> specTaskList, Map<String, SpecTask> specTasks) {
         Map<String, Set<String>> parentMembership = new HashMap<>();
         Map<String, Set<String>> childMembership = new HashMap<>();
         for (SpecTask task : specTaskList) {
@@ -386,16 +390,15 @@ public final class WfCommonsJsonParser {
         }
     }
 
-    private static void validateDeclaredParents(SpecTask child,
-            Map<String, SpecTask> specTasks, Map<String, Set<String>> childMembership) {
+    private static void validateDeclaredParents(
+            SpecTask child, Map<String, SpecTask> specTasks, Map<String, Set<String>> childMembership) {
         if (child.parents == null) {
             return;
         }
         for (String parentId : child.parents) {
             SpecTask parent = specTasks.get(parentId);
             if (parent == null) {
-                throw new IllegalArgumentException("Task " + child.id
-                        + " references missing parent " + parentId);
+                throw new IllegalArgumentException("Task " + child.id + " references missing parent " + parentId);
             }
             if (!declares(parent.id, parent.children, child.id, childMembership)) {
                 throw new WorkflowValidationException("Inconsistent WfCommons dependency: task "
@@ -405,16 +408,15 @@ public final class WfCommonsJsonParser {
         }
     }
 
-    private static void validateDeclaredChildren(SpecTask parent,
-            Map<String, SpecTask> specTasks, Map<String, Set<String>> parentMembership) {
+    private static void validateDeclaredChildren(
+            SpecTask parent, Map<String, SpecTask> specTasks, Map<String, Set<String>> parentMembership) {
         if (parent.children == null) {
             return;
         }
         for (String childId : parent.children) {
             SpecTask child = specTasks.get(childId);
             if (child == null) {
-                throw new IllegalArgumentException("Task " + parent.id
-                        + " references missing child " + childId);
+                throw new IllegalArgumentException("Task " + parent.id + " references missing child " + childId);
             }
             if (!declares(child.id, child.parents, parent.id, parentMembership)) {
                 throw new WorkflowValidationException("Inconsistent WfCommons dependency: task "
@@ -425,8 +427,8 @@ public final class WfCommonsJsonParser {
     }
 
     /** A local membership snapshot for one symmetry-validation call, never retained across parses. */
-    private static boolean declares(String taskId, List<String> references, String expected,
-            Map<String, Set<String>> membership) {
+    private static boolean declares(
+            String taskId, List<String> references, String expected, Map<String, Set<String>> membership) {
         if (references == null) {
             return false;
         }
@@ -443,7 +445,8 @@ public final class WfCommonsJsonParser {
             List<String> parentIds,
             Map<String, SpecTask> specTasks,
             Map<String, Task> tasksByWfCommonsId,
-            String childId, Set<Long> linkedEdges) {
+            String childId,
+            Set<Long> linkedEdges) {
         if (parentIds == null) {
             return;
         }
@@ -460,7 +463,8 @@ public final class WfCommonsJsonParser {
             List<String> childIds,
             Map<String, SpecTask> specTasks,
             Map<String, Task> tasksByWfCommonsId,
-            String parentId, Set<Long> linkedEdges) {
+            String parentId,
+            Set<Long> linkedEdges) {
         if (childIds == null) {
             return;
         }
@@ -473,8 +477,7 @@ public final class WfCommonsJsonParser {
     }
 
     private static void addEdge(Task parentTask, Task childTask, Set<Long> linkedEdges) {
-        long edge = ((long) parentTask.getCloudletId() << 32)
-                | (childTask.getCloudletId() & 0xffffffffL);
+        long edge = ((long) parentTask.getCloudletId() << 32) | (childTask.getCloudletId() & 0xffffffffL);
         if (linkedEdges.add(edge)) {
             parentTask.addChild(childTask);
             childTask.addParent(parentTask);

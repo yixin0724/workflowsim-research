@@ -37,11 +37,11 @@ public final class StaticSufferagePlanningAlgorithm extends StaticIndependentPla
                     }
                 }
                 // 只有一台兼容 VM 时没有可失去的备选，将损失定为零以保持有限且确定的排序。
-                double sufferage = Double.isInfinite(secondBest) ? 0.0
-                        : secondBest - best.getFinishTime();
-                if (selectedChoice == null || sufferage > selectedSufferage
+                double sufferage = Double.isInfinite(secondBest) ? 0.0 : secondBest - best.getFinishTime();
+                if (selectedChoice == null
+                        || sufferage > selectedSufferage
                         || (Double.compare(sufferage, selectedSufferage) == 0
-                        && task.getCloudletId() < selectedTask.getCloudletId())) {
+                                && task.getCloudletId() < selectedTask.getCloudletId())) {
                     selectedTask = task;
                     selectedChoice = best;
                     selectedSufferage = sufferage;

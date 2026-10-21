@@ -25,7 +25,8 @@ class DataflowStorageSpecTest {
     @Test
     void acceptsZeroAndMaximumHostIdsWithoutPlatformMembershipChecks() {
         assertEquals(0, DataflowStorageSpec.of(0, 2.0, 3.0, 5.0).getAttachmentHostId());
-        assertEquals(Integer.MAX_VALUE,
+        assertEquals(
+                Integer.MAX_VALUE,
                 DataflowStorageSpec.of(Integer.MAX_VALUE, 2.0, 3.0, 5.0).getAttachmentHostId());
     }
 
@@ -84,10 +85,8 @@ class DataflowStorageSpecTest {
 
     @Test
     void rejectsNegativeAttachmentHostIds() {
-        assertThrows(IllegalArgumentException.class,
-                () -> DataflowStorageSpec.of(-1, 2.0, 3.0, 5.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DataflowStorageSpec.of(Integer.MIN_VALUE, 2.0, 3.0, 5.0));
+        assertThrows(IllegalArgumentException.class, () -> DataflowStorageSpec.of(-1, 2.0, 3.0, 5.0));
+        assertThrows(IllegalArgumentException.class, () -> DataflowStorageSpec.of(Integer.MIN_VALUE, 2.0, 3.0, 5.0));
     }
 
     @Test
@@ -168,16 +167,25 @@ class DataflowStorageSpecTest {
     }
 
     private static void assertRejectedInEveryBandwidthPosition(double invalidRate) {
-        assertThrows(IllegalArgumentException.class,
-                () -> DataflowStorageSpec.of(0, invalidRate, 3.0, 5.0), "read bandwidth");
-        assertThrows(IllegalArgumentException.class,
-                () -> DataflowStorageSpec.of(0, 2.0, invalidRate, 5.0), "write bandwidth");
-        assertThrows(IllegalArgumentException.class,
-                () -> DataflowStorageSpec.of(0, 2.0, 3.0, invalidRate), "network bandwidth");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DataflowStorageSpec.of(0, invalidRate, 3.0, 5.0),
+                "read bandwidth");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DataflowStorageSpec.of(0, 2.0, invalidRate, 5.0),
+                "write bandwidth");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DataflowStorageSpec.of(0, 2.0, 3.0, invalidRate),
+                "network bandwidth");
     }
 
-    private static void assertCapacities(DataflowStorageSpec spec,
-            double readBytesPerSecond, double writeBytesPerSecond, double networkBytesPerSecond) {
+    private static void assertCapacities(
+            DataflowStorageSpec spec,
+            double readBytesPerSecond,
+            double writeBytesPerSecond,
+            double networkBytesPerSecond) {
         assertEquals(readBytesPerSecond, spec.getReadCapacityBytesPerSecond(), 0.0);
         assertEquals(writeBytesPerSecond, spec.getWriteCapacityBytesPerSecond(), 0.0);
         assertEquals(networkBytesPerSecond, spec.getNetworkCapacityBytesPerSecond(), 0.0);

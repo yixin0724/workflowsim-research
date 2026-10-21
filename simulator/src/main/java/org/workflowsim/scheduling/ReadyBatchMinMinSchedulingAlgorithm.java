@@ -65,11 +65,13 @@ public class ReadyBatchMinMinSchedulingAlgorithm extends BaseSchedulingAlgorithm
                 }
 
                 // 该任务的最小 ECT 参与全局比较
-                if (bestVmForTask != -1 && (minEctForTask < globalMinEct
-                        || (Double.compare(minEctForTask, globalMinEct) == 0
-                                && globalMinTaskIdx != -1
-                                && cloudlet.getCloudletId() < ((Cloudlet) getCloudletList()
-                                        .get(globalMinTaskIdx)).getCloudletId()))) {
+                if (bestVmForTask != -1
+                        && (minEctForTask < globalMinEct
+                                || (Double.compare(minEctForTask, globalMinEct) == 0
+                                        && globalMinTaskIdx != -1
+                                        && cloudlet.getCloudletId()
+                                                < ((Cloudlet) getCloudletList().get(globalMinTaskIdx))
+                                                        .getCloudletId()))) {
                     globalMinEct = minEctForTask;
                     globalMinTaskIdx = t;
                     globalMinVmIdx = bestVmForTask;

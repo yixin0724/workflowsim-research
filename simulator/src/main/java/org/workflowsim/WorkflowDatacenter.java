@@ -34,20 +34,20 @@ import org.cloudbus.cloudsim.VmAllocationPolicy;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEvent;
-import org.workflowsim.experiment.SimulationEventRecorder;
-import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.data.NetworkEvidenceConfig;
 import org.workflowsim.data.NetworkFlowBinding;
-import org.workflowsim.data.NetworkRunEvidence;
 import org.workflowsim.data.NetworkInputDemandSnapshot;
 import org.workflowsim.data.NetworkInputDemandTracker;
+import org.workflowsim.data.NetworkRunEvidence;
 import org.workflowsim.data.TransferContentionEngine;
+import org.workflowsim.experiment.SimulationEventRecorder;
+import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.failure.FailureGenerator;
-import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.ClassType;
 import org.workflowsim.utils.Parameters.FileType;
+import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationTiming;
 import org.workflowsim.utils.TaskExecutionModel;
 
@@ -84,34 +84,81 @@ public class WorkflowDatacenter extends Datacenter {
     private NetworkInputDemandTracker inputDemandTracker;
     /** Fat-tree 链路争用模型使用的已放置拓扑（标准运行器安装，可为 null）。 */
     private org.workflowsim.network.FatTreeTopology fatTreeTopology;
+
     private org.workflowsim.data.v2.CoherentDataflowRuntime coherentDataflow;
-    private int coherentEngineId=-1;
+    private int coherentEngineId = -1;
     private org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
     /** @param storage explicit bounded storage for the dedicated storage version */
-    public void setSourceStorage(org.workflowsim.data.v2.DataflowStorageSpec storage){if(storage==null||sourceStorage!=null||!dataMovementModel.isCoherentStorageDataflowV3())throw new IllegalArgumentException("Storage spec requires one storage-V3 installation");sourceStorage=storage;}
+    public void setSourceStorage(org.workflowsim.data.v2.DataflowStorageSpec storage) {
+        if (storage == null || sourceStorage != null || !dataMovementModel.isCoherentStorageDataflowV3())
+            throw new IllegalArgumentException("Storage spec requires one storage-V3 installation");
+        sourceStorage = storage;
+    }
 
     /** @param runtime same run-owned coordinator as the engine/planner @param engineId owning workflow engine */
-    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime runtime,int engineId){
-        if(runtime==null||engineId<0||coherentDataflow!=null||!dataMovementModel.usesCoherentDataflowRuntime())throw new IllegalArgumentException("Invalid V2 runtime installation");coherentDataflow=runtime;coherentEngineId=engineId;
+    public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime runtime, int engineId) {
+        if (runtime == null
+                || engineId < 0
+                || coherentDataflow != null
+                || !dataMovementModel.usesCoherentDataflowRuntime())
+            throw new IllegalArgumentException("Invalid V2 runtime installation");
+        coherentDataflow = runtime;
+        coherentEngineId = engineId;
     }
-    private org.workflowsim.data.v2.CoherentDataflowRuntime requireCoherentRuntime(){if(coherentDataflow==null)throw new IllegalStateException("Coherent V2 model requires its dedicated initialized run context");return coherentDataflow;}
+
+    private org.workflowsim.data.v2.CoherentDataflowRuntime requireCoherentRuntime() {
+        if (coherentDataflow == null)
+            throw new IllegalStateException("Coherent V2 model requires its dedicated initialized run context");
+        return coherentDataflow;
+    }
     /** Bind routes to actual created VM placements, never the logical producer's planned host. */
-    void initializeCoherentFabric(){
-        org.workflowsim.data.v2.CoherentDataflowRuntime runtime=requireCoherentRuntime();if(runtime.isFabricBound())return;
-        Map<Integer,Double> capacities=new LinkedHashMap<Integer,Double>();Map<Integer,Integer> hosts=new LinkedHashMap<Integer,Integer>();
-        for(Host host:getVmAllocationPolicy().getHostList())for(Vm vm:host.getVmList()){capacities.put(vm.getId(),vm.getBw()*(double)Consts.MILLION);hosts.put(vm.getId(),host.getId());}
-        java.util.List<String> sources=Collections.singletonList("source");
-        runtime.bindFabric(runtime.isStorageVersion()?org.workflowsim.data.v2.DataTransferFabric.withStorage(capacities,hosts,fatTreeTopology,sourceStorage):fatTreeTopology==null?org.workflowsim.data.v2.DataTransferFabric.endpoints(capacities,sources):org.workflowsim.data.v2.DataTransferFabric.fatTree(capacities,hosts,fatTreeTopology,sources));
+    void initializeCoherentFabric() {
+        org.workflowsim.data.v2.CoherentDataflowRuntime runtime = requireCoherentRuntime();
+        if (runtime.isFabricBound()) return;
+        Map<Integer, Double> capacities = new LinkedHashMap<Integer, Double>();
+        Map<Integer, Integer> hosts = new LinkedHashMap<Integer, Integer>();
+        for (Host host : getVmAllocationPolicy().getHostList())
+            for (Vm vm : host.getVmList()) {
+                capacities.put(vm.getId(), vm.getBw() * (double) Consts.MILLION);
+                hosts.put(vm.getId(), host.getId());
+            }
+        java.util.List<String> sources = Collections.singletonList("source");
+        runtime.bindFabric(
+                runtime.isStorageVersion()
+                        ? org.workflowsim.data.v2.DataTransferFabric.withStorage(
+                                capacities, hosts, fatTreeTopology, sourceStorage)
+                        : fatTreeTopology == null
+                                ? org.workflowsim.data.v2.DataTransferFabric.endpoints(capacities, sources)
+                                : org.workflowsim.data.v2.DataTransferFabric.fatTree(
+                                        capacities, hosts, fatTreeTopology, sources));
     }
     /** Actual-created immutable compute options for the engine's opt-in destination binding. */
-    java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> actualDataflowVmOptions(){
-        java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> result=new ArrayList<>();for(Host host:getVmAllocationPolicy().getHostList())for(Vm vm:host.getVmList())result.add(new org.workflowsim.data.v2.DataflowVmAssigner.VmOption(vm.getId(),vm.getMips(),vm.getNumberOfPes()));return Collections.unmodifiableList(result);
+    java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> actualDataflowVmOptions() {
+        java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> result = new ArrayList<>();
+        for (Host host : getVmAllocationPolicy().getHostList())
+            for (Vm vm : host.getVmList())
+                result.add(new org.workflowsim.data.v2.DataflowVmAssigner.VmOption(
+                        vm.getId(), vm.getMips(), vm.getNumberOfPes()));
+        return Collections.unmodifiableList(result);
     }
     /** @return independently versioned file lifecycle capture, null for OFF/V1 */
-    public org.workflowsim.data.v2.FileLifecycleEvidence captureFileLifecycleEvidence(){return networkEvidenceConfig.getMode()==NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2?requireCoherentRuntime().captureEvidence():null;}
+    public org.workflowsim.data.v2.FileLifecycleEvidence captureFileLifecycleEvidence() {
+        return networkEvidenceConfig.getMode() == NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2
+                ? requireCoherentRuntime().captureEvidence()
+                : null;
+    }
     /** @return separately versioned storage capture, null for OFF/V1/V2 */
-    public org.workflowsim.data.v2.StorageLifecycleEvidence captureStorageLifecycleEvidence(){return networkEvidenceConfig.getMode()==NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3?requireCoherentRuntime().captureStorageEvidence():null;}
-    private static java.util.List<Integer> coherentTaskIds(Job job){java.util.List<Integer> ids=new ArrayList<Integer>();for(Task task:job.getTaskList())ids.add(task.getCloudletId());return ids;}
+    public org.workflowsim.data.v2.StorageLifecycleEvidence captureStorageLifecycleEvidence() {
+        return networkEvidenceConfig.getMode() == NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3
+                ? requireCoherentRuntime().captureStorageEvidence()
+                : null;
+    }
+
+    private static java.util.List<Integer> coherentTaskIds(Job job) {
+        java.util.List<Integer> ids = new ArrayList<Integer>();
+        for (Task task : job.getTaskList()) ids.add(task.getCloudletId());
+        return ids;
+    }
 
     /**
      * 创建一个工作流数据中心。
@@ -127,11 +174,13 @@ public class WorkflowDatacenter extends Datacenter {
      * @param schedulingInterval CloudSim 数据中心调度间隔
      * @throws Exception 当 CloudSim 数据中心初始化失败时抛出
      */
-    public WorkflowDatacenter(String name,
+    public WorkflowDatacenter(
+            String name,
             DatacenterCharacteristics characteristics,
             VmAllocationPolicy vmAllocationPolicy,
             List<Storage> storageList,
-            double schedulingInterval) throws Exception {
+            double schedulingInterval)
+            throws Exception {
         super(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval);
     }
 
@@ -182,11 +231,13 @@ public class WorkflowDatacenter extends Datacenter {
     }
 
     /** @return immutable run-local observation option */
-    public NetworkEvidenceConfig getNetworkEvidenceConfig() { return networkEvidenceConfig; }
+    public NetworkEvidenceConfig getNetworkEvidenceConfig() {
+        return networkEvidenceConfig;
+    }
 
     /** Observe the locality decision already made by the original grouped-input loop. */
     void recordNetworkInputDemand(FileItem file, boolean local) {
-        if (networkEvidenceConfig.getMode()!=NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return;
+        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return;
         if (transferContentionEngine == null)
             throw new IllegalStateException("Input demand can only be observed after creating the transfer engine");
         if (file == null) throw new IllegalArgumentException("Input reference is required");
@@ -195,10 +246,15 @@ public class WorkflowDatacenter extends Datacenter {
     }
 
     /** Copy attribution after successful admission, before any later advance can remove it. */
-    void recordNetworkFlowBinding(long transferId, Job job, Integer parentJobId,
-            NetworkFlowBinding.GroupKind groupKind, String sourceEndpoint, String destinationEndpoint,
+    void recordNetworkFlowBinding(
+            long transferId,
+            Job job,
+            Integer parentJobId,
+            NetworkFlowBinding.GroupKind groupKind,
+            String sourceEndpoint,
+            String destinationEndpoint,
             List<String> occupiedResources) {
-        if (networkEvidenceConfig.getMode()!=NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return;
+        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return;
         if (transferContentionEngine == null)
             throw new IllegalStateException("Cannot bind a network flow before a successful transfer admission");
         long ordinal = transferContentionEngine.getActiveTransferAdmissionOrdinal(transferId);
@@ -206,8 +262,16 @@ public class WorkflowDatacenter extends Datacenter {
         if (ordinal > networkEvidenceConfig.getMaxTraceRecords()) return;
         List<Integer> taskIds = new ArrayList<Integer>();
         for (Task task : job.getTaskList()) taskIds.add(task.getCloudletId());
-        NetworkFlowBinding binding = NetworkFlowBinding.of(transferId, ordinal, job.getCloudletId(),
-                taskIds, parentJobId, groupKind, sourceEndpoint, destinationEndpoint, occupiedResources);
+        NetworkFlowBinding binding = NetworkFlowBinding.of(
+                transferId,
+                ordinal,
+                job.getCloudletId(),
+                taskIds,
+                parentJobId,
+                groupKind,
+                sourceEndpoint,
+                destinationEndpoint,
+                occupiedResources);
         if (networkFlowBindings == null) networkFlowBindings = new LinkedHashMap<Long, NetworkFlowBinding>();
         if (networkFlowBindings.containsKey(ordinal))
             throw new IllegalStateException("Network admission already has a binding: " + ordinal);
@@ -220,16 +284,20 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws IllegalStateException if retained admissions and bindings disagree
      */
     public NetworkRunEvidence captureNetworkEvidence() {
-        if (networkEvidenceConfig.getMode()!=NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return null;
+        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return null;
         if (transferContentionEngine == null)
             return NetworkRunEvidence.empty(networkEvidenceConfig, dataMovementModel.getKind());
         List<NetworkFlowBinding> candidates = networkFlowBindings == null
                 ? Collections.<NetworkFlowBinding>emptyList()
                 : new ArrayList<NetworkFlowBinding>(networkFlowBindings.values());
-        NetworkInputDemandSnapshot inputDemand=inputDemandTracker==null
-                ? NetworkInputDemandSnapshot.empty():inputDemandTracker.snapshot();
-        return NetworkRunEvidence.capture(networkEvidenceConfig, dataMovementModel.getKind(),
-                transferContentionEngine.getTraceSnapshot(), candidates, inputDemand);
+        NetworkInputDemandSnapshot inputDemand =
+                inputDemandTracker == null ? NetworkInputDemandSnapshot.empty() : inputDemandTracker.snapshot();
+        return NetworkRunEvidence.capture(
+                networkEvidenceConfig,
+                dataMovementModel.getKind(),
+                transferContentionEngine.getTraceSnapshot(),
+                candidates,
+                inputDemand);
     }
 
     /**
@@ -272,8 +340,8 @@ public class WorkflowDatacenter extends Datacenter {
                     : new TransferContentionEngine();
             for (Host host : getVmAllocationPolicy().getHostList()) {
                 for (Vm vm : host.getVmList()) {
-                    transferContentionEngine.setEndpointCapacity("VM:" + vm.getId(),
-                            vm.getBw() * (double) Consts.MILLION);
+                    transferContentionEngine.setEndpointCapacity(
+                            "VM:" + vm.getId(), vm.getBw() * (double) Consts.MILLION);
                 }
             }
             if (dataMovementModel.isFatTreeContentionV1()) {
@@ -296,16 +364,15 @@ public class WorkflowDatacenter extends Datacenter {
      * @param userId 用户标识
      * @return 确定性路由的链路资源键列表
      */
-    public java.util.List<String> fatTreePathResources(int sourceVmId, int destinationVmId,
-            int userId) {
+    public java.util.List<String> fatTreePathResources(int sourceVmId, int destinationVmId, int userId) {
         if (!dataMovementModel.isFatTreeContentionV1() || fatTreeTopology == null) {
             return java.util.Collections.emptyList();
         }
         Host sourceHost = getVmAllocationPolicy().getHost(sourceVmId, userId);
         Host destinationHost = getVmAllocationPolicy().getHost(destinationVmId, userId);
         if (sourceHost == null || destinationHost == null) {
-            throw new IllegalStateException("Fat-tree contention requires placed source and "
-                    + "destination VMs (" + sourceVmId + " -> " + destinationVmId + ")");
+            throw new IllegalStateException("Fat-tree contention requires placed source and " + "destination VMs ("
+                    + sourceVmId + " -> " + destinationVmId + ")");
         }
         return fatTreeTopology.route(sourceHost.getId(), destinationHost.getId());
     }
@@ -324,7 +391,9 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws Exception 当所需副本或 VM 无法解析时抛出
      */
     public double estimateTransferSecondsForFiles(List<FileItem> files, Job job) throws Exception {
-        if(dataMovementModel.usesCoherentDataflowRuntime())throw new UnsupportedOperationException("Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar estimator");
+        if (dataMovementModel.usesCoherentDataflowRuntime())
+            throw new UnsupportedOperationException(
+                    "Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar estimator");
         double time = 0.0;
         for (FileItem file : files) {
             if (!file.isRealInputFile(files)) {
@@ -332,8 +401,8 @@ public class WorkflowDatacenter extends Datacenter {
             }
             List siteList = ReplicaCatalog.getStorageList(file.getName());
             if (siteList == null || siteList.isEmpty()) {
-                throw new IllegalStateException("Required input file '" + file.getName()
-                        + "' has no registered replica");
+                throw new IllegalStateException(
+                        "Required input file '" + file.getName() + "' has no registered replica");
             }
             switch (ReplicaCatalog.getFileSystem()) {
                 case SHARED:
@@ -354,8 +423,8 @@ public class WorkflowDatacenter extends Datacenter {
                     time += localStageInSecondsForFile(file, siteList, job);
                     break;
                 default:
-                    throw new IllegalStateException("Unsupported replica file system "
-                            + ReplicaCatalog.getFileSystem());
+                    throw new IllegalStateException(
+                            "Unsupported replica file system " + ReplicaCatalog.getFileSystem());
             }
         }
         return time;
@@ -436,7 +505,7 @@ public class WorkflowDatacenter extends Datacenter {
         }
         boolean requiredFileStagein = true;
         double maxBwth = 0.0;
-        for (Iterator it = siteList.iterator(); it.hasNext();) {
+        for (Iterator it = siteList.iterator(); it.hasNext(); ) {
             // site 表示该文件的一个已登记副本位置。
             String site = (String) it.next();
             if (site.equals(this.getName())) {
@@ -457,14 +526,14 @@ public class WorkflowDatacenter extends Datacenter {
                 try {
                     sourceVmId = Integer.parseInt(site);
                 } catch (NumberFormatException e) {
-                    throw new IllegalStateException("Replica site '" + site
-                            + "' is neither the source nor a VM identifier", e);
+                    throw new IllegalStateException(
+                            "Replica site '" + site + "' is neither the source nor a VM identifier", e);
                 }
                 Host sourceHost = getVmAllocationPolicy().getHost(sourceVmId, userId);
                 Vm sourceVm = sourceHost == null ? null : sourceHost.getVm(sourceVmId, userId);
                 if (sourceVm == null) {
-                    throw new IllegalStateException("Replica site VM " + sourceVmId
-                            + " is unavailable for input file '" + file.getName() + "'");
+                    throw new IllegalStateException("Replica site VM " + sourceVmId + " is unavailable for input file '"
+                            + file.getName() + "'");
                 }
                 bwth = Math.min(vm.getBw(), sourceVm.getBw());
             }
@@ -537,8 +606,8 @@ public class WorkflowDatacenter extends Datacenter {
             int vmId = job.getVmId();
             Host host = getVmAllocationPolicy().getHost(vmId, userId);
             if (host == null) {
-                throw new IllegalStateException("No host contains VM " + vmId + " for submitted Job "
-                        + job.getCloudletId());
+                throw new IllegalStateException(
+                        "No host contains VM " + vmId + " for submitted Job " + job.getCloudletId());
             }
             Vm candidateVm = host.getVm(vmId, userId);
             if (!(candidateVm instanceof CondorVM)) {
@@ -556,11 +625,9 @@ public class WorkflowDatacenter extends Datacenter {
             long computeLengthMi = job.getEffectiveExecutionLengthMi();
             if (job.getClassType() == ClassType.COMPUTE.value) {
                 for (Task task : job.getTaskList()) {
-                    task.setEffectiveExecutionLengthMi(
-                            TaskExecutionModel.executionLengthMi(task, vmId, vm.getMips()));
+                    task.setEffectiveExecutionLengthMi(TaskExecutionModel.executionLengthMi(task, vmId, vm.getMips()));
                 }
-                if (job.getTaskList().size() == 1
-                        && job.getTaskList().get(0).hasVmExecutionCostSeconds()) {
+                if (job.getTaskList().size() == 1 && job.getTaskList().get(0).hasVmExecutionCostSeconds()) {
                     computeLengthMi = job.getTaskList().get(0).getEffectiveExecutionLengthMi();
                 }
             }
@@ -572,7 +639,9 @@ public class WorkflowDatacenter extends Datacenter {
             switch (Parameters.getCostModel()) {
                 case DATACENTER:
                     // 按配置的成本模型写入本次数据中心或 VM 的计费参数。
-                    job.setResourceParameter(getId(), getCharacteristics().getCostPerSecond(),
+                    job.setResourceParameter(
+                            getId(),
+                            getCharacteristics().getCostPerSecond(),
                             getCharacteristics().getCostPerBw());
                     break;
                 case VM:
@@ -591,7 +660,8 @@ public class WorkflowDatacenter extends Datacenter {
             double fileTransferTime = 0.0;
             if (job.getClassType() == ClassType.COMPUTE.value) {
                 if (dataMovementModel.usesCoherentDataflowRuntime()) {
-                    requireCoherentRuntime();fileTransferTime=0.0;
+                    requireCoherentRuntime();
+                    fileTransferTime = 0.0;
                 } else if (dataMovementModel.isPreExecutionTransferDelayV1()
                         || dataMovementModel.isPreExecutionTransferDelayWithContentionV1()
                         || dataMovementModel.isFatTreeContentionV1()) {
@@ -607,11 +677,19 @@ public class WorkflowDatacenter extends Datacenter {
                 } else {
                     DataTransferEstimate estimate = estimateDataStageInForComputeJob(job.getFileList(), job);
                     fileTransferTime = estimate.getTransferSeconds();
-                    eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, CloudSim.clock(), job,
-                            SimulationEventRecorder.attributes("modeledTransferSeconds", fileTransferTime,
-                                    "requiredFileBytes", estimate.getRequiredFileBytes(),
-                                    "modeledTransferFileCount", estimate.getRequiredFileCount(),
-                                    "dataMovementModel", dataMovementModel.getKind().name()));
+                    eventRecorder.record(
+                            SimulationEventType.DATA_STAGE_IN_MODELED,
+                            CloudSim.clock(),
+                            job,
+                            SimulationEventRecorder.attributes(
+                                    "modeledTransferSeconds",
+                                    fileTransferTime,
+                                    "requiredFileBytes",
+                                    estimate.getRequiredFileBytes(),
+                                    "modeledTransferFileCount",
+                                    estimate.getRequiredFileCount(),
+                                    "dataMovementModel",
+                                    dataMovementModel.getKind().name()));
                 }
             }
 
@@ -623,9 +701,9 @@ public class WorkflowDatacenter extends Datacenter {
             TaskExecutionModel.requireRepresentableLength((long) envelopeMi, job.getNumberOfPes());
             CloudletScheduler scheduler = vm.getCloudletScheduler();
             long cloudletLengthBeforeStageIn = job.getCloudletLength();
-            if(job.getClassType()==ClassType.COMPUTE.value&&dataMovementModel.usesCoherentDataflowRuntime()){
-                requireCoherentRuntime().cpuStarted(job.getCloudletId(),coherentTaskIds(job),vmId,CloudSim.clock());
-                sendNow(coherentEngineId,WorkflowSimTags.COHERENT_DATAFLOW_CHECK,null);
+            if (job.getClassType() == ClassType.COMPUTE.value && dataMovementModel.usesCoherentDataflowRuntime()) {
+                requireCoherentRuntime().cpuStarted(job.getCloudletId(), coherentTaskIds(job), vmId, CloudSim.clock());
+                sendNow(coherentEngineId, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, null);
             }
             double estimatedFinishTime = scheduler.cloudletSubmit(job, fileTransferTime);
             // Fail-fast：忙碌 VM 提交路径。CloudSim 对忙碌 VM 返回 0.0 并保持作业
@@ -643,15 +721,13 @@ public class WorkflowDatacenter extends Datacenter {
                         + " to idle VMs; a busy-VM submission would anchor the task"
                         + " time window at 0.0 and corrupt failure attribution");
             }
-            double effectiveStageInSeconds = effectiveCloudletStageInSeconds(job, vm,
-                    cloudletLengthBeforeStageIn, fileTransferTime);
+            double effectiveStageInSeconds =
+                    effectiveCloudletStageInSeconds(job, vm, cloudletLengthBeforeStageIn, fileTransferTime);
             updateTaskExecTime(job, vm, effectiveStageInSeconds, fileTransferTime);
 
             double completionTime = SimulationTiming.earliestCloudletCompletionTime(
-                    CloudSim.clock(), CloudSim.clock() + estimatedFinishTime,
-                    CloudSim.getMinTimeBetweenEvents());
-            send(getId(), completionTime - CloudSim.clock(),
-                    CloudSimTags.VM_DATACENTER_EVENT);
+                    CloudSim.clock(), CloudSim.clock() + estimatedFinishTime, CloudSim.getMinTimeBetweenEvents());
+            send(getId(), completionTime - CloudSim.clock(), CloudSimTags.VM_DATACENTER_EVENT);
 
             if (ack) {
                 int[] data = new int[3];
@@ -683,11 +759,14 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws IllegalArgumentException 当请求时间或 VM MIPS 非法时抛出
      * @throws IllegalStateException 当调度器意外缩短 Job 长度时抛出
      */
-    private double effectiveCloudletStageInSeconds(Job job, Vm vm, long cloudletLengthBeforeStageIn,
-            double requestedStageInSeconds) {
-        if (requestedStageInSeconds < 0.0 || Double.isNaN(requestedStageInSeconds)
-                || Double.isInfinite(requestedStageInSeconds) || vm.getMips() <= 0.0
-                || Double.isNaN(vm.getMips()) || Double.isInfinite(vm.getMips())) {
+    private double effectiveCloudletStageInSeconds(
+            Job job, Vm vm, long cloudletLengthBeforeStageIn, double requestedStageInSeconds) {
+        if (requestedStageInSeconds < 0.0
+                || Double.isNaN(requestedStageInSeconds)
+                || Double.isInfinite(requestedStageInSeconds)
+                || vm.getMips() <= 0.0
+                || Double.isNaN(vm.getMips())
+                || Double.isInfinite(vm.getMips())) {
             throw new IllegalArgumentException("Requested stage-in and VM MIPS must be finite and valid");
         }
         long addedMi = job.getCloudletLength() - cloudletLengthBeforeStageIn;
@@ -709,8 +788,7 @@ public class WorkflowDatacenter extends Datacenter {
      * @param effectiveStageInSeconds CloudSim 实际生效的阶段输入秒数
      * @param requestedStageInSeconds 数据移动模型请求的阶段输入秒数
      */
-    private void updateTaskExecTime(Job job, Vm vm, double effectiveStageInSeconds,
-            double requestedStageInSeconds) {
+    private void updateTaskExecTime(Job job, Vm vm, double effectiveStageInSeconds, double requestedStageInSeconds) {
         // CloudSim 将 fileTransferTime 转化为追加的整数 MI；任务时间窗从该生效时长后开始，
         // 而原始请求值作为数据移动模型观测另行保留。
         double start_time = job.getExecStartTime() + effectiveStageInSeconds;
@@ -721,15 +799,27 @@ public class WorkflowDatacenter extends Datacenter {
             start_time += task_runtime;
             // CloudSim 不支持在这里直接重写 Job 的结束时间，只记录 Task 级模型结束时刻。
             task.setTaskFinishTime(start_time);
-            eventRecorder.record(SimulationEventType.TASK_EXECUTION_MODELED, CloudSim.clock(), job,
-                    SimulationEventRecorder.attributes("taskId", task.getCloudletId(),
-                            "taskStartTime", task.getExecStartTime(), "taskFinishTime",
-                            task.getTaskFinishTime(), "taskLengthMi", task.getCloudletLength(),
-                            "effectiveExecutionLengthMi", task.getEffectiveExecutionLengthMi(),
+            eventRecorder.record(
+                    SimulationEventType.TASK_EXECUTION_MODELED,
+                    CloudSim.clock(),
+                    job,
+                    SimulationEventRecorder.attributes(
+                            "taskId",
+                            task.getCloudletId(),
+                            "taskStartTime",
+                            task.getExecStartTime(),
+                            "taskFinishTime",
+                            task.getTaskFinishTime(),
+                            "taskLengthMi",
+                            task.getCloudletLength(),
+                            "effectiveExecutionLengthMi",
+                            task.getEffectiveExecutionLengthMi(),
                             "modeledStageInSecondsBeforeTask",
                             firstTask ? effectiveStageInSeconds : 0.0,
-                            "requestedDataStageInSecondsForJob", requestedStageInSeconds,
-                            "taskTimingScope", "MODEL_DERIVED_COMPUTE_WINDOW"));
+                            "requestedDataStageInSecondsForJob",
+                            requestedStageInSeconds,
+                            "taskTimingScope",
+                            "MODEL_DERIVED_COMPUTE_WINDOW"));
             firstTask = false;
         }
     }
@@ -761,14 +851,14 @@ public class WorkflowDatacenter extends Datacenter {
 
         for (FileItem file : fList) {
             switch (ReplicaCatalog.getFileSystem()) {
-                /** 本地文件系统也以数据中心名称作为逻辑副本位置。 */
+                    /** 本地文件系统也以数据中心名称作为逻辑副本位置。 */
                 case LOCAL:
                     ReplicaCatalog.addFileToStorage(file.getName(), this.getName());
                     /** 物理 ClusterStorage 写入仍未接入，保留为未来扩展位置。 */
-                    //ClusterStorage storage = (ClusterStorage) getStorageList().get(0);
-                    //storage.addFile(file);
+                    // ClusterStorage storage = (ClusterStorage) getStorageList().get(0);
+                    // storage.addFile(file);
                     break;
-                /** 共享文件系统同样登记到当前数据中心的共享端点。 */
+                    /** 共享文件系统同样登记到当前数据中心的共享端点。 */
                 case SHARED:
                     ReplicaCatalog.addFileToStorage(file.getName(), this.getName());
                     break;
@@ -807,12 +897,14 @@ public class WorkflowDatacenter extends Datacenter {
      */
     private DataTransferEstimate estimateDataStageInForComputeJob(List<FileItem> requiredFiles, Job job)
             throws Exception {
-        if(dataMovementModel.usesCoherentDataflowRuntime())throw new IllegalStateException("Coherent V2 cannot fall through to execution-envelope transfer estimation");
+        if (dataMovementModel.usesCoherentDataflowRuntime())
+            throw new IllegalStateException(
+                    "Coherent V2 cannot fall through to execution-envelope transfer estimation");
         int requiredFileCount = realInputFileCount(requiredFiles);
         double requiredBytes = realInputBytes(requiredFiles);
         if (dataMovementModel.isLegacyWorkflowsimV1()) {
-            return new DataTransferEstimate(legacyProcessDataStageInForComputeJob(requiredFiles, job),
-                    requiredBytes, requiredFileCount);
+            return new DataTransferEstimate(
+                    legacyProcessDataStageInForComputeJob(requiredFiles, job), requiredBytes, requiredFileCount);
         }
         return fixedEndpointDataStageIn(requiredFiles, job, requiredBytes, requiredFileCount);
     }
@@ -841,8 +933,8 @@ public class WorkflowDatacenter extends Datacenter {
      * @return 固定端点模型的传输估计
      * @throws Exception 当副本或目标 VM 无法解析时抛出
      */
-    private DataTransferEstimate fixedEndpointDataStageIn(List<FileItem> requiredFiles, Job job,
-            double requiredBytes, int requiredFileCount) throws Exception {
+    private DataTransferEstimate fixedEndpointDataStageIn(
+            List<FileItem> requiredFiles, Job job, double requiredBytes, int requiredFileCount) throws Exception {
         double time = 0.0;
         for (FileItem file : requiredFiles) {
             if (!file.isRealInputFile(requiredFiles)) {
@@ -850,20 +942,19 @@ public class WorkflowDatacenter extends Datacenter {
             }
             List siteList = ReplicaCatalog.getStorageList(file.getName());
             if (siteList == null || siteList.isEmpty()) {
-                throw new IllegalStateException("Required input file '" + file.getName()
-                        + "' has no registered replica");
+                throw new IllegalStateException(
+                        "Required input file '" + file.getName() + "' has no registered replica");
             }
             switch (ReplicaCatalog.getFileSystem()) {
                 case SHARED:
-                    time += fixedEndpointTransferSeconds(file, sharedStorageTransferRate(),
-                            "shared storage");
+                    time += fixedEndpointTransferSeconds(file, sharedStorageTransferRate(), "shared storage");
                     break;
                 case LOCAL:
                     time += fixedEndpointLocalTransferSeconds(file, job, siteList);
                     break;
                 default:
-                    throw new IllegalStateException("Unsupported replica file system "
-                            + ReplicaCatalog.getFileSystem());
+                    throw new IllegalStateException(
+                            "Unsupported replica file system " + ReplicaCatalog.getFileSystem());
             }
         }
         return new DataTransferEstimate(time, requiredBytes, requiredFileCount);
@@ -882,8 +973,7 @@ public class WorkflowDatacenter extends Datacenter {
      * @return 所选副本的固定端点传输秒数
      * @throws Exception 当目标或来源 VM 无法解析时抛出
      */
-    private double fixedEndpointLocalTransferSeconds(FileItem file, Job job, List siteList)
-            throws Exception {
+    private double fixedEndpointLocalTransferSeconds(FileItem file, Job job, List siteList) throws Exception {
         int destinationVmId = job.getVmId();
         int userId = job.getUserId();
         Vm destinationVm = requiredVm(destinationVmId, userId, "fixed local stage-in");
@@ -891,8 +981,7 @@ public class WorkflowDatacenter extends Datacenter {
         double best = Double.POSITIVE_INFINITY;
         for (Object item : siteList) {
             if (!(item instanceof String)) {
-                throw new IllegalStateException("Replica site is not a string for input file '"
-                        + file.getName() + "'");
+                throw new IllegalStateException("Replica site is not a string for input file '" + file.getName() + "'");
             }
             String site = (String) item;
             if (destination.equals(site)) {
@@ -900,8 +989,8 @@ public class WorkflowDatacenter extends Datacenter {
             }
             double endpointBandwidth;
             if (Parameters.SOURCE.equals(site)) {
-                endpointBandwidth = Math.min(dataMovementModel.getSourceEndpointBandwidthMbPerSecond(),
-                        destinationVm.getBw());
+                endpointBandwidth =
+                        Math.min(dataMovementModel.getSourceEndpointBandwidthMbPerSecond(), destinationVm.getBw());
             } else if (getName().equals(site)) {
                 endpointBandwidth = Math.min(sharedStorageTransferRate(), destinationVm.getBw());
             } else {
@@ -909,8 +998,9 @@ public class WorkflowDatacenter extends Datacenter {
                 try {
                     sourceVmId = Integer.parseInt(site);
                 } catch (NumberFormatException exception) {
-                    throw new IllegalStateException("Replica site '" + site
-                            + "' is neither the source, shared endpoint, nor a VM identifier", exception);
+                    throw new IllegalStateException(
+                            "Replica site '" + site + "' is neither the source, shared endpoint, nor a VM identifier",
+                            exception);
                 }
                 Vm sourceVm = requiredVm(sourceVmId, userId, "fixed local stage-in source");
                 endpointBandwidth = Math.min(sourceVm.getBw(), destinationVm.getBw());
@@ -918,8 +1008,8 @@ public class WorkflowDatacenter extends Datacenter {
             best = Math.min(best, fixedEndpointTransferSeconds(file, endpointBandwidth, "replica " + site));
         }
         if (Double.isInfinite(best)) {
-            throw new IllegalStateException("Required input file '" + file.getName()
-                    + "' has no usable fixed-endpoint replica");
+            throw new IllegalStateException(
+                    "Required input file '" + file.getName() + "' has no usable fixed-endpoint replica");
         }
         ReplicaCatalog.addFileToStorage(file.getName(), destination);
         return best;
@@ -962,15 +1052,13 @@ public class WorkflowDatacenter extends Datacenter {
      * <p>有效带宽为端点带宽和访问链路带宽的较小值，公式为
      * {@code accessLinkLatencySeconds + fileSizeBytes / (1,000,000 * effectiveRateMbPerSecond)}。
      */
-    private double fixedEndpointTransferSeconds(FileItem file, double endpointBandwidth,
-            String endpoint) {
+    private double fixedEndpointTransferSeconds(FileItem file, double endpointBandwidth, String endpoint) {
         double rate = Math.min(endpointBandwidth, dataMovementModel.getAccessLinkBandwidthMbPerSecond());
         if (!(rate > 0.0) || Double.isInfinite(rate) || Double.isNaN(rate)) {
             throw new IllegalStateException("Fixed endpoint " + endpoint
                     + " has no finite positive bottleneck bandwidth for input file '" + file.getName() + "'");
         }
-        return dataMovementModel.getAccessLinkLatencySeconds()
-                + file.getSize() / (double) Consts.MILLION / rate;
+        return dataMovementModel.getAccessLinkLatencySeconds() + file.getSize() / (double) Consts.MILLION / rate;
     }
 
     /**
@@ -985,8 +1073,7 @@ public class WorkflowDatacenter extends Datacenter {
      * @return 历史规则得到的传输秒数
      * @throws Exception 当副本或 VM 解析失败时抛出
      */
-    private double legacyProcessDataStageInForComputeJob(List<FileItem> requiredFiles, Job job)
-            throws Exception {
+    private double legacyProcessDataStageInForComputeJob(List<FileItem> requiredFiles, Job job) throws Exception {
         // 先按历史带宽规则估算全部真实输入文件的传输秒数，再把输入副本登记到目标 VM。
         // 估算与登记的先后顺序不影响结果：单个文件的估算只读取该文件的副本目录。
         double time = estimateTransferSecondsForFiles(requiredFiles, job);
@@ -1008,8 +1095,9 @@ public class WorkflowDatacenter extends Datacenter {
 
     /** Settle work before execution-set changes; cadence limits periodic updates only. */
     private void updateCloudletProcessing(boolean executionSetChanging) {
-        if (executionSetChanging || CloudSim.clock() < 0.111 || CloudSim.clock() >= getLastProcessTime()
-                + CloudSim.getMinTimeBetweenEvents()) {
+        if (executionSetChanging
+                || CloudSim.clock() < 0.111
+                || CloudSim.clock() >= getLastProcessTime() + CloudSim.getMinTimeBetweenEvents()) {
             List<? extends Host> list = getVmAllocationPolicy().getHostList();
             double smallerTime = Double.MAX_VALUE;
             // 遍历每个 Host，要求其 VM 推进到当前仿真时刻。
@@ -1023,8 +1111,8 @@ public class WorkflowDatacenter extends Datacenter {
             }
             // 规范化为满足 CloudSim 最小事件间隔的完成时刻。
             if (smallerTime != Double.MAX_VALUE) {
-                smallerTime = SimulationTiming.earliestCloudletCompletionTime(CloudSim.clock(),
-                        smallerTime, CloudSim.getMinTimeBetweenEvents());
+                smallerTime = SimulationTiming.earliestCloudletCompletionTime(
+                        CloudSim.clock(), smallerTime, CloudSim.getMinTimeBetweenEvents());
             }
             if (smallerTime != Double.MAX_VALUE) {
                 schedule(getId(), (smallerTime - CloudSim.clock()), CloudSimTags.VM_DATACENTER_EVENT);
@@ -1051,8 +1139,7 @@ public class WorkflowDatacenter extends Datacenter {
                 while (vm.getCloudletScheduler().isFinishedCloudlets()) {
                     Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
                     if (cl != null) {
-                        if (cl instanceof Job
-                                && ((Job) cl).getClassType() == ClassType.COMPUTE.value) {
+                        if (cl instanceof Job && ((Job) cl).getClassType() == ClassType.COMPUTE.value) {
                             // 必须在登记输出副本前完成故障判定，避免失败尝试污染副本目录。
                             FailureGenerator.generate((Job) cl);
                         }
@@ -1078,10 +1165,16 @@ public class WorkflowDatacenter extends Datacenter {
         if (!(cl instanceof Task)) {
             throw new IllegalArgumentException("Completed workflow cloudlet is not a Task");
         }
-        if(cl instanceof Job&&((Job)cl).getClassType()==ClassType.COMPUTE.value&&dataMovementModel.usesCoherentDataflowRuntime()){
-            Job job=(Job)cl;java.util.List<Boolean> successes=new ArrayList<Boolean>();for(Task task:job.getTaskList())successes.add(task.getCloudletStatus()==Cloudlet.SUCCESS);
-            requireCoherentRuntime().jobFinished(job.getCloudletId(),coherentTaskIds(job),job.getVmId(),successes,CloudSim.clock());
-            sendNow(coherentEngineId,WorkflowSimTags.COHERENT_DATAFLOW_CHECK,null);return;
+        if (cl instanceof Job
+                && ((Job) cl).getClassType() == ClassType.COMPUTE.value
+                && dataMovementModel.usesCoherentDataflowRuntime()) {
+            Job job = (Job) cl;
+            java.util.List<Boolean> successes = new ArrayList<Boolean>();
+            for (Task task : job.getTaskList()) successes.add(task.getCloudletStatus() == Cloudlet.SUCCESS);
+            requireCoherentRuntime()
+                    .jobFinished(job.getCloudletId(), coherentTaskIds(job), job.getVmId(), successes, CloudSim.clock());
+            sendNow(coherentEngineId, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, null);
+            return;
         }
         String storageLocation;
         switch (ReplicaCatalog.getFileSystem()) {
@@ -1099,8 +1192,7 @@ public class WorkflowDatacenter extends Datacenter {
                 storageLocation = Integer.toString(vmId);
                 break;
             default:
-                throw new IllegalStateException("Unsupported replica file system "
-                        + ReplicaCatalog.getFileSystem());
+                throw new IllegalStateException("Unsupported replica file system " + ReplicaCatalog.getFileSystem());
         }
 
         if (cl instanceof Job && ((Job) cl).getClassType() == ClassType.COMPUTE.value) {
@@ -1145,11 +1237,14 @@ public class WorkflowDatacenter extends Datacenter {
         private final double requiredFileBytes;
         private final int requiredFileCount;
 
-        private DataTransferEstimate(double transferSeconds, double requiredFileBytes,
-                int requiredFileCount) {
-            if (transferSeconds < 0.0 || requiredFileBytes < 0.0 || requiredFileCount < 0
-                    || Double.isNaN(transferSeconds) || Double.isInfinite(transferSeconds)
-                    || Double.isNaN(requiredFileBytes) || Double.isInfinite(requiredFileBytes)) {
+        private DataTransferEstimate(double transferSeconds, double requiredFileBytes, int requiredFileCount) {
+            if (transferSeconds < 0.0
+                    || requiredFileBytes < 0.0
+                    || requiredFileCount < 0
+                    || Double.isNaN(transferSeconds)
+                    || Double.isInfinite(transferSeconds)
+                    || Double.isNaN(requiredFileBytes)
+                    || Double.isInfinite(requiredFileBytes)) {
                 throw new IllegalArgumentException("Data transfer estimate must be finite and non-negative");
             }
             this.transferSeconds = transferSeconds;
@@ -1157,8 +1252,16 @@ public class WorkflowDatacenter extends Datacenter {
             this.requiredFileCount = requiredFileCount;
         }
 
-        private double getTransferSeconds() { return transferSeconds; }
-        private double getRequiredFileBytes() { return requiredFileBytes; }
-        private int getRequiredFileCount() { return requiredFileCount; }
+        private double getTransferSeconds() {
+            return transferSeconds;
+        }
+
+        private double getRequiredFileBytes() {
+            return requiredFileBytes;
+        }
+
+        private int getRequiredFileCount() {
+            return requiredFileCount;
+        }
     }
 }

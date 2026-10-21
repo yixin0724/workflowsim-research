@@ -78,8 +78,7 @@ public class FastestVmSchedulingAlgorithm extends BaseSchedulingAlgorithm {
 
             for (int j = 0; j < vmSize; j++) {
                 CondorVM vm = (CondorVM) getVmList().get(j);
-                if ((vm.getState() == WorkflowSimTags.VM_STATUS_IDLE)
-                        && (vm.getMips() > firstIdleVm.getMips())) {
+                if ((vm.getState() == WorkflowSimTags.VM_STATUS_IDLE) && (vm.getMips() > firstIdleVm.getMips())) {
                     firstIdleVm = vm;
                 }
             }

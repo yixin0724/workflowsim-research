@@ -52,8 +52,7 @@ public final class LocalHeftPlanningAlgorithm extends AbstractLocalCommPlanningA
             @Override
             public int compare(Task first, Task second) {
                 int byRank = Double.compare(upwardRankOf(second), upwardRankOf(first));
-                return byRank != 0 ? byRank
-                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+                return byRank != 0 ? byRank : Integer.compare(first.getCloudletId(), second.getCloudletId());
             }
         });
         double stageInFinish = stageInFinishTime();

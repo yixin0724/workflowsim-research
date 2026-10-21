@@ -1,5 +1,7 @@
 package org.workflowsim.experiment;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,13 +15,16 @@ import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
-import static org.junit.jupiter.api.Assertions.*;
 
 /** Short flows finish between CloudSim checks; every completion must still release its Job. */
 class ShortTransferCompletionIntegrationTest {
-    @AfterEach void restoreLog() { Log.enable(); }
+    @AfterEach
+    void restoreLog() {
+        Log.enable();
+    }
 
-    @Test void staggeredShortFlowsFinishUnderBothContentionModels(@TempDir Path directory) throws Exception {
+    @Test
+    void staggeredShortFlowsFinishUnderBothContentionModels(@TempDir Path directory) throws Exception {
         Log.disable();
         Path dax = directory.resolve("short-flows.dax");
         String xml = "<adag version=\"2.1\">"
@@ -40,23 +45,32 @@ class ShortTransferCompletionIntegrationTest {
             PlatformProfile.Builder platform = PlatformProfile.builder("short-flow-checks");
             for (int id = 0; id < 4; id++) {
                 platform.addHost(new PlatformProfile.HostSpec(id, 2, 2000, 2048, 10000, 1000000));
-                platform.addVm(new PlatformProfile.VmSpec(id, 1000, 1, 512, 1, 10000, "Xen",
-                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+                platform.addVm(new PlatformProfile.VmSpec(
+                        id, 1000, 1, 512, 1, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             }
-            if (fatTree) { platform.networkTopology(NetworkTopologySpec.fatTree(4, 0.125)); }
+            if (fatTree) {
+                platform.networkTopology(NetworkTopologySpec.fatTree(4, 0.125));
+            }
             PlatformProfile profile = platform.build();
             for (long seed = 0; seed < 20; seed++) {
                 SimulationConfig config = SimulationConfig.builder(dax.toString(), 4)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
-                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL).randomSeed(seed)
-                        .dataMovementModel(fatTree ? DataMovementModel.fatTreeContentionV1()
-                                : DataMovementModel.preExecutionTransferDelayWithContentionV1()).build();
+                        .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
+                        .randomSeed(seed)
+                        .dataMovementModel(
+                                fatTree
+                                        ? DataMovementModel.fatTreeContentionV1()
+                                        : DataMovementModel.preExecutionTransferDelayWithContentionV1())
+                        .build();
                 SimulationReport report = new SimulationRunner().run(config, profile);
                 assertTrue(report.isWorkflowCompletedSuccessfully());
                 assertEquals(6, report.getSuccessfulJobs());
                 assertEquals(5, report.getTasks().size());
-                assertEquals(report.getMakespan(), new SimulationRunner().run(config, profile).getMakespan(), 0.0);
+                assertEquals(
+                        report.getMakespan(),
+                        new SimulationRunner().run(config, profile).getMakespan(),
+                        0.0);
                 for (SimulationEvent event : report.getEvents()) {
                     if (event.getAttributes().containsKey("contentionTransferGroupCount")) {
                         transfers += ((Number) event.getAttributes().get("contentionTransferGroupCount")).intValue();

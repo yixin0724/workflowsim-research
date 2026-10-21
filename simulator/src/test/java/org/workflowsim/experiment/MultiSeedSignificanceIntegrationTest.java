@@ -59,17 +59,32 @@ class MultiSeedSignificanceIntegrationTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                        DistributionGenerator.DistributionFamily.WEIBULL, 100.0, 1.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 100.0, 1.0)}
+                })
                 .maxTotalRetryJobs(64)
                 .build();
-        SeedPlan seeds = SeedPlan.derived(RandomizationDesign.COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN,
-                20260911L, REPLICATIONS);
+        SeedPlan seeds =
+                SeedPlan.derived(RandomizationDesign.COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN, 20260911L, REPLICATIONS);
         ExperimentPlan plan = ExperimentPlan.builder("multi-seed-significance")
-                .addCell(cell("fcfs", "fcfs", true, workflow, platform, seeds,
-                        failureModel, Parameters.SchedulingAlgorithm.FCFS))
-                .addCell(cell("mct", "ready-batch-mct", false, workflow, platform, seeds,
-                        failureModel, Parameters.SchedulingAlgorithm.READY_BATCH_MCT))
+                .addCell(cell(
+                        "fcfs",
+                        "fcfs",
+                        true,
+                        workflow,
+                        platform,
+                        seeds,
+                        failureModel,
+                        Parameters.SchedulingAlgorithm.FCFS))
+                .addCell(cell(
+                        "mct",
+                        "ready-batch-mct",
+                        false,
+                        workflow,
+                        platform,
+                        seeds,
+                        failureModel,
+                        Parameters.SchedulingAlgorithm.READY_BATCH_MCT))
                 .build();
 
         Log.disable();
@@ -80,20 +95,18 @@ class MultiSeedSignificanceIntegrationTest {
         ExperimentCampaignSummary.ComparisonSummary comparison =
                 result.getSummary().getComparisons().get(0);
         assertEquals(REPLICATIONS, comparison.getMatchedRootSeedCount());
-        assertEquals("DESCRIPTIVE_ONLY_COMMON_ROOT_SEEDS_ARE_NOT_EVENT_KEYED_CRN",
-                comparison.getInferenceStatus());
+        assertEquals("DESCRIPTIVE_ONLY_COMMON_ROOT_SEEDS_ARE_NOT_EVENT_KEYED_CRN", comparison.getInferenceStatus());
 
         PairedWilcoxonSignificance significance = comparison.getPairedSignificance();
         assertNotNull(significance);
         assertEquals(REPLICATIONS, significance.getPairedSampleCount());
         // 异构平台 + 千任务规模下两算法调度必然分歧，差值不应全为零。
-        assertTrue(significance.getStatus().startsWith("AVAILABLE_"),
-                "验收场景必须产生可用的配对检验，实际状态：" + significance.getStatus());
+        assertTrue(
+                significance.getStatus().startsWith("AVAILABLE_"), "验收场景必须产生可用的配对检验，实际状态：" + significance.getStatus());
         assertNotNull(significance.getPValue());
         double p = significance.getPValue().doubleValue();
         assertTrue(p >= 0.0 && p <= 1.0, "p 值必须在 [0,1] 区间，实际：" + p);
-        assertEquals(p < PairedWilcoxonSignificance.DEFAULT_ALPHA,
-                significance.isSignificantAtDefaultAlpha());
+        assertEquals(p < PairedWilcoxonSignificance.DEFAULT_ALPHA, significance.isSignificantAtDefaultAlpha());
         assertTrue(significance.getEffectiveSampleCount() >= 2);
         System.out.println("[R1] status=" + significance.getStatus()
                 + " p=" + significance.getPValue()
@@ -101,15 +114,28 @@ class MultiSeedSignificanceIntegrationTest {
                 + " medianDelta=" + significance.getMedianDifference());
     }
 
-    private static ExperimentPlan.Cell cell(String id, String candidate, boolean baseline,
-            String workflow, PlatformProfile platform, SeedPlan seeds,
-            FailureModelConfig failureModel, Parameters.SchedulingAlgorithm algorithm) {
+    private static ExperimentPlan.Cell cell(
+            String id,
+            String candidate,
+            boolean baseline,
+            String workflow,
+            PlatformProfile platform,
+            SeedPlan seeds,
+            FailureModelConfig failureModel,
+            Parameters.SchedulingAlgorithm algorithm) {
         SimulationConfig config = SimulationConfig.builder(workflow, 16)
                 .schedulingAlgorithm(algorithm)
                 .failureModel(failureModel)
                 .build();
-        return new ExperimentPlan.Cell(id, "shared-workflow", candidate, baseline, config,
-                platform, seeds, Collections.singletonMap("purpose", "r1-acceptance"));
+        return new ExperimentPlan.Cell(
+                id,
+                "shared-workflow",
+                candidate,
+                baseline,
+                config,
+                platform,
+                seeds,
+                Collections.singletonMap("purpose", "r1-acceptance"));
     }
 
     private static String montage1000Path() throws Exception {

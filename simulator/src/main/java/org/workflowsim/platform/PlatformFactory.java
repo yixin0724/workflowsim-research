@@ -21,8 +21,7 @@ import org.workflowsim.WorkflowDatacenter;
 /** 根据已校验的 {@link PlatformProfile} 构建 CloudSim/WorkflowSim 实体。 */
 public final class PlatformFactory {
 
-    private PlatformFactory() {
-    }
+    private PlatformFactory() {}
 
     /**
      * 将抽象平台描述转换为一个 WorkflowSim 数据中心。
@@ -33,8 +32,7 @@ public final class PlatformFactory {
      * @throws Exception 当 CloudSim 存储实体无法创建时抛出
      * @throws IllegalArgumentException 当名称为空或平台描述为空时抛出
      */
-    public static WorkflowDatacenter createDatacenter(String entityName, PlatformProfile profile)
-            throws Exception {
+    public static WorkflowDatacenter createDatacenter(String entityName, PlatformProfile profile) throws Exception {
         requireEntityName(entityName);
         if (profile == null) {
             throw new IllegalArgumentException("Platform profile cannot be null");
@@ -45,22 +43,37 @@ public final class PlatformFactory {
             for (int peId = 0; peId < spec.getPes(); peId++) {
                 pes.add(new Pe(peId, new PeProvisionerSimple(spec.getMipsPerPe())));
             }
-            hosts.add(new Host(spec.getId(), new RamProvisionerSimple(spec.getRamMb()),
-                    new BwProvisionerSimple(spec.getBandwidth()), spec.getStorageMb(), pes,
+            hosts.add(new Host(
+                    spec.getId(),
+                    new RamProvisionerSimple(spec.getRamMb()),
+                    new BwProvisionerSimple(spec.getBandwidth()),
+                    spec.getStorageMb(),
+                    pes,
                     new VmSchedulerTimeShared(pes)));
         }
 
         PlatformProfile.CostSpec costs = profile.getCosts();
         DatacenterCharacteristics characteristics = new DatacenterCharacteristics(
-                "x86", "Linux", "Xen", hosts, 10.0, costs.getCpuPerSecond(),
-                costs.getMemory(), costs.getStorage(), costs.getBandwidth());
+                "x86",
+                "Linux",
+                "Xen",
+                hosts,
+                10.0,
+                costs.getCpuPerSecond(),
+                costs.getMemory(),
+                costs.getStorage(),
+                costs.getBandwidth());
         PlatformProfile.StorageSpec storageSpec = profile.getStorage();
         List<Storage> storage = new LinkedList<>();
         HarddriveStorage disk = new HarddriveStorage(entityName, storageSpec.getCapacityMb());
         disk.setMaxTransferRate(storageSpec.getMaxTransferRateMbPerSecond());
         storage.add(disk);
-        return new WorkflowDatacenter(entityName, characteristics,
-                new DeterministicVmAllocationPolicy(hosts, profile.getVmHostAssignments()), storage, 0.0);
+        return new WorkflowDatacenter(
+                entityName,
+                characteristics,
+                new DeterministicVmAllocationPolicy(hosts, profile.getVmHostAssignments()),
+                storage,
+                0.0);
     }
 
     /**
@@ -79,13 +92,30 @@ public final class PlatformFactory {
         for (PlatformProfile.VmSpec spec : profile.getVms()) {
             if (spec.hasCosts()) {
                 PlatformProfile.CostSpec costs = spec.getCosts();
-                vms.add(new CondorVM(spec.getId(), userId, spec.getMips(), spec.getPes(),
-                        spec.getRamMb(), spec.getBandwidth(), spec.getImageSizeMb(), spec.getVmm(),
-                        costs.getCpuPerSecond(), costs.getMemory(), costs.getStorage(),
-                        costs.getBandwidth(), createScheduler(spec)));
+                vms.add(new CondorVM(
+                        spec.getId(),
+                        userId,
+                        spec.getMips(),
+                        spec.getPes(),
+                        spec.getRamMb(),
+                        spec.getBandwidth(),
+                        spec.getImageSizeMb(),
+                        spec.getVmm(),
+                        costs.getCpuPerSecond(),
+                        costs.getMemory(),
+                        costs.getStorage(),
+                        costs.getBandwidth(),
+                        createScheduler(spec)));
             } else {
-                vms.add(new CondorVM(spec.getId(), userId, spec.getMips(), spec.getPes(),
-                        spec.getRamMb(), spec.getBandwidth(), spec.getImageSizeMb(), spec.getVmm(),
+                vms.add(new CondorVM(
+                        spec.getId(),
+                        userId,
+                        spec.getMips(),
+                        spec.getPes(),
+                        spec.getRamMb(),
+                        spec.getBandwidth(),
+                        spec.getImageSizeMb(),
+                        spec.getVmm(),
                         createScheduler(spec)));
             }
         }

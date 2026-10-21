@@ -25,8 +25,11 @@ public final class TransferServiceSnapshot {
         private final int activeFlowCount;
         private final long pathMultiplicityCount;
 
-        private Resource(String key, double capacityBytesPerSecond,
-                BigDecimal assignedRateBytesPerSecond, int activeFlowCount,
+        private Resource(
+                String key,
+                double capacityBytesPerSecond,
+                BigDecimal assignedRateBytesPerSecond,
+                int activeFlowCount,
                 long pathMultiplicityCount) {
             this.key = key;
             this.capacityBytesPerSecond = capacityBytesPerSecond;
@@ -36,10 +39,14 @@ public final class TransferServiceSnapshot {
         }
 
         /** @return declared physical resource key */
-        public String getKey() { return key; }
+        public String getKey() {
+            return key;
+        }
 
         /** @return declared physical capacity in bytes per second */
-        public double getCapacityBytesPerSecond() { return capacityBytesPerSecond; }
+        public double getCapacityBytesPerSecond() {
+            return capacityBytesPerSecond;
+        }
 
         /**
          * Exact sum of each assigned binary64 rate multiplied by its path multiplicity.
@@ -48,13 +55,19 @@ public final class TransferServiceSnapshot {
          *
          * @return exact assigned resource load, not completed traffic or utilization
          */
-        public BigDecimal getAssignedRateBytesPerSecond() { return assignedRateBytesPerSecond; }
+        public BigDecimal getAssignedRateBytesPerSecond() {
+            return assignedRateBytesPerSecond;
+        }
 
         /** @return number of distinct active flows using this resource */
-        public int getActiveFlowCount() { return activeFlowCount; }
+        public int getActiveFlowCount() {
+            return activeFlowCount;
+        }
 
         /** @return sum of this resource's occurrence counts across all active paths */
-        public long getPathMultiplicityCount() { return pathMultiplicityCount; }
+        public long getPathMultiplicityCount() {
+            return pathMultiplicityCount;
+        }
     }
 
     /** Immutable copied balance and current allocation of one active admission. */
@@ -68,8 +81,14 @@ public final class TransferServiceSnapshot {
         private final List<String> resources;
 
         // Trusted package construction from the checked engine's committed active state.
-        Flow(long transferId, double bytes, double remainingBytes, double rateBytesPerSecond,
-                double nominalRateBytesPerSecond, double admittedAt, List<String> resources) {
+        Flow(
+                long transferId,
+                double bytes,
+                double remainingBytes,
+                double rateBytesPerSecond,
+                double nominalRateBytesPerSecond,
+                double admittedAt,
+                List<String> resources) {
             this.transferId = transferId;
             this.bytes = bytes;
             this.remainingBytes = remainingBytes;
@@ -80,25 +99,39 @@ public final class TransferServiceSnapshot {
         }
 
         /** @return caller identity, without conversion to a trace ordinal or floating point */
-        public long getTransferId() { return transferId; }
+        public long getTransferId() {
+            return transferId;
+        }
 
         /** @return original modeled byte demand */
-        public double getBytes() { return bytes; }
+        public double getBytes() {
+            return bytes;
+        }
 
         /** @return committed remaining modeled bytes at the snapshot's observed-through time */
-        public double getRemainingBytes() { return remainingBytes; }
+        public double getRemainingBytes() {
+            return remainingBytes;
+        }
 
         /** @return current committed service allocation in bytes per second */
-        public double getRateBytesPerSecond() { return rateBytesPerSecond; }
+        public double getRateBytesPerSecond() {
+            return rateBytesPerSecond;
+        }
 
         /** @return admission's nominal rate limit in bytes per second */
-        public double getNominalRateBytesPerSecond() { return nominalRateBytesPerSecond; }
+        public double getNominalRateBytesPerSecond() {
+            return nominalRateBytesPerSecond;
+        }
 
         /** @return actual coherent-service admission time, independent of trace capture */
-        public double getAdmittedAt() { return admittedAt; }
+        public double getAdmittedAt() {
+            return admittedAt;
+        }
 
         /** @return immutable ordered path, preserving every repeated resource key */
-        public List<String> getResources() { return resources; }
+        public List<String> getResources() {
+            return resources;
+        }
     }
 
     /** Construction-only accumulation; neither the snapshot nor the engine retains it. */
@@ -108,7 +141,9 @@ public final class TransferServiceSnapshot {
         private int activeFlows;
         private long pathMultiplicity;
 
-        private ResourceTotals(double capacity) { this.capacity = capacity; }
+        private ResourceTotals(double capacity) {
+            this.capacity = capacity;
+        }
     }
 
     private final double observedThrough;
@@ -117,8 +152,8 @@ public final class TransferServiceSnapshot {
     private final Map<Long, Flow> transfers;
 
     // Only the checked engine supplies these already-committed values; no state is revalidated or advanced.
-    TransferServiceSnapshot(double observedThrough, boolean shared, Map<String, Double> capacities,
-            Map<Long, Flow> transfers) {
+    TransferServiceSnapshot(
+            double observedThrough, boolean shared, Map<String, Double> capacities, Map<Long, Flow> transfers) {
         this.observedThrough = observedThrough;
         this.shared = shared;
         this.transfers = Collections.unmodifiableMap(new LinkedHashMap<Long, Flow>(transfers));
@@ -145,8 +180,14 @@ public final class TransferServiceSnapshot {
         Map<String, Resource> copiedResources = new LinkedHashMap<String, Resource>();
         for (Map.Entry<String, ResourceTotals> entry : totals.entrySet()) {
             ResourceTotals total = entry.getValue();
-            copiedResources.put(entry.getKey(), new Resource(entry.getKey(), total.capacity,
-                    total.assignedRate, total.activeFlows, total.pathMultiplicity));
+            copiedResources.put(
+                    entry.getKey(),
+                    new Resource(
+                            entry.getKey(),
+                            total.capacity,
+                            total.assignedRate,
+                            total.activeFlows,
+                            total.pathMultiplicity));
         }
         this.resources = Collections.unmodifiableMap(copiedResources);
     }
@@ -155,14 +196,22 @@ public final class TransferServiceSnapshot {
      * @return engine's committed last advance time, not CloudSim time, wall time,
      *         or the effective completion time of a previously settled flow
      */
-    public double getObservedThrough() { return observedThrough; }
+    public double getObservedThrough() {
+        return observedThrough;
+    }
 
     /** @return whether physical resources are shared between active flows */
-    public boolean isShared() { return shared; }
+    public boolean isShared() {
+        return shared;
+    }
 
     /** @return immutable declared-resource map in natural String key order, including idle resources */
-    public Map<String, Resource> getResources() { return resources; }
+    public Map<String, Resource> getResources() {
+        return resources;
+    }
 
     /** @return immutable current active-flow map in admission order, not an admission history */
-    public Map<Long, Flow> getTransfers() { return transfers; }
+    public Map<Long, Flow> getTransfers() {
+        return transfers;
+    }
 }

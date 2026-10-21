@@ -43,16 +43,13 @@ class LocalCommPlanningExtensionsTest {
         connect(entry, sibling, 0.0);
         CondorVM first = vm(3, 1L);
         CondorVM second = vm(8, 1L);
-        LocalHeftPlanningAlgorithm planner = planner(
-                Arrays.asList(entry, exit, sibling), first, second);
+        LocalHeftPlanningAlgorithm planner = planner(Arrays.asList(entry, exit, sibling), first, second);
         planner.prepare();
 
         assertEquals(7.0, planner.communicationSeconds(entry, exit, first, second), EPSILON);
         assertEquals(7.0, planner.communicationSeconds(entry, exit, second, first), EPSILON);
-        assertEquals(0.0, planner.communicationSeconds(entry, exit, first, first), EPSILON,
-                "同 VM 传输为零");
-        assertEquals(0.0, planner.communicationSeconds(entry, sibling, first, second), EPSILON,
-                "边上无共享文件时通信秒数为零");
+        assertEquals(0.0, planner.communicationSeconds(entry, exit, first, first), EPSILON, "同 VM 传输为零");
+        assertEquals(0.0, planner.communicationSeconds(entry, sibling, first, second), EPSILON, "边上无共享文件时通信秒数为零");
     }
 
     @Test
@@ -68,8 +65,7 @@ class LocalCommPlanningExtensionsTest {
         // 8×10⁶ 字节 / (10⁶ × min(2, 4)) = 4.0 秒；方向对称。
         assertEquals(4.0, planner.communicationSeconds(entry, exit, slow, fast), EPSILON);
         assertEquals(4.0, planner.communicationSeconds(entry, exit, fast, slow), EPSILON);
-        assertEquals(4.0, planner.meanCommunicationSeconds(entry, exit), EPSILON,
-                "按对约定应与既有跨对平均约定同源（均匀对时相等）");
+        assertEquals(4.0, planner.meanCommunicationSeconds(entry, exit), EPSILON, "按对约定应与既有跨对平均约定同源（均匀对时相等）");
     }
 
     @Test
@@ -104,8 +100,7 @@ class LocalCommPlanningExtensionsTest {
         Task entry = new Task(1, 2);
         CondorVM first = vm(3, 1L);
         CondorVM second = vm(8, 1L);
-        LocalHeftPlanningAlgorithm planner = planner(
-                Collections.singletonList(entry), first, second);
+        LocalHeftPlanningAlgorithm planner = planner(Collections.singletonList(entry), first, second);
         planner.prepare();
         double stageIn = planner.stageInFinishTime();
 
@@ -123,18 +118,16 @@ class LocalCommPlanningExtensionsTest {
         Task entry = new Task(1, 2);
         CondorVM first = vm(3, 1L);
         CondorVM second = vm(8, 1L);
-        LocalHeftPlanningAlgorithm planner = planner(
-                Collections.singletonList(entry), first, second);
+        LocalHeftPlanningAlgorithm planner = planner(Collections.singletonList(entry), first, second);
         planner.prepare();
         double stageIn = planner.stageInFinishTime();
 
-        assertThrows(IllegalArgumentException.class,
-                () -> planner.allocateOptimistic(entry, null, stageIn));
+        assertThrows(IllegalArgumentException.class, () -> planner.allocateOptimistic(entry, null, stageIn));
 
         Map<CondorVM, Double> partial = new LinkedHashMap<CondorVM, Double>();
         partial.put(first, Double.valueOf(1.0));
-        IllegalStateException missing = assertThrows(IllegalStateException.class,
-                () -> planner.allocateOptimistic(entry, partial, stageIn));
+        IllegalStateException missing =
+                assertThrows(IllegalStateException.class, () -> planner.allocateOptimistic(entry, partial, stageIn));
         assertTrue(missing.getMessage().contains("missing OCT"));
     }
 
@@ -155,10 +148,15 @@ class LocalCommPlanningExtensionsTest {
     private static LocalHeftPlanningAlgorithm planner(List<Task> tasks, CondorVM... vms) {
         PlatformProfile.Builder platform = PlatformProfile.builder("local-ext-unit");
         for (int index = 0; index < vms.length; index++) {
-            platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0,
-                    2048, 10_000L, 1_000_000L));
-            platform.addVm(new PlatformProfile.VmSpec(vms[index].getId(), vms[index].getMips(),
-                    1, 512, vms[index].getBw(), 10_000L, "Xen",
+            platform.addHost(new PlatformProfile.HostSpec(index, 2, 2.0, 2048, 10_000L, 1_000_000L));
+            platform.addVm(new PlatformProfile.VmSpec(
+                    vms[index].getId(),
+                    vms[index].getMips(),
+                    1,
+                    512,
+                    vms[index].getBw(),
+                    10_000L,
+                    "Xen",
                     PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         SimulationConfig config = SimulationConfig.builder("ext-unit.dax", vms.length)
@@ -167,15 +165,14 @@ class LocalCommPlanningExtensionsTest {
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .dataMovementModel(DataMovementModel.preExecutionTransferDelayV1())
                 .build();
-        LocalHeftPlanningAlgorithm planner = new LocalHeftPlanningAlgorithm(
-                new PlanningContext(config, platform.build()));
+        LocalHeftPlanningAlgorithm planner =
+                new LocalHeftPlanningAlgorithm(new PlanningContext(config, platform.build()));
         planner.setTaskList(new ArrayList<Task>(tasks));
         planner.setVmList(new ArrayList<CondorVM>(Arrays.asList(vms)));
         return planner;
     }
 
     private static CondorVM vm(int id, long bw) {
-        return new CondorVM(id, 0, 1.0, 1, 512, bw, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1.0, 1, 512, bw, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 }

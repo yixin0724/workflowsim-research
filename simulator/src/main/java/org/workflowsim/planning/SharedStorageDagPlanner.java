@@ -43,39 +43,34 @@ final class SharedStorageDagPlanner {
     private final List rawVms;
     /** 经验证的正向拓扑序，仅改变静态 rank/OCT 求值顺序，不改变调度候选顺序。 */
     private List<Task> topologicalTasks = Collections.emptyList();
-    private final Map<Task, Map<CondorVM, Double>> executionTimes =
-            new HashMap<Task, Map<CondorVM, Double>>();
-    private final Map<Task, Map<CondorVM, Double>> effectiveStageInTimes =
-            new HashMap<Task, Map<CondorVM, Double>>();
+
+    private final Map<Task, Map<CondorVM, Double>> executionTimes = new HashMap<Task, Map<CondorVM, Double>>();
+    private final Map<Task, Map<CondorVM, Double>> effectiveStageInTimes = new HashMap<Task, Map<CondorVM, Double>>();
     private final Map<Task, Double> upwardRanks = new HashMap<Task, Double>();
     private final Map<Task, Double> downwardRanks = new HashMap<Task, Double>();
     private final Map<Task, Double> dlsDynamicLevels = new HashMap<Task, Double>();
     private final Map<Task, Integer> dlsSelectionOrders = new HashMap<Task, Integer>();
     private final Map<Task, Double> etfEarliestStarts = new HashMap<Task, Double>();
     private final Map<Task, Integer> etfSelectionOrders = new HashMap<Task, Integer>();
-    private final Map<Task, Map<CondorVM, Double>> peftOptimisticCosts =
-            new HashMap<Task, Map<CondorVM, Double>>();
+    private final Map<Task, Map<CondorVM, Double>> peftOptimisticCosts = new HashMap<Task, Map<CondorVM, Double>>();
     private final Map<Task, Double> peftRankOct = new HashMap<Task, Double>();
     private final Map<Task, Double> peftSelectionScores = new HashMap<Task, Double>();
     private final Map<Task, Integer> peftSelectionOrders = new HashMap<Task, Integer>();
     private final Map<Task, Double> starts = new HashMap<Task, Double>();
     private final Map<Task, Double> finishes = new HashMap<Task, Double>();
-    private final Map<CondorVM, List<Reservation>> reservations =
-            new HashMap<CondorVM, List<Reservation>>();
+    private final Map<CondorVM, List<Reservation>> reservations = new HashMap<CondorVM, List<Reservation>>();
     /** 每个 VM 身份最多一条最近查询；plan() 每次创建新规划器，不跨计划保留缓存。 */
-    private final Map<CondorVM, SlotQuery> lastSlotQueries =
-            new IdentityHashMap<CondorVM, SlotQuery>();
+    private final Map<CondorVM, SlotQuery> lastSlotQueries = new IdentityHashMap<CondorVM, SlotQuery>();
 
-    private SharedStorageDagPlanner(List<Task> sourceTasks, List rawVms,
-            PlanningContext context, Strategy strategy) {
+    private SharedStorageDagPlanner(List<Task> sourceTasks, List rawVms, PlanningContext context, Strategy strategy) {
         this.sourceTasks = sourceTasks;
         this.rawVms = rawVms;
         this.context = context;
         this.strategy = strategy;
     }
 
-    static SharedStorageDagPlanTrace plan(List<Task> sourceTasks, List rawVms, PlanningContext context,
-            Strategy strategy) {
+    static SharedStorageDagPlanTrace plan(
+            List<Task> sourceTasks, List rawVms, PlanningContext context, Strategy strategy) {
         if (context == null || strategy == null) {
             throw new IllegalArgumentException("Shared-storage DAG planning requires context and strategy");
         }
@@ -93,8 +88,7 @@ final class SharedStorageDagPlanner {
             @Override
             public int compare(Task first, Task second) {
                 int byDepth = Integer.compare(first.getDepth(), second.getDepth());
-                return byDepth != 0 ? byDepth
-                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+                return byDepth != 0 ? byDepth : Integer.compare(first.getCloudletId(), second.getCloudletId());
             }
         });
         topologicalTasks = Collections.unmodifiableList(byDepth);
@@ -108,9 +102,10 @@ final class SharedStorageDagPlanner {
 
         // stage-in Job 从零时刻开始，完成时刻遵循 WorkflowDatacenter 相同的最小事件和
         // 安全量子规则；工作流引擎收到完成事件后再经过一个内核间隔释放根计算 Job。
-        double stageInFinish = SimulationTiming.earliestCloudletCompletionTime(0.0,
-                STAGE_IN_JOB_LENGTH_MI / vms.get(0).getMips(),
-                context.getCloudSimMinEventIntervalSeconds())
+        double stageInFinish = SimulationTiming.earliestCloudletCompletionTime(
+                        0.0,
+                        STAGE_IN_JOB_LENGTH_MI / vms.get(0).getMips(),
+                        context.getCloudSimMinEventIntervalSeconds())
                 + context.getCloudSimMinEventIntervalSeconds();
         List<Task> criticalPath = Collections.emptyList();
         CondorVM criticalProcessor = null;
@@ -194,8 +189,7 @@ final class SharedStorageDagPlanner {
         double seconds = 0.0;
         for (FileItem file : task.getFileList()) {
             if (file.isRealInputFile(task.getFileList())) {
-                seconds += file.getSize() / (double) Consts.MILLION
-                        / context.getSharedStorageTransferRateMbPerSecond();
+                seconds += file.getSize() / (double) Consts.MILLION / context.getSharedStorageTransferRateMbPerSecond();
             }
         }
         return seconds;
@@ -207,8 +201,7 @@ final class SharedStorageDagPlanner {
             @Override
             public int compare(Task first, Task second) {
                 int byRank = Double.compare(upwardRanks.get(second), upwardRanks.get(first));
-                return byRank != 0 ? byRank
-                        : Integer.compare(first.getCloudletId(), second.getCloudletId());
+                return byRank != 0 ? byRank : Integer.compare(first.getCloudletId(), second.getCloudletId());
             }
         });
         for (Task task : ranked) {
@@ -216,8 +209,7 @@ final class SharedStorageDagPlanner {
         }
     }
 
-    private CpopSelection scheduleCpop(List<Task> tasks, List<CondorVM> vms,
-            double stageInFinish) {
+    private CpopSelection scheduleCpop(List<Task> tasks, List<CondorVM> vms, double stageInFinish) {
         for (Task task : topologicalTasks) {
             downwardRank(task);
         }
@@ -229,8 +221,7 @@ final class SharedStorageDagPlanner {
             if (task == null) {
                 throw new IllegalStateException("CPOP could not find a dependency-ready task");
             }
-            allocate(task, vms, stageInFinish,
-                    criticalPath.contains(task) ? criticalProcessor : null);
+            allocate(task, vms, stageInFinish, criticalPath.contains(task) ? criticalProcessor : null);
             scheduled.add(task);
         }
         return new CpopSelection(criticalPath, criticalProcessor);
@@ -256,8 +247,8 @@ final class SharedStorageDagPlanner {
         }
     }
 
-    private DlsCandidate nextDlsCandidate(List<Task> tasks, List<CondorVM> vms,
-            Set<Task> scheduled, double stageInFinish) {
+    private DlsCandidate nextDlsCandidate(
+            List<Task> tasks, List<CondorVM> vms, Set<Task> scheduled, double stageInFinish) {
         DlsCandidate selected = null;
         for (Task task : tasks) {
             if (scheduled.contains(task) || !scheduled.containsAll(task.getParentList())) {
@@ -270,8 +261,8 @@ final class SharedStorageDagPlanner {
                     continue;
                 }
                 double earliestStart = earliestStartForReadyPair(vm, readyTime, duration);
-                DlsCandidate candidate = new DlsCandidate(task, vm,
-                        upwardRanks.get(task).doubleValue() - earliestStart);
+                DlsCandidate candidate =
+                        new DlsCandidate(task, vm, upwardRanks.get(task).doubleValue() - earliestStart);
                 if (selected == null || candidate.isBetterThan(selected)) {
                     selected = candidate;
                 }
@@ -300,8 +291,8 @@ final class SharedStorageDagPlanner {
         }
     }
 
-    private EtfCandidate nextEtfCandidate(List<Task> tasks, List<CondorVM> vms,
-            Set<Task> scheduled, double stageInFinish) {
+    private EtfCandidate nextEtfCandidate(
+            List<Task> tasks, List<CondorVM> vms, Set<Task> scheduled, double stageInFinish) {
         EtfCandidate selected = null;
         for (Task task : tasks) {
             if (scheduled.contains(task) || !scheduled.containsAll(task.getParentList())) {
@@ -314,8 +305,8 @@ final class SharedStorageDagPlanner {
                     continue;
                 }
                 double earliestStart = earliestStartForReadyPair(vm, readyTime, duration);
-                EtfCandidate candidate = new EtfCandidate(task, vm, earliestStart,
-                        upwardRanks.get(task).doubleValue());
+                EtfCandidate candidate = new EtfCandidate(
+                        task, vm, earliestStart, upwardRanks.get(task).doubleValue());
                 if (selected == null || candidate.isBetterThan(selected)) {
                     selected = candidate;
                 }
@@ -360,9 +351,10 @@ final class SharedStorageDagPlanner {
             }
             // 即使只有一个 ready Task 也计算其 rank，使轨迹保留完整的审计证据。
             double taskRank = peftRank(task, vms);
-            if (selected == null || taskRank > peftRank(selected, vms)
+            if (selected == null
+                    || taskRank > peftRank(selected, vms)
                     || (Double.compare(taskRank, peftRank(selected, vms)) == 0
-                    && task.getCloudletId() < selected.getCloudletId())) {
+                            && task.getCloudletId() < selected.getCloudletId())) {
                 selected = task;
             }
         }
@@ -383,8 +375,9 @@ final class SharedStorageDagPlanner {
             double start = earliestStart(reservations.get(vm), readyTime, duration);
             double finish = start + duration;
             double score = finish + optimisticCost(task, vm, vms);
-            if (score < selectedScore || (Double.compare(score, selectedScore) == 0
-                    && (selectedVm == null || vm.getId() < selectedVm.getId()))) {
+            if (score < selectedScore
+                    || (Double.compare(score, selectedScore) == 0
+                            && (selectedVm == null || vm.getId() < selectedVm.getId()))) {
                 selectedVm = vm;
                 selectedStart = start;
                 selectedFinish = finish;
@@ -392,8 +385,7 @@ final class SharedStorageDagPlanner {
             }
         }
         if (selectedVm == null) {
-            throw new IllegalArgumentException("PEFT cannot map task " + task.getCloudletId()
-                    + "; no compatible VM");
+            throw new IllegalArgumentException("PEFT cannot map task " + task.getCloudletId() + "; no compatible VM");
         }
         reserve(task, selectedVm, selectedStart, selectedFinish);
         peftSelectionScores.put(task, selectedScore);
@@ -421,12 +413,13 @@ final class SharedStorageDagPlanner {
                 if (Double.isInfinite(duration)) {
                     continue;
                 }
-                childMinimum = Math.min(childMinimum,
+                childMinimum = Math.min(
+                        childMinimum,
                         duration + peftOptimisticCosts.get(child).get(childVm).doubleValue());
             }
             if (Double.isInfinite(childMinimum)) {
-                throw new IllegalArgumentException("PEFT cannot map successor task "
-                        + child.getCloudletId() + "; no compatible VM");
+                throw new IllegalArgumentException(
+                        "PEFT cannot map successor task " + child.getCloudletId() + "; no compatible VM");
             }
             successorMaximum = Math.max(successorMaximum, childMinimum);
         }
@@ -448,8 +441,7 @@ final class SharedStorageDagPlanner {
             }
         }
         if (count == 0) {
-            throw new IllegalArgumentException("PEFT cannot rank task " + task.getCloudletId()
-                    + "; no compatible VM");
+            throw new IllegalArgumentException("PEFT cannot rank task " + task.getCloudletId() + "; no compatible VM");
         }
         double result = total / count;
         peftRankOct.put(task, result);
@@ -477,8 +469,8 @@ final class SharedStorageDagPlanner {
         }
         double parentMaximum = 0.0;
         for (Task parent : task.getParentList()) {
-            parentMaximum = Math.max(parentMaximum,
-                    downwardRanks.get(parent).doubleValue() + averageExecutionTime(parent));
+            parentMaximum =
+                    Math.max(parentMaximum, downwardRanks.get(parent).doubleValue() + averageExecutionTime(parent));
         }
         downwardRanks.put(task, parentMaximum);
         return parentMaximum;
@@ -494,8 +486,8 @@ final class SharedStorageDagPlanner {
             }
         }
         if (count == 0) {
-            throw new IllegalArgumentException(strategy + " cannot map task "
-                    + task.getCloudletId() + "; no compatible VM");
+            throw new IllegalArgumentException(
+                    strategy + " cannot map task " + task.getCloudletId() + "; no compatible VM");
         }
         return total / count;
     }
@@ -508,8 +500,10 @@ final class SharedStorageDagPlanner {
                 continue;
             }
             double priority = cpopPriority(task);
-            if (priority > target || (Double.compare(priority, target) == 0
-                    && current != null && task.getCloudletId() < current.getCloudletId())) {
+            if (priority > target
+                    || (Double.compare(priority, target) == 0
+                            && current != null
+                            && task.getCloudletId() < current.getCloudletId())) {
                 current = task;
                 target = priority;
             }
@@ -525,9 +519,11 @@ final class SharedStorageDagPlanner {
                 if (!sameRank(cpopPriority(child), target)) {
                     continue;
                 }
-                if (next == null || upwardRanks.get(child).doubleValue() > upwardRanks.get(next).doubleValue()
+                if (next == null
+                        || upwardRanks.get(child).doubleValue()
+                                > upwardRanks.get(next).doubleValue()
                         || (Double.compare(upwardRanks.get(child), upwardRanks.get(next)) == 0
-                        && child.getCloudletId() < next.getCloudletId())) {
+                                && child.getCloudletId() < next.getCloudletId())) {
                     next = child;
                 }
             }
@@ -554,8 +550,10 @@ final class SharedStorageDagPlanner {
                 }
                 total += duration;
             }
-            if (total < selectedCost || (Double.compare(total, selectedCost) == 0
-                    && selected != null && vm.getId() < selected.getId())) {
+            if (total < selectedCost
+                    || (Double.compare(total, selectedCost) == 0
+                            && selected != null
+                            && vm.getId() < selected.getId())) {
                 selected = vm;
                 selectedCost = total;
             }
@@ -572,9 +570,10 @@ final class SharedStorageDagPlanner {
             if (scheduled.contains(task) || !scheduled.containsAll(task.getParentList())) {
                 continue;
             }
-            if (selected == null || cpopPriority(task) > cpopPriority(selected)
+            if (selected == null
+                    || cpopPriority(task) > cpopPriority(selected)
                     || (Double.compare(cpopPriority(task), cpopPriority(selected)) == 0
-                    && task.getCloudletId() < selected.getCloudletId())) {
+                            && task.getCloudletId() < selected.getCloudletId())) {
                 selected = task;
             }
         }
@@ -589,8 +588,7 @@ final class SharedStorageDagPlanner {
         return Math.abs(first - second) <= RANK_TOLERANCE * Math.max(1.0, Math.abs(second));
     }
 
-    private void allocate(Task task, List<CondorVM> vms, double stageInFinish,
-            CondorVM forcedVm) {
+    private void allocate(Task task, List<CondorVM> vms, double stageInFinish, CondorVM forcedVm) {
         double readyTime = readyTime(task, stageInFinish);
 
         CondorVM selectedVm = null;
@@ -608,16 +606,18 @@ final class SharedStorageDagPlanner {
                     ? earliestStartForReadyPair(vm, readyTime, duration)
                     : earliestStart(reservations.get(vm), readyTime, duration);
             double finish = start + duration;
-            if (finish < selectedFinish || (Double.compare(finish, selectedFinish) == 0
-                    && selectedVm != null && vm.getId() < selectedVm.getId())) {
+            if (finish < selectedFinish
+                    || (Double.compare(finish, selectedFinish) == 0
+                            && selectedVm != null
+                            && vm.getId() < selectedVm.getId())) {
                 selectedVm = vm;
                 selectedStart = start;
                 selectedFinish = finish;
             }
         }
         if (selectedVm == null) {
-            throw new IllegalArgumentException(strategy + " cannot map task "
-                    + task.getCloudletId() + "; no compatible VM");
+            throw new IllegalArgumentException(
+                    strategy + " cannot map task " + task.getCloudletId() + "; no compatible VM");
         }
         reserve(task, selectedVm, selectedStart, selectedFinish);
     }
@@ -646,8 +646,8 @@ final class SharedStorageDagPlanner {
         for (Task parent : task.getParentList()) {
             Double parentFinish = finishes.get(parent);
             if (parentFinish == null) {
-                throw new IllegalStateException(strategy + " priority order did not schedule parent "
-                        + parent.getCloudletId());
+                throw new IllegalStateException(
+                        strategy + " priority order did not schedule parent " + parent.getCloudletId());
             }
             readyTime = Math.max(readyTime, parentFinish.doubleValue());
         }
@@ -700,8 +700,8 @@ final class SharedStorageDagPlanner {
         };
     }
 
-    private SharedStorageDagPlanTrace trace(List<Task> tasks, double stageInFinish,
-            List<Task> criticalPath, CondorVM criticalProcessor) {
+    private SharedStorageDagPlanTrace trace(
+            List<Task> tasks, double stageInFinish, List<Task> criticalPath, CondorVM criticalProcessor) {
         Map<Integer, SharedStorageDagPlanTrace.TaskPlan> plans =
                 new java.util.LinkedHashMap<Integer, SharedStorageDagPlanTrace.TaskPlan>();
         for (Task task : tasks) {
@@ -712,23 +712,40 @@ final class SharedStorageDagPlanner {
             Double etfEarliestStart = strategy == Strategy.ETF ? etfEarliestStarts.get(task) : null;
             Integer etfSelectionOrder = strategy == Strategy.ETF ? etfSelectionOrders.get(task) : null;
             Double peftRank = strategy == Strategy.PEFT ? peftRankOct.get(task) : null;
-            Double peftOct = strategy == Strategy.PEFT
-                    ? peftOptimisticCosts.get(task).get(vmById(task.getVmId())) : null;
+            Double peftOct =
+                    strategy == Strategy.PEFT ? peftOptimisticCosts.get(task).get(vmById(task.getVmId())) : null;
             Double peftScore = strategy == Strategy.PEFT ? peftSelectionScores.get(task) : null;
             Integer peftSelectionOrder = strategy == Strategy.PEFT ? peftSelectionOrders.get(task) : null;
-            plans.put(task.getCloudletId(), new SharedStorageDagPlanTrace.TaskPlan(
-                    task.getCloudletId(), task.getVmId(), upwardRanks.get(task), downward,
-                    priority, dynamicLevel, selectionOrder, etfEarliestStart, etfSelectionOrder,
-                    peftRank, peftOct, peftScore, peftSelectionOrder,
-                    starts.get(task), finishes.get(task),
-                    effectiveStageInTimes.get(task).get(vmById(task.getVmId()))));
+            plans.put(
+                    task.getCloudletId(),
+                    new SharedStorageDagPlanTrace.TaskPlan(
+                            task.getCloudletId(),
+                            task.getVmId(),
+                            upwardRanks.get(task),
+                            downward,
+                            priority,
+                            dynamicLevel,
+                            selectionOrder,
+                            etfEarliestStart,
+                            etfSelectionOrder,
+                            peftRank,
+                            peftOct,
+                            peftScore,
+                            peftSelectionOrder,
+                            starts.get(task),
+                            finishes.get(task),
+                            effectiveStageInTimes.get(task).get(vmById(task.getVmId()))));
         }
         List<Integer> criticalTaskIds = new ArrayList<Integer>();
         for (Task task : criticalPath) {
             criticalTaskIds.add(task.getCloudletId());
         }
-        return new SharedStorageDagPlanTrace(strategy.name(), stageInFinish, plans,
-                criticalTaskIds, criticalProcessor == null ? null : criticalProcessor.getId());
+        return new SharedStorageDagPlanTrace(
+                strategy.name(),
+                stageInFinish,
+                plans,
+                criticalTaskIds,
+                criticalProcessor == null ? null : criticalProcessor.getId());
     }
 
     private CondorVM vmById(int vmId) {

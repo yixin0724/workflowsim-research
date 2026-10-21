@@ -59,13 +59,11 @@ class LocalPeftPrimarySourcePaperTest {
         218.0 / 3.0, 41, 37, 131.0 / 3.0, 31, 125.0 / 3.0, 17, 62.0 / 3.0, 49.0 / 3.0, 0
     };
     private static final double[] PAPER_RANK_U = {
-        169, 343.0 / 3.0, 308.0 / 3.0, 110, 389.0 / 3.0,
-        358.0 / 3.0, 158.0 / 3.0, 92, 127.0 / 3.0, 62.0 / 3.0
+        169, 343.0 / 3.0, 308.0 / 3.0, 110, 389.0 / 3.0, 358.0 / 3.0, 158.0 / 3.0, 92, 127.0 / 3.0, 62.0 / 3.0
     };
 
     // Table 6 selected tasks/processors and intervals (selected EFT minus Figure 1 compute).
-    private static final List<Integer> PAPER_SELECTION_ORDER =
-            Arrays.asList(1, 4, 6, 2, 3, 5, 8, 7, 9, 10);
+    private static final List<Integer> PAPER_SELECTION_ORDER = Arrays.asList(1, 4, 6, 2, 3, 5, 8, 7, 9, 10);
     private static final int[] PEFT_VM = {0, 0, 0, 0, 2, 1, 0, 1, 2, 1};
     private static final double[] PEFT_START = {0, 29, 51, 22, 35, 29, 83, 54, 81, 106};
     private static final double[] PEFT_FINISH = {22, 51, 83, 29, 70, 46, 97, 77, 89, 122};
@@ -87,14 +85,19 @@ class LocalPeftPrimarySourcePaperTest {
         for (int task = 0; task < COMPUTE.length; task++) {
             Task node = run.tasks.get(task);
             for (int processor = 0; processor < 3; processor++) {
-                assertEquals(PAPER_OCT[task][processor],
-                        run.planner.optimisticCostOf(node, run.machines.get(processor)), EPSILON,
+                assertEquals(
+                        PAPER_OCT[task][processor],
+                        run.planner.optimisticCostOf(node, run.machines.get(processor)),
+                        EPSILON,
                         "Table 5 OCT(T" + (task + 1) + ",P" + (processor + 1) + ")");
             }
-            assertEquals(PAPER_RANK_OCT[task], run.planner.priorityOf(node), EPSILON,
+            assertEquals(
+                    PAPER_RANK_OCT[task],
+                    run.planner.priorityOf(node),
+                    EPSILON,
                     "Table 5 rank_oct(T" + (task + 1) + ")");
-            assertEquals(PAPER_RANK_U[task], run.planner.upwardRankOf(node), EPSILON,
-                    "Table 5 rank_u(T" + (task + 1) + ")");
+            assertEquals(
+                    PAPER_RANK_U[task], run.planner.upwardRankOf(node), EPSILON, "Table 5 rank_u(T" + (task + 1) + ")");
         }
     }
 
@@ -113,9 +116,15 @@ class LocalPeftPrimarySourcePaperTest {
         PlanningRun run = plan();
         for (int task = 0; task < COMPUTE.length; task++) {
             Task node = run.tasks.get(task);
-            assertEquals(BOOTSTRAP + PEFT_START[task], node.getStaticScheduleStartTime(), EPSILON,
+            assertEquals(
+                    BOOTSTRAP + PEFT_START[task],
+                    node.getStaticScheduleStartTime(),
+                    EPSILON,
                     "Table 6 start T" + (task + 1));
-            assertEquals(BOOTSTRAP + PEFT_FINISH[task], run.planner.plannedFinishOf(node), EPSILON,
+            assertEquals(
+                    BOOTSTRAP + PEFT_FINISH[task],
+                    run.planner.plannedFinishOf(node),
+                    EPSILON,
                     "Table 6 finish T" + (task + 1));
             assertEquals(100L, node.getCloudletLength(), "source MI must not be rewritten");
         }
@@ -175,8 +184,7 @@ class LocalPeftPrimarySourcePaperTest {
             throw new IllegalStateException("Missing primary-source PEFT fixture");
         }
         Log.disable();
-        return new SimulationRunner().run(configuration(Paths.get(input.toURI()).toString(), algorithm),
-                platform());
+        return new SimulationRunner().run(configuration(Paths.get(input.toURI()).toString(), algorithm), platform());
     }
 
     private static SimulationConfig configuration(String path, Parameters.PlanningAlgorithm algorithm) {
@@ -201,20 +209,19 @@ class LocalPeftPrimarySourcePaperTest {
         PlatformProfile.Builder result = PlatformProfile.builder("primary-source-peft-paper");
         for (int id = 0; id < 3; id++) {
             result.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10000L, 1000000L));
-            result.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            result.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             result.pinVmToHost(id, id);
         }
         return result.build();
     }
 
     private static CondorVM vm(int id) {
-        return new CondorVM(id, 0, 1.0, 1, 512, 1L, 10000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1.0, 1, 512, 1L, 10000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 
-    private static void assertRuntime(SimulationReport report, int[] vms, double[] starts,
-            double[] finishes, double paperMakespan) {
+    private static void assertRuntime(
+            SimulationReport report, int[] vms, double[] starts, double[] finishes, double paperMakespan) {
         assertEquals(BOOTSTRAP + paperMakespan, report.getMakespan(), EPSILON);
         assertTrue(report.getMetrics().isAllLogicalTasksCompletedSuccessfully());
         int count = 0;
@@ -278,8 +285,11 @@ class LocalPeftPrimarySourcePaperTest {
         private final List<CondorVM> machines;
         private final List<Integer> selectionOrder;
 
-        PlanningRun(LocalPeftPlanningAlgorithm planner, List<Task> tasks,
-                List<CondorVM> machines, List<Integer> selectionOrder) {
+        PlanningRun(
+                LocalPeftPlanningAlgorithm planner,
+                List<Task> tasks,
+                List<CondorVM> machines,
+                List<Integer> selectionOrder) {
             this.planner = planner;
             this.tasks = tasks;
             this.machines = machines;

@@ -38,11 +38,21 @@ public final class WorkflowProfile {
     private final int distinctExternalInputFileCount;
     private final double totalDistinctExternalInputBytes;
 
-    private WorkflowProfile(int taskCount, int edgeCount, int rootTaskCount, int leafTaskCount,
-            int maximumDepthEdges, int maximumWidthTasks, long totalTaskLengthMi,
-            double meanTaskLengthMi, double taskLengthCoefficientOfVariation,
-            int fileReferenceCount, int distinctFileCount, double totalDistinctFileBytes,
-            int externalInputReferenceCount, int distinctExternalInputFileCount,
+    private WorkflowProfile(
+            int taskCount,
+            int edgeCount,
+            int rootTaskCount,
+            int leafTaskCount,
+            int maximumDepthEdges,
+            int maximumWidthTasks,
+            long totalTaskLengthMi,
+            double meanTaskLengthMi,
+            double taskLengthCoefficientOfVariation,
+            int fileReferenceCount,
+            int distinctFileCount,
+            double totalDistinctFileBytes,
+            int externalInputReferenceCount,
+            int distinctExternalInputFileCount,
             double totalDistinctExternalInputBytes) {
         this.taskCount = taskCount;
         this.edgeCount = edgeCount;
@@ -74,8 +84,7 @@ public final class WorkflowProfile {
             throw new IllegalArgumentException("Source tasks are required");
         }
         if (sourceTasks.isEmpty()) {
-            return new WorkflowProfile(0, 0, 0, 0, 0, 0, 0L, 0.0, 0.0,
-                    0, 0, 0.0, 0, 0, 0.0);
+            return new WorkflowProfile(0, 0, 0, 0, 0, 0, 0L, 0.0, 0.0, 0, 0, 0.0, 0, 0, 0.0);
         }
 
         List<Task> tasks = new ArrayList<Task>(sourceTasks);
@@ -106,14 +115,14 @@ public final class WorkflowProfile {
             validateUniqueNeighborIds(children, task, "child");
             for (Task parent : parents) {
                 if (!taskSet.contains(parent) || !parent.getChildList().contains(task)) {
-                    throw new IllegalArgumentException("Source workflow has an asymmetric parent edge for task "
-                            + task.getCloudletId());
+                    throw new IllegalArgumentException(
+                            "Source workflow has an asymmetric parent edge for task " + task.getCloudletId());
                 }
             }
             for (Task child : children) {
                 if (!taskSet.contains(child) || !child.getParentList().contains(task)) {
-                    throw new IllegalArgumentException("Source workflow has an asymmetric child edge for task "
-                            + task.getCloudletId());
+                    throw new IllegalArgumentException(
+                            "Source workflow has an asymmetric child edge for task " + task.getCloudletId());
                 }
             }
             remainingParents.put(task, Integer.valueOf(parents.size()));
@@ -154,8 +163,8 @@ public final class WorkflowProfile {
             widthByDepth.put(Integer.valueOf(depth), Integer.valueOf(width == null ? 1 : width.intValue() + 1));
             processed++;
             for (Task child : task.getChildList()) {
-                int childDepth = Math.max(depthByTask.containsKey(child)
-                        ? depthByTask.get(child).intValue() : 0, depth + 1);
+                int childDepth = Math.max(
+                        depthByTask.containsKey(child) ? depthByTask.get(child).intValue() : 0, depth + 1);
                 depthByTask.put(child, Integer.valueOf(childDepth));
                 int remaining = remainingParents.get(child).intValue() - 1;
                 remainingParents.put(child, Integer.valueOf(remaining));
@@ -179,18 +188,29 @@ public final class WorkflowProfile {
             double difference = task.getCloudletTotalLength() - meanLength;
             variance += difference * difference;
         }
-        double coefficientOfVariation = meanLength == 0.0 ? 0.0
-                : Math.sqrt(variance / tasks.size()) / meanLength;
-        return new WorkflowProfile(tasks.size(), edges, roots, leaves, maximumDepth, maximumWidth,
-                totalLength, meanLength, coefficientOfVariation, files.references,
-                files.filesByName.size(), files.totalDistinctBytes, files.externalReferences,
-                files.externalFilesByName.size(), files.totalDistinctExternalBytes);
+        double coefficientOfVariation = meanLength == 0.0 ? 0.0 : Math.sqrt(variance / tasks.size()) / meanLength;
+        return new WorkflowProfile(
+                tasks.size(),
+                edges,
+                roots,
+                leaves,
+                maximumDepth,
+                maximumWidth,
+                totalLength,
+                meanLength,
+                coefficientOfVariation,
+                files.references,
+                files.filesByName.size(),
+                files.totalDistinctBytes,
+                files.externalReferences,
+                files.externalFilesByName.size(),
+                files.totalDistinctExternalBytes);
     }
 
     private static List<Task> requireTaskList(List<Task> values, Task task, String role) {
         if (values == null) {
-            throw new IllegalArgumentException("Source workflow has a null " + role + " list for task "
-                    + task.getCloudletId());
+            throw new IllegalArgumentException(
+                    "Source workflow has a null " + role + " list for task " + task.getCloudletId());
         }
         return values;
     }
@@ -199,8 +219,8 @@ public final class WorkflowProfile {
         Set<Integer> ids = new HashSet<Integer>();
         for (Task neighbor : neighbors) {
             if (neighbor == null || !ids.add(Integer.valueOf(neighbor.getCloudletId()))) {
-                throw new IllegalArgumentException("Source workflow has a null or duplicate " + role
-                        + " edge for task " + task.getCloudletId());
+                throw new IllegalArgumentException(
+                        "Source workflow has a null or duplicate " + role + " edge for task " + task.getCloudletId());
             }
         }
     }
@@ -233,18 +253,21 @@ public final class WorkflowProfile {
 
     private static List<FileItem> requireFileList(Task task) {
         if (task.getFileList() == null) {
-            throw new IllegalArgumentException("Source workflow has a null file list for task "
-                    + task.getCloudletId());
+            throw new IllegalArgumentException("Source workflow has a null file list for task " + task.getCloudletId());
         }
         return task.getFileList();
     }
 
     private static void validateFile(FileItem file, Task task) {
-        if (file == null || file.getName() == null || file.getName().trim().isEmpty()
-                || file.getType() == null || file.getSize() < 0.0
-                || Double.isNaN(file.getSize()) || Double.isInfinite(file.getSize())) {
-            throw new IllegalArgumentException("Source workflow has an invalid file declaration for task "
-                    + task.getCloudletId());
+        if (file == null
+                || file.getName() == null
+                || file.getName().trim().isEmpty()
+                || file.getType() == null
+                || file.getSize() < 0.0
+                || Double.isNaN(file.getSize())
+                || Double.isInfinite(file.getSize())) {
+            throw new IllegalArgumentException(
+                    "Source workflow has an invalid file declaration for task " + task.getCloudletId());
         }
     }
 
@@ -271,21 +294,65 @@ public final class WorkflowProfile {
         return total;
     }
 
-    public int getTaskCount() { return taskCount; }
-    public int getEdgeCount() { return edgeCount; }
-    public int getRootTaskCount() { return rootTaskCount; }
-    public int getLeafTaskCount() { return leafTaskCount; }
-    public int getMaximumDepthEdges() { return maximumDepthEdges; }
-    public int getMaximumWidthTasks() { return maximumWidthTasks; }
-    public long getTotalTaskLengthMi() { return totalTaskLengthMi; }
-    public double getMeanTaskLengthMi() { return meanTaskLengthMi; }
-    public double getTaskLengthCoefficientOfVariation() { return taskLengthCoefficientOfVariation; }
-    public int getFileReferenceCount() { return fileReferenceCount; }
-    public int getDistinctFileCount() { return distinctFileCount; }
-    public double getTotalDistinctFileBytes() { return totalDistinctFileBytes; }
-    public int getExternalInputReferenceCount() { return externalInputReferenceCount; }
-    public int getDistinctExternalInputFileCount() { return distinctExternalInputFileCount; }
-    public double getTotalDistinctExternalInputBytes() { return totalDistinctExternalInputBytes; }
+    public int getTaskCount() {
+        return taskCount;
+    }
+
+    public int getEdgeCount() {
+        return edgeCount;
+    }
+
+    public int getRootTaskCount() {
+        return rootTaskCount;
+    }
+
+    public int getLeafTaskCount() {
+        return leafTaskCount;
+    }
+
+    public int getMaximumDepthEdges() {
+        return maximumDepthEdges;
+    }
+
+    public int getMaximumWidthTasks() {
+        return maximumWidthTasks;
+    }
+
+    public long getTotalTaskLengthMi() {
+        return totalTaskLengthMi;
+    }
+
+    public double getMeanTaskLengthMi() {
+        return meanTaskLengthMi;
+    }
+
+    public double getTaskLengthCoefficientOfVariation() {
+        return taskLengthCoefficientOfVariation;
+    }
+
+    public int getFileReferenceCount() {
+        return fileReferenceCount;
+    }
+
+    public int getDistinctFileCount() {
+        return distinctFileCount;
+    }
+
+    public double getTotalDistinctFileBytes() {
+        return totalDistinctFileBytes;
+    }
+
+    public int getExternalInputReferenceCount() {
+        return externalInputReferenceCount;
+    }
+
+    public int getDistinctExternalInputFileCount() {
+        return distinctExternalInputFileCount;
+    }
+
+    public double getTotalDistinctExternalInputBytes() {
+        return totalDistinctExternalInputBytes;
+    }
 
     private static final class FileSummary {
         private final Map<String, Double> filesByName = new HashMap<String, Double>();

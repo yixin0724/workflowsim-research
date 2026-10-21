@@ -24,9 +24,10 @@ public final class StaticOlbPlanningAlgorithm extends StaticIndependentPlanningS
                 if (!isCompatible(task, candidate)) {
                     continue;
                 }
-                if (selectedIndex < 0 || availability[index] < availability[selectedIndex]
+                if (selectedIndex < 0
+                        || availability[index] < availability[selectedIndex]
                         || (Double.compare(availability[index], availability[selectedIndex]) == 0
-                        && candidate.getId() < vms.get(selectedIndex).getId())) {
+                                && candidate.getId() < vms.get(selectedIndex).getId())) {
                     selectedIndex = index;
                 }
             }

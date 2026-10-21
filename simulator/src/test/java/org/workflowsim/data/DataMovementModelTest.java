@@ -21,10 +21,9 @@ class DataMovementModelTest {
         DataMovementModel model = DataMovementModel.fixedEndpointNoContention(20.0, 0.1, 10.0);
         assertEquals(DataMovementModel.Kind.FIXED_ENDPOINT_NO_CONTENTION_V1, model.getKind());
         assertEquals(20.0, model.getAccessLinkBandwidthMbPerSecond(), 0.0);
-        assertThrows(IllegalArgumentException.class,
-                () -> DataMovementModel.fixedEndpointNoContention(0.0, 0.1, 10.0));
-        assertThrows(IllegalArgumentException.class,
-                () -> DataMovementModel.fixedEndpointNoContention(10.0, -0.1, 10.0));
+        assertThrows(IllegalArgumentException.class, () -> DataMovementModel.fixedEndpointNoContention(0.0, 0.1, 10.0));
+        assertThrows(
+                IllegalArgumentException.class, () -> DataMovementModel.fixedEndpointNoContention(10.0, -0.1, 10.0));
     }
 
     @Test
@@ -41,16 +40,15 @@ class DataMovementModelTest {
     @Test
     void contentionFactoriesExposeConsistentKindPredicates() {
         DataMovementModel endpoint = DataMovementModel.preExecutionTransferDelayWithContentionV1();
-        assertEquals(DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1,
-                endpoint.getKind());
+        assertEquals(DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1, endpoint.getKind());
         assertTrue(endpoint.isPreExecutionTransferDelayWithContentionV1());
         assertTrue(!endpoint.isFatTreeContentionV1());
         assertTrue(!endpoint.isLegacyWorkflowsimV1());
         assertTrue(endpoint == DataMovementModel.preExecutionTransferDelayWithContentionV1());
 
         DataMovementModel fatTree = DataMovementModel.fatTreeContentionV1();
-        assertEquals(DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1,
-                fatTree.getKind());
+        assertEquals(
+                DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1, fatTree.getKind());
         assertTrue(fatTree.isFatTreeContentionV1());
         assertTrue(!fatTree.isPreExecutionTransferDelayWithContentionV1());
         assertTrue(!fatTree.isPreExecutionTransferDelayV1());

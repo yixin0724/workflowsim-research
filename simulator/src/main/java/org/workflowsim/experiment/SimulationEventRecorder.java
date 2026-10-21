@@ -64,8 +64,8 @@ public final class SimulationEventRecorder {
      * @param attributes 可选附加属性，会在记录时复制
      * @throws IllegalArgumentException 当事件类型为空或模拟时间非有限时抛出
      */
-    public synchronized void record(SimulationEventType type, double simulationTime,
-            Job job, Map<String, ?> attributes) {
+    public synchronized void record(
+            SimulationEventType type, double simulationTime, Job job, Map<String, ?> attributes) {
         if (!enabled) {
             return;
         }
@@ -88,8 +88,8 @@ public final class SimulationEventRecorder {
         if (attributes != null) {
             copiedAttributes.putAll(attributes);
         }
-        events.add(new SimulationEvent(nextSequence++, simulationTime, type, jobId, vmId,
-                classType, taskIds, copiedAttributes));
+        events.add(new SimulationEvent(
+                nextSequence++, simulationTime, type, jobId, vmId, classType, taskIds, copiedAttributes));
     }
 
     /**

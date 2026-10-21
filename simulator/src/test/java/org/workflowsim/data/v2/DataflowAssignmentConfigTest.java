@@ -38,15 +38,15 @@ class DataflowAssignmentConfigTest {
 
         assertSame(online, DataflowAssignmentConfig.onlineNominal());
         assertTrue(online.isEnabled());
-        assertEquals(DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1,
-                online.getMode());
+        assertEquals(DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1, online.getMode());
         assertEquals(MODE, online.getMode().name());
         assertEquals(POLICY, DataflowAssignmentConfig.POLICY);
         assertEquals(POLICY, online.getPolicy());
-        assertArrayEquals(new DataflowAssignmentConfig.Mode[] {
-                DataflowAssignmentConfig.Mode.OFF,
-                DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1
-        }, DataflowAssignmentConfig.Mode.values());
+        assertArrayEquals(
+                new DataflowAssignmentConfig.Mode[] {
+                    DataflowAssignmentConfig.Mode.OFF, DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1
+                },
+                DataflowAssignmentConfig.Mode.values());
         assertFalse(DataflowAssignmentConfig.off().isEnabled());
     }
 
@@ -99,24 +99,33 @@ class DataflowAssignmentConfigTest {
         JsonObject input = enabledJson();
         JsonObject before = input.deepCopy();
 
-        assertSame(DataflowAssignmentConfig.onlineNominal(),
-                DataflowAssignmentConfig.decodeConfig(input));
+        assertSame(DataflowAssignmentConfig.onlineNominal(), DataflowAssignmentConfig.decodeConfig(input));
         assertEquals(before, input);
 
         JsonObject reversed = new JsonObject();
         reversed.addProperty("policy", POLICY);
         reversed.addProperty("mode", MODE);
-        assertSame(DataflowAssignmentConfig.onlineNominal(),
-                DataflowAssignmentConfig.decodeConfig(reversed));
+        assertSame(DataflowAssignmentConfig.onlineNominal(), DataflowAssignmentConfig.decodeConfig(reversed));
     }
 
     @Test
     void decoderRejectsJavaNullAndEveryNonObjectJsonShape() {
         assertRejected(null);
         for (String json : new String[] {
-                "null", "true", "false", "0", "-1", "1.5", "\"\"", "\"OFF\"",
-                "\"" + MODE + "\"", "\"" + POLICY + "\"", "\"{}\"",
-                "[]", "[\"" + MODE + "\"]", "[" + enabledJson() + "]"
+            "null",
+            "true",
+            "false",
+            "0",
+            "-1",
+            "1.5",
+            "\"\"",
+            "\"OFF\"",
+            "\"" + MODE + "\"",
+            "\"" + POLICY + "\"",
+            "\"{}\"",
+            "[]",
+            "[\"" + MODE + "\"]",
+            "[" + enabledJson() + "]"
         }) {
             assertRejected(JsonParser.parseString(json));
         }
@@ -140,10 +149,10 @@ class DataflowAssignmentConfigTest {
     @Test
     void decoderRejectsUnknownOrCaseChangedKeysEvenWhenThereAreExactlyTwo() {
         for (String[] replacement : new String[][] {
-                {"mode", "Mode"}, {"mode", "MODE"}, {"mode", "mode "},
-                {"mode", " mode"}, {"mode", "assignmentMode"}, {"mode", ""},
-                {"policy", "Policy"}, {"policy", "POLICY"}, {"policy", "policy "},
-                {"policy", " policy"}, {"policy", "assignmentPolicy"}, {"policy", ""}
+            {"mode", "Mode"}, {"mode", "MODE"}, {"mode", "mode "},
+            {"mode", " mode"}, {"mode", "assignmentMode"}, {"mode", ""},
+            {"policy", "Policy"}, {"policy", "POLICY"}, {"policy", "policy "},
+            {"policy", " policy"}, {"policy", "assignmentPolicy"}, {"policy", ""}
         }) {
             JsonObject input = enabledJson();
             input.add(replacement[1], input.remove(replacement[0]));
@@ -157,9 +166,18 @@ class DataflowAssignmentConfigTest {
         for (String key : new String[] {"mode", "policy"}) {
             String supportedValue = enabledJson().get(key).getAsString();
             for (String json : new String[] {
-                    "null", "true", "false", "0", "1", "-1", "1.5", "1e3", "[]", "{}",
-                    "[\"" + supportedValue + "\"]",
-                    "{\"value\":\"" + supportedValue + "\"}"
+                "null",
+                "true",
+                "false",
+                "0",
+                "1",
+                "-1",
+                "1.5",
+                "1e3",
+                "[]",
+                "{}",
+                "[\"" + supportedValue + "\"]",
+                "{\"value\":\"" + supportedValue + "\"}"
             }) {
                 JsonObject input = enabledJson();
                 input.add(key, JsonParser.parseString(json));
@@ -182,9 +200,20 @@ class DataflowAssignmentConfigTest {
     @Test
     void decoderRejectsUnknownBlankCaseChangedOrPaddedModes() {
         for (String mode : new String[] {
-                "OFF", "off", "UNKNOWN", "ONLINE", "", " ", "\t\n", "1", POLICY,
-                "control_ready_online_assignment_v1", "Control_Ready_Online_Assignment_V1",
-                "CONTROL_READY_ONLINE_ASSIGNMENT_V2", " " + MODE, MODE + " "
+            "OFF",
+            "off",
+            "UNKNOWN",
+            "ONLINE",
+            "",
+            " ",
+            "\t\n",
+            "1",
+            POLICY,
+            "control_ready_online_assignment_v1",
+            "Control_Ready_Online_Assignment_V1",
+            "CONTROL_READY_ONLINE_ASSIGNMENT_V2",
+            " " + MODE,
+            MODE + " "
         }) {
             JsonObject input = enabledJson();
             input.addProperty("mode", mode);
@@ -195,9 +224,18 @@ class DataflowAssignmentConfigTest {
     @Test
     void decoderRejectsUnknownBlankCaseChangedOrPaddedPolicies() {
         for (String policy : new String[] {
-                "OFF", "UNKNOWN", "", " ", "\t\n", "1", MODE,
-                "nominal_input_earliest_reservation_v1", "Nominal_Input_Earliest_Reservation_V1",
-                "NOMINAL_INPUT_EARLIEST_RESERVATION_V2", " " + POLICY, POLICY + " "
+            "OFF",
+            "UNKNOWN",
+            "",
+            " ",
+            "\t\n",
+            "1",
+            MODE,
+            "nominal_input_earliest_reservation_v1",
+            "Nominal_Input_Earliest_Reservation_V1",
+            "NOMINAL_INPUT_EARLIEST_RESERVATION_V2",
+            " " + POLICY,
+            POLICY + " "
         }) {
             JsonObject input = enabledJson();
             input.addProperty("policy", policy);
@@ -217,8 +255,7 @@ class DataflowAssignmentConfigTest {
         input.remove("mode");
 
         assertTrue(decoded.isEnabled());
-        assertEquals(DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1,
-                decoded.getMode());
+        assertEquals(DataflowAssignmentConfig.Mode.CONTROL_READY_ONLINE_ASSIGNMENT_V1, decoded.getMode());
         assertEquals(POLICY, decoded.getPolicy());
         assertEquals(originalHash, decoded.hashCode());
         assertSame(DataflowAssignmentConfig.onlineNominal(), decoded);
@@ -236,7 +273,9 @@ class DataflowAssignmentConfigTest {
     }
 
     private static void assertRejected(JsonElement element) {
-        assertThrows(IllegalArgumentException.class,
-                () -> DataflowAssignmentConfig.decodeConfig(element), String.valueOf(element));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DataflowAssignmentConfig.decodeConfig(element),
+                String.valueOf(element));
     }
 }

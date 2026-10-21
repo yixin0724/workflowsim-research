@@ -3,8 +3,7 @@ package org.workflowsim.platform;
 /** 已维护示例使用的标准化、显式抽象平台集合。 */
 public final class PlatformProfiles {
 
-    private PlatformProfiles() {
-    }
+    private PlatformProfiles() {}
 
     /**
      * 创建每个 Host 配置一台单核 VM 的同构本地抽象平台。
@@ -22,11 +21,9 @@ public final class PlatformProfiles {
         }
         PlatformProfile.Builder builder = PlatformProfile.builder(name);
         for (int id = 0; id < vmCount; id++) {
-            builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000.0,
-                    2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1000.0, 1, 512,
-                    1000L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000.0, 2048, 10_000L, 1_000_000L));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1000.0, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }
@@ -59,11 +56,9 @@ public final class PlatformProfiles {
             if (mips == null || mips.isNaN() || mips.isInfinite() || mips <= 0.0) {
                 throw new IllegalArgumentException("VM MIPS must be positive and finite: " + mips);
             }
-            builder.addHost(new PlatformProfile.HostSpec(id, 2, mips * 2.0,
-                    2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, mips, 1, 512,
-                    1000L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addHost(new PlatformProfile.HostSpec(id, 2, mips * 2.0, 2048, 10_000L, 1_000_000L));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, mips, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }

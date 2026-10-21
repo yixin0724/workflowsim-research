@@ -36,8 +36,9 @@ class FatTreePlannerCompatibilityIntegrationTest {
 
     /** 论文成本矩阵（与 FatTreeContentionIntegrationTest / LocalHeftPaperReproductionTest 相同）。 */
     private static final double[][] PAPER_COST_SECONDS = {
-            {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
-            {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16}};
+        {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
+        {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16}
+    };
 
     /** campaign 对照矩阵的规划器集合：两个通信感知 + 两个通信无感知基线。 */
     private static final List<Parameters.PlanningAlgorithm> CAMPAIGN_PLANNERS = Arrays.asList(
@@ -61,8 +62,7 @@ class FatTreePlannerCompatibilityIntegrationTest {
             for (DataMovementModel movement : CAMPAIGN_MODELS) {
                 boolean fatTree = movement.isFatTreeContentionV1();
                 String label = planner + " × " + movement.getKind();
-                SimulationConfig config = SimulationConfig
-                        .builder(resourcePath("/dax/heft-paper-example.dax"), 3)
+                SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/heft-paper-example.dax"), 3)
                         .planningAlgorithm(planner)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .taskCostMatrix(paperCostMatrix())
@@ -72,17 +72,17 @@ class FatTreePlannerCompatibilityIntegrationTest {
                         .build();
                 double makespan;
                 try {
-                    SimulationReport report = new SimulationRunner().run(config,
-                            paperPlatform(fatTree ? NetworkTopologySpec.fatTree(4, 1.0) : null));
-                    assertEquals("COMPLETED_SUCCESSFULLY",
-                            report.getMetrics().getLogicalTaskCompletionStatus(), label);
+                    SimulationReport report = new SimulationRunner()
+                            .run(config, paperPlatform(fatTree ? NetworkTopologySpec.fatTree(4, 1.0) : null));
+                    assertEquals("COMPLETED_SUCCESSFULLY", report.getMetrics().getLogicalTaskCompletionStatus(), label);
                     assertEquals(report.getTotalJobs(), report.getSuccessfulJobs(), label);
-                    assertTrue(report.getMakespan() > 0.0 && Double.isFinite(report.getMakespan()),
-                            label);
+                    assertTrue(report.getMakespan() > 0.0 && Double.isFinite(report.getMakespan()), label);
                     makespan = report.getMakespan();
                 } catch (Exception exception) {
-                    table.append(label).append(" -> FAILED: ")
-                            .append(exception.getMessage()).append('\n');
+                    table.append(label)
+                            .append(" -> FAILED: ")
+                            .append(exception.getMessage())
+                            .append('\n');
                     System.out.println("[compatibility-probe]\n" + table);
                     throw new AssertionError(label + " 运行失败: " + exception, exception);
                 }
@@ -103,8 +103,7 @@ class FatTreePlannerCompatibilityIntegrationTest {
             double[] makespans = new double[CAMPAIGN_MODELS.size()];
             for (int i = 0; i < CAMPAIGN_MODELS.size(); i++) {
                 DataMovementModel movement = CAMPAIGN_MODELS.get(i);
-                SimulationConfig config = SimulationConfig
-                        .builder(resourcePath("/dax/heft-paper-example.dax"), 3)
+                SimulationConfig config = SimulationConfig.builder(resourcePath("/dax/heft-paper-example.dax"), 3)
                         .planningAlgorithm(planner)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .taskCostMatrix(paperCostMatrix())
@@ -112,17 +111,19 @@ class FatTreePlannerCompatibilityIntegrationTest {
                         .dataMovementModel(movement)
                         .randomSeed(91L)
                         .build();
-                SimulationReport report = new SimulationRunner().run(config,
-                        paperPlatform(movement.isFatTreeContentionV1()
-                                ? NetworkTopologySpec.fatTree(4, 1.0) : null));
+                SimulationReport report = new SimulationRunner()
+                        .run(
+                                config,
+                                paperPlatform(
+                                        movement.isFatTreeContentionV1() ? NetworkTopologySpec.fatTree(4, 1.0) : null));
                 makespans[i] = report.getMakespan();
             }
-            assertTrue(makespans[1] >= makespans[0] - 1.0e-9,
-                    planner + ": R2 端点争用 makespan " + makespans[1]
-                            + " 不得低于无争用 " + makespans[0]);
-            assertTrue(makespans[2] >= makespans[1] - 1.0e-9,
-                    planner + ": Fat-tree 链路争用 makespan " + makespans[2]
-                            + " 不得低于 R2 端点争用 " + makespans[1]);
+            assertTrue(
+                    makespans[1] >= makespans[0] - 1.0e-9,
+                    planner + ": R2 端点争用 makespan " + makespans[1] + " 不得低于无争用 " + makespans[0]);
+            assertTrue(
+                    makespans[2] >= makespans[1] - 1.0e-9,
+                    planner + ": Fat-tree 链路争用 makespan " + makespans[2] + " 不得低于 R2 端点争用 " + makespans[1]);
         }
     }
 
@@ -131,8 +132,8 @@ class FatTreePlannerCompatibilityIntegrationTest {
     void knownIncompatibleCombinationsAreRejectedUpFront() throws Exception {
         String workflow = resourcePath("/dax/heft-paper-example.dax");
         // SHARED_STORAGE 家族 + Fat-tree 模型：规划侧传输估计只对齐遗留模型。
-        IllegalArgumentException shared = assertThrows(IllegalArgumentException.class,
-                () -> SimulationConfig.builder(workflow, 3)
+        IllegalArgumentException shared =
+                assertThrows(IllegalArgumentException.class, () -> SimulationConfig.builder(workflow, 3)
                         .planningAlgorithm(Parameters.PlanningAlgorithm.SHARED_STORAGE_HEFT)
                         .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                         .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -140,10 +141,10 @@ class FatTreePlannerCompatibilityIntegrationTest {
                         .build());
         assertNotNull(shared.getMessage());
         // 在线调度器（FCFS/DATA）要求 INVALID 规划层，与 preExecution 家族互斥。
-        for (Parameters.SchedulingAlgorithm online : Arrays.asList(
-                Parameters.SchedulingAlgorithm.FCFS,
-                Parameters.SchedulingAlgorithm.DATA)) {
-            assertThrows(IllegalArgumentException.class,
+        for (Parameters.SchedulingAlgorithm online :
+                Arrays.asList(Parameters.SchedulingAlgorithm.FCFS, Parameters.SchedulingAlgorithm.DATA)) {
+            assertThrows(
+                    IllegalArgumentException.class,
                     () -> SimulationConfig.builder(workflow, 3)
                             .schedulingAlgorithm(online)
                             .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -166,8 +167,8 @@ class FatTreePlannerCompatibilityIntegrationTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("compat-paper-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         if (topology != null) {
             builder.networkTopology(topology);

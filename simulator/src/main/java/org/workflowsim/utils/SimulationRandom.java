@@ -33,8 +33,7 @@ public final class SimulationRandom {
     private static final Map<String, Random> seedStreams = new HashMap<>();
     private static long rootSeed = 0L;
 
-    private SimulationRandom() {
-    }
+    private SimulationRandom() {}
 
     /**
      * 为下一次仿真启动新的确定性随机上下文。

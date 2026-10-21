@@ -23,10 +23,9 @@ class FailureModelConfigTest {
         FailureModelConfig model = FailureModelConfig.builder()
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_ALL)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{
-                    DistributionSpec.of(
-                            DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)
-                }})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}
+                })
                 .maxTotalRetryJobs(3)
                 .build();
         SimulationConfig config = SimulationConfig.builder("fixture.dax", 1)
@@ -53,38 +52,41 @@ class FailureModelConfigTest {
                 .build());
         assertThrows(IllegalArgumentException.class, () -> FailureModelConfig.builder()
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{null}})
+                .generatorSpecs(new DistributionSpec[][] {{null}})
                 .build());
         assertThrows(IllegalArgumentException.class, () -> FailureModelConfig.builder()
                 .distributionFamily(DistributionGenerator.DistributionFamily.GAMMA)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}
+                })
                 .build());
         assertThrows(IllegalArgumentException.class, () -> FailureModelConfig.builder()
                 .distributionFamily(DistributionGenerator.DistributionFamily.NORMAL)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.NORMAL, 10.0, 2.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.NORMAL, 10.0, 2.0)}
+                })
                 .build());
         assertThrows(IllegalArgumentException.class, () -> FailureModelConfig.builder()
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}
+                })
                 .build());
         assertThrows(IllegalArgumentException.class, () -> FailureModelConfig.builder()
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                    DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}
+                })
                 .maxTotalRetryJobs(0)
                 .build());
 
         FailureModelConfig model = FailureModelConfig.builder()
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{
-                    DistributionSpec.of(
-                            DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)
-                }})
+                .generatorSpecs(new DistributionSpec[][] {
+                    {DistributionSpec.of(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 2.0)}
+                })
                 .maxTotalRetryJobs(1)
                 .build();
         try (SimulationSession ignored = SimulationSession.open(
@@ -95,10 +97,11 @@ class FailureModelConfigTest {
 
     @Test
     void distributionValidationRejectsInvalidParametersAndEmptyMean() {
-        assertThrows(IllegalArgumentException.class, () -> new DistributionGenerator(
-                DistributionGenerator.DistributionFamily.WEIBULL, 0.0, 1.0));
-        DistributionGenerator generator = new DistributionGenerator(
-                DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 1.0);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 0.0, 1.0));
+        DistributionGenerator generator =
+                new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 1.0, 1.0);
         assertThrows(IllegalStateException.class, generator::getMean);
     }
 }

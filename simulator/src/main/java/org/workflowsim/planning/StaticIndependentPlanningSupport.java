@@ -83,8 +83,8 @@ abstract class StaticIndependentPlanningSupport extends BasePlanningAlgorithm {
         double selectedTime = Double.POSITIVE_INFINITY;
         for (CondorVM vm : vms) {
             double time = executionTime(task, vm);
-            if (time < selectedTime || (Double.compare(time, selectedTime) == 0
-                    && selected != null && vm.getId() < selected.getId())) {
+            if (time < selectedTime
+                    || (Double.compare(time, selectedTime) == 0 && selected != null && vm.getId() < selected.getId())) {
                 selected = vm;
                 selectedTime = time;
             }
@@ -99,18 +99,19 @@ abstract class StaticIndependentPlanningSupport extends BasePlanningAlgorithm {
      * 计算 {@code availability[vm] + effectiveComputeSeconds(task, vm)} 最小的可兼容 VM。
      * 相等完成时间选择较小 VM ID。
      */
-    protected final Choice earliestCompletion(Task task, List<CondorVM> vms,
-            double[] availability, String algorithmName) {
+    protected final Choice earliestCompletion(
+            Task task, List<CondorVM> vms, double[] availability, String algorithmName) {
         CondorVM selected = null;
         int selectedIndex = -1;
         double selectedFinish = Double.POSITIVE_INFINITY;
         for (int index = 0; index < vms.size(); index++) {
             CondorVM vm = vms.get(index);
             double duration = executionTime(task, vm);
-            double finish = Double.isInfinite(duration) ? Double.POSITIVE_INFINITY
-                    : availability[index] + duration;
-            if (finish < selectedFinish || (Double.compare(finish, selectedFinish) == 0
-                    && selected != null && vm.getId() < selected.getId())) {
+            double finish = Double.isInfinite(duration) ? Double.POSITIVE_INFINITY : availability[index] + duration;
+            if (finish < selectedFinish
+                    || (Double.compare(finish, selectedFinish) == 0
+                            && selected != null
+                            && vm.getId() < selected.getId())) {
                 selected = vm;
                 selectedIndex = index;
                 selectedFinish = finish;

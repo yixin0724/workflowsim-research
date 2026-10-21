@@ -21,8 +21,10 @@ public final class FailureModelConfig {
             FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
             FailureParameters.FTCMonitor.MONITOR_NONE,
             FailureParameters.FTCFailure.FAILURE_NONE,
-            DistributionFamily.WEIBULL, new DistributionSpec[0][0],
-            Collections.<Integer, DistributionSpec[]>emptyMap(), 0);
+            DistributionFamily.WEIBULL,
+            new DistributionSpec[0][0],
+            Collections.<Integer, DistributionSpec[]>emptyMap(),
+            0);
 
     private final FailureParameters.FTCluteringAlgorithm clusteringAlgorithm;
     private final FailureParameters.FTCMonitor monitorMode;
@@ -31,12 +33,15 @@ public final class FailureModelConfig {
     private final DistributionSpec[][] generatorSpecs;
     /** 现代 VM 级模型按真实 VM ID 键控的生成器行；与稠密矩阵二选一。 */
     private final Map<Integer, DistributionSpec[]> generatorSpecsByVmId;
+
     private final int maxTotalRetryJobs;
 
-    private FailureModelConfig(FailureParameters.FTCluteringAlgorithm clusteringAlgorithm,
+    private FailureModelConfig(
+            FailureParameters.FTCluteringAlgorithm clusteringAlgorithm,
             FailureParameters.FTCMonitor monitorMode,
             FailureParameters.FTCFailure generatorMode,
-            DistributionFamily distributionFamily, DistributionSpec[][] generatorSpecs,
+            DistributionFamily distributionFamily,
+            DistributionSpec[][] generatorSpecs,
             Map<Integer, DistributionSpec[]> generatorSpecsByVmId,
             int maxTotalRetryJobs) {
         this.clusteringAlgorithm = clusteringAlgorithm;
@@ -110,14 +115,32 @@ public final class FailureModelConfig {
     /** 将由当前运行种子作用域限定的新生成器矩阵和停止预算安装到旧版门面。 */
     public void applyToFailureParameters(long rootSeed) {
         if (!isEnabled()) {
-            FailureParameters.init(clusteringAlgorithm, monitorMode, generatorMode,
-                    (DistributionGenerator[][]) null, distributionFamily, maxTotalRetryJobs, rootSeed);
+            FailureParameters.init(
+                    clusteringAlgorithm,
+                    monitorMode,
+                    generatorMode,
+                    (DistributionGenerator[][]) null,
+                    distributionFamily,
+                    maxTotalRetryJobs,
+                    rootSeed);
         } else if (usesVmIdKeyedGeneratorRows()) {
-            FailureParameters.init(clusteringAlgorithm, monitorMode, generatorMode,
-                    createGeneratorsByVmId(), distributionFamily, maxTotalRetryJobs, rootSeed);
+            FailureParameters.init(
+                    clusteringAlgorithm,
+                    monitorMode,
+                    generatorMode,
+                    createGeneratorsByVmId(),
+                    distributionFamily,
+                    maxTotalRetryJobs,
+                    rootSeed);
         } else {
-            FailureParameters.init(clusteringAlgorithm, monitorMode, generatorMode,
-                    createGenerators(), distributionFamily, maxTotalRetryJobs, rootSeed);
+            FailureParameters.init(
+                    clusteringAlgorithm,
+                    monitorMode,
+                    generatorMode,
+                    createGenerators(),
+                    distributionFamily,
+                    maxTotalRetryJobs,
+                    rootSeed);
         }
     }
 
@@ -126,8 +149,8 @@ public final class FailureModelConfig {
         for (int row = 0; row < generatorSpecs.length; row++) {
             generators[row] = new DistributionGenerator[generatorSpecs[row].length];
             for (int column = 0; column < generatorSpecs[row].length; column++) {
-                generators[row][column] = generatorSpecs[row][column].createGenerator(
-                        "failure.row" + row + ".column" + column);
+                generators[row][column] =
+                        generatorSpecs[row][column].createGenerator("failure.row" + row + ".column" + column);
             }
         }
         return generators;
@@ -140,8 +163,7 @@ public final class FailureModelConfig {
             DistributionSpec[] specs = entry.getValue();
             DistributionGenerator[] row = new DistributionGenerator[specs.length];
             for (int depth = 0; depth < specs.length; depth++) {
-                row[depth] = specs[depth].createGenerator(
-                        "failure.vm" + vmId + ".depth" + depth);
+                row[depth] = specs[depth].createGenerator("failure.vm" + vmId + ".depth" + depth);
             }
             generators.put(Integer.valueOf(vmId), row);
         }
@@ -156,27 +178,25 @@ public final class FailureModelConfig {
         return result;
     }
 
-    private static Map<Integer, DistributionSpec[]> copySpecsByVmId(
-            Map<Integer, DistributionSpec[]> source) {
+    private static Map<Integer, DistributionSpec[]> copySpecsByVmId(Map<Integer, DistributionSpec[]> source) {
         Map<Integer, DistributionSpec[]> sorted = new TreeMap<Integer, DistributionSpec[]>();
         for (Map.Entry<Integer, DistributionSpec[]> entry : source.entrySet()) {
             sorted.put(entry.getKey(), Arrays.copyOf(entry.getValue(), entry.getValue().length));
         }
-        return Collections.unmodifiableMap(
-                new LinkedHashMap<Integer, DistributionSpec[]>(sorted));
+        return Collections.unmodifiableMap(new LinkedHashMap<Integer, DistributionSpec[]>(sorted));
     }
 
     /** 构建器会在创建任何模拟实体前验证配置结构。 */
     public static final class Builder {
 
-        private FailureParameters.FTCluteringAlgorithm clusteringAlgorithm
-                = FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP;
+        private FailureParameters.FTCluteringAlgorithm clusteringAlgorithm =
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP;
         private FailureParameters.FTCMonitor monitorMode = FailureParameters.FTCMonitor.MONITOR_NONE;
         private FailureParameters.FTCFailure generatorMode = FailureParameters.FTCFailure.FAILURE_NONE;
         private DistributionFamily distributionFamily = DistributionFamily.WEIBULL;
         private DistributionSpec[][] generatorSpecs = new DistributionSpec[0][0];
-        private Map<Integer, DistributionSpec[]> generatorSpecsByVmId
-                = Collections.<Integer, DistributionSpec[]>emptyMap();
+        private Map<Integer, DistributionSpec[]> generatorSpecsByVmId =
+                Collections.<Integer, DistributionSpec[]>emptyMap();
         private int maxTotalRetryJobs = -1;
 
         public Builder clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm value) {
@@ -232,8 +252,11 @@ public final class FailureModelConfig {
         }
 
         public FailureModelConfig build() {
-            if (clusteringAlgorithm == null || monitorMode == null || generatorMode == null
-                    || distributionFamily == null || generatorSpecs == null
+            if (clusteringAlgorithm == null
+                    || monitorMode == null
+                    || generatorMode == null
+                    || distributionFamily == null
+                    || generatorSpecs == null
                     || generatorSpecsByVmId == null) {
                 throw new IllegalArgumentException("Failure configuration contains a required null value");
             }
@@ -254,8 +277,8 @@ public final class FailureModelConfig {
                 if (hasVmIdKeyedRows) {
                     if (generatorMode != FailureParameters.FTCFailure.FAILURE_VM
                             && generatorMode != FailureParameters.FTCFailure.FAILURE_VM_JOB) {
-                        throw new IllegalArgumentException("VM-ID-keyed generator rows require FAILURE_VM or "
-                                + "FAILURE_VM_JOB mode");
+                        throw new IllegalArgumentException(
+                                "VM-ID-keyed generator rows require FAILURE_VM or " + "FAILURE_VM_JOB mode");
                     }
                     validateVmIdKeyedGeneratorRows(generatorSpecsByVmId, distributionFamily);
                 } else {
@@ -266,14 +289,17 @@ public final class FailureModelConfig {
                             + "maxTotalRetryJobs safety budget");
                 }
             }
-            return new FailureModelConfig(clusteringAlgorithm, monitorMode, generatorMode,
-                    distributionFamily, generatorSpecs, generatorSpecsByVmId,
-                    generatorMode == FailureParameters.FTCFailure.FAILURE_NONE
-                            ? 0 : maxTotalRetryJobs);
+            return new FailureModelConfig(
+                    clusteringAlgorithm,
+                    monitorMode,
+                    generatorMode,
+                    distributionFamily,
+                    generatorSpecs,
+                    generatorSpecsByVmId,
+                    generatorMode == FailureParameters.FTCFailure.FAILURE_NONE ? 0 : maxTotalRetryJobs);
         }
 
-        private static void validateGeneratorMatrix(DistributionSpec[][] matrix,
-                DistributionFamily expectedFamily) {
+        private static void validateGeneratorMatrix(DistributionSpec[][] matrix, DistributionFamily expectedFamily) {
             if (matrix.length == 0) {
                 throw new IllegalArgumentException("An enabled failure model requires a generator matrix");
             }
@@ -298,8 +324,8 @@ public final class FailureModelConfig {
             }
         }
 
-        private static void validateVmIdKeyedGeneratorRows(Map<Integer, DistributionSpec[]> rows,
-                DistributionFamily expectedFamily) {
+        private static void validateVmIdKeyedGeneratorRows(
+                Map<Integer, DistributionSpec[]> rows, DistributionFamily expectedFamily) {
             if (expectedFamily == DistributionFamily.NORMAL) {
                 throw new IllegalArgumentException("Failure inter-arrival distributions cannot use NORMAL "
                         + "because it can generate negative simulated time; use WEIBULL, GAMMA, or LOGNORMAL");
@@ -308,7 +334,8 @@ public final class FailureModelConfig {
                 Integer vmId = entry.getKey();
                 DistributionSpec[] specs = entry.getValue();
                 if (vmId == null || vmId.intValue() < 0) {
-                    throw new IllegalArgumentException("VM-ID-keyed failure generator rows require non-negative VM IDs");
+                    throw new IllegalArgumentException(
+                            "VM-ID-keyed failure generator rows require non-negative VM IDs");
                 }
                 if (specs == null || specs.length == 0) {
                     throw new IllegalArgumentException("Failure generator row for VM " + vmId + " is empty");
@@ -316,8 +343,8 @@ public final class FailureModelConfig {
                 for (int depth = 0; depth < specs.length; depth++) {
                     DistributionSpec spec = specs[depth];
                     if (spec == null) {
-                        throw new IllegalArgumentException("Failure generator for VM " + vmId
-                                + " at depth " + depth + " is null");
+                        throw new IllegalArgumentException(
+                                "Failure generator for VM " + vmId + " at depth " + depth + " is null");
                     }
                     if (spec.getFamily() != expectedFamily) {
                         throw new IllegalArgumentException("Failure generator for VM " + vmId

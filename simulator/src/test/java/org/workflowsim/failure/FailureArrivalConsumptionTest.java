@@ -25,10 +25,11 @@ class FailureArrivalConsumptionTest {
     void consumesExpiredAndMatchedArrivalsThroughTheirActualCumulativeIndices() {
         // 原始 intervals 为 [2, 3, 5]，累计 arrival 为 [2, 5, 10]。
         FixedDistributionGenerator generator = new FixedDistributionGenerator(2.0, 3.0, 5.0);
-        FailureParameters.init(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
+        FailureParameters.init(
+                FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP,
                 FailureParameters.FTCMonitor.MONITOR_ALL,
                 FailureParameters.FTCFailure.FAILURE_ALL,
-                new DistributionGenerator[][]{{generator}});
+                new DistributionGenerator[][] {{generator}});
         FailureMonitor.init();
         FailureGenerator.init();
 

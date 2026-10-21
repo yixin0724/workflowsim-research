@@ -76,8 +76,8 @@ class SharedStorageDlsEtfSlotSemanticsAuditTest {
             Task shortTask = new Task(7, 250L);
             Task longTask = new Task(13, 2000L);
             CondorVM machine = vm(7, 1000.0, 1);
-            Kernel kernel = new Kernel(strategy, Arrays.asList(shortTask, longTask),
-                    Collections.singletonList(machine));
+            Kernel kernel =
+                    new Kernel(strategy, Arrays.asList(shortTask, longTask), Collections.singletonList(machine));
             kernel.reserve(machine, 1.0, 2.0);
             assertCandidate(kernel, shortTask, machine, 0.0, 0.25, 0.0);
             assertCandidate(kernel, longTask, machine, 0.0, 2.0, 2.0);
@@ -180,21 +180,27 @@ class SharedStorageDlsEtfSlotSemanticsAuditTest {
 
     private static void checkSlot(double[][] intervals, double ready, double duration, double expected)
             throws Exception {
-        assertEquals(bits(expected), bits(originalSlot(intervals, ready, duration)), "Explicit original boundary oracle");
-        assertEquals(bits(expected), bits(rawSlot(rawSchedule(intervals), ready, duration)),
+        assertEquals(
+                bits(expected), bits(originalSlot(intervals, ready, duration)), "Explicit original boundary oracle");
+        assertEquals(
+                bits(expected),
+                bits(rawSlot(rawSchedule(intervals), ready, duration)),
                 "ready=" + Double.toHexString(ready) + " duration=" + Double.toHexString(duration));
     }
 
-    private static void assertCandidate(Kernel kernel, Task task, CondorVM machine,
-            double ready, double rank, double expectedStart) throws Exception {
+    private static void assertCandidate(
+            Kernel kernel, Task task, CondorVM machine, double ready, double rank, double expectedStart)
+            throws Exception {
         double expected = kernel.strategy == Strategy.DLS ? rank - expectedStart : expectedStart;
-        assertEquals(bits(expected), bits(kernel.candidateMetric(task, machine, ready)),
-                kernel.strategy + " task=" + task.getCloudletId() + " vm=" + machine.getId()
-                        + " ready=" + Double.toHexString(ready));
+        assertEquals(
+                bits(expected),
+                bits(kernel.candidateMetric(task, machine, ready)),
+                kernel.strategy + " task=" + task.getCloudletId() + " vm=" + machine.getId() + " ready="
+                        + Double.toHexString(ready));
     }
 
-    private static SharedStorageDagPlanTrace runAndCheck(Fixture fixture, Strategy strategy,
-            Reference expected, boolean reverse) throws Exception {
+    private static SharedStorageDagPlanTrace runAndCheck(
+            Fixture fixture, Strategy strategy, Reference expected, boolean reverse) throws Exception {
         List<Task> tasks = fixture.tasks(reverse);
         List<CondorVM> vms = fixture.vms(reverse);
         List<Task> taskOrder = new ArrayList<Task>(tasks);
@@ -277,12 +283,25 @@ class SharedStorageDlsEtfSlotSemanticsAuditTest {
                     List<double[]> calendar = reservations.get(machine);
                     double start = endpointSlot(calendar, release, result.work[task][machine]);
                     double[][] ordered = calendar.toArray(new double[calendar.size()][]);
-                    Arrays.sort(ordered, Comparator.comparingDouble((double[] interval) -> interval[0])
-                            .thenComparingDouble(interval -> interval[1]));
-                    assertEquals(bits(originalSlot(ordered, release, result.work[task][machine])), bits(start),
+                    Arrays.sort(
+                            ordered,
+                            Comparator.comparingDouble((double[] interval) -> interval[0])
+                                    .thenComparingDouble(interval -> interval[1]));
+                    assertEquals(
+                            bits(originalSlot(ordered, release, result.work[task][machine])),
+                            bits(start),
                             "Independent endpoint oracle must agree with frozen original slots on these normal costs");
-                    if (selectedTask < 0 || better(fixture, result, strategy,
-                            task, machine, start, selectedTask, selectedVm, selectedStart)) {
+                    if (selectedTask < 0
+                            || better(
+                                    fixture,
+                                    result,
+                                    strategy,
+                                    task,
+                                    machine,
+                                    start,
+                                    selectedTask,
+                                    selectedVm,
+                                    selectedStart)) {
                         selectedTask = task;
                         selectedVm = machine;
                         selectedStart = start;
@@ -320,8 +339,16 @@ class SharedStorageDlsEtfSlotSemanticsAuditTest {
         throw new AssertionError("Finite small schedules must have a tail gap");
     }
 
-    private static boolean better(Fixture fixture, Reference result, Strategy strategy,
-            int task, int machine, double start, int selectedTask, int selectedVm, double selectedStart) {
+    private static boolean better(
+            Fixture fixture,
+            Reference result,
+            Strategy strategy,
+            int task,
+            int machine,
+            double start,
+            int selectedTask,
+            int selectedVm,
+            double selectedStart) {
         int primary = strategy == Strategy.DLS
                 ? Double.compare(result.rank[task] - start, result.rank[selectedTask] - selectedStart)
                 : Double.compare(selectedStart, start);
@@ -335,11 +362,12 @@ class SharedStorageDlsEtfSlotSemanticsAuditTest {
             }
         }
         return fixture.ids[task] != fixture.ids[selectedTask]
-                ? fixture.ids[task] < fixture.ids[selectedTask] : fixture.vmIds[machine] < fixture.vmIds[selectedVm];
+                ? fixture.ids[task] < fixture.ids[selectedTask]
+                : fixture.vmIds[machine] < fixture.vmIds[selectedVm];
     }
 
-    private static void assertReference(Fixture fixture, Strategy strategy, Reference expected,
-            SharedStorageDagPlanTrace trace) {
+    private static void assertReference(
+            Fixture fixture, Strategy strategy, Reference expected, SharedStorageDagPlanTrace trace) {
         assertEquals(strategy.name(), trace.getStrategy());
         assertEquals(bits(BOOTSTRAP), bits(trace.getStageInFinishSeconds()));
         assertEquals(fixture.n, trace.getTaskPlans().size());
@@ -361,18 +389,30 @@ class SharedStorageDlsEtfSlotSemanticsAuditTest {
             assertEquals(bits(expected.rank[task]), bits(plan.getUpwardRankSeconds()), subject + " rank");
             assertEquals(bits(expected.start[task]), bits(plan.getPlannedStartSeconds()), subject + " start");
             assertEquals(bits(expected.finish[task]), bits(plan.getPlannedFinishSeconds()), subject + " finish");
-            assertEquals(bits(expected.stageIn[task][selectedVm]), bits(plan.getPlannedDataStageInSeconds()), subject + " stage-in");
-            assertEquals(bits(expected.start[task] + expected.stageIn[task][selectedVm]),
-                    bits(plan.getPlannedComputeStartSeconds()), subject + " compute start");
+            assertEquals(
+                    bits(expected.stageIn[task][selectedVm]),
+                    bits(plan.getPlannedDataStageInSeconds()),
+                    subject + " stage-in");
+            assertEquals(
+                    bits(expected.start[task] + expected.stageIn[task][selectedVm]),
+                    bits(plan.getPlannedComputeStartSeconds()),
+                    subject + " compute start");
             if (strategy == Strategy.DLS) {
-                assertEquals(Integer.valueOf(expected.order[task]), plan.getDlsSelectionOrder(), subject + " DLS order");
-                assertEquals(bits(expected.rank[task] - expected.start[task]),
-                        bits(plan.getDlsDynamicLevelAtSelection().doubleValue()), subject + " DLS metric");
+                assertEquals(
+                        Integer.valueOf(expected.order[task]), plan.getDlsSelectionOrder(), subject + " DLS order");
+                assertEquals(
+                        bits(expected.rank[task] - expected.start[task]),
+                        bits(plan.getDlsDynamicLevelAtSelection().doubleValue()),
+                        subject + " DLS metric");
                 assertNull(plan.getEtfEarliestStartAtSelection());
                 assertNull(plan.getEtfSelectionOrder());
             } else {
-                assertEquals(Integer.valueOf(expected.order[task]), plan.getEtfSelectionOrder(), subject + " ETF order");
-                assertEquals(bits(expected.start[task]), bits(plan.getEtfEarliestStartAtSelection().doubleValue()), subject + " ETF metric");
+                assertEquals(
+                        Integer.valueOf(expected.order[task]), plan.getEtfSelectionOrder(), subject + " ETF order");
+                assertEquals(
+                        bits(expected.start[task]),
+                        bits(plan.getEtfEarliestStartAtSelection().doubleValue()),
+                        subject + " ETF metric");
                 assertNull(plan.getDlsDynamicLevelAtSelection());
                 assertNull(plan.getDlsSelectionOrder());
             }

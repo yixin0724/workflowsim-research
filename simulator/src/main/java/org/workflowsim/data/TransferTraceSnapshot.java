@@ -31,24 +31,31 @@ public final class TransferTraceSnapshot {
 
     TransferTraceSnapshot(Status status, List<TransferTraceEvent> events, long droppedCount, double engineTime) {
         this.status = status;
-        this.events = events.isEmpty() ? Collections.<TransferTraceEvent>emptyList()
+        this.events = events.isEmpty()
+                ? Collections.<TransferTraceEvent>emptyList()
                 : Collections.unmodifiableList(new ArrayList<TransferTraceEvent>(events));
         this.droppedCount = droppedCount;
         this.engineTime = engineTime;
     }
 
     /** @return capture status; COMPLETE does not mean that every transfer has finished */
-    public Status getStatus() { return status; }
+    public Status getStatus() {
+        return status;
+    }
 
     /** @return immutable event prefix in sequence order, with deeply immutable elements */
-    public List<TransferTraceEvent> getEvents() { return events; }
+    public List<TransferTraceEvent> getEvents() {
+        return events;
+    }
 
     /**
      * @return number of true events not retained after the budget filled; zero for
      *         disabled capture. Unchanged-rate calculations and same-time advances
      *         do not increment this count.
      */
-    public long getDroppedCount() { return droppedCount; }
+    public long getDroppedCount() {
+        return droppedCount;
+    }
 
     /**
      * The engine clock at snapshot creation, not an external or wall-clock time.
@@ -56,5 +63,7 @@ public final class TransferTraceSnapshot {
      *
      * @return the engine's last advance time, also available when capture is disabled
      */
-    public double getEngineTime() { return engineTime; }
+    public double getEngineTime() {
+        return engineTime;
+    }
 }

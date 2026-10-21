@@ -19,10 +19,8 @@ class ExperimentProvenanceTest {
         Path classes = Files.createDirectory(target.resolve("classes"));
         Path jar = Files.createFile(target.resolve("workflowsim-1.0.jar"));
 
-        assertEquals(module.toAbsolutePath().normalize(),
-                ExperimentProvenance.moduleRootForCodeSource(classes));
-        assertEquals(module.toAbsolutePath().normalize(),
-                ExperimentProvenance.moduleRootForCodeSource(jar));
+        assertEquals(module.toAbsolutePath().normalize(), ExperimentProvenance.moduleRootForCodeSource(classes));
+        assertEquals(module.toAbsolutePath().normalize(), ExperimentProvenance.moduleRootForCodeSource(jar));
     }
 
     @Test

@@ -18,8 +18,7 @@ import java.util.Set;
  */
 public final class WorkflowDagValidator {
 
-    private WorkflowDagValidator() {
-    }
+    private WorkflowDagValidator() {}
 
     /**
      * 校验任务归属、父子边对称性、任务编号唯一性和无环性，并写入任务深度。
@@ -42,15 +41,14 @@ public final class WorkflowDagValidator {
                 throw new WorkflowValidationException("Workflow cannot contain a null task");
             }
             if (task.getCloudletLength() <= 0L) {
-                throw new WorkflowValidationException("Task " + task.getCloudletId()
-                        + " has non-positive Cloudlet length");
+                throw new WorkflowValidationException(
+                        "Task " + task.getCloudletId() + " has non-positive Cloudlet length");
             }
             if (taskById.put(task.getCloudletId(), task) != null) {
                 throw new WorkflowValidationException("Duplicate task ID " + task.getCloudletId());
             }
             if (task.getParentList() == null || task.getChildList() == null) {
-                throw new WorkflowValidationException("Task " + task.getCloudletId()
-                        + " has a null adjacency list");
+                throw new WorkflowValidationException("Task " + task.getCloudletId() + " has a null adjacency list");
             }
             taskSet.add(task);
             task.setDepth(0);
@@ -101,22 +99,25 @@ public final class WorkflowDagValidator {
         }
     }
 
-    private static void validateNeighbours(Task task, List<Task> neighbours,
-            Set<Task> taskSet, boolean parents, Map<Task, Set<Task>> reverseMembership) {
+    private static void validateNeighbours(
+            Task task,
+            List<Task> neighbours,
+            Set<Task> taskSet,
+            boolean parents,
+            Map<Task, Set<Task>> reverseMembership) {
         Set<Task> unique = new HashSet<>();
         for (Task neighbour : neighbours) {
             String relation = parents ? "parent" : "child";
             if (neighbour == null || !taskSet.contains(neighbour)) {
-                throw new WorkflowValidationException("Task " + task.getCloudletId()
-                        + " references a task outside this workflow as " + relation);
+                throw new WorkflowValidationException(
+                        "Task " + task.getCloudletId() + " references a task outside this workflow as " + relation);
             }
             if (neighbour == task) {
-                throw new WorkflowValidationException("Task " + task.getCloudletId()
-                        + " has a self dependency");
+                throw new WorkflowValidationException("Task " + task.getCloudletId() + " has a self dependency");
             }
             if (!unique.add(neighbour)) {
-                throw new WorkflowValidationException("Task " + task.getCloudletId()
-                        + " has a duplicate " + relation + " " + neighbour.getCloudletId());
+                throw new WorkflowValidationException("Task " + task.getCloudletId() + " has a duplicate " + relation
+                        + " " + neighbour.getCloudletId());
             }
             Set<Task> reverse = reverseMembership.get(neighbour);
             if (reverse == null) {

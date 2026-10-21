@@ -59,7 +59,6 @@ class FCFSSchedulingAlgorithmTest {
     }
 
     private static CondorVM vm(int id, int pes) {
-        return new CondorVM(id, 0, 1000.0, pes, 512, 1000L, 10_000L, "Xen",
-                new CloudletSchedulerSpaceShared());
+        return new CondorVM(id, 0, 1000.0, pes, 512, 1000L, 10_000L, "Xen", new CloudletSchedulerSpaceShared());
     }
 }

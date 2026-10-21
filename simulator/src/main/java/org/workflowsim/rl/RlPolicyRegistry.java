@@ -19,8 +19,7 @@ public final class RlPolicyRegistry {
     private static final List<RlDecision> decisions = new ArrayList<RlDecision>();
     private static int stepCount;
 
-    private RlPolicyRegistry() {
-    }
+    private RlPolicyRegistry() {}
 
     /**
      * 注册 episode 策略并清空轨迹。

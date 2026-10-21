@@ -24,9 +24,10 @@ public final class StaticMaxMinPlanningAlgorithm extends StaticIndependentPlanni
             Choice selectedChoice = null;
             for (Task task : remaining) {
                 Choice choice = earliestCompletion(task, vms, availability, algorithm);
-                if (selectedChoice == null || choice.getFinishTime() > selectedChoice.getFinishTime()
+                if (selectedChoice == null
+                        || choice.getFinishTime() > selectedChoice.getFinishTime()
                         || (Double.compare(choice.getFinishTime(), selectedChoice.getFinishTime()) == 0
-                        && task.getCloudletId() < selectedTask.getCloudletId())) {
+                                && task.getCloudletId() < selectedTask.getCloudletId())) {
                     selectedTask = task;
                     selectedChoice = choice;
                 }
