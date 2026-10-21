@@ -51,103 +51,9 @@ final class StorageLifecycleReportView {
             fileBytes.put(fileKey(file.getAsJsonObject("fileId")), exact(file.get("bytes")));
         }
 
-        Map<Long, JsonObject> admissions = new LinkedHashMap<>();
-        Map<Long, JsonObject> settlements = new HashMap<>();
-        Map<Integer, Job> jobs = new LinkedHashMap<>();
-        Totals totals = new Totals();
-        BigDecimal lastCpuFinish = null, lastStoreCommit = null;
-        // Scan the whole capture before applying display caps, including late settlements/readiness.
-        for (JsonElement value : rawEvents) {
-            JsonObject event = value.getAsJsonObject();
-            JsonObject payload = event.getAsJsonObject("payload");
-            switch (event.get("type").getAsString()) {
-                case "COPY_ADMITTED":
-                    admissions.put(payload.get("copyOrdinal").getAsLong(), event);
-                    if (isOutput(payload))
-                        totals.admittedOutput = totals.admittedOutput.add(exact(payload.get("bytes")));
-                    else totals.admittedInput = totals.admittedInput.add(exact(payload.get("bytes")));
-                    break;
-                case "COPY_SETTLED":
-                    long ordinal = payload.get("copyOrdinal").getAsLong();
-                    settlements.put(ordinal, event);
-                    JsonObject admitted = admissions.get(ordinal).getAsJsonObject("payload");
-                    // Declared whole-object payload, not rate * elapsed or size minus a numerical residual.
-                    BigDecimal bytes = exact(admitted.get("bytes"));
-                    if (isOutput(admitted)) {
-                        totals.settledOutput = totals.settledOutput.add(bytes);
-                        lastStoreCommit = maximum(lastStoreCommit, exact(event.get("observedTime")));
-                    } else totals.settledInput = totals.settledInput.add(bytes);
-                    totals.residual = totals.residual.add(exact(payload.get("remainingAfterService")));
-                    break;
-                case "JOB_INPUT_REQUESTED":
-                    jobs.put(payload.get("jobId").getAsInt(), new Job(event));
-                    break;
-                case "INPUT_WAITING_FOR_STORE":
-                    DataflowFilePlan.FileId waitingFile = fileKey(payload.getAsJsonObject("fileId"));
-                    jobs.get(payload.get("jobId").getAsInt()).storeWaits.add(waitingFile);
-                    BigDecimal waitingReferences =
-                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
-                    // Required references already exist at request, even before their source commits.
-                    totals.references = totals.references.add(waitingReferences);
-                    totals.requiredBytes =
-                            totals.requiredBytes.add(fileBytes.get(waitingFile).multiply(waitingReferences));
-                    break;
-                case "INPUT_RESOLVED":
-                    DataflowFilePlan.FileId file = fileKey(payload.getAsJsonObject("fileId"));
-                    Job job = jobs.get(payload.get("jobId").getAsInt());
-                    boolean deferred = job.storeWaits.remove(file);
-                    BigDecimal references =
-                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
-                    BigDecimal referenceBytes = fileBytes.get(file).multiply(references);
-                    if (!deferred) {
-                        totals.references = totals.references.add(references);
-                        totals.requiredBytes = totals.requiredBytes.add(referenceBytes);
-                    }
-                    String resolution = payload.get("resolution").getAsString();
-                    if ("LOCAL".equals(resolution)) {
-                        totals.localReferences = totals.localReferences.add(references);
-                        totals.localBytes = totals.localBytes.add(referenceBytes);
-                    } else if ("JOIN_EXISTING".equals(resolution)) {
-                        totals.joinedReferences = totals.joinedReferences.add(references);
-                    }
-                    if ("NEW_COPY".equals(resolution) || "JOIN_EXISTING".equals(resolution)) {
-                        // Match the runtime's actual resolution-order binary64 accumulation, including
-                        // a joined copy's full estimate even when its owner is another Job attempt.
-                        job.nominalInputSeconds += admissions
-                                .get(payload.get("copyOrdinal").getAsLong())
-                                .getAsJsonObject("payload")
-                                .get("isolatedSeconds")
-                                .getAsDouble();
-                    }
-                    if (deferred) {
-                        // Every deferred STORE wait starts at request; overlapping waits are not additive.
-                        job.storeGateWait = job.storeGateWait.max(
-                                exact(event.get("observedTime")).subtract(job.requestedAt));
-                    }
-                    break;
-                case "JOB_DATA_READY":
-                    jobs.get(payload.get("jobId").getAsInt()).dataReadyAt = exact(event.get("observedTime"));
-                    break;
-                case "JOB_CPU_STARTED":
-                    jobs.get(payload.get("jobId").getAsInt()).cpuStartedAt = exact(event.get("observedTime"));
-                    break;
-                case "TASK_FINISHED":
-                    BigDecimal finished = exact(event.get("observedTime"));
-                    jobs.get(payload.get("jobId").getAsInt()).finishedAt = finished;
-                    lastCpuFinish = maximum(lastCpuFinish, finished);
-                    break;
-                case "OUTPUT_RESOLVED":
-                    // ZERO publishes now. NEW_COPY/JOIN_EXISTING publish at OUTPUT settlement;
-                    // ALREADY_STORED is not a new commit, nor is any EXTERNAL_SEEDED observation.
-                    if ("ZERO".equals(payload.get("resolution").getAsString())) {
-                        lastStoreCommit = maximum(lastStoreCommit, exact(event.get("observedTime")));
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-
+        StorageScan scan = scanLifecycleEvents(rawEvents, fileBytes);
+        BigDecimal lastCpuFinish = scan.lastCpuFinish;
+        BigDecimal lastStoreCommit = scan.lastStoreCommit;
         Map<String, Object> root = map();
         root.put("schema", "workflowsim-storage-lifecycle-display-v3");
         root.put("captureStatus", capture.get("status").getAsString());
@@ -171,7 +77,7 @@ final class StorageLifecycleReportView {
         root.put("waitingStoreInputCount", integer(decoded.getWaitingStoreInputCount()));
         root.put("quiescent", decoded.isQuiescent());
         root.put("store", store(fabric, rawResources));
-        root.put("totals", totals.display());
+        root.put("totals", scan.totals.display());
         root.put("lastCpuFinishTime", decimal(lastCpuFinish));
         root.put("lastStoreCommitTime", decimal(lastStoreCommit));
         root.put(
@@ -180,13 +86,149 @@ final class StorageLifecycleReportView {
                         ? decimal(lastStoreCommit.subtract(lastCpuFinish).max(BigDecimal.ZERO))
                         : null);
 
-        List<Map<String, Object>> copies = new ArrayList<>();
-        for (Map.Entry<Long, JsonObject> entry : admissions.entrySet()) {
-            if (copies.size() == COPY_LIMIT) break;
-            copies.add(copyRow(entry.getValue(), settlements.get(entry.getKey())));
-        }
+        List<Map<String, Object>> copies = copiesRows(decoded, scan);
         root.put("copies", preview(decoded.getCopyCount(), COPY_LIMIT, copies));
+        List<Map<String, Object>> resources = resourceRows(rawResources);
+        root.put("resources", preview(rawResources.size(), RESOURCE_LIMIT, resources));
+        List<Map<String, Object>> events = eventRows(rawEvents, scan);
+        root.put("events", preview(rawEvents.size(), EVENT_LIMIT, events));
+        List<Map<String, Object>> jobRows = jobRows(scan);
+        root.put("jobs", preview(decoded.getRequestedJobCount(), JOB_LIMIT, jobRows));
+        root.put("labelLimit", integer(LABEL_LIMIT));
+        root.put("nestedListLimit", integer(LIST_LIMIT));
+        root.put("labelsClipped", integer(labelsClipped));
+        root.put("nestedItemsOmitted", integer(nestedItemsOmitted));
+        return freeze(root);
+    }
 
+    /** project() 的事件扫描阶段（逐字搬运转写；三个大 case 臂另行搬运转写）。 */
+    private StorageScan scanLifecycleEvents(JsonArray rawEvents, Map<DataflowFilePlan.FileId, BigDecimal> fileBytes) {
+        StorageScan scan = new StorageScan();
+        // Scan the whole capture before applying display caps, including late settlements/readiness.
+        for (JsonElement value : rawEvents) {
+            JsonObject event = value.getAsJsonObject();
+            JsonObject payload = event.getAsJsonObject("payload");
+            switch (event.get("type").getAsString()) {
+                case "COPY_ADMITTED":
+                    scan.admissions.put(payload.get("copyOrdinal").getAsLong(), event);
+                    if (isOutput(payload))
+                        scan.totals.admittedOutput = scan.totals.admittedOutput.add(exact(payload.get("bytes")));
+                    else scan.totals.admittedInput = scan.totals.admittedInput.add(exact(payload.get("bytes")));
+                    break;
+                case "COPY_SETTLED":
+                    applyCopySettled(event, payload, scan);
+                    break;
+                case "JOB_INPUT_REQUESTED":
+                    scan.jobs.put(payload.get("jobId").getAsInt(), new Job(event));
+                    break;
+                case "INPUT_WAITING_FOR_STORE":
+                    applyInputWaiting(payload, scan, fileBytes);
+                    break;
+                case "INPUT_RESOLVED":
+                    applyInputResolved(event, payload, scan, fileBytes);
+                    break;
+                case "JOB_DATA_READY":
+                    scan.jobs.get(payload.get("jobId").getAsInt()).dataReadyAt = exact(event.get("observedTime"));
+                    break;
+                case "JOB_CPU_STARTED":
+                    scan.jobs.get(payload.get("jobId").getAsInt()).cpuStartedAt = exact(event.get("observedTime"));
+                    break;
+                case "TASK_FINISHED":
+                    BigDecimal finished = exact(event.get("observedTime"));
+                    scan.jobs.get(payload.get("jobId").getAsInt()).finishedAt = finished;
+                    scan.lastCpuFinish = maximum(scan.lastCpuFinish, finished);
+                    break;
+                case "OUTPUT_RESOLVED":
+                    // ZERO publishes now. NEW_COPY/JOIN_EXISTING publish at OUTPUT settlement;
+                    // ALREADY_STORED is not a new commit, nor is any EXTERNAL_SEEDED observation.
+                    if ("ZERO".equals(payload.get("resolution").getAsString())) {
+                        scan.lastStoreCommit = maximum(scan.lastStoreCommit, exact(event.get("observedTime")));
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        return scan;
+    }
+
+    /** COPY_SETTLED 事件臂（逐字搬运转写）。 */
+    private void applyCopySettled(JsonObject event, JsonObject payload, StorageScan scan) {
+        long ordinal = payload.get("copyOrdinal").getAsLong();
+        scan.settlements.put(ordinal, event);
+        JsonObject admitted = scan.admissions.get(ordinal).getAsJsonObject("payload");
+        // Declared whole-object payload, not rate * elapsed or size minus a numerical residual.
+        BigDecimal bytes = exact(admitted.get("bytes"));
+        if (isOutput(admitted)) {
+            scan.totals.settledOutput = scan.totals.settledOutput.add(bytes);
+            scan.lastStoreCommit = maximum(scan.lastStoreCommit, exact(event.get("observedTime")));
+        } else scan.totals.settledInput = scan.totals.settledInput.add(bytes);
+        scan.totals.residual = scan.totals.residual.add(exact(payload.get("remainingAfterService")));
+    }
+
+    /** INPUT_WAITING_FOR_STORE 事件臂（逐字搬运转写）。 */
+    private void applyInputWaiting(
+            JsonObject payload, StorageScan scan, Map<DataflowFilePlan.FileId, BigDecimal> fileBytes) {
+        DataflowFilePlan.FileId waitingFile = fileKey(payload.getAsJsonObject("fileId"));
+        scan.jobs.get(payload.get("jobId").getAsInt()).storeWaits.add(waitingFile);
+        BigDecimal waitingReferences =
+                BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
+        // Required references already exist at request, even before their source commits.
+        scan.totals.references = scan.totals.references.add(waitingReferences);
+        scan.totals.requiredBytes =
+                scan.totals.requiredBytes.add(fileBytes.get(waitingFile).multiply(waitingReferences));
+    }
+
+    /** INPUT_RESOLVED 事件臂（逐字搬运转写）。 */
+    private void applyInputResolved(
+            JsonObject event,
+            JsonObject payload,
+            StorageScan scan,
+            Map<DataflowFilePlan.FileId, BigDecimal> fileBytes) {
+        DataflowFilePlan.FileId file = fileKey(payload.getAsJsonObject("fileId"));
+        Job job = scan.jobs.get(payload.get("jobId").getAsInt());
+        boolean deferred = job.storeWaits.remove(file);
+        BigDecimal references = BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
+        BigDecimal referenceBytes = fileBytes.get(file).multiply(references);
+        if (!deferred) {
+            scan.totals.references = scan.totals.references.add(references);
+            scan.totals.requiredBytes = scan.totals.requiredBytes.add(referenceBytes);
+        }
+        String resolution = payload.get("resolution").getAsString();
+        if ("LOCAL".equals(resolution)) {
+            scan.totals.localReferences = scan.totals.localReferences.add(references);
+            scan.totals.localBytes = scan.totals.localBytes.add(referenceBytes);
+        } else if ("JOIN_EXISTING".equals(resolution)) {
+            scan.totals.joinedReferences = scan.totals.joinedReferences.add(references);
+        }
+        if ("NEW_COPY".equals(resolution) || "JOIN_EXISTING".equals(resolution)) {
+            // Match the runtime's actual resolution-order binary64 accumulation, including
+            // a joined copy's full estimate even when its owner is another Job attempt.
+            job.nominalInputSeconds += scan.admissions
+                    .get(payload.get("copyOrdinal").getAsLong())
+                    .getAsJsonObject("payload")
+                    .get("isolatedSeconds")
+                    .getAsDouble();
+        }
+        if (deferred) {
+            // Every deferred STORE wait starts at request; overlapping waits are not additive.
+            job.storeGateWait =
+                    job.storeGateWait.max(exact(event.get("observedTime")).subtract(job.requestedAt));
+        }
+    }
+
+    /** 副本行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> copiesRows(StorageLifecycleCodec.Decoded decoded, StorageScan scan) {
+        List<Map<String, Object>> copies = new ArrayList<>();
+        for (Map.Entry<Long, JsonObject> entry : scan.admissions.entrySet()) {
+            if (copies.size() == COPY_LIMIT) break;
+            copies.add(copyRow(entry.getValue(), scan.settlements.get(entry.getKey())));
+        }
+        return copies;
+    }
+
+    /** 资源行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> resourceRows(JsonArray rawResources) {
         List<Map<String, Object>> resources = new ArrayList<>();
         for (int i = 0; i < Math.min(RESOURCE_LIMIT, rawResources.size()); i++) {
             JsonObject resource = rawResources.get(i).getAsJsonObject();
@@ -195,25 +237,36 @@ final class StorageLifecycleReportView {
             row.put("capacityBytesPerSecond", quantity(resource.get("capacityBytesPerSecond")));
             resources.add(freeze(row));
         }
-        root.put("resources", preview(rawResources.size(), RESOURCE_LIMIT, resources));
+        return resources;
+    }
 
+    /** 事件行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> eventRows(JsonArray rawEvents, StorageScan scan) {
         List<Map<String, Object>> events = new ArrayList<>();
         for (int i = 0; i < Math.min(EVENT_LIMIT, rawEvents.size()); i++) {
-            events.add(eventRow(rawEvents.get(i).getAsJsonObject(), admissions));
+            events.add(eventRow(rawEvents.get(i).getAsJsonObject(), scan.admissions));
         }
-        root.put("events", preview(rawEvents.size(), EVENT_LIMIT, events));
+        return events;
+    }
 
+    /** Job 行构建（上限截断，逐字搬运转写）。 */
+    private List<Map<String, Object>> jobRows(StorageScan scan) {
         List<Map<String, Object>> jobRows = new ArrayList<>();
-        for (Job job : jobs.values()) {
+        for (Job job : scan.jobs.values()) {
             if (jobRows.size() == JOB_LIMIT) break;
             jobRows.add(job.display());
         }
-        root.put("jobs", preview(decoded.getRequestedJobCount(), JOB_LIMIT, jobRows));
-        root.put("labelLimit", integer(LABEL_LIMIT));
-        root.put("nestedListLimit", integer(LIST_LIMIT));
-        root.put("labelsClipped", integer(labelsClipped));
-        root.put("nestedItemsOmitted", integer(nestedItemsOmitted));
-        return freeze(root);
+        return jobRows;
+    }
+
+    /** project() 事件扫描阶段聚合量的私有搬运转写结构（保持原局部变量的声明类型与初始化顺序）。 */
+    private static final class StorageScan {
+        final Map<Long, JsonObject> admissions = new LinkedHashMap<>();
+        final Map<Long, JsonObject> settlements = new HashMap<>();
+        final Map<Integer, Job> jobs = new LinkedHashMap<>();
+        final Totals totals = new Totals();
+        BigDecimal lastCpuFinish;
+        BigDecimal lastStoreCommit;
     }
 
     private static Map<String, Object> store(JsonObject fabric, JsonArray resources) {
