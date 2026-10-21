@@ -48,7 +48,6 @@ import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.ClassType;
 import org.workflowsim.utils.Parameters.FileType;
-import org.workflowsim.utils.SimulationConstants;
 import org.workflowsim.utils.SimulationTiming;
 import org.workflowsim.utils.TaskExecutionModel;
 

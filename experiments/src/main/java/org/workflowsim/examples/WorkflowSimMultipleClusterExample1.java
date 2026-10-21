@@ -243,6 +243,9 @@ public class WorkflowSimMultipleClusterExample1 extends WorkflowSimBasicExample1
                     /** 从 Datacenter_1 到 Datacenter_0 的带宽。 */
                     s1.setBandwidth("Datacenter_0", interBandwidth);
                     break;
+                default:
+                    // 其它数据中心名无跨点带宽项，仅下方 local/source 两项通用配置。
+                    break;
             }
             // 数据中心内部带宽。
             s1.setBandwidth("local", intraBandwidth);

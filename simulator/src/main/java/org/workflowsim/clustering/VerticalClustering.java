@@ -17,7 +17,6 @@ package org.workflowsim.clustering;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
@@ -192,6 +191,9 @@ public class VerticalClustering extends BasicClustering {
                             parent.getChildList().remove(node);
                     }
                 }   break;
+                default:
+                    // 其余任务类型无去重规则（Montage 专用遗留逻辑），刻意跳过。
+                    break;
             }
         }
     }

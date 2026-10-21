@@ -240,6 +240,9 @@ public class DistributionGenerator {
                 case WEIBULL:
                     sum += Math.pow(samples[i], likelihood_prior);
                     break;
+                // 契约：不支持的分布族（LOGNORMAL/NORMAL）贡献 0，整体返回 0.0（见方法 javadoc）。
+                default:
+                    break;
             }
         }
         double result = 0.0;

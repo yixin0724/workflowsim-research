@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.cloudbus.cloudsim.Log;
 
 /**
  * 收集失败记录，并按监控粒度估计后续重聚类使用的任务失败率。
@@ -122,6 +121,9 @@ public class FailureMonitor {
             case MONITOR_VM_JOB:
                 a = analyzeVmDepth(record.vmId, record.depth);
                 break;
+            // MONITOR_NONE 不分析聚类因子，保持 a=0.0 走全任务数兜底（遗留故障路径历史语义）。
+            default:
+                break;
         }
 
         if (a <= 0.0) {
@@ -177,6 +179,9 @@ public class FailureMonitor {
                 break;
             case MONITOR_NONE:
                 break;
+            // 唯一走 default 的是 MONITOR_ALL：不建分组索引，analyze 按 recordList 全量汇总。
+            default:
+                break;
         }
 
         recordList.add(record);
@@ -231,6 +236,9 @@ public class FailureMonitor {
                 break;
             case MONITOR_VM_JOB:
                 throw new IllegalStateException("MONITOR_VM_JOB requires analyzeVmDepth(vmId, depth)");
+            // 唯一走 default 的是 MONITOR_NONE：无监控记录，两计数保持 0 → 返回 0。
+            default:
+                break;
         }
 
 

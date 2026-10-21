@@ -231,7 +231,7 @@ public final class FatTreeTopology {
      *
      * @return 不可修改的链路资源键集合
      */
-    public java.util.Set<String> getLinkIds() {
+    public Set<String> getLinkIds() {
         return java.util.Collections.unmodifiableSet(linkCapacities.keySet());
     }
 
