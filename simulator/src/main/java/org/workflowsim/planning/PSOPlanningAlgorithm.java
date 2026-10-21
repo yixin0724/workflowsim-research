@@ -98,7 +98,31 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
                 return Integer.compare(a.getId(), b.getId());
             }
         });
+        validatePositiveMips(vms);
 
+        int taskCount = tasks.size();
+        int vmCount = vms.size();
+        List<List<Integer>> compatibleIndices = compatibleVmIndices(tasks, vms);
+        Random random = SimulationRandom.newJavaRandom("planning.pso");
+
+        List<PsoParticle> swarm = initSwarm(taskCount, vmCount, random, compatibleIndices);
+        PsoResult result = evolveSwarm(swarm, tasks, vms, compatibleIndices, random, vmCount);
+
+        // R8 审计修复（算法通道 P2-3）：若所有适应度均为 NaN（mips 校验后
+        // 理论不可达，但防御性保留），globalBestPosition 会停在 null，
+        // 原代码在此处以空指针崩溃。显式 fail-fast 指向根因。
+        if (result.position == null) {
+            throw new IllegalStateException("PSO did not converge to any finite-fitness position (all particle "
+                    + "fitnesses were NaN); check task lengths and VM MIPS");
+        }
+
+        // 收敛后写入全局最优映射。
+        writeMapping(tasks, vms, result.position);
+        lastBestFitness = result.fitness;
+    }
+
+    /** {@link #run()} 的 MIPS 入口校验阶段（R8 审计修复 P2-3 原文搬运转写）。 */
+    private static void validatePositiveMips(List<Vm> vms) {
         // R8 审计修复（算法通道 P2-3）：适应度按 length/mips 计算成本，
         // mips 非正数会产生 Inf/NaN 适应度并污染整个粒子群，最终以
         // globalBestPosition 空指针崩溃。入口处 fail-fast。
@@ -109,12 +133,11 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
                         "PSO requires every VM to have finite positive MIPS; VM #" + vm.getId() + " has " + mips);
             }
         }
+    }
 
-        int taskCount = tasks.size();
-        int vmCount = vms.size();
-        List<List<Integer>> compatibleIndices = compatibleVmIndices(tasks, vms);
-        Random random = SimulationRandom.newJavaRandom("planning.pso");
-
+    /** {@link #run()} 的粒子群初始化阶段（逐字搬运转写）。 */
+    private static List<PsoParticle> initSwarm(
+            int taskCount, int vmCount, Random random, List<List<Integer>> compatibleIndices) {
         List<PsoParticle> swarm = new ArrayList<PsoParticle>();
         for (int i = 0; i < POPULATION_SIZE; i++) {
             PsoParticle particle = new PsoParticle(taskCount, vmCount, random);
@@ -122,10 +145,18 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
             particle.setBestPosition(particle.getPosition());
             swarm.add(particle);
         }
+        return swarm;
+    }
 
-        int[] globalBestPosition = null;
-        double globalBestFitness = Double.MAX_VALUE;
-
+    /** {@link #run()} 的迭代进化阶段（适应度→全局最优→速度/位置更新，逐字搬运转写）。 */
+    private PsoResult evolveSwarm(
+            List<PsoParticle> swarm,
+            List<Task> tasks,
+            List<Vm> vms,
+            List<List<Integer>> compatibleIndices,
+            Random random,
+            int vmCount) {
+        PsoResult result = new PsoResult();
         for (int iter = 0; iter < MAX_ITERATIONS; iter++) {
             for (PsoParticle particle : swarm) {
                 double fitness = PsoFitnessFunction.evaluate(particle.getPosition(), tasks, vms, COST_WEIGHT);
@@ -133,41 +164,41 @@ public class PSOPlanningAlgorithm extends BasePlanningAlgorithm {
                     particle.setBestPosition(particle.getPosition());
                     particle.setBestFitness(fitness);
                 }
-                if (fitness < globalBestFitness) {
-                    globalBestPosition = particle.getPosition().clone();
-                    globalBestFitness = fitness;
+                if (fitness < result.fitness) {
+                    result.position = particle.getPosition().clone();
+                    result.fitness = fitness;
                 }
             }
-            if (globalBestPosition == null) {
+            if (result.position == null) {
                 throw new IllegalStateException(
                         "PSO found no finite-fitness compatible mapping; " + "check task costs and VM MIPS");
             }
             for (PsoParticle particle : swarm) {
                 particle.updateVelocity(
-                        globalBestPosition, INERTIA_WEIGHT, COGNITIVE_COEFFICIENT, SOCIAL_COEFFICIENT, random);
+                        result.position, INERTIA_WEIGHT, COGNITIVE_COEFFICIENT, SOCIAL_COEFFICIENT, random);
                 particle.updatePosition(vmCount);
                 constrainToCompatibleVms(particle.getPosition(), compatibleIndices);
             }
             lastIterationCount = iter + 1;
         }
+        return result;
+    }
 
-        // R8 审计修复（算法通道 P2-3）：若所有适应度均为 NaN（mips 校验后
-        // 理论不可达，但防御性保留），globalBestPosition 会停在 null，
-        // 原代码在此处以空指针崩溃。显式 fail-fast 指向根因。
-        if (globalBestPosition == null) {
-            throw new IllegalStateException("PSO did not converge to any finite-fitness position (all particle "
-                    + "fitnesses were NaN); check task lengths and VM MIPS");
-        }
-
-        // 收敛后写入全局最优映射。
+    /** {@link #run()} 的收敛映射阶段（逐字搬运转写）。 */
+    private void writeMapping(List<Task> tasks, List<Vm> vms, int[] globalBestPosition) {
         lastMapping.clear();
-        for (int i = 0; i < taskCount; i++) {
+        for (int i = 0; i < tasks.size(); i++) {
             Task task = tasks.get(i);
             Vm vm = vms.get(globalBestPosition[i]);
             task.setVmId(vm.getId());
             lastMapping.put(Integer.valueOf(task.getCloudletId()), Integer.valueOf(vm.getId()));
         }
-        lastBestFitness = globalBestFitness;
+    }
+
+    /** {PSO} 迭代阶段的私有搬运结构（全局最优位置与适应度）。 */
+    private static final class PsoResult {
+        private int[] position;
+        private double fitness = Double.MAX_VALUE;
     }
 
     private static List<List<Integer>> compatibleVmIndices(List<Task> tasks, List<Vm> vms) {
