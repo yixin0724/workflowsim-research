@@ -87,6 +87,36 @@ public final class WorkflowProfile {
             return new WorkflowProfile(0, 0, 0, 0, 0, 0, 0L, 0.0, 0.0, 0, 0, 0.0, 0, 0, 0.0);
         }
 
+        List<Task> tasks = sortedByCloudletId(sourceTasks);
+        indexById(tasks);
+        Set<Task> taskSet = new HashSet<Task>(tasks);
+
+        EdgeStatistics edgeStats = validateAndCountEdges(tasks, taskSet);
+
+        DepthStatistics depthStats = computeDepthStatistics(tasks, edgeStats.remainingParents, edgeStats.depthByTask);
+
+        FileSummary files = summarizeFiles(tasks);
+        LengthStatistics lengthStats = computeLengthStatistics(tasks, edgeStats.totalLength);
+        return new WorkflowProfile(
+                tasks.size(),
+                edgeStats.edges,
+                edgeStats.roots,
+                edgeStats.leaves,
+                depthStats.maximumDepth,
+                depthStats.maximumWidth,
+                edgeStats.totalLength,
+                lengthStats.meanLength,
+                lengthStats.coefficientOfVariation,
+                files.references,
+                files.filesByName.size(),
+                files.totalDistinctBytes,
+                files.externalReferences,
+                files.externalFilesByName.size(),
+                files.totalDistinctExternalBytes);
+    }
+
+    /** {@link #fromTasks} 的确定性排序阶段：按 cloudletId 升序（tie-break 红线：禁止迭代序漂移）。 */
+    private static List<Task> sortedByCloudletId(List<Task> sourceTasks) {
         List<Task> tasks = new ArrayList<Task>(sourceTasks);
         Collections.sort(tasks, new Comparator<Task>() {
             @Override
@@ -94,20 +124,23 @@ public final class WorkflowProfile {
                 return Integer.compare(first.getCloudletId(), second.getCloudletId());
             }
         });
+        return tasks;
+    }
+
+    /** {@link #fromTasks} 的索引阶段：null/重复 ID 直接拒绝。 */
+    private static Map<Integer, Task> indexById(List<Task> tasks) {
         Map<Integer, Task> tasksById = new HashMap<Integer, Task>();
         for (Task task : tasks) {
             if (task == null || tasksById.put(task.getCloudletId(), task) != null) {
                 throw new IllegalArgumentException("Source workflow has a null or duplicate task ID");
             }
         }
+        return tasksById;
+    }
 
-        Set<Task> taskSet = new HashSet<Task>(tasks);
-        Map<Task, Integer> remainingParents = new HashMap<Task, Integer>();
-        Map<Task, Integer> depthByTask = new HashMap<Task, Integer>();
-        int edges = 0;
-        int roots = 0;
-        int leaves = 0;
-        long totalLength = 0L;
+    /** {@link #fromTasks} 的边统计阶段：邻接表合法性 + 根/叶/边数/总长度。 */
+    private static EdgeStatistics validateAndCountEdges(List<Task> tasks, Set<Task> taskSet) {
+        EdgeStatistics stats = new EdgeStatistics();
         for (Task task : tasks) {
             List<Task> parents = requireTaskList(task.getParentList(), task, "parent");
             List<Task> children = requireTaskList(task.getChildList(), task, "child");
@@ -125,22 +158,27 @@ public final class WorkflowProfile {
                             "Source workflow has an asymmetric child edge for task " + task.getCloudletId());
                 }
             }
-            remainingParents.put(task, Integer.valueOf(parents.size()));
+            stats.remainingParents.put(task, Integer.valueOf(parents.size()));
             if (parents.isEmpty()) {
-                roots++;
-                depthByTask.put(task, Integer.valueOf(0));
+                stats.roots++;
+                stats.depthByTask.put(task, Integer.valueOf(0));
             }
             if (children.isEmpty()) {
-                leaves++;
+                stats.leaves++;
             }
-            edges += children.size();
+            stats.edges += children.size();
             try {
-                totalLength = Math.addExact(totalLength, task.getCloudletTotalLength());
+                stats.totalLength = Math.addExact(stats.totalLength, task.getCloudletTotalLength());
             } catch (ArithmeticException exception) {
                 throw new IllegalArgumentException("Source workflow total task length overflows long", exception);
             }
         }
+        return stats;
+    }
 
+    /** {@link #fromTasks} 的深度阶段：ID 序就绪队列的层次遍历 + 宽度/入队校验（环检测）。 */
+    private static DepthStatistics computeDepthStatistics(
+            List<Task> tasks, Map<Task, Integer> remainingParents, Map<Task, Integer> depthByTask) {
         PriorityQueue<Task> ready = new PriorityQueue<Task>(tasks.size(), new Comparator<Task>() {
             @Override
             public int compare(Task first, Task second) {
@@ -176,12 +214,16 @@ public final class WorkflowProfile {
         if (processed != tasks.size()) {
             throw new IllegalArgumentException("Source workflow graph contains a dependency cycle");
         }
-        int maximumWidth = 0;
+        DepthStatistics stats = new DepthStatistics();
+        stats.maximumDepth = maximumDepth;
         for (Integer width : widthByDepth.values()) {
-            maximumWidth = Math.max(maximumWidth, width.intValue());
+            stats.maximumWidth = Math.max(stats.maximumWidth, width.intValue());
         }
+        return stats;
+    }
 
-        FileSummary files = summarizeFiles(tasks);
+    /** {@link #fromTasks} 的长度统计阶段：均值与变异系数（求和顺序与原实现逐序一致）。 */
+    private static LengthStatistics computeLengthStatistics(List<Task> tasks, long totalLength) {
         double meanLength = (double) totalLength / tasks.size();
         double variance = 0.0;
         for (Task task : tasks) {
@@ -189,22 +231,30 @@ public final class WorkflowProfile {
             variance += difference * difference;
         }
         double coefficientOfVariation = meanLength == 0.0 ? 0.0 : Math.sqrt(variance / tasks.size()) / meanLength;
-        return new WorkflowProfile(
-                tasks.size(),
-                edges,
-                roots,
-                leaves,
-                maximumDepth,
-                maximumWidth,
-                totalLength,
-                meanLength,
-                coefficientOfVariation,
-                files.references,
-                files.filesByName.size(),
-                files.totalDistinctBytes,
-                files.externalReferences,
-                files.externalFilesByName.size(),
-                files.totalDistinctExternalBytes);
+        LengthStatistics stats = new LengthStatistics();
+        stats.meanLength = meanLength;
+        stats.coefficientOfVariation = coefficientOfVariation;
+        return stats;
+    }
+
+    /** {@link #fromTasks} 阶段间的私有搬运结构（字段直读，无转发行为）。 */
+    private static final class EdgeStatistics {
+        private final Map<Task, Integer> remainingParents = new HashMap<Task, Integer>();
+        private final Map<Task, Integer> depthByTask = new HashMap<Task, Integer>();
+        private int edges;
+        private int roots;
+        private int leaves;
+        private long totalLength;
+    }
+
+    private static final class DepthStatistics {
+        private int maximumDepth;
+        private int maximumWidth;
+    }
+
+    private static final class LengthStatistics {
+        private double meanLength;
+        private double coefficientOfVariation;
     }
 
     private static List<Task> requireTaskList(List<Task> values, Task task, String role) {
