@@ -306,173 +306,153 @@ public final class SimulationMetrics {
         }
         Map<Integer, SimulationReport.JobOutcome> jobsById = jobOutcomesById(jobs);
         Set<Integer> retryJobIds = retryJobIds(events, jobsById);
-        Map<Integer, Double> readyTimes = new LinkedHashMap<Integer, Double>();
-        Map<Integer, Double> decisionTimes = new LinkedHashMap<Integer, Double>();
-        long totalSchedulingNanos = 0L;
-        int schedulingCycles = 0;
-        long totalPlanningNanos = 0L;
-        int explicitPlannerDecisions = 0;
-        int dataStageInObservations = 0;
-        int modeledTransferFiles = 0;
-        double totalTransferSeconds = 0.0;
-        double totalRequiredInputBytes = 0.0;
-        for (SimulationEvent event : events) {
-            if (event.getType() == SimulationEventType.JOB_READY && event.getJobId() != null) {
-                // PLAT-16：每个作业只应有一个 JOB_READY 事件（retry 作业使用新 jobId）。
-                // 重复事件说明事件流被破坏，静默覆盖会让等待时间指标悄悄失真，故 fail-fast。
-                Double previousReady = readyTimes.put(event.getJobId(), event.getSimulationTime());
-                if (previousReady != null) {
-                    throw new IllegalStateException("Duplicate JOB_READY event for job "
-                            + event.getJobId() + ": ready time was already recorded at "
-                            + previousReady + " but a second event arrived at "
-                            + event.getSimulationTime());
-                }
-            } else if (event.getType() == SimulationEventType.SCHEDULING_DECISION && event.getJobId() != null) {
-                // PLAT-16：同上，SCHEDULING_DECISION 每作业恰一次，重复即事件流破坏。
-                Double previousDecision = decisionTimes.put(event.getJobId(), event.getSimulationTime());
-                if (previousDecision != null) {
-                    throw new IllegalStateException("Duplicate SCHEDULING_DECISION event for job "
-                            + event.getJobId() + ": decision time was already recorded at "
-                            + previousDecision + " but a second event arrived at "
-                            + event.getSimulationTime());
-                }
-            } else if (event.getType() == SimulationEventType.SCHEDULING_CYCLE) {
-                schedulingCycles++;
-                Object elapsed = event.getAttributes().get("decisionElapsedNanos");
-                if (elapsed instanceof Number) {
-                    totalSchedulingNanos += ((Number) elapsed).longValue();
-                }
-            } else if (event.getType() == SimulationEventType.PLANNING_COMPLETED
-                    && Boolean.TRUE.equals(event.getAttributes().get("explicitPlannerDecision"))) {
-                explicitPlannerDecisions++;
-                totalPlanningNanos += requiredNonNegativeLongAttribute(event, "planningDecisionElapsedNanos");
-            } else if (event.getType() == SimulationEventType.DATA_STAGE_IN_MODELED) {
-                dataStageInObservations++;
-                totalTransferSeconds += requiredFiniteNonNegativeAttribute(event, "modeledTransferSeconds");
-                totalRequiredInputBytes += requiredFiniteNonNegativeAttribute(event, "requiredFileBytes");
-                modeledTransferFiles += requiredNonNegativeIntegerAttribute(event, "modeledTransferFileCount");
-            }
-        }
+        EventTiming timing = scanTimingEvents(events);
 
-        int compute = 0;
-        int stageIn = 0;
-        int success = 0;
-        int failure = 0;
-        int computeSuccess = 0;
-        int computeFailure = 0;
-        double computeRunTimeSum = 0.0;
-        double jobWaitingTimeSum = 0.0;
-        double jobResponseTimeSum = 0.0;
-        double jobSlowdownSum = 0.0;
-        int jobSlowdownCount = 0;
-        double trueSlowdownSum = 0.0;
-        int trueSlowdownCount = 0;
-        double readyToDecisionSum = 0.0;
-        int readyToDecisionCount = 0;
-        double decisionToStartSum = 0.0;
-        int decisionToStartCount = 0;
-        double totalWaitingTimeSum = 0.0;
-        int totalWaitingTimeCount = 0;
-        // 分布统计样本（中位数/p95/max）与 success-only 变体累加器。
-        List<Double> totalWaitingSamples = new ArrayList<Double>();
-        List<Double> trueSlowdownSamples = new ArrayList<Double>();
-        double successOnlyTotalWaitingSum = 0.0;
-        double successOnlyTrueSlowdownSum = 0.0;
-        int successOnlyWaitingObservationCount = 0;
-        double cost = 0.0;
-        double cpuEnvelopeCost = 0.0;
-        double declaredFileBandwidthCost = 0.0;
-        double declaredFileBytes = 0.0;
-        int completedRetryComputeJobs = 0;
-        double retryComputeCost = 0.0;
-        double failedComputeEnvelopeSeconds = 0.0;
-        double failedComputeCost = 0.0;
         Map<Integer, MutableVmMetrics> vm = new LinkedHashMap<Integer, MutableVmMetrics>();
         for (Integer vmId : summaries.keySet()) {
             vm.put(vmId, new MutableVmMetrics(vmId));
         }
+        JobAccumulators acc = accumulateJobOutcomes(jobs, retryJobIds, timing, vm);
 
+        return assembleMetrics(
+                makespan, jobs, taskOutcomes, sourceTasks, config, platform, jobsById, retryJobIds, timing, vm, acc);
+    }
+
+    /** Job 结算扫描阶段（逐字搬运转写自 calculate()；compute 分支单列搬运）。 */
+    private static JobAccumulators accumulateJobOutcomes(
+            List<SimulationReport.JobOutcome> jobs,
+            Set<Integer> retryJobIds,
+            EventTiming timing,
+            Map<Integer, MutableVmMetrics> vm) {
+        JobAccumulators acc = new JobAccumulators();
         for (SimulationReport.JobOutcome job : jobs) {
             if (job.getStatus() == Cloudlet.SUCCESS) {
-                success++;
+                acc.success++;
             } else if (job.getStatus() == Cloudlet.FAILED) {
-                failure++;
+                acc.failure++;
             }
-            cost += job.getModeledProcessingCost();
-            cpuEnvelopeCost += job.getModeledCpuEnvelopeCost();
-            declaredFileBandwidthCost += job.getModeledDeclaredFileBandwidthCost();
-            declaredFileBytes += job.getModeledDeclaredFileBytes();
+            acc.cost += job.getModeledProcessingCost();
+            acc.cpuEnvelopeCost += job.getModeledCpuEnvelopeCost();
+            acc.declaredFileBandwidthCost += job.getModeledDeclaredFileBandwidthCost();
+            acc.declaredFileBytes += job.getModeledDeclaredFileBytes();
             MutableVmMetrics perVm = vm.get(job.getVmId());
             if (perVm != null) {
                 perVm.add(job);
             }
 
             if (job.getClassType() == Parameters.ClassType.COMPUTE.value) {
-                compute++;
-                if (retryJobIds.contains(job.getJobId())) {
-                    completedRetryComputeJobs++;
-                    retryComputeCost += job.getModeledProcessingCost();
-                }
-                if (job.getStatus() == Cloudlet.SUCCESS) {
-                    computeSuccess++;
-                } else if (job.getStatus() == Cloudlet.FAILED) {
-                    computeFailure++;
-                    failedComputeEnvelopeSeconds += nonNegative(job.getFinishTime() - job.getStartTime());
-                    failedComputeCost += job.getModeledProcessingCost();
-                }
-                computeRunTimeSum += nonNegative(job.getFinishTime() - job.getStartTime());
-
-                // 统计等待时间和响应时间（所有作业，包括成功和失败）
-                jobWaitingTimeSum += job.getWaitingTime();
-                jobResponseTimeSum += job.getResponseTime();
-
-                // 统计减速比（仅执行时间 > 0.001 秒的作业，避免除零）
-                if (job.getExecutionTime() > 0.001) {
-                    double slowdown = job.getResponseTime() / job.getExecutionTime();
-                    jobSlowdownSum += slowdown;
-                    jobSlowdownCount++;
-                }
-
-                Double ready = readyTimes.get(job.getJobId());
-                Double decision = decisionTimes.get(job.getJobId());
-                if (ready != null && decision != null && decision.doubleValue() >= ready.doubleValue()) {
-                    readyToDecisionSum += decision.doubleValue() - ready.doubleValue();
-                    readyToDecisionCount++;
-                }
-                if (decision != null && job.getStartTime() >= decision.doubleValue()) {
-                    decisionToStartSum += job.getStartTime() - decision.doubleValue();
-                    decisionToStartCount++;
-                }
-                // 总等待时间（就绪到开始执行）：涵盖调度器队列等待 + 派发延迟
-                if (ready != null && job.getStartTime() >= ready.doubleValue()) {
-                    double trueWait = job.getStartTime() - ready.doubleValue();
-                    double execTime = nonNegative(job.getFinishTime() - job.getStartTime());
-                    // 真实减速比（bounded slowdown，Feitelson 标准）：
-                    // max( (真实等待 + 执行时间) / max(执行时间, 10s), 1.0 )
-                    // 分母下限 10 秒防止极短作业导致数值爆炸；
-                    // 外层 max(1) 保证减速比语义（不存在 "加速"）
-                    double boundedExec = Math.max(execTime, BOUNDED_SLOWDOWN_THRESHOLD_SECONDS);
-                    double trueSlowdown = Math.max((trueWait + execTime) / boundedExec, 1.0);
-
-                    totalWaitingTimeSum += trueWait;
-                    totalWaitingTimeCount++;
-                    totalWaitingSamples.add(Double.valueOf(trueWait));
-                    trueSlowdownSum += trueSlowdown;
-                    trueSlowdownCount++;
-                    trueSlowdownSamples.add(Double.valueOf(trueSlowdown));
-
-                    // success-only 变体：剔除失败尝试，避免跨失败率方案比较时均值有偏。
-                    if (job.getStatus() == Cloudlet.SUCCESS) {
-                        successOnlyTotalWaitingSum += trueWait;
-                        successOnlyTrueSlowdownSum += trueSlowdown;
-                        successOnlyWaitingObservationCount++;
-                    }
-                }
+                accumulateComputeJob(job, acc, retryJobIds, timing);
             } else if (job.getClassType() == Parameters.ClassType.STAGE_IN.value) {
-                stageIn++;
+                acc.stageIn++;
             }
         }
+        return acc;
+    }
 
+    /** 单个 compute Job 的计数/等待/减速比累计（逐字搬运转写自 calculate() 的 compute 分支）。 */
+    private static void accumulateComputeJob(
+            SimulationReport.JobOutcome job, JobAccumulators acc, Set<Integer> retryJobIds, EventTiming timing) {
+        acc.compute++;
+        if (retryJobIds.contains(job.getJobId())) {
+            acc.completedRetryComputeJobs++;
+            acc.retryComputeCost += job.getModeledProcessingCost();
+        }
+        if (job.getStatus() == Cloudlet.SUCCESS) {
+            acc.computeSuccess++;
+        } else if (job.getStatus() == Cloudlet.FAILED) {
+            acc.computeFailure++;
+            acc.failedComputeEnvelopeSeconds += nonNegative(job.getFinishTime() - job.getStartTime());
+            acc.failedComputeCost += job.getModeledProcessingCost();
+        }
+        acc.computeRunTimeSum += nonNegative(job.getFinishTime() - job.getStartTime());
+
+        // 统计等待时间和响应时间（所有作业，包括成功和失败）
+        acc.jobWaitingTimeSum += job.getWaitingTime();
+        acc.jobResponseTimeSum += job.getResponseTime();
+
+        // 统计减速比（仅执行时间 > 0.001 秒的作业，避免除零）
+        if (job.getExecutionTime() > 0.001) {
+            double slowdown = job.getResponseTime() / job.getExecutionTime();
+            acc.jobSlowdownSum += slowdown;
+            acc.jobSlowdownCount++;
+        }
+
+        Double ready = timing.readyTimes.get(job.getJobId());
+        Double decision = timing.decisionTimes.get(job.getJobId());
+        if (ready != null && decision != null && decision.doubleValue() >= ready.doubleValue()) {
+            acc.readyToDecisionSum += decision.doubleValue() - ready.doubleValue();
+            acc.readyToDecisionCount++;
+        }
+        if (decision != null && job.getStartTime() >= decision.doubleValue()) {
+            acc.decisionToStartSum += job.getStartTime() - decision.doubleValue();
+            acc.decisionToStartCount++;
+        }
+        // 总等待时间（就绪到开始执行）：涵盖调度器队列等待 + 派发延迟
+        if (ready != null && job.getStartTime() >= ready.doubleValue()) {
+            double trueWait = job.getStartTime() - ready.doubleValue();
+            double execTime = nonNegative(job.getFinishTime() - job.getStartTime());
+            // 真实减速比（bounded slowdown，Feitelson 标准）：
+            // max( (真实等待 + 执行时间) / max(执行时间, 10s), 1.0 )
+            // 分母下限 10 秒防止极短作业导致数值爆炸；
+            // 外层 max(1) 保证减速比语义（不存在 "加速"）
+            double boundedExec = Math.max(execTime, BOUNDED_SLOWDOWN_THRESHOLD_SECONDS);
+            double trueSlowdown = Math.max((trueWait + execTime) / boundedExec, 1.0);
+
+            acc.totalWaitingTimeSum += trueWait;
+            acc.totalWaitingTimeCount++;
+            acc.totalWaitingSamples.add(Double.valueOf(trueWait));
+            acc.trueSlowdownSum += trueSlowdown;
+            acc.trueSlowdownCount++;
+            acc.trueSlowdownSamples.add(Double.valueOf(trueSlowdown));
+
+            // success-only 变体：剔除失败尝试，避免跨失败率方案比较时均值有偏。
+            if (job.getStatus() == Cloudlet.SUCCESS) {
+                acc.successOnlyTotalWaitingSum += trueWait;
+                acc.successOnlyTrueSlowdownSum += trueSlowdown;
+                acc.successOnlyWaitingObservationCount++;
+            }
+        }
+    }
+
+    /** calculate() Job 结算口径的私有搬运转写结构（保持原局部变量声明顺序）。 */
+    private static final class JobAccumulators {
+        int compute;
+        int stageIn;
+        int success;
+        int failure;
+        int computeSuccess;
+        int computeFailure;
+        double computeRunTimeSum;
+        double jobWaitingTimeSum;
+        double jobResponseTimeSum;
+        double jobSlowdownSum;
+        int jobSlowdownCount;
+        double trueSlowdownSum;
+        int trueSlowdownCount;
+        double readyToDecisionSum;
+        int readyToDecisionCount;
+        double decisionToStartSum;
+        int decisionToStartCount;
+        double totalWaitingTimeSum;
+        int totalWaitingTimeCount;
+        // 分布统计样本（中位数/p95/max）与 success-only 变体累加器。
+        final List<Double> totalWaitingSamples = new ArrayList<Double>();
+        final List<Double> trueSlowdownSamples = new ArrayList<Double>();
+        double successOnlyTotalWaitingSum;
+        double successOnlyTrueSlowdownSum;
+        int successOnlyWaitingObservationCount;
+        double cost;
+        double cpuEnvelopeCost;
+        double declaredFileBandwidthCost;
+        double declaredFileBytes;
+        int completedRetryComputeJobs;
+        double retryComputeCost;
+        double failedComputeEnvelopeSeconds;
+        double failedComputeCost;
+    }
+
+    /** VM 冻结阶段（逐字搬运转写自 calculate()）。 */
+    private static FrozenVms freezeVmMetrics(double makespan, Map<Integer, MutableVmMetrics> vm) {
         Map<Integer, VmMetrics> frozenVm = new LinkedHashMap<Integer, VmMetrics>();
         List<Double> busyTimes = new ArrayList<Double>();
         double totalBusyInterval = 0.0;
@@ -482,6 +462,32 @@ public final class SimulationMetrics {
             busyTimes.add(metrics.getModeledBusyIntervalSeconds());
             totalBusyInterval += metrics.getModeledBusyIntervalSeconds();
         }
+        return new FrozenVms(frozenVm, busyTimes, totalBusyInterval);
+    }
+
+    /** calculate() VM 冻结阶段的私有搬运转写结构。 */
+    private static final class FrozenVms {
+        final Map<Integer, VmMetrics> frozenVm;
+        final List<Double> busyTimes;
+        final double totalBusyInterval;
+
+        FrozenVms(Map<Integer, VmMetrics> frozenVm, List<Double> busyTimes, double totalBusyInterval) {
+            this.frozenVm = frozenVm;
+            this.busyTimes = busyTimes;
+            this.totalBusyInterval = totalBusyInterval;
+        }
+    }
+
+    /** 逻辑任务完成/关键路径/计划长度比阶段（逐字搬运转写自 calculate()）。 */
+    private static LogicalSupport logicalCompletion(
+            double makespan,
+            List<SimulationReport.JobOutcome> jobs,
+            List<SimulationReport.TaskOutcome> taskOutcomes,
+            List<Task> sourceTasks,
+            Map<Integer, SimulationReport.JobOutcome> jobsById,
+            Set<Integer> retryJobIds,
+            SimulationConfig config,
+            PlatformProfile platform) {
         Set<Integer> logicalTaskIds = logicalTaskIds(sourceTasks, taskOutcomes);
         Map<Integer, Double> earliestSuccessfulJobFinishByLogicalTask =
                 earliestSuccessfulJobFinishByLogicalTask(jobs, logicalTaskIds);
@@ -514,6 +520,58 @@ public final class SimulationMetrics {
                 criticalPathReference.isAvailable() && criticalPathReference.getCriticalPathLowerBoundSeconds() > 0.0
                         ? makespan / criticalPathReference.getCriticalPathLowerBoundSeconds()
                         : 0.0;
+        return new LogicalSupport(
+                logicalTaskCount,
+                logicalSuccesses,
+                logicalTaskCompletionStatus,
+                logicalTaskCompletionSeconds,
+                terminalLifecycleTailSeconds,
+                logicalAttempts,
+                retriedLogicalTasks,
+                criticalPathReference,
+                scheduleLengthRatio);
+    }
+
+    /** calculate() 逻辑任务阶段的私有搬运转写结构。 */
+    private static final class LogicalSupport {
+        final int logicalTaskCount;
+        final int logicalSuccesses;
+        final String logicalTaskCompletionStatus;
+        final Double logicalTaskCompletionSeconds;
+        final Double terminalLifecycleTailSeconds;
+        final int logicalAttempts;
+        final int retriedLogicalTasks;
+        final WorkflowModelReference.Reference criticalPathReference;
+        final double scheduleLengthRatio;
+
+        LogicalSupport(
+                int logicalTaskCount,
+                int logicalSuccesses,
+                String logicalTaskCompletionStatus,
+                Double logicalTaskCompletionSeconds,
+                Double terminalLifecycleTailSeconds,
+                int logicalAttempts,
+                int retriedLogicalTasks,
+                WorkflowModelReference.Reference criticalPathReference,
+                double scheduleLengthRatio) {
+            this.logicalTaskCount = logicalTaskCount;
+            this.logicalSuccesses = logicalSuccesses;
+            this.logicalTaskCompletionStatus = logicalTaskCompletionStatus;
+            this.logicalTaskCompletionSeconds = logicalTaskCompletionSeconds;
+            this.terminalLifecycleTailSeconds = terminalLifecycleTailSeconds;
+            this.logicalAttempts = logicalAttempts;
+            this.retriedLogicalTasks = retriedLogicalTasks;
+            this.criticalPathReference = criticalPathReference;
+            this.scheduleLengthRatio = scheduleLengthRatio;
+        }
+    }
+
+    /** deadline 判定与精确计时样本数阶段（逐字搬运转写自 calculate()，BigDecimal 精确语义注释原位保留）。 */
+    private static DeadlineResults evaluateDeadline(
+            SimulationConfig config,
+            double makespan,
+            List<SimulationReport.TaskOutcome> taskOutcomes,
+            String logicalTaskCompletionStatus) {
         boolean workflowCompleted = "COMPLETED_SUCCESSFULLY".equals(logicalTaskCompletionStatus);
         boolean deadlineEnabled = config.getDeadline() > 0L;
         // Preserve the exact long threshold and the exact binary64 clock before subtracting.
@@ -532,90 +590,206 @@ public final class SimulationMetrics {
                 exactTaskTimingCount++;
             }
         }
-        // ── 指标增强：分布统计、公平性指数、success-only 变体、重试放大率 ──
-        // VM 利用率 Jain 公平性指数：(Σu)² / (n·Σu²)，当前同窗口下与 CV 等价。
-        double vmUtilizationJainFairnessIndex = jainFairnessIndex(vmUtilizations(frozenVm));
-        // 等待/减速比分布统计（排序后最近秩法取中位数/p95/max）。
-        Collections.sort(totalWaitingSamples);
-        Collections.sort(trueSlowdownSamples);
-        double retryAmplificationRatio = logicalTaskCount > 0 ? (double) logicalAttempts / logicalTaskCount : 0.0;
-        return new SimulationMetrics(
-                makespan,
-                logicalTaskCompletionSeconds,
-                logicalTaskCompletionStatus,
-                terminalLifecycleTailSeconds,
-                jobs.size(),
-                compute,
-                stageIn,
-                success,
-                failure,
-                computeSuccess,
-                computeFailure,
-                ratio(computeSuccess, compute),
-                makespan > 0.0 ? compute / makespan : 0.0,
-                logicalTaskCount,
-                logicalSuccesses,
-                logicalTaskCount - logicalSuccesses,
-                ratio(logicalSuccesses, logicalTaskCount),
+        return new DeadlineResults(
                 workflowCompleted,
-                compute - completedRetryComputeJobs,
-                retryJobIds.size(),
-                completedRetryComputeJobs,
-                logicalAttempts,
-                retriedLogicalTasks,
-                failedComputeEnvelopeSeconds,
-                failedComputeCost,
-                retryComputeCost,
-                mean(computeRunTimeSum, compute),
-                mean(jobWaitingTimeSum, compute),
-                mean(jobResponseTimeSum, compute),
-                mean(jobSlowdownSum, jobSlowdownCount),
-                jobSlowdownCount,
-                mean(totalWaitingTimeSum, totalWaitingTimeCount),
-                mean(trueSlowdownSum, trueSlowdownCount),
-                trueSlowdownCount,
-                totalWaitingTimeCount,
-                percentile(totalWaitingSamples, 0.5),
-                percentile(totalWaitingSamples, 0.95),
-                percentile(totalWaitingSamples, 1.0),
-                percentile(trueSlowdownSamples, 0.5),
-                percentile(trueSlowdownSamples, 0.95),
-                percentile(trueSlowdownSamples, 1.0),
-                mean(successOnlyTotalWaitingSum, successOnlyWaitingObservationCount),
-                mean(successOnlyTrueSlowdownSum, successOnlyWaitingObservationCount),
-                successOnlyWaitingObservationCount,
-                retryAmplificationRatio,
-                mean(readyToDecisionSum, readyToDecisionCount),
-                mean(decisionToStartSum, decisionToStartCount),
-                readyToDecisionCount,
-                decisionToStartCount,
-                schedulingCycles,
-                totalSchedulingNanos,
-                explicitPlannerDecisions,
-                totalPlanningNanos,
-                dataStageInObservations,
-                modeledTransferFiles,
-                totalTransferSeconds,
-                totalRequiredInputBytes,
-                mean(totalTransferSeconds, dataStageInObservations),
-                cost,
-                cpuEnvelopeCost,
-                declaredFileBandwidthCost,
-                declaredFileBytes,
-                frozenVm,
-                totalBusyInterval,
-                makespan > 0.0 && !frozenVm.isEmpty() ? totalBusyInterval / (makespan * frozenVm.size()) : 0.0,
-                coefficientOfVariation(busyTimes),
-                vmUtilizationJainFairnessIndex,
-                criticalPathReference,
-                scheduleLengthRatio,
                 deadlineEnabled,
                 deadlineOutcome,
                 deadlineMet,
                 deadlineSlack,
                 deadlineTardiness,
-                exactTaskTimingCount,
-                taskOutcomes.size() - exactTaskTimingCount);
+                exactTaskTimingCount);
+    }
+
+    /** calculate() deadline 阶段的私有搬运转写结构。 */
+    private static final class DeadlineResults {
+        final boolean workflowCompleted;
+        final boolean deadlineEnabled;
+        final String outcome;
+        final boolean met;
+        final double slack;
+        final double tardiness;
+        final int exactTaskTimingCount;
+
+        DeadlineResults(
+                boolean workflowCompleted,
+                boolean deadlineEnabled,
+                String outcome,
+                boolean met,
+                double slack,
+                double tardiness,
+                int exactTaskTimingCount) {
+            this.workflowCompleted = workflowCompleted;
+            this.deadlineEnabled = deadlineEnabled;
+            this.outcome = outcome;
+            this.met = met;
+            this.slack = slack;
+            this.tardiness = tardiness;
+            this.exactTaskTimingCount = exactTaskTimingCount;
+        }
+    }
+
+    /** 组装阶段（逐字搬运转写自 calculate()；77 参构造调用是不可变快照类的单一原子语句，行数接近规则上限）。 */
+    private static SimulationMetrics assembleMetrics(
+            double makespan,
+            List<SimulationReport.JobOutcome> jobs,
+            List<SimulationReport.TaskOutcome> taskOutcomes,
+            List<Task> sourceTasks,
+            SimulationConfig config,
+            PlatformProfile platform,
+            Map<Integer, SimulationReport.JobOutcome> jobsById,
+            Set<Integer> retryJobIds,
+            EventTiming timing,
+            Map<Integer, MutableVmMetrics> vm,
+            JobAccumulators acc) {
+        FrozenVms frozen = freezeVmMetrics(makespan, vm);
+        LogicalSupport logical =
+                logicalCompletion(makespan, jobs, taskOutcomes, sourceTasks, jobsById, retryJobIds, config, platform);
+        DeadlineResults deadline =
+                evaluateDeadline(config, makespan, taskOutcomes, logical.logicalTaskCompletionStatus);
+        // ── 指标增强：分布统计、公平性指数、success-only 变体、重试放大率 ──
+        // VM 利用率 Jain 公平性指数：(Σu)² / (n·Σu²)，当前同窗口下与 CV 等价。
+        double vmUtilizationJainFairnessIndex = jainFairnessIndex(vmUtilizations(frozen.frozenVm));
+        // 等待/减速比分布统计（排序后最近秩法取中位数/p95/max）。
+        Collections.sort(acc.totalWaitingSamples);
+        Collections.sort(acc.trueSlowdownSamples);
+        double retryAmplificationRatio =
+                logical.logicalTaskCount > 0 ? (double) logical.logicalAttempts / logical.logicalTaskCount : 0.0;
+        return new SimulationMetrics(
+                makespan,
+                logical.logicalTaskCompletionSeconds,
+                logical.logicalTaskCompletionStatus,
+                logical.terminalLifecycleTailSeconds,
+                jobs.size(),
+                acc.compute,
+                acc.stageIn,
+                acc.success,
+                acc.failure,
+                acc.computeSuccess,
+                acc.computeFailure,
+                ratio(acc.computeSuccess, acc.compute),
+                makespan > 0.0 ? acc.compute / makespan : 0.0,
+                logical.logicalTaskCount,
+                logical.logicalSuccesses,
+                logical.logicalTaskCount - logical.logicalSuccesses,
+                ratio(logical.logicalSuccesses, logical.logicalTaskCount),
+                deadline.workflowCompleted,
+                acc.compute - acc.completedRetryComputeJobs,
+                retryJobIds.size(),
+                acc.completedRetryComputeJobs,
+                logical.logicalAttempts,
+                logical.retriedLogicalTasks,
+                acc.failedComputeEnvelopeSeconds,
+                acc.failedComputeCost,
+                acc.retryComputeCost,
+                mean(acc.computeRunTimeSum, acc.compute),
+                mean(acc.jobWaitingTimeSum, acc.compute),
+                mean(acc.jobResponseTimeSum, acc.compute),
+                mean(acc.jobSlowdownSum, acc.jobSlowdownCount),
+                acc.jobSlowdownCount,
+                mean(acc.totalWaitingTimeSum, acc.totalWaitingTimeCount),
+                mean(acc.trueSlowdownSum, acc.trueSlowdownCount),
+                acc.trueSlowdownCount,
+                acc.totalWaitingTimeCount,
+                percentile(acc.totalWaitingSamples, 0.5),
+                percentile(acc.totalWaitingSamples, 0.95),
+                percentile(acc.totalWaitingSamples, 1.0),
+                percentile(acc.trueSlowdownSamples, 0.5),
+                percentile(acc.trueSlowdownSamples, 0.95),
+                percentile(acc.trueSlowdownSamples, 1.0),
+                mean(acc.successOnlyTotalWaitingSum, acc.successOnlyWaitingObservationCount),
+                mean(acc.successOnlyTrueSlowdownSum, acc.successOnlyWaitingObservationCount),
+                acc.successOnlyWaitingObservationCount,
+                retryAmplificationRatio,
+                mean(acc.readyToDecisionSum, acc.readyToDecisionCount),
+                mean(acc.decisionToStartSum, acc.decisionToStartCount),
+                acc.readyToDecisionCount,
+                acc.decisionToStartCount,
+                timing.schedulingCycles,
+                timing.totalSchedulingNanos,
+                timing.explicitPlannerDecisions,
+                timing.totalPlanningNanos,
+                timing.dataStageInObservations,
+                timing.modeledTransferFiles,
+                timing.totalTransferSeconds,
+                timing.totalRequiredInputBytes,
+                mean(timing.totalTransferSeconds, timing.dataStageInObservations),
+                acc.cost,
+                acc.cpuEnvelopeCost,
+                acc.declaredFileBandwidthCost,
+                acc.declaredFileBytes,
+                frozen.frozenVm,
+                frozen.totalBusyInterval,
+                makespan > 0.0 && !frozen.frozenVm.isEmpty()
+                        ? frozen.totalBusyInterval / (makespan * frozen.frozenVm.size())
+                        : 0.0,
+                coefficientOfVariation(frozen.busyTimes),
+                vmUtilizationJainFairnessIndex,
+                logical.criticalPathReference,
+                logical.scheduleLengthRatio,
+                deadline.deadlineEnabled,
+                deadline.outcome,
+                deadline.met,
+                deadline.slack,
+                deadline.tardiness,
+                deadline.exactTaskTimingCount,
+                taskOutcomes.size() - deadline.exactTaskTimingCount);
+    }
+
+    /** 事件计时扫描阶段（逐字搬运转写自 calculate()，PLAT-16 重复事件 fail-fast 原位保留）。 */
+    private static EventTiming scanTimingEvents(List<SimulationEvent> events) {
+        EventTiming timing = new EventTiming();
+        for (SimulationEvent event : events) {
+            if (event.getType() == SimulationEventType.JOB_READY && event.getJobId() != null) {
+                // PLAT-16：每个作业只应有一个 JOB_READY 事件（retry 作业使用新 jobId）。
+                // 重复事件说明事件流被破坏，静默覆盖会让等待时间指标悄悄失真，故 fail-fast。
+                Double previousReady = timing.readyTimes.put(event.getJobId(), event.getSimulationTime());
+                if (previousReady != null) {
+                    throw new IllegalStateException("Duplicate JOB_READY event for job "
+                            + event.getJobId() + ": ready time was already recorded at "
+                            + previousReady + " but a second event arrived at "
+                            + event.getSimulationTime());
+                }
+            } else if (event.getType() == SimulationEventType.SCHEDULING_DECISION && event.getJobId() != null) {
+                // PLAT-16：同上，SCHEDULING_DECISION 每作业恰一次，重复即事件流破坏。
+                Double previousDecision = timing.decisionTimes.put(event.getJobId(), event.getSimulationTime());
+                if (previousDecision != null) {
+                    throw new IllegalStateException("Duplicate SCHEDULING_DECISION event for job "
+                            + event.getJobId() + ": decision time was already recorded at "
+                            + previousDecision + " but a second event arrived at "
+                            + event.getSimulationTime());
+                }
+            } else if (event.getType() == SimulationEventType.SCHEDULING_CYCLE) {
+                timing.schedulingCycles++;
+                Object elapsed = event.getAttributes().get("decisionElapsedNanos");
+                if (elapsed instanceof Number) {
+                    timing.totalSchedulingNanos += ((Number) elapsed).longValue();
+                }
+            } else if (event.getType() == SimulationEventType.PLANNING_COMPLETED
+                    && Boolean.TRUE.equals(event.getAttributes().get("explicitPlannerDecision"))) {
+                timing.explicitPlannerDecisions++;
+                timing.totalPlanningNanos += requiredNonNegativeLongAttribute(event, "planningDecisionElapsedNanos");
+            } else if (event.getType() == SimulationEventType.DATA_STAGE_IN_MODELED) {
+                timing.dataStageInObservations++;
+                timing.totalTransferSeconds += requiredFiniteNonNegativeAttribute(event, "modeledTransferSeconds");
+                timing.totalRequiredInputBytes += requiredFiniteNonNegativeAttribute(event, "requiredFileBytes");
+                timing.modeledTransferFiles += requiredNonNegativeIntegerAttribute(event, "modeledTransferFileCount");
+            }
+        }
+        return timing;
+    }
+
+    /** calculate() 事件计时扫描阶段的私有搬运转写结构（保持原局部变量声明顺序）。 */
+    private static final class EventTiming {
+        final Map<Integer, Double> readyTimes = new LinkedHashMap<Integer, Double>();
+        final Map<Integer, Double> decisionTimes = new LinkedHashMap<Integer, Double>();
+        long totalSchedulingNanos;
+        int schedulingCycles;
+        long totalPlanningNanos;
+        int explicitPlannerDecisions;
+        int dataStageInObservations;
+        int modeledTransferFiles;
+        double totalTransferSeconds;
+        double totalRequiredInputBytes;
     }
 
     /**
