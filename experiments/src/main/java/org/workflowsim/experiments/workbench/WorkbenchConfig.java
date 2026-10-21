@@ -49,6 +49,23 @@ public final class WorkbenchConfig {
     }
 
     public static WorkbenchConfig read(Path path) throws IOException {
+        JsonObject root = readJsonDocument(path);
+        validateConfigurationFields(root);
+        String name = text(root, "name", "工作流实验");
+        if (name.length() > 128) {
+            throw new IllegalArgumentException("Experiment name is too long");
+        }
+        List<String> paths = readWorkflowPaths(path, root);
+        List<Double> arrivals = readArrivals(root, paths);
+        PlatformProfile platform = platform(object(root, "platform"));
+        SimulationModels models = readSimulationModels(root, platform);
+        List<Long> seeds = readSeeds(root);
+        List<Candidate> candidates = readCandidates(root, paths, arrivals, platform, models, seeds);
+        return new WorkbenchConfig(name, root.deepCopy(), platform, candidates, seeds);
+    }
+
+    /** 严格 JSON 文档读取（逐字搬运转写自 read())。 */
+    private static JsonObject readJsonDocument(Path path) throws IOException {
         JsonObject root;
         try (com.google.gson.stream.JsonReader reader =
                 new com.google.gson.stream.JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
@@ -60,6 +77,11 @@ public final class WorkbenchConfig {
         } catch (RuntimeException | com.google.gson.stream.MalformedJsonException | java.io.EOFException error) {
             throw new IllegalArgumentException("配置必须是严格 JSON 对象，字段不能重复", error);
         }
+        return root;
+    }
+
+    /** 配置字段白名单与 schema 校验（逐字搬运转写）。 */
+    private static void validateConfigurationFields(JsonObject root) {
         fields(
                 root,
                 "configuration",
@@ -74,10 +96,10 @@ public final class WorkbenchConfig {
         if (!SCHEMA.equals(text(root, "schema", null))) {
             throw new IllegalArgumentException("Unsupported configuration schema");
         }
-        String name = text(root, "name", "工作流实验");
-        if (name.length() > 128) {
-            throw new IllegalArgumentException("Experiment name is too long");
-        }
+    }
+
+    /** workflowPaths 读取与存在性校验（逐字搬运转写）。 */
+    private static List<String> readWorkflowPaths(Path path, JsonObject root) {
         JsonArray inputs = array(root, "workflowPaths");
         if (inputs.size() < 1 || inputs.size() > 32) {
             throw new IllegalArgumentException("workflowPaths requires 1..32 inputs");
@@ -96,6 +118,11 @@ public final class WorkbenchConfig {
             }
             paths.add(resolved.toString());
         }
+        return paths;
+    }
+
+    /** 到达时刻读取与长度一致校验（逐字搬运转写）。 */
+    private static List<Double> readArrivals(JsonObject root, List<String> paths) {
         List<Double> arrivals = new ArrayList<Double>();
         if (root.has("workflowArrivalSeconds")) {
             for (JsonElement value : array(root, "workflowArrivalSeconds")) {
@@ -109,7 +136,11 @@ public final class WorkbenchConfig {
         if (arrivals.size() != paths.size()) {
             throw new IllegalArgumentException("workflowArrivalSeconds must match workflowPaths");
         }
-        PlatformProfile platform = platform(object(root, "platform"));
+        return arrivals;
+    }
+
+    /** 仿真模型组读取与组合校验（逐字搬运转写）。 */
+    private static SimulationModels readSimulationModels(JsonObject root, PlatformProfile platform) {
         JsonObject sim = root.has("simulation") ? object(root, "simulation") : new JsonObject();
         fields(
                 sim,
@@ -139,6 +170,11 @@ public final class WorkbenchConfig {
         }
         if (movement.isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null))
             throw new IllegalArgumentException("sourceStorage must be declared exactly for storage V3 models");
+        return new SimulationModels(sim, fs, movement, networkEvidence);
+    }
+
+    /** 随机种子读取与去重校验（逐字搬运转写）。 */
+    private static List<Long> readSeeds(JsonObject root) {
         List<Long> seeds = new ArrayList<Long>();
         if (root.has("seeds")) {
             for (JsonElement value : array(root, "seeds")) {
@@ -150,6 +186,17 @@ public final class WorkbenchConfig {
         if (seeds.isEmpty() || seeds.size() > 100 || new HashSet<Long>(seeds).size() != seeds.size()) {
             throw new IllegalArgumentException("seeds requires 1..100 distinct integers");
         }
+        return seeds;
+    }
+
+    /** 算法候选与配置组装（逐字搬运转写）。 */
+    private static List<Candidate> readCandidates(
+            JsonObject root,
+            List<String> paths,
+            List<Double> arrivals,
+            PlatformProfile platform,
+            SimulationModels models,
+            List<Long> seeds) {
         List<Candidate> candidates = new ArrayList<Candidate>();
         Set<String> ids = new HashSet<String>();
         String track = null;
@@ -162,7 +209,8 @@ public final class WorkbenchConfig {
             org.workflowsim.data.v2.DataflowAssignmentConfig assignment = algorithm.has("dataflowAssignment")
                     ? org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(algorithm.get("dataflowAssignment"))
                     : org.workflowsim.data.v2.DataflowAssignmentConfig.off();
-            if (assignment.isEnabled() && (!movement.usesCoherentDataflowRuntime() || !networkEvidence.isEnabled()))
+            if (assignment.isEnabled()
+                    && (!models.movement.usesCoherentDataflowRuntime() || !models.networkEvidence.isEnabled()))
                 throw new IllegalArgumentException(
                         "Online destination binding in Workbench requires a coherent model and complete lifecycle recording");
             String id = text(algorithm, "id", null);
@@ -195,25 +243,47 @@ public final class WorkbenchConfig {
             SimulationConfig config = SimulationConfig.builder(
                             paths, platform.getVms().size())
                     .workflowArrivalSeconds(arrivals)
-                    .fileSystem(fs)
-                    .dataMovementModel(movement)
-                    .networkEvidence(networkEvidence)
+                    .fileSystem(models.fileSystem)
+                    .dataMovementModel(models.movement)
+                    .networkEvidence(models.networkEvidence)
                     .dataflowAssignment(assignment)
                     .schedulingAlgorithm(scheduler)
                     .planningAlgorithm(planner)
                     .randomSeed(seeds.get(0))
-                    .runtimeScale(decimal(sim, "runtimeScale", 1, true))
-                    .runtimeReferenceMips(decimal(sim, "runtimeReferenceMips", 1000, true))
-                    .cloudSimMinEventIntervalSeconds(decimal(sim, "minEventIntervalSeconds", 0.1, true))
-                    .deadline(sim.has("deadlineSeconds") ? longValue(sim.get("deadlineSeconds"), "deadlineSeconds") : 0)
-                    .taskCostMatrix(matrix(sim))
+                    .runtimeScale(decimal(models.sim, "runtimeScale", 1, true))
+                    .runtimeReferenceMips(decimal(models.sim, "runtimeReferenceMips", 1000, true))
+                    .cloudSimMinEventIntervalSeconds(decimal(models.sim, "minEventIntervalSeconds", 0.1, true))
+                    .deadline(
+                            models.sim.has("deadlineSeconds")
+                                    ? longValue(models.sim.get("deadlineSeconds"), "deadlineSeconds")
+                                    : 0)
+                    .taskCostMatrix(matrix(models.sim))
                     .build();
             candidates.add(new Candidate(id, config));
         }
         if (candidates.isEmpty() || candidates.size() * seeds.size() > 500) {
             throw new IllegalArgumentException("An experiment needs 1..500 runs");
         }
-        return new WorkbenchConfig(name, root.deepCopy(), platform, candidates, seeds);
+        return candidates;
+    }
+
+    /** read() 仿真模型组的私有搬运转写结构。 */
+    private static final class SimulationModels {
+        final JsonObject sim;
+        final ReplicaCatalog.FileSystem fileSystem;
+        final DataMovementModel movement;
+        final NetworkEvidenceConfig networkEvidence;
+
+        SimulationModels(
+                JsonObject sim,
+                ReplicaCatalog.FileSystem fileSystem,
+                DataMovementModel movement,
+                NetworkEvidenceConfig networkEvidence) {
+            this.sim = sim;
+            this.fileSystem = fileSystem;
+            this.movement = movement;
+            this.networkEvidence = networkEvidence;
+        }
     }
 
     /** Parse input DAGs and validate model-specific prerequisites without running the simulation. */
@@ -307,6 +377,13 @@ public final class WorkbenchConfig {
                     id, speed, 1, 512, bandwidth, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             result.pinVmToHost(id, id);
         }
+        applySourceStorage(value, result, mips);
+        applyNetworkTopology(value, result, mips);
+        return result.build();
+    }
+
+    /** sourceStorage 子段装配（逐字搬运转写自 platform())。 */
+    private static void applySourceStorage(JsonObject value, PlatformProfile.Builder result, JsonArray mips) {
         if (value.has("sourceStorage")) {
             JsonObject source = object(value, "sourceStorage");
             fields(
@@ -327,6 +404,10 @@ public final class WorkbenchConfig {
                             "sourceStorage.networkBandwidthMbPerSecond",
                             true)));
         }
+    }
+
+    /** networkTopology 子段装配（逐字搬运转写自 platform())。 */
+    private static void applyNetworkTopology(JsonObject value, PlatformProfile.Builder result, JsonArray mips) {
         if (value.has("networkTopology") && !value.get("networkTopology").isJsonNull()) {
             JsonObject topology = object(value, "networkTopology");
             fields(
@@ -367,7 +448,6 @@ public final class WorkbenchConfig {
             FatTreeTopology.fromSpec(spec, hosts);
             result.networkTopology(spec);
         }
-        return result.build();
     }
 
     private static DataMovementModel movement(JsonObject sim) {
