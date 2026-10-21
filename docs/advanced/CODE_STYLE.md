@@ -34,6 +34,15 @@ python3 -B scripts/check-docs.py
 
 新增维护说明以清晰中文为主，既有准确英文契约可保留；论文标题、标准术语和上游名称保留原文。包名、类型、方法、枚举、JSON字段及机器可读协议保持英文，不为文档整理改名。
 
+## Java源码格式与命名（工具强制）
+
+- 规则台账与分级定义唯一维护点：[checkstyle 配置](<../../config/checkstyle/checkstyle.xml>)；测试豁免面见[豁免清单](<../../config/checkstyle/suppressions.xml>)。
+- 分级：**Tier-A（error 级）**为一票否决的语义/正确性规则（命名契约、重复导入、空语句、`equals/hashCode` 契约、字符串`==`、`default`不居末），由 `mvn validate` 起的 `checkstyle:check` 门禁强制失败；**Tier-B（warning 级）**为格式/长度/复杂度建议规则，存量以基线报告在册。
+- ratchet 纪律：规则只增不减。Tier-B 某项存量清零后晋级为 error（阈值与豁免面只能收紧，任何放宽视同契约变更须人工评审）；formatter 归一与存量修复记录见 Git 历史，规范落地进度不在此页复制（避免易变数值成为文档债）。
+- 分层豁免：`org.cloudbus` 上游代码整体退出门禁（不为其引入格式债务）；测试代码豁免体量/复杂度类指标但**不豁免语义防护类**。
+- 修复提交纪律：格式/导入/命名整形一律 `format-only:` 前缀提交，与逻辑变更永不同一 commit；巨方法拆分先全测试绿后提交。
+- 独立验证：`mvn -q validate`（门禁）；`make audit` 或 CI 的 `mvn -B -Pjavadoc verify` 全链路生效。
+
 ## Javadoc与行注释
 
 - 类型/包说明优先解释职责、输入输出、状态所有权、单位和研究边界；公开parser、builder、runner、validator及有副作用入口说明参数、返回和失败条件。

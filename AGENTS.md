@@ -65,6 +65,7 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 | `datasets/` | 工作流输入（三类含 .gitignore 反选） | 不新增全量语料；先查 `datasets/INDEX.json` |
 | `docs/` | 契约文档体系 | 每新文档须入 `docs/README.md` 索引；`check-docs.py` 0 issues |
 | `scripts/` | Python 审计器（纯 stdlib） | 不引入 Node 依赖；自测成对 |
+| `config/` | 代码工具链台账（checkstyle 分级规则等） | 规则只增不减；与 CODE_STYLE.md 同步修订 |
 | `output/` | 运行产物（gitignored） | 只存 tar 正本 + 当前活跃实验；旧堆须清理 |
 | `review-workspace/` | 临时工作区（gitignored） | 工程收尾后整体清除 |
 | `AGENTS.md` | 编码代理守则 | 修改需人工评审 |

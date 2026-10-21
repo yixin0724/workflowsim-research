@@ -48,6 +48,24 @@
                     <skip>true</skip>
                 </configuration>
             </plugin>
+            <!-- 代码规范化工程 Phase 2：checkstyle 分级门禁。
+                 规则台账与分级定义：config/checkstyle/checkstyle.xml（Tier-A error 零容忍 / Tier-B warning 在册）。
+                 只有 severity=error 的违规会失败（violationSeverity=error）；
+                 建议级规则存量由基线报告跟踪、清零后晋级为 error（规则只增不减，见配置文件头注释）。
+                 红线：org.cloudbus* 上游代码在配置内整体退出门禁；测试体量/复杂度豁免见 suppressions.xml。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>checkstyle-tier-gate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
         <pluginManagement>
             <plugins>
@@ -274,6 +292,22 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
                     <version>3.1.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>3.6.0</version>
+                    <configuration>
+                        <!-- 规则台账与分级定义的唯一维护点；规则只增不减（工程红线①）。 -->
+                        <configLocation>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</configLocation>
+                        <propertyExpansion>config_loc=${maven.multiModuleProjectDirectory}/config/checkstyle</propertyExpansion>
+                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <!-- 分级门禁内核：只统计 severity=error（Tier-A），warning 不挂 BUILD。 -->
+                        <violationSeverity>error</violationSeverity>
+                        <failOnViolation>true</failOnViolation>
+                        <logViolationsToConsole>true</logViolationsToConsole>
+                        <consoleOutput>false</consoleOutput>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

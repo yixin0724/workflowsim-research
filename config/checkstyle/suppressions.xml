@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<!--
+  豁免清单：只允许针对"目录/文件维度"收紧豁免（红线：规则只能增加不能减少 →
+  豁免只能缩小，扩大任何豁免都算放宽规则，须在提交信息中说明理由并走人工评审）。
+
+  红线③：测试文件规则可宽松——测试代码只豁免"体量/复杂度/文档性"指标，
+  语义防护类（Tier-A：EqualsHashCode、StringLiteralEquality、DefaultComesLast 等）
+  对测试同样强制：测试代码里的这些缺陷和主代码一样会腐蚀证据链。
+-->
+<suppressions>
+    <!-- 测试体量与复杂度不设门槛（测试允许长 setup / 大参数矩阵） -->
+    <suppress files="[\\/]src[\\/]test[\\/]java[\\/]" checks="MethodLengthCheck"/>
+    <suppress files="[\\/]src[\\/]test[\\/]java[\\/]" checks="CyclomaticComplexityCheck"/>
+
+    <!-- 测试类不要求类型级 Javadoc（实验脚手架，非公开 API 面） -->
+    <suppress files="[\\/]src[\\/]test[\\/]java[\\/]" checks="MissingJavadocTypeCheck"/>
+</suppressions>

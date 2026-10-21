@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  WorkflowSim-yixin 生产级 checkstyle 配置（代码规范化工程 Phase 1）
+
+  分级原则（两档 + ratchet）：
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ Tier-A（severity=error）零容忍：maven checkstyle:check 门禁即失败。        │
+  │   选入标准 = 一票否决的语义/正确性缺陷类 + 新增即 bug 的规则，             │
+  │   且基线审计（2026-10-21，见 review-workspace/codestyle/baseline-report.md）│
+  │   确认当前存量 = 0：第一天 100% 通过。                                    │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │ Tier-B（severity=warning）建议性：全量在册，基线存量见审计报告。          │
+  │   通过"分批修复清零 + 升级为 error"逐条晋级（晋级即规则收紧，永不回退）。  │
+  └────────────────────────────────────────────────────────────────────────────┘
+
+  红线约束（工程目标所载）：
+  ① 规则只能增加不能减少：删除规则或放宽阈值 = 契约变更，须人工评审；
+     suppressions.xml 同理只允许缩小豁免面。
+  ② org.cloudbus.*：CloudSim 上游代码参与格式化（Phase 4 formatter），但完全
+     退出本 checkstyle 质量门禁（见下 BeforeExecutionExclusionFileFilter）。
+  ③ 测试文件的体量/复杂度/文档性豁免见 suppressions.xml；语义防护类不豁免。
+  ⑥ 本配置变更与任何 .java 修复不同 commit（性质的"格式提交与功能提交永不混合"）。
+
+  config_loc：由 maven-checkstyle-plugin propertyExpansion 以
+  ${maven.multiModuleProjectDirectory}/config/checkstyle 注入（Phase 2 接线）。
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="warning"/>
+
+    <!-- ===== 红线②：CloudSim 上游源码整体退出质量门禁 ===== -->
+    <module name="BeforeExecutionExclusionFileFilter">
+        <property name="fileNamePattern" value="[\\/]org[\\/]cloudbus[\\/]"/>
+    </module>
+
+    <!-- ===== 测试宽松（红线③），豁免面只许缩小不许扩大 ===== -->
+    <module name="SuppressionFilter">
+        <property name="file" value="${config_loc}/suppressions.xml"/>
+        <property name="optional" value="false"/>
+    </module>
+
+    <!-- ===== Tier-B：纯机械项（Phase 4 formatter 归一后升 error） ===== -->
+    <module name="FileTabCharacter"/>
+    <module name="RegexpSingleline">
+        <property name="format" value="\s+$"/>
+        <property name="message" value="行尾空白"/>
+    </module>
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="fileExtensions" value="java"/>
+    </module>
+
+    <module name="TreeWalker">
+        <!-- ============ Tier-A（error，零容忍） ============ -->
+        <!-- 类型/包名错乱会破坏导入与反射约定，且当前存量为 0 -->
+        <module name="TypeName">
+            <property name="severity" value="error"/>
+        </module>
+        <module name="PackageName">
+            <property name="severity" value="error"/>
+        </module>
+        <!-- import 正确性：重复导入 = 冗余代码；基线主源码 0 条 -->
+        <module name="RedundantImport">
+            <property name="severity" value="error"/>
+        </module>
+        <!-- 空语句 ";" 几乎必为笔误，correctness 一票否决 -->
+        <module name="EmptyStatement">
+            <property name="severity" value="error"/>
+        </module>
+        <!-- equals/hashCode 契约：等价对象必须同哈希，破坏证据去重/对账语义 -->
+        <module name="EqualsHashCode">
+            <property name="severity" value="error"/>
+        </module>
+        <!-- 字符串 == 是引用比较，恒为证据比较错误类别 -->
+        <module name="StringLiteralEquality">
+            <property name="severity" value="error"/>
+        </module>
+        <!-- default 不居末会吞 case 匹配后的 tutte 分支，控制流错误 -->
+        <module name="DefaultComesLast">
+            <property name="severity" value="error"/>
+        </module>
+
+        <!-- ============ Tier-B（warning，存量在册逐批清零） ============ -->
+        <!-- import 卫生：未用/星型/顺序（11/17/226 条基线）。
+             groups/separated 维持基线审计口径：java, javax, org, com 四组且组间空行分隔。 -->
+        <module name="UnusedImports"/>
+        <module name="AvoidStarImport"/>
+        <module name="ImportOrder">
+            <property name="groups" value="java,javax,org,com"/>
+            <property name="ordered" value="true"/>
+            <property name="separated" value="true"/>
+        </module>
+
+        <!-- 空白机械项（约 2.6 万条基线，Phase 4 formatter 主力） -->
+        <module name="WhitespaceAfter"/>
+        <module name="WhitespaceAround">
+            <property name="allowEmptyTypes" value="true"/>
+        </module>
+        <module name="MethodParamPad"/>
+        <module name="ParenPad"/>
+        <module name="LeftCurly"/>
+        <module name="RightCurly"/>
+        <module name="NeedBraces"/>
+
+        <!-- 命名（174 条基线，重命名批处理，与 format-only 分离提交） -->
+        <module name="MethodName"/>
+        <module name="MemberName"/>
+        <module name="ParameterName"/>
+        <module name="LocalVariableName"/>
+        <module name="ConstantName"/>
+
+        <!-- 结构性指标（巨方法/圈复杂度，Phase 3a 拆分后升 error 级配额） -->
+        <module name="MethodLength">
+            <property name="max" value="80"/>
+        </module>
+        <module name="CyclomaticComplexity">
+            <property name="max" value="15"/>
+        </module>
+
+        <!-- 语义敏感小存量（6 条基线）：修复需逐条人工判定，先在册 -->
+        <module name="MissingSwitchDefault"/>
+
+        <!-- 文档性（info）：与 docs/advanced/CODE_STYLE.md 同步 -->
+        <module name="MissingJavadocType">
+            <property name="severity" value="info"/>
+        </module>
+    </module>
+</module>
