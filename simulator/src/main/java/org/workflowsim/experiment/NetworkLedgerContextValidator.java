@@ -163,6 +163,48 @@ final class NetworkLedgerContextValidator {
             throw fail("Positive input groups exceed observed nonlocal references");
         if (required.subtract(input.getRequiredReferenceBytes()).abs().compareTo(requiredError) > 0)
             throw fail("Input reference bytes differ beyond modeled summation rounding");
+        Map<Long, NetworkFlowBinding> bindings = collectAndVerifyBindings();
+        TraceAggregates trace = verifyTraceEvents(bindings);
+        Set<String> capacities = trace.capacities;
+        Set<Long> completed = trace.completed;
+        Map<Integer, Integer> counts = trace.counts;
+        Map<Integer, BigDecimal> payloads = trace.payloads;
+        BigDecimal admitted = trace.admitted;
+        double largestGroup = trace.largestGroup;
+        boolean started = trace.started;
+        long linkCount = trace.linkCount;
+        if (evidence.isEngineCreated() && (complete || started)) {
+            for (Integer vm : vms.keySet())
+                if (!capacities.contains(endpoint(vm))) throw fail("Missing declared VM endpoint capacity");
+            long expectedLinks = topology == null ? 0 : topology.linkCount();
+            if (linkCount != expectedLinks || capacities.size() != (long) vms.size() + expectedLinks)
+                throw fail("Missing or extra declared network capacities");
+        }
+        for (Map.Entry<Integer, StageView> entry : stages.entrySet()) {
+            int actual = counts.containsKey(entry.getKey()) ? counts.get(entry.getKey()) : 0;
+            if (actual > entry.getValue().groups || (complete && actual != entry.getValue().groups))
+                throw fail("Ledger group count differs from main stage-in event");
+            BigDecimal payload = payloads.containsKey(entry.getKey()) ? payloads.get(entry.getKey()) : BigDecimal.ZERO;
+            if (payload.subtract(exact(entry.getValue().bytes))
+                            .compareTo(rounding(
+                                    entry.getValue().bytes,
+                                    (long) entry.getValue().files + entry.getValue().groups + 1))
+                    > 0) throw fail("Admission payload exceeds modeled input demand");
+        }
+        if (complete) {
+            if (completed.size() != bindings.size()) throw fail("Completed run retains unfinished input transfers");
+            if (admitted.signum() == 0) {
+                if (input.getTransferableReferenceBytes().signum() != 0)
+                    throw fail("Nonlocal positive input has no admitted transfer");
+            } else if (admitted.subtract(input.getTransferableReferenceBytes())
+                            .abs()
+                            .compareTo(rounding(largestGroup, references + 1))
+                    > 0) throw fail("Admitted payload differs beyond legacy group summation rounding");
+        }
+    }
+
+    /** finish() 的绑定校验阶段：外部/父组端点与路由路径核对（逐字搬运转写）。 */
+    private Map<Long, NetworkFlowBinding> collectAndVerifyBindings() throws IOException {
         Map<Long, NetworkFlowBinding> bindings = new HashMap<Long, NetworkFlowBinding>();
         Set<Integer> externalJobs = new HashSet<Integer>();
         for (NetworkFlowBinding b : evidence.getBindings()) {
@@ -198,6 +240,12 @@ final class NetworkLedgerContextValidator {
             if (!path.equals(b.getOccupiedResources()))
                 throw fail("Binding resource path differs from declared V1 routing");
         }
+        return bindings;
+    }
+
+    /** finish() 的轨迹事件聚合阶段：容量/准入/完成核算（逐字搬运转写）。 */
+    private TraceAggregates verifyTraceEvents(Map<Long, NetworkFlowBinding> bindings) throws IOException {
+        TraceAggregates trace = new TraceAggregates();
         Set<String> capacities = new HashSet<String>();
         Set<Long> completed = new HashSet<Long>();
         Map<Integer, Integer> counts = new HashMap<Integer, Integer>();
@@ -248,34 +296,27 @@ final class NetworkLedgerContextValidator {
                 completed.add(e.getAdmissionOrdinal());
             }
         }
-        if (evidence.isEngineCreated() && (complete || started)) {
-            for (Integer vm : vms.keySet())
-                if (!capacities.contains(endpoint(vm))) throw fail("Missing declared VM endpoint capacity");
-            long expectedLinks = topology == null ? 0 : topology.linkCount();
-            if (linkCount != expectedLinks || capacities.size() != (long) vms.size() + expectedLinks)
-                throw fail("Missing or extra declared network capacities");
-        }
-        for (Map.Entry<Integer, StageView> entry : stages.entrySet()) {
-            int actual = counts.containsKey(entry.getKey()) ? counts.get(entry.getKey()) : 0;
-            if (actual > entry.getValue().groups || (complete && actual != entry.getValue().groups))
-                throw fail("Ledger group count differs from main stage-in event");
-            BigDecimal payload = payloads.containsKey(entry.getKey()) ? payloads.get(entry.getKey()) : BigDecimal.ZERO;
-            if (payload.subtract(exact(entry.getValue().bytes))
-                            .compareTo(rounding(
-                                    entry.getValue().bytes,
-                                    (long) entry.getValue().files + entry.getValue().groups + 1))
-                    > 0) throw fail("Admission payload exceeds modeled input demand");
-        }
-        if (complete) {
-            if (completed.size() != bindings.size()) throw fail("Completed run retains unfinished input transfers");
-            if (admitted.signum() == 0) {
-                if (input.getTransferableReferenceBytes().signum() != 0)
-                    throw fail("Nonlocal positive input has no admitted transfer");
-            } else if (admitted.subtract(input.getTransferableReferenceBytes())
-                            .abs()
-                            .compareTo(rounding(largestGroup, references + 1))
-                    > 0) throw fail("Admitted payload differs beyond legacy group summation rounding");
-        }
+        trace.capacities = capacities;
+        trace.completed = completed;
+        trace.counts = counts;
+        trace.payloads = payloads;
+        trace.admitted = admitted;
+        trace.largestGroup = largestGroup;
+        trace.started = started;
+        trace.linkCount = linkCount;
+        return trace;
+    }
+
+    /** finish() 轨迹聚合的私有搬运转写结构（字段直读，无转发行为）。 */
+    private static final class TraceAggregates {
+        private Set<String> capacities;
+        private Set<Long> completed;
+        private Map<Integer, Integer> counts;
+        private Map<Integer, BigDecimal> payloads;
+        private BigDecimal admitted;
+        private double largestGroup;
+        private boolean started;
+        private long linkCount;
     }
 
     private static final class JobView {
