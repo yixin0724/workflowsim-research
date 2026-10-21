@@ -22,8 +22,6 @@ import org.workflowsim.WorkflowParser;
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
-import org.workflowsim.planning.LocalHeftPlanningAlgorithm;
-import org.workflowsim.planning.PlanningContext;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
