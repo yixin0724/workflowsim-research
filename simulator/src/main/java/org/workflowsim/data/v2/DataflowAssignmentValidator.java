@@ -222,6 +222,11 @@ public final class DataflowAssignmentValidator {
                 || classType.isJsonNull()
                 || integer(classType, "classType") != Parameters.ClassType.COMPUTE.value) return;
         Attempt attempt = identity(main);
+        anchorComputeMainEvent(main, type, sequence, at, attempt);
+    }
+
+    /** acceptEvent() 的计算类主事件锚定阶段（READY/RETURNED/FAILED/RETRY，逐字搬运转写）。 */
+    private void anchorComputeMainEvent(JsonObject main, String type, long sequence, double at, Attempt attempt) {
         Anchor anchor = new Anchor(sequence, at);
         if ("JOB_READY".equals(type)) {
             Action action = assignments.get(attempt.id);
@@ -440,6 +445,23 @@ public final class DataflowAssignmentValidator {
             require(
                     action.candidates.size() == expectedVms.size(),
                     "Candidate inventory must exactly cover eligible binding domain");
+            CandidateLoop loop = evaluateCandidates(attempt, action, expectedVms, now);
+            Candidate selected = loop.selected;
+            int bestVm = loop.bestVm;
+            require(
+                    selected != null && bestVm == attempt.vm && action.selected == attempt.vm,
+                    "Selected actual VM does not minimize validated logged score with numeric-ID ties");
+            // All candidate checks precede the actual request's visibility/admission operations.
+            requested.add(id);
+            active.put(id, new LiveJob(attempt, selected.compute));
+            if (bound == null) {
+                bindings.put(attempt.task, attempt.vm);
+                initialCount++;
+            } else retryCount++;
+        }
+        /** request() 的候选估值循环（逐字搬运转写；分数公式的 binary64 次序与 tie-break 原样）。 */
+        private CandidateLoop evaluateCandidates(
+                Attempt attempt, Action action, List<Integer> expectedVms, double now) {
             Candidate selected = null;
             double best = 0;
             int bestVm = -1;
@@ -476,16 +498,16 @@ public final class DataflowAssignmentValidator {
                 }
                 if (vm.id == attempt.vm) selected = candidate;
             }
-            require(
-                    selected != null && bestVm == attempt.vm && action.selected == attempt.vm,
-                    "Selected actual VM does not minimize validated logged score with numeric-ID ties");
-            // All candidate checks precede the actual request's visibility/admission operations.
-            requested.add(id);
-            active.put(id, new LiveJob(attempt, selected.compute));
-            if (bound == null) {
-                bindings.put(attempt.task, attempt.vm);
-                initialCount++;
-            } else retryCount++;
+            CandidateLoop loop = new CandidateLoop();
+            loop.selected = selected;
+            loop.bestVm = bestVm;
+            return loop;
+        }
+
+        /** request() 候选循环结果的私有搬运转写结构。 */
+        private final class CandidateLoop {
+            private Candidate selected;
+            private int bestVm;
         }
 
         double cpuAvailable(int vm, double now) {

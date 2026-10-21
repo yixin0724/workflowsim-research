@@ -466,45 +466,7 @@ final class FileLifecycleValidator {
                 // V3 freezes actual hosts even without topology. Platform membership of this
                 // attachment and these hosts belongs to the caller's final platform join.
             } else {
-                JsonObject topology = object(raw.get("topology"), "topology");
-                keys(topology, "kind", "k", "coreSwitchCount", "linkBandwidthBytesPerSecond", "hostPlacements");
-                equal(topology, "kind", "FAT_TREE");
-                k = nonnegativeInt(topology.get("k"), "k");
-                require(k >= 2 && k <= 32 && k % 2 == 0, "Unsupported FatTree size; k must be even in [2,32]");
-                half = k / 2;
-                cores = nonnegativeInt(topology.get("coreSwitchCount"), "coreSwitchCount");
-                require(cores >= 1 && cores <= half * half, "Invalid FatTree core count");
-                double bandwidth = capacity(topology.get("linkBandwidthBytesPerSecond"), "link bandwidth");
-                JsonArray hosts = array(topology.get("hostPlacements"), "hostPlacements");
-                require(hosts.size() > 0 && hosts.size() <= k * half * half, "Invalid FatTree host count");
-                int[][] perEdge = new int[k][half];
-                for (JsonElement value : hosts) {
-                    JsonObject row = object(value, "host placement");
-                    keys(row, "hostId", "pod", "edge");
-                    int host = nonnegativeInt(row.get("hostId"), "hostId");
-                    int pod = nonnegativeInt(row.get("pod"), "pod"), edge = nonnegativeInt(row.get("edge"), "edge");
-                    require(pod < k && edge < half, "Host placement lies outside topology");
-                    require(++perEdge[pod][edge] <= half, "FatTree edge host capacity exceeded");
-                    require(placements.put(host, new Placement(pod, edge)) == null, "Duplicate host placement");
-                }
-                require(
-                        !storage || placements.containsKey(attachmentHost),
-                        "Store attachment host is not placed in topology");
-                Set<String> links = new HashSet<>();
-                for (Map.Entry<Integer, Placement> host : placements.entrySet())
-                    pair(links, "ACC:" + host.getKey(), host.getValue().edgeName());
-                for (int pod = 0; pod < k; pod++) {
-                    for (int edge = 0; edge < half; edge++)
-                        for (int agg = 0; agg < half; agg++)
-                            pair(links, "EDGE:" + pod + ":" + edge, "AGG:" + pod + ":" + agg);
-                    for (int core = 0; core < cores; core++)
-                        pair(links, "AGG:" + pod + ":" + (core / half), "CORE:" + core);
-                }
-                for (String link : links)
-                    require(
-                            capacities.containsKey(link) && capacities.get(link) == bandwidth,
-                            "Missing or inconsistent directed physical link");
-                expected.addAll(links);
+                parseTopology(object(raw.get("topology"), "topology"), expected);
             }
             if (storage || k != 0) {
                 for (JsonElement value : assignments) {
@@ -523,6 +485,48 @@ final class FileLifecycleValidator {
             require(
                     capacities.keySet().equals(expected),
                     "Physical resources must exactly match the versioned endpoint, link and store inventory");
+        }
+
+        /** Fabric 构造的拓扑阶段（k/核数/放置/链路配对与容量对账，逐字搬运转写）。 */
+        private void parseTopology(JsonObject topology, Set<String> expected) {
+            keys(topology, "kind", "k", "coreSwitchCount", "linkBandwidthBytesPerSecond", "hostPlacements");
+            equal(topology, "kind", "FAT_TREE");
+            k = nonnegativeInt(topology.get("k"), "k");
+            require(k >= 2 && k <= 32 && k % 2 == 0, "Unsupported FatTree size; k must be even in [2,32]");
+            half = k / 2;
+            cores = nonnegativeInt(topology.get("coreSwitchCount"), "coreSwitchCount");
+            require(cores >= 1 && cores <= half * half, "Invalid FatTree core count");
+            double bandwidth = capacity(topology.get("linkBandwidthBytesPerSecond"), "link bandwidth");
+            JsonArray hosts = array(topology.get("hostPlacements"), "hostPlacements");
+            require(hosts.size() > 0 && hosts.size() <= k * half * half, "Invalid FatTree host count");
+            int[][] perEdge = new int[k][half];
+            for (JsonElement value : hosts) {
+                JsonObject row = object(value, "host placement");
+                keys(row, "hostId", "pod", "edge");
+                int host = nonnegativeInt(row.get("hostId"), "hostId");
+                int pod = nonnegativeInt(row.get("pod"), "pod"), edge = nonnegativeInt(row.get("edge"), "edge");
+                require(pod < k && edge < half, "Host placement lies outside topology");
+                require(++perEdge[pod][edge] <= half, "FatTree edge host capacity exceeded");
+                require(placements.put(host, new Placement(pod, edge)) == null, "Duplicate host placement");
+            }
+            require(
+                    !storage || placements.containsKey(attachmentHost),
+                    "Store attachment host is not placed in topology");
+            Set<String> links = new HashSet<>();
+            for (Map.Entry<Integer, Placement> host : placements.entrySet())
+                pair(links, "ACC:" + host.getKey(), host.getValue().edgeName());
+            for (int pod = 0; pod < k; pod++) {
+                for (int edge = 0; edge < half; edge++)
+                    for (int agg = 0; agg < half; agg++)
+                        pair(links, "EDGE:" + pod + ":" + edge, "AGG:" + pod + ":" + agg);
+                for (int core = 0; core < cores; core++)
+                    pair(links, "AGG:" + pod + ":" + (core / half), "CORE:" + core);
+            }
+            for (String link : links)
+                require(
+                        capacities.containsKey(link) && capacities.get(link) == bandwidth,
+                        "Missing or inconsistent directed physical link");
+            expected.addAll(links);
         }
 
         private void storeResource(JsonObject store, String field, String resource) {
@@ -1059,7 +1063,6 @@ final class FileLifecycleValidator {
             Location source = fabric.known(p.get("source"));
             String resolution = text(p.get("resolution"), "resolution");
             Replica local = visible(file.id, owner.destination);
-            Copy copy = null;
             if (needsResolution != null)
                 require(
                         !needsResolution.output
@@ -1067,6 +1070,30 @@ final class FileLifecycleValidator {
                                 && needsResolution.file.id.equals(file.id)
                                 && needsResolution.owner == owner,
                         "Admission must resolve its corresponding NEW_COPY input demand immediately");
+            Copy copy = resolveAdmission(p, file, owner, source, resolution, local, at);
+            if (copy != null) {
+                owner.pending.add(file.id);
+                // Nominal input seconds follow actual resolution order, unlike reference-byte totals.
+                owner.isolatedTotal = finiteSum(owner.isolatedTotal, copy.seconds);
+                waiters.computeIfAbsent(copy.target(), ignored -> new LinkedHashSet<>())
+                        .add(owner.id);
+            }
+            if (request == owner) {
+                owner.unresolved.remove(file.id);
+                endRequestIfResolved(at);
+            } else {
+                require(owner.waitingStore.remove(file.id), "Deferred input waiter is inconsistent");
+                resumes.removeFirst();
+                waitingStoreInputs--;
+                if (inputsSatisfied(owner)) makeReadyDue(owner, at);
+                continueOutputs();
+            }
+        }
+
+        /** resolve() 的四路解析阶段（LOCAL/ZERO/NEW_COPY/JOIN_EXISTING，逐字搬运转写）。 */
+        private Copy resolveAdmission(
+                JsonObject p, FileRow file, Job owner, Location source, String resolution, Replica local, double at) {
+            Copy copy = null;
             switch (resolution) {
                 case "LOCAL":
                     require(
@@ -1114,23 +1141,7 @@ final class FileLifecycleValidator {
                 default:
                     throw bad("Unsupported input resolution");
             }
-            if (copy != null) {
-                owner.pending.add(file.id);
-                // Nominal input seconds follow actual resolution order, unlike reference-byte totals.
-                owner.isolatedTotal = finiteSum(owner.isolatedTotal, copy.seconds);
-                waiters.computeIfAbsent(copy.target(), ignored -> new LinkedHashSet<>())
-                        .add(owner.id);
-            }
-            if (request == owner) {
-                owner.unresolved.remove(file.id);
-                endRequestIfResolved(at);
-            } else {
-                require(owner.waitingStore.remove(file.id), "Deferred input waiter is inconsistent");
-                resumes.removeFirst();
-                waitingStoreInputs--;
-                if (inputsSatisfied(owner)) makeReadyDue(owner, at);
-                continueOutputs();
-            }
+            return copy;
         }
 
         private void endRequestIfResolved(double at) {

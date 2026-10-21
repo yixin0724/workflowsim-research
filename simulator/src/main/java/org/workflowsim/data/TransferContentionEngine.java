@@ -581,6 +581,14 @@ public final class TransferContentionEngine {
                 ? new ArrayList<CompletionObservation>()
                 : Collections.<CompletionObservation>emptyList();
         if (coherentChecked) checkCoherentState();
+        integrateUntil(now, completed, observations);
+        lastAdvanceTime = now;
+        if (coherentChecked) checkCoherentState();
+        return new AdvanceResult(completed, earliestCompletion(now), observations);
+    }
+
+    /** advanceInternal() 的积分主循环（速率面推进与服务段/完成事件次序逐字搬运转写）。 */
+    private void integrateUntil(double now, List<Long> completed, List<CompletionObservation> observations) {
         while (!activeTransfers.isEmpty() && lastAdvanceTime < now) {
             double nextDuration = Double.POSITIVE_INFINITY;
             Transfer earliest = null;
@@ -621,44 +629,53 @@ public final class TransferContentionEngine {
                     traceState.service(entry.getKey(), entry.getValue(), lastAdvanceTime, now, elapsed);
                 }
             }
-            List<Long> settled = new ArrayList<Long>();
-            for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
-                if (entry.getValue().completed()) {
-                    settled.add(entry.getKey());
-                }
-            }
-            if (traceState != null) {
-                for (Long id : settled) {
-                    traceState.complete(id, activeTransfers.get(id), lastAdvanceTime, now);
-                }
-            }
-            if (coherentChecked)
-                for (Long id : settled) {
-                    Transfer transfer = activeTransfers.get(id);
-                    checkCoherentCompletion(transfer, lastAdvanceTime);
-                    observations.add(
-                            new CompletionObservation(id, lastAdvanceTime, now, transfer.traceRemainingAfterService));
-                }
-            for (Long id : settled) {
-                activeTransfers.remove(id);
-            }
-            completed.addAll(settled);
-            if (!settled.isEmpty()) {
-                if (traceState != null) {
-                    captureCurrentRates();
-                }
-                recomputeRates();
-                if (traceState != null) {
-                    recordRateChanges(now, null);
-                }
-            }
+            List<Long> settled = collectSettled();
+            settleTransfers(settled, observations, now, completed);
             if (elapsed == 0.0 && settled.isEmpty()) {
                 throw new IllegalStateException("Transfer integration made no progress");
             }
         }
-        lastAdvanceTime = now;
-        if (coherentChecked) checkCoherentState();
-        return new AdvanceResult(completed, earliestCompletion(now), observations);
+    }
+
+    /** integrateUntil() 的 settled 收集阶段（逐字搬运转写）。 */
+    private List<Long> collectSettled() {
+        List<Long> settled = new ArrayList<Long>();
+        for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
+            if (entry.getValue().completed()) {
+                settled.add(entry.getKey());
+            }
+        }
+        return settled;
+    }
+
+    /** integrateUntil() 的完成结算阶段（trace 完成/coherent 观测/移除/率重算，逐字搬运转写）。 */
+    private void settleTransfers(
+            List<Long> settled, List<CompletionObservation> observations, double now, List<Long> completed) {
+        if (traceState != null) {
+            for (Long id : settled) {
+                traceState.complete(id, activeTransfers.get(id), lastAdvanceTime, now);
+            }
+        }
+        if (coherentChecked)
+            for (Long id : settled) {
+                Transfer transfer = activeTransfers.get(id);
+                checkCoherentCompletion(transfer, lastAdvanceTime);
+                observations.add(
+                        new CompletionObservation(id, lastAdvanceTime, now, transfer.traceRemainingAfterService));
+            }
+        for (Long id : settled) {
+            activeTransfers.remove(id);
+        }
+        completed.addAll(settled);
+        if (!settled.isEmpty()) {
+            if (traceState != null) {
+                captureCurrentRates();
+            }
+            recomputeRates();
+            if (traceState != null) {
+                recordRateChanges(now, null);
+            }
+        }
     }
 
     /** 当前活动传输数量。 */

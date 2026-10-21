@@ -203,6 +203,18 @@ public final class NetworkLedgerCodec {
         }
         long id = whole(e.get("transferId"), "transferId"),
                 ordinal = whole(e.get("admissionOrdinal"), "admissionOrdinal");
+        return flowEvent(sequence, effective, observed, type, p, id, ordinal);
+    }
+
+    /** event() 的流动事件分支（START/RATE_CHANGE/SERVICE_SEGMENT/COMPLETE，逐字搬运转写）。 */
+    private static TransferTraceEvent flowEvent(
+            long sequence,
+            double effective,
+            double observed,
+            TransferTraceEvent.Type type,
+            JsonObject p,
+            long id,
+            long ordinal) {
         switch (type) {
             case START:
                 keys(p, "bytes", "occupiedResources", "nominalRateBytesPerSecond", "initialRateBytesPerSecond");

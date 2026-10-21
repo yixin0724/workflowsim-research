@@ -225,6 +225,35 @@ public final class DataflowVmAssigner {
         if (!actualIds.equals(vms.keySet()))
             throw new IllegalArgumentException("Assignment candidates must cover exactly the actual fabric VMs");
         for (VmOption vm : vms.values()) observation.getFabric().requireLocation(DataLocation.vm(vm.id));
+        CandidateAssessment assessment = evaluateVmCandidates(task, job, bound, observation, demands, now);
+        List<Map<String, Object>> scores = assessment.scores;
+        VmOption chosen = assessment.chosen;
+        double chosenScore = assessment.chosenScore, chosenCompute = assessment.chosenCompute;
+        if (chosen == null)
+            throw new IllegalArgumentException("No actual VM has compatible PEs and a finite dataflow score");
+        Decision decision = new Decision(next, taskId, jobId, chosen.id, bound != null, now, scores, observation);
+        CoherentDataflowRuntime.Preparation prepared =
+                runtime.requestJob(jobId, Collections.singletonList(taskId), chosen.id, now);
+        // No potentially failing numerical work remains after the runtime transaction succeeds.
+        for (Iterator<Map.Entry<Integer, Reservation>> it =
+                        reservations.entrySet().iterator();
+                it.hasNext(); )
+            if (!observation.getActiveJobs().containsKey(it.next().getKey())) it.remove();
+        reservations.put(jobId, new Reservation(chosen.id, chosenCompute));
+        if (bound == null) bindings.put(taskId, chosen.id);
+        sequence = next;
+        job.setVmId(chosen.id);
+        task.setVmId(chosen.id);
+        return new Prepared(decision, prepared);
+    }
+    /** prepare() 的候选打分阶段（逐字搬运转写；完成时刻公式与 ID tie-break 原样）。 */
+    private CandidateAssessment evaluateVmCandidates(
+            Task task,
+            Job job,
+            Integer bound,
+            DataflowObservation observation,
+            List<DataflowFilePlan.InputDemand> demands,
+            double now) {
         List<Map<String, Object>> scores = new ArrayList<>();
         VmOption chosen = null;
         double chosenScore = 0, chosenCompute = 0;
@@ -261,22 +290,20 @@ public final class DataflowVmAssigner {
                 chosenCompute = compute;
             }
         }
-        if (chosen == null)
-            throw new IllegalArgumentException("No actual VM has compatible PEs and a finite dataflow score");
-        Decision decision = new Decision(next, taskId, jobId, chosen.id, bound != null, now, scores, observation);
-        CoherentDataflowRuntime.Preparation prepared =
-                runtime.requestJob(jobId, Collections.singletonList(taskId), chosen.id, now);
-        // No potentially failing numerical work remains after the runtime transaction succeeds.
-        for (Iterator<Map.Entry<Integer, Reservation>> it =
-                        reservations.entrySet().iterator();
-                it.hasNext(); )
-            if (!observation.getActiveJobs().containsKey(it.next().getKey())) it.remove();
-        reservations.put(jobId, new Reservation(chosen.id, chosenCompute));
-        if (bound == null) bindings.put(taskId, chosen.id);
-        sequence = next;
-        job.setVmId(chosen.id);
-        task.setVmId(chosen.id);
-        return new Prepared(decision, prepared);
+        CandidateAssessment assessment = new CandidateAssessment();
+        assessment.scores = scores;
+        assessment.chosen = chosen;
+        assessment.chosenScore = chosenScore;
+        assessment.chosenCompute = chosenCompute;
+        return assessment;
+    }
+
+    /** prepare() 候选评估结果的私有搬运转写结构。 */
+    private static final class CandidateAssessment {
+        private List<Map<String, Object>> scores;
+        private VmOption chosen;
+        private double chosenScore;
+        private double chosenCompute;
     }
 
     private double cpuAvailable(DataflowObservation observation, int vm, double now) {
