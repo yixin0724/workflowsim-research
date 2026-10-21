@@ -120,6 +120,18 @@ public final class SearchEngine {
     }
 
     private JsonObject run() {
+        requireKnownAlgorithm();
+        seedInitialSolutions();
+        initialSeconds = seconds();
+        if (best == null) throw new IllegalStateException("budget insufficient for a feasible initial solution");
+        double initialMakespan = best.result.makespan;
+        runSearchPhases();
+        GroupedSimulator.Result verified = finalReplay();
+        return searchReport(verified, initialMakespan);
+    }
+
+    /** Validate the algorithm label. */
+    private void requireKnownAlgorithm() {
         Set<String> algorithms = new HashSet<>(Arrays.asList(
                 "SINGLE",
                 "PATH",
@@ -135,6 +147,10 @@ public final class SearchEngine {
                 "JOINT-HGA",
                 "UNIFORM-JOINT-HGA"));
         Scenario.require(algorithms.contains(cfg.algorithm), "unknown algorithm: " + cfg.algorithm);
+    }
+
+    /** Lazily construct and evaluate initial partitions into seeds. */
+    private void seedInitialSolutions() {
         // Initialize lazily so preprocessing/constructors cannot run free past a budget.
         for (int k = 0; k < 3 && available(); k++) {
             int[][] partition = k == 0
@@ -152,9 +168,10 @@ public final class SearchEngine {
             }
             if (cfg.algorithm.equals("SINGLE")) break;
         }
-        initialSeconds = seconds();
-        if (best == null) throw new IllegalStateException("budget insufficient for a feasible initial solution");
-        double initialMakespan = best.result.makespan;
+    }
+
+    /** Dispatch the configured search phases. */
+    private void runSearchPhases() {
         if (cfg.algorithm.equals("STAGED-HGA")) genetic();
         else if (cfg.algorithm.endsWith("HGA")) jointGenetic();
         else if (!cfg.algorithm.equals("SINGLE") && !cfg.algorithm.equals("PATH")) {
@@ -179,6 +196,10 @@ public final class SearchEngine {
                 }
             }
         }
+    }
+
+    /** Re-run the best plan and verify consistency. */
+    private GroupedSimulator.Result finalReplay() {
         operator = "final_replay";
         requests++;
         long begin = System.nanoTime();
@@ -188,6 +209,11 @@ public final class SearchEngine {
         byOperator.put(operator, 1);
         if (Double.compare(verified.makespan, best.result.makespan) != 0)
             throw new IllegalStateException("final replay is inconsistent");
+        return verified;
+    }
+
+    /** Assemble the result JSON with search statistics. */
+    private JsonObject searchReport(GroupedSimulator.Result verified, double initialMakespan) {
         JsonObject out = new JsonObject();
         out.add("plan", best.plan.toJson(s));
         out.add("evaluation", verified.toJson(s, best.plan, true));

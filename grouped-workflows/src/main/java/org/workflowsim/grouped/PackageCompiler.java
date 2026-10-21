@@ -41,44 +41,7 @@ public final class PackageCompiler {
         Arrays.fill(owner, -1);
         Group[] groups = new Group[partition.length];
         for (int g = 0; g < groups.length; g++) {
-            Scenario.require(partition[g].length > 0, "empty group");
-            Integer[] ordered = new Integer[partition[g].length];
-            for (int k = 0; k < ordered.length; k++) {
-                int t = partition[g][k];
-                Scenario.require(t >= 0 && t < s.tasks.length, "unknown task index");
-                Scenario.require(owner[t] < 0, "task appears more than once");
-                owner[t] = g;
-                ordered[k] = t;
-            }
-            Arrays.sort(ordered, (a, b) -> Integer.compare(s.topoPosition[a], s.topoPosition[b]));
-            int[] tasks = new int[ordered.length];
-            int cores = 0;
-            long memory = 0;
-            boolean[] compatible = new boolean[s.hosts.length];
-            Arrays.fill(compatible, true);
-            String domain = s.tasks[ordered[0]].domain;
-            for (int k = 0; k < tasks.length; k++) {
-                int t = ordered[k];
-                tasks[k] = t;
-                Scenario.Task task = s.tasks[t];
-                Scenario.require(domain.equals(task.domain), "incompatible package domains");
-                if (k > 0) Scenario.require(s.descendants[tasks[k - 1]].get(t), "group contains incomparable tasks");
-                cores = Math.max(cores, task.cores);
-                memory = Math.max(memory, task.memory);
-                for (int h = 0; h < compatible.length; h++) compatible[h] &= Double.isFinite(task.duration[h]);
-            }
-            if (tasks.length > 1) {
-                BitSet between = (BitSet) s.descendants[tasks[0]].clone();
-                between.and(s.ancestors[tasks[tasks.length - 1]]);
-                Scenario.require(between.cardinality() == tasks.length - 2, "group is not path convex");
-            }
-            boolean feasible = false;
-            for (int h = 0; h < compatible.length; h++) {
-                compatible[h] &= cores <= s.hosts[h].cores && memory <= s.hosts[h].memory;
-                feasible |= compatible[h];
-            }
-            Scenario.require(feasible, "package has no feasible compatible host");
-            groups[g] = new Group(g, tasks, cores, memory, compatible);
+            groups[g] = buildGroup(s, partition, g, owner);
         }
         for (int g : owner) Scenario.require(g >= 0, "partition omits a task");
         List<Set<Integer>> parents = new ArrayList<>(), children = new ArrayList<>();
@@ -89,12 +52,68 @@ public final class PackageCompiler {
             inputs.add(new ArrayList<Integer>());
             outputs.add(new ArrayList<Integer>());
         }
+        buildGroupEdges(s, owner, parents, children);
+        assignFileMembership(s, owner, groups, inputs, outputs);
+        int[] topo = finalizeGroupsAndTopo(groups, parents, children, inputs, outputs);
+        return new Compiled(groups, owner, topo);
+    }
+
+    /** Build one ordered, validated group. Mutates owner. */
+    private static Group buildGroup(Scenario s, int[][] partition, int g, int[] owner) {
+        Scenario.require(partition[g].length > 0, "empty group");
+        Integer[] ordered = new Integer[partition[g].length];
+        for (int k = 0; k < ordered.length; k++) {
+            int t = partition[g][k];
+            Scenario.require(t >= 0 && t < s.tasks.length, "unknown task index");
+            Scenario.require(owner[t] < 0, "task appears more than once");
+            owner[t] = g;
+            ordered[k] = t;
+        }
+        Arrays.sort(ordered, (a, b) -> Integer.compare(s.topoPosition[a], s.topoPosition[b]));
+        int[] tasks = new int[ordered.length];
+        int cores = 0;
+        long memory = 0;
+        boolean[] compatible = new boolean[s.hosts.length];
+        Arrays.fill(compatible, true);
+        String domain = s.tasks[ordered[0]].domain;
+        for (int k = 0; k < tasks.length; k++) {
+            int t = ordered[k];
+            tasks[k] = t;
+            Scenario.Task task = s.tasks[t];
+            Scenario.require(domain.equals(task.domain), "incompatible package domains");
+            if (k > 0) Scenario.require(s.descendants[tasks[k - 1]].get(t), "group contains incomparable tasks");
+            cores = Math.max(cores, task.cores);
+            memory = Math.max(memory, task.memory);
+            for (int h = 0; h < compatible.length; h++) compatible[h] &= Double.isFinite(task.duration[h]);
+        }
+        if (tasks.length > 1) {
+            BitSet between = (BitSet) s.descendants[tasks[0]].clone();
+            between.and(s.ancestors[tasks[tasks.length - 1]]);
+            Scenario.require(between.cardinality() == tasks.length - 2, "group is not path convex");
+        }
+        boolean feasible = false;
+        for (int h = 0; h < compatible.length; h++) {
+            compatible[h] &= cores <= s.hosts[h].cores && memory <= s.hosts[h].memory;
+            feasible |= compatible[h];
+        }
+        Scenario.require(feasible, "package has no feasible compatible host");
+        return new Group(g, tasks, cores, memory, compatible);
+    }
+
+    /** Cross-group dependency edges. */
+    private static void buildGroupEdges(
+            Scenario s, int[] owner, List<Set<Integer>> parents, List<Set<Integer>> children) {
         for (int t = 0; t < s.tasks.length; t++)
             for (int p : s.tasks[t].parents)
                 if (owner[t] != owner[p]) {
                     parents.get(owner[t]).add(owner[p]);
                     children.get(owner[p]).add(owner[t]);
                 }
+    }
+
+    /** File membership and byte accounting per group. */
+    private static void assignFileMembership(
+            Scenario s, int[] owner, Group[] groups, List<List<Integer>> inputs, List<List<Integer>> outputs) {
         for (int f = 0; f < s.files.length; f++) {
             Scenario.DataFile file = s.files[f];
             int producing = file.producer < 0 ? -1 : owner[file.producer];
@@ -112,6 +131,15 @@ public final class PackageCompiler {
                 groups[producing].outputBytes += file.bytes;
             }
         }
+    }
+
+    /** Compact fields, validate sums, and produce a topological order. */
+    private static int[] finalizeGroupsAndTopo(
+            Group[] groups,
+            List<Set<Integer>> parents,
+            List<Set<Integer>> children,
+            List<List<Integer>> inputs,
+            List<List<Integer>> outputs) {
         int[] degrees = new int[groups.length], topo = new int[groups.length];
         PriorityQueue<Integer> ready = new PriorityQueue<>();
         for (int g = 0; g < groups.length; g++) {
@@ -132,7 +160,7 @@ public final class PackageCompiler {
             for (int c : groups[g].children) if (--degrees[c] == 0) ready.add(c);
         }
         Scenario.require(count == groups.length, "contracted graph contains a cycle");
-        return new Compiled(groups, owner, topo);
+        return topo;
     }
 
     static Compiled validate(Scenario s, PackagePlan plan) {
