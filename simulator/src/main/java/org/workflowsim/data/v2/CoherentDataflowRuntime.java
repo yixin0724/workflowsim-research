@@ -204,38 +204,10 @@ public final class CoherentDataflowRuntime {
         }
         Collection<DataLocation> locations =
                 fabric == null ? frame.replicas.snapshot().getLocations() : fabric.getLocations();
-        for (DataflowFilePlan.FileId id : selected) {
-            DataflowFilePlan.FileDefinition file = plan.getFile(id);
-            List<DataReplicaState.Replica> holders = new ArrayList<>();
-            for (DataLocation location : locations) {
-                DataReplicaState.Replica replica = frame.replicas.getReplica(id, location);
-                if (replica != null) holders.add(replica);
-            }
-            files.put(id, new DataflowObservation.FileView(file, holders));
-        }
+        observeFileViews(frame, selected, locations, files);
         org.workflowsim.data.TransferServiceSnapshot service =
                 frame.service == null ? null : frame.service.snapshotState();
-        if (service != null) {
-            if (service.getObservedThrough() != frame.replicas.getObservedThrough()
-                    || service.getTransfers().size() != frame.copies.size())
-                throw new IllegalStateException("Committed service and replica observations disagree");
-            for (Map.Entry<Long, ActiveCopy> entry : frame.copies.entrySet()) {
-                ActiveCopy copy = entry.getValue();
-                org.workflowsim.data.TransferServiceSnapshot.Flow flow =
-                        service.getTransfers().get(entry.getKey());
-                if (flow == null) throw new IllegalStateException("Observed copy has no active service flow");
-                copies.put(
-                        entry.getKey(),
-                        new DataflowObservation.CopyView(
-                                entry.getKey(),
-                                copy.ownerJobId,
-                                copy.purpose,
-                                copy.ticket.getFile(),
-                                copy.ticket.getSourceReplica(),
-                                copy.ticket.getDestination(),
-                                flow));
-            }
-        }
+        observeCopyViews(frame, service, copies);
         for (Map.Entry<Integer, JobState> entry : frame.jobs.entrySet()) {
             JobState job = entry.getValue();
             DataflowObservation.JobPhase phase = job.startedAt != null
@@ -272,6 +244,51 @@ public final class CoherentDataflowRuntime {
                 jobs,
                 frame.outputObligations);
     }
+    /** observation() 的文件持有者视图阶段（逐字搬运转写）。 */
+    private void observeFileViews(
+            Frame frame,
+            Set<DataflowFilePlan.FileId> selected,
+            Collection<DataLocation> locations,
+            Map<DataflowFilePlan.FileId, DataflowObservation.FileView> files) {
+        for (DataflowFilePlan.FileId id : selected) {
+            DataflowFilePlan.FileDefinition file = plan.getFile(id);
+            List<DataReplicaState.Replica> holders = new ArrayList<>();
+            for (DataLocation location : locations) {
+                DataReplicaState.Replica replica = frame.replicas.getReplica(id, location);
+                if (replica != null) holders.add(replica);
+            }
+            files.put(id, new DataflowObservation.FileView(file, holders));
+        }
+    }
+
+    /** observation() 的在途拷贝视图阶段（服务/副本/拷贝三方对账，逐字搬运转写）。 */
+    private void observeCopyViews(
+            Frame frame,
+            org.workflowsim.data.TransferServiceSnapshot service,
+            Map<Long, DataflowObservation.CopyView> copies) {
+        if (service != null) {
+            if (service.getObservedThrough() != frame.replicas.getObservedThrough()
+                    || service.getTransfers().size() != frame.copies.size())
+                throw new IllegalStateException("Committed service and replica observations disagree");
+            for (Map.Entry<Long, ActiveCopy> entry : frame.copies.entrySet()) {
+                ActiveCopy copy = entry.getValue();
+                org.workflowsim.data.TransferServiceSnapshot.Flow flow =
+                        service.getTransfers().get(entry.getKey());
+                if (flow == null) throw new IllegalStateException("Observed copy has no active service flow");
+                copies.put(
+                        entry.getKey(),
+                        new DataflowObservation.CopyView(
+                                entry.getKey(),
+                                copy.ownerJobId,
+                                copy.purpose,
+                                copy.ticket.getFile(),
+                                copy.ticket.getSourceReplica(),
+                                copy.ticket.getDestination(),
+                                flow));
+            }
+        }
+    }
+
     /** @return newly data-ready Job IDs exactly once */
     public List<Integer> drainReadyJobIds() {
         if (current == null) return Collections.emptyList();
@@ -324,14 +341,33 @@ public final class CoherentDataflowRuntime {
             requested.add("taskIds", ids);
             requested.addProperty("destinationVmId", vmId);
         }
-        double bytes = 0, seconds = 0;
-        long references = 0;
-        int copies = 0, joins = 0;
+        InputAggregate aggregate = resolveJobInputs(staged, frame, job, jobId, vmId, members, destination, now);
+        if (aggregate.references > Integer.MAX_VALUE)
+            throw new IllegalArgumentException("Reference count exceeds the supported core-event count range");
+        job.preparation = new Preparation(
+                aggregate.bytes, aggregate.seconds, aggregate.references, aggregate.copies, aggregate.joins);
+        if (job.pending.isEmpty()) ready(staged, jobId, now);
+        commit(staged);
+        return job.preparation;
+    }
+
+    /** requestJob() 的逐需求解析阶段：local/zero/join/new-copy 四路 + 事件记录（逐字搬运转写）。 */
+    private InputAggregate resolveJobInputs(
+            Stage staged,
+            Frame frame,
+            JobState job,
+            int jobId,
+            int vmId,
+            List<Integer> members,
+            DataLocation destination,
+            double now) {
+        InputAggregate aggregate = new InputAggregate();
         DataReplicaState.Snapshot snapshot = frame.replicas.snapshot();
         for (DataflowFilePlan.InputDemand demand : plan.demandsFor(members)) {
             DataflowFilePlan.FileId file = demand.getFile().getId();
-            bytes = finiteSum(bytes, demand.getReferenceBytes().doubleValue());
-            references = Math.addExact(references, demand.getReferenceCount());
+            aggregate.bytes =
+                    finiteSum(aggregate.bytes, demand.getReferenceBytes().doubleValue());
+            aggregate.references = Math.addExact(aggregate.references, demand.getReferenceCount());
             String resolution;
             Long ordinal = null;
             DataLocation source;
@@ -353,7 +389,7 @@ public final class CoherentDataflowRuntime {
                     active = frame.copies.get(ticket.getOrdinal());
                     if (active == null) throw new IllegalStateException("Replica ticket has no service flow");
                     resolution = "JOIN_EXISTING";
-                    joins++;
+                    aggregate.joins++;
                 } else {
                     ReplicaTransferSelector.Decision decision =
                             ReplicaTransferSelector.select(snapshot, fabric, file, destination);
@@ -373,24 +409,12 @@ public final class CoherentDataflowRuntime {
                     active = new ActiveCopy(ticket, decision, "INPUT", jobId);
                     frame.copies.put(ticket.getOrdinal(), active);
                     resolution = "NEW_COPY";
-                    copies++;
-                    JsonObject p = staged.event(FileLifecycleEvent.Type.COPY_ADMITTED, now);
-                    if (p != null) {
-                        p.addProperty("copyOrdinal", ticket.getOrdinal());
-                        p.add("fileId", FileLifecycleFormat.file(file));
-                        p.addProperty("bytes", demand.getFile().getBytes());
-                        p.add("sourceReplica", FileLifecycleFormat.replica(ticket.getSourceReplica()));
-                        p.addProperty("destinationVmId", vmId);
-                        JsonArray path = new JsonArray();
-                        for (String key : decision.getRoute().getResources()) path.add(key);
-                        p.add("resources", path);
-                        p.addProperty("standaloneRate", decision.getRoute().getStandaloneRateBytesPerSecond());
-                        p.addProperty("isolatedSeconds", decision.getIsolatedSeconds());
-                    }
+                    aggregate.copies++;
+                    recordCopyAdmitted(staged, now, ticket, demand, decision, vmId);
                 }
                 source = ticket.getSourceReplica().getLocation();
                 ordinal = ticket.getOrdinal();
-                seconds = finiteSum(seconds, active.decision.getIsolatedSeconds());
+                aggregate.seconds = finiteSum(aggregate.seconds, active.decision.getIsolatedSeconds());
                 job.pending.add(file);
                 Target target = new Target(file, destination);
                 LinkedHashSet<Integer> waiters = frame.waiters.get(target);
@@ -410,12 +434,38 @@ public final class CoherentDataflowRuntime {
                 p.add("source", FileLifecycleFormat.location(source));
             }
         }
-        if (references > Integer.MAX_VALUE)
-            throw new IllegalArgumentException("Reference count exceeds the supported core-event count range");
-        job.preparation = new Preparation(bytes, seconds, references, copies, joins);
-        if (job.pending.isEmpty()) ready(staged, jobId, now);
-        commit(staged);
-        return job.preparation;
+        return aggregate;
+    }
+    /** resolveJobInputs() 的 COPY_ADMITTED 事件记录阶段（逐字搬运转写）。 */
+    private void recordCopyAdmitted(
+            Stage staged,
+            double now,
+            DataReplicaState.CopyTicket ticket,
+            DataflowFilePlan.InputDemand demand,
+            ReplicaTransferSelector.Decision decision,
+            int vmId) {
+        JsonObject p = staged.event(FileLifecycleEvent.Type.COPY_ADMITTED, now);
+        if (p != null) {
+            p.addProperty("copyOrdinal", ticket.getOrdinal());
+            p.add("fileId", FileLifecycleFormat.file(demand.getFile().getId()));
+            p.addProperty("bytes", demand.getFile().getBytes());
+            p.add("sourceReplica", FileLifecycleFormat.replica(ticket.getSourceReplica()));
+            p.addProperty("destinationVmId", vmId);
+            JsonArray path = new JsonArray();
+            for (String key : decision.getRoute().getResources()) path.add(key);
+            p.add("resources", path);
+            p.addProperty("standaloneRate", decision.getRoute().getStandaloneRateBytesPerSecond());
+            p.addProperty("isolatedSeconds", decision.getIsolatedSeconds());
+        }
+    }
+
+    /** requestJob() 累计量的私有搬运转写结构。 */
+    private static final class InputAggregate {
+        private double bytes;
+        private double seconds;
+        private long references;
+        private int copies;
+        private int joins;
     }
 
     private Preparation requestStorageJob(int jobId, List<Integer> taskIds, int vmId, double now) {

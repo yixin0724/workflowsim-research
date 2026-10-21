@@ -154,69 +154,23 @@ public final class ExperimentCampaignSummary {
         }
 
         private static CellSummary from(ExperimentPlan.Cell cell, List<ExperimentCampaignResult.Run> runs) {
-            List<Long> seeds = new ArrayList<Long>();
-            List<Double> makespans = new ArrayList<Double>();
-            List<Double> costs = new ArrayList<Double>();
-            List<Double> completionRates = new ArrayList<Double>();
-            List<Double> meanWaitingTimes = new ArrayList<Double>();
-            List<Double> meanTrueSlowdowns = new ArrayList<Double>();
-            List<Double> meanUtilizations = new ArrayList<Double>();
-            List<Double> jainIndexes = new ArrayList<Double>();
-            int eligibleWorkflowRuns = 0;
-            int successfullyCompletedWorkflowRuns = 0;
-            int incompleteWorkflowRuns = 0;
-            int noLogicalTaskRuns = 0;
-            List<Double> successfulWorkflowCompletionTimes = new ArrayList<Double>();
-            for (ExperimentCampaignResult.Run run : runs) {
-                if (run.getCell() != cell) {
-                    throw new IllegalArgumentException("Campaign result cell identity is inconsistent");
-                }
-                seeds.add(Long.valueOf(run.getSeed()));
-                makespans.add(Double.valueOf(run.getReport().getMakespan()));
-                costs.add(Double.valueOf(run.getReport().getMetrics().getTotalModeledProcessingCost()));
-                completionRates.add(
-                        Double.valueOf(run.getReport().getMetrics().getSuccessfulLogicalTaskCompletionRate()));
-                SimulationMetrics metrics = run.getReport().getMetrics();
-                // PLAT-10：核心性能指标进入 replication 层聚合，campaign 对比不再只有
-                // makespan/cost/完成率三个维度。等待/利用率/公平性无观测时的 0.0/1.0
-                // 是合法取值（口径与单运行一致）；但真实减速比语义恒 ≥1.0，无观测运行
-                // 的 0.0 是非法样本，必须排除而不是填充，否则会系统性拉低 replication
-                // 均值并污染置信区间。
-                meanWaitingTimes.add(Double.valueOf(metrics.getMeanComputeTotalWaitingTimeSeconds()));
-                if (metrics.getTrueSlowdownObservationCount() > 0) {
-                    meanTrueSlowdowns.add(Double.valueOf(metrics.getMeanComputeTrueSlowdown()));
-                }
-                meanUtilizations.add(Double.valueOf(metrics.getMeanVmModeledIntervalUtilization()));
-                jainIndexes.add(Double.valueOf(metrics.getVmUtilizationJainFairnessIndex()));
-                if (metrics.getLogicalTaskCount() == 0) {
-                    noLogicalTaskRuns++;
-                    continue;
-                }
-                eligibleWorkflowRuns++;
-                if (metrics.isWorkflowCompletedSuccessfully()) {
-                    successfullyCompletedWorkflowRuns++;
-                    Double completion = run.getReport().getLogicalTaskCompletionSeconds();
-                    if (completion == null
-                            || !"COMPLETED_SUCCESSFULLY".equals(run.getReport().getLogicalTaskCompletionStatus())) {
-                        throw new IllegalStateException("Successful workflow run has no logical "
-                                + "completion-time evidence: " + cell.getId() + "/"
-                                + run.getReplicationIndex());
-                    }
-                    successfulWorkflowCompletionTimes.add(completion);
-                } else {
-                    incompleteWorkflowRuns++;
-                }
-            }
+            RunSampleAccumulator samples = accumulateRuns(cell, runs);
+            List<Long> seeds = samples.seeds;
+            List<Double> makespans = samples.makespans;
+            List<Double> costs = samples.costs;
+            List<Double> meanTrueSlowdowns = samples.meanTrueSlowdowns;
+            List<Double> meanUtilizations = samples.meanUtilizations;
+            List<Double> jainIndexes = samples.jainIndexes;
             WorkflowRunCompletionSummary workflowRunCompletion = WorkflowRunCompletionSummary.from(
                     runs.size(),
-                    eligibleWorkflowRuns,
-                    successfullyCompletedWorkflowRuns,
-                    incompleteWorkflowRuns,
-                    noLogicalTaskRuns,
+                    samples.eligibleWorkflowRuns,
+                    samples.successfullyCompletedWorkflowRuns,
+                    samples.incompleteWorkflowRuns,
+                    samples.noLogicalTaskRuns,
                     cell.getSeedPlan().getRandomizationDesign());
             ConditionalMetricSummary successfulWorkflowCompletion = ConditionalMetricSummary.from(
-                    successfullyCompletedWorkflowRuns,
-                    successfulWorkflowCompletionTimes,
+                    samples.successfullyCompletedWorkflowRuns,
+                    samples.successfulWorkflowCompletionTimes,
                     0,
                     cell.getSeedPlan().getRandomizationDesign());
             return new CellSummary(
@@ -228,8 +182,10 @@ public final class ExperimentCampaignSummary {
                     seeds,
                     MetricSummary.from(makespans, cell.getSeedPlan().getRandomizationDesign()),
                     MetricSummary.from(costs, cell.getSeedPlan().getRandomizationDesign()),
-                    MetricSummary.from(completionRates, cell.getSeedPlan().getRandomizationDesign()),
-                    MetricSummary.from(meanWaitingTimes, cell.getSeedPlan().getRandomizationDesign()),
+                    MetricSummary.from(
+                            samples.completionRates, cell.getSeedPlan().getRandomizationDesign()),
+                    MetricSummary.from(
+                            samples.meanWaitingTimes, cell.getSeedPlan().getRandomizationDesign()),
                     meanTrueSlowdowns.isEmpty()
                             ? null
                             : MetricSummary.from(
@@ -239,6 +195,79 @@ public final class ExperimentCampaignSummary {
                     MetricSummary.from(jainIndexes, cell.getSeedPlan().getRandomizationDesign()),
                     workflowRunCompletion,
                     successfulWorkflowCompletion);
+        }
+
+        /** from() 的运行样本聚合阶段（PLAT-10 无观测非法样本排除语义逐字搬运转写）。 */
+        private static RunSampleAccumulator accumulateRuns(
+                ExperimentPlan.Cell cell, List<ExperimentCampaignResult.Run> runs) {
+            RunSampleAccumulator samples = new RunSampleAccumulator();
+            samples.seeds = new ArrayList<Long>();
+            samples.makespans = new ArrayList<Double>();
+            samples.costs = new ArrayList<Double>();
+            samples.completionRates = new ArrayList<Double>();
+            samples.meanWaitingTimes = new ArrayList<Double>();
+            samples.meanTrueSlowdowns = new ArrayList<Double>();
+            samples.meanUtilizations = new ArrayList<Double>();
+            samples.jainIndexes = new ArrayList<Double>();
+            samples.successfulWorkflowCompletionTimes = new ArrayList<Double>();
+            for (ExperimentCampaignResult.Run run : runs) {
+                if (run.getCell() != cell) {
+                    throw new IllegalArgumentException("Campaign result cell identity is inconsistent");
+                }
+                samples.seeds.add(Long.valueOf(run.getSeed()));
+                samples.makespans.add(Double.valueOf(run.getReport().getMakespan()));
+                samples.costs.add(Double.valueOf(run.getReport().getMetrics().getTotalModeledProcessingCost()));
+                samples.completionRates.add(
+                        Double.valueOf(run.getReport().getMetrics().getSuccessfulLogicalTaskCompletionRate()));
+                SimulationMetrics metrics = run.getReport().getMetrics();
+                // PLAT-10：核心性能指标进入 replication 层聚合，campaign 对比不再只有
+                // makespan/cost/完成率三个维度。等待/利用率/公平性无观测时的 0.0/1.0
+                // 是合法取值（口径与单运行一致）；但真实减速比语义恒 ≥1.0，无观测运行
+                // 的 0.0 是非法样本，必须排除而不是填充，否则会系统性拉低 replication
+                // 均值并污染置信区间。
+                samples.meanWaitingTimes.add(Double.valueOf(metrics.getMeanComputeTotalWaitingTimeSeconds()));
+                if (metrics.getTrueSlowdownObservationCount() > 0) {
+                    samples.meanTrueSlowdowns.add(Double.valueOf(metrics.getMeanComputeTrueSlowdown()));
+                }
+                samples.meanUtilizations.add(Double.valueOf(metrics.getMeanVmModeledIntervalUtilization()));
+                samples.jainIndexes.add(Double.valueOf(metrics.getVmUtilizationJainFairnessIndex()));
+                if (metrics.getLogicalTaskCount() == 0) {
+                    samples.noLogicalTaskRuns++;
+                    continue;
+                }
+                samples.eligibleWorkflowRuns++;
+                if (metrics.isWorkflowCompletedSuccessfully()) {
+                    samples.successfullyCompletedWorkflowRuns++;
+                    Double completion = run.getReport().getLogicalTaskCompletionSeconds();
+                    if (completion == null
+                            || !"COMPLETED_SUCCESSFULLY".equals(run.getReport().getLogicalTaskCompletionStatus())) {
+                        throw new IllegalStateException("Successful workflow run has no logical "
+                                + "completion-time evidence: " + cell.getId() + "/"
+                                + run.getReplicationIndex());
+                    }
+                    samples.successfulWorkflowCompletionTimes.add(completion);
+                } else {
+                    samples.incompleteWorkflowRuns++;
+                }
+            }
+            return samples;
+        }
+
+        /** from() 样本聚合的私有搬运转写结构（字段直读写，无转发行为）。 */
+        private static final class RunSampleAccumulator {
+            private List<Long> seeds;
+            private List<Double> makespans;
+            private List<Double> costs;
+            private List<Double> completionRates;
+            private List<Double> meanWaitingTimes;
+            private List<Double> meanTrueSlowdowns;
+            private List<Double> meanUtilizations;
+            private List<Double> jainIndexes;
+            private List<Double> successfulWorkflowCompletionTimes;
+            private int eligibleWorkflowRuns;
+            private int successfullyCompletedWorkflowRuns;
+            private int incompleteWorkflowRuns;
+            private int noLogicalTaskRuns;
         }
 
         public String getCellId() {
