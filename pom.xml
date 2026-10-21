@@ -66,6 +66,15 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- 代码规范化工程 Phase 4：Spotless/Palantir 格式归一。
+                 存量归一以 format-only 前缀分批提交；全部模块归一后，
+                 spotless:check 绑入 validate 门禁（见 docs/advanced/CODE_STYLE.md）。
+                 与 checkstyle 分工：formatter 管机械风格统一（含 cloudbus 上游），
+                 checkstyle 管语义防护与结构指标（不含 cloudbus）。 -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+            </plugin>
         </plugins>
         <pluginManagement>
             <plugins>
@@ -307,6 +316,19 @@
                         <failOnViolation>true</failOnViolation>
                         <logViolationsToConsole>true</logViolationsToConsole>
                         <consoleOutput>false</consoleOutput>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>3.0.0</version>
+                    <configuration>
+                        <java>
+                            <!-- Palantir 风格：120 列上限与本仓 checkstyle LineLength 一致。 -->
+                            <palantirJavaFormat>
+                                <version>2.50.0</version>
+                            </palantirJavaFormat>
+                        </java>
                     </configuration>
                 </plugin>
             </plugins>
