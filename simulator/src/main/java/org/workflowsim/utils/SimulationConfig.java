@@ -412,11 +412,31 @@ public final class SimulationConfig {
          * @throws IllegalArgumentException 当输入、数值或算法组合不合法时
          */
         public SimulationConfig build() {
+            validateWorkflowPaths();
+            validateRequiredModels();
+            validateArrivalSeconds();
+            validateScalarBounds();
+            validateSchedulerCombinations();
+            validateSharedStoragePlanners();
+            validateTaskCostMatrix();
+            validateLocalPlanners();
+            validatePreExecutionPairing();
+            validateFatTreePremises();
+            validateCoherentCombinations();
+            return new SimulationConfig(this);
+        }
+
+        /** 工作流输入路径非空校验（逐字搬运转写自 build())。 */
+        private void validateWorkflowPaths() {
             for (String path : workflowPaths) {
                 if (path == null || path.trim().isEmpty()) {
                     throw new IllegalArgumentException("Workflow input paths cannot be empty");
                 }
             }
+        }
+
+        /** 必备模型非空与网络证据兼容性校验（逐字搬运转写）。 */
+        private void validateRequiredModels() {
             // Validate required models before any cross-model condition dereferences them.
             if (overheadModel == null
                     || clusteringParameters == null
@@ -431,6 +451,10 @@ public final class SimulationConfig {
                 throw new IllegalArgumentException("Simulation configuration contains a required null value");
             }
             org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(dataMovementModel, networkEvidenceConfig);
+        }
+
+        /** 到达时间口径与 R5 非零到达×非 NONE 聚类互斥校验（逐字搬运转写）。 */
+        private void validateArrivalSeconds() {
             if (workflowArrivalSeconds == null || workflowArrivalSeconds.size() != workflowPaths.size()) {
                 throw new IllegalArgumentException(
                         "Workflow arrival seconds must cover every " + "workflow input path");
@@ -455,6 +479,10 @@ public final class SimulationConfig {
                         + "clustering method NONE: clustered jobs no longer carry the original "
                         + "task ids used for arrival gating");
             }
+        }
+
+        /** 数值标量边界校验（逐字搬运转写）。 */
+        private void validateScalarBounds() {
             if (vmCount <= 0) {
                 throw new IllegalArgumentException("VM count must be positive");
             }
@@ -468,6 +496,10 @@ public final class SimulationConfig {
                 throw new IllegalArgumentException("Runtime scale, reference MIPS, and CloudSim minimum "
                         + "event interval must be finite and positive");
             }
+        }
+
+        /** 调度/规划算法组合校验（逐字搬运转写，含 PLAT-7 DATA/SHARED 拒绝）。 */
+        private void validateSchedulerCombinations() {
             if (planningAlgorithm != PlanningAlgorithm.INVALID && schedulingAlgorithm != SchedulingAlgorithm.STATIC) {
                 throw new IllegalArgumentException("A planning algorithm assigns VM mappings and requires "
                         + "SchedulingAlgorithm.STATIC dispatch");
@@ -490,6 +522,10 @@ public final class SimulationConfig {
                 throw new IllegalArgumentException("SchedulingAlgorithm.INVALID is not a runnable configuration; "
                         + "select an explicit online scheduler or STATIC with a planning algorithm");
             }
+        }
+
+        /** 共享存储规划器前提校验（逐字搬运转写）。 */
+        private void validateSharedStoragePlanners() {
             if (planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_HEFT
                     || planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_CPOP
                     || planningAlgorithm == PlanningAlgorithm.SHARED_STORAGE_DLS
@@ -516,6 +552,10 @@ public final class SimulationConfig {
             }
             // 任务×VM 成本矩阵由 STATIC 派发路径折算（MI = 秒数 × vm.mips），在线
             // 调度器不做折算会被静默忽略；折算还要求作业与逻辑任务一一对应（NONE 聚类）。
+        }
+
+        /** 任务×VM 成本矩阵前提校验（逐字搬运转写，含 R8 审计修复 P1-1）。 */
+        private void validateTaskCostMatrix() {
             if (taskCostMatrix != null) {
                 if (schedulingAlgorithm != SchedulingAlgorithm.STATIC) {
                     throw new IllegalArgumentException("A task cost matrix is applied only by the STATIC "
@@ -541,6 +581,10 @@ public final class SimulationConfig {
                             + "(silent planning/runtime divergence)");
                 }
             }
+        }
+
+        /** LOCAL 列表规划器前提校验（逐字搬运转写）。 */
+        private void validateLocalPlanners() {
             // LOCAL 列表规划使用父组并行传输和带可用时刻副本的无争用估计，
             // 不是完整运行事件重放；这些模型前提在配置层和规划器中分别校验。
             // 争用变体的运行期还受端点/链路容量及固定每 VM 顺序约束，
@@ -573,6 +617,10 @@ public final class SimulationConfig {
                             + "contention, same divergence policy)");
                 }
             }
+        }
+
+        /** 执行前传输与规划器配对校验（逐字搬运转写）。 */
+        private void validatePreExecutionPairing() {
             // 执行前传输延迟（含链路争用模型）在任务就绪时按目标 VM 估计与登记副本，
             // 要求规划器在规划阶段完成静态 VM 映射；INVALID 规划层在释放时刻没有目标 VM。
             if ((dataMovementModel.isPreExecutionTransferDelayV1()
@@ -584,6 +632,10 @@ public final class SimulationConfig {
                         + "LOCAL_CPOP, LOCAL_PEFT, RANDOM); the INVALID planning layer leaves the "
                         + "destination VM unknown at release time");
             }
+        }
+
+        /** Fat-tree 拓扑争用前提校验（逐字搬运转写）。 */
+        private void validateFatTreePremises() {
             // Fat-tree 链路争用模型：VM→VM 传输沿确定性路由占用共享链路，前提是
             // LOCAL 文件系统（VM→VM 通信被建模）、静态映射（路径就绪期可知）、
             // NONE 聚类与无故障/无开销（与 LOCAL_HEFT 轨道同一组前提）。平台侧
@@ -607,6 +659,10 @@ public final class SimulationConfig {
                             dataMovementModel.getKind() + " requires OverheadModelConfig.none()");
                 }
             }
+        }
+
+        /** 在线数据绑定与 coherent 运行时组合校验（逐字搬运转写）。 */
+        private void validateCoherentCombinations() {
             if (dataflowAssignmentConfig.isEnabled()
                     && (!dataMovementModel.usesCoherentDataflowRuntime()
                             || planningAlgorithm != PlanningAlgorithm.INVALID
@@ -626,7 +682,6 @@ public final class SimulationConfig {
                     throw new IllegalArgumentException(
                             "Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
             }
-            return new SimulationConfig(this);
         }
 
         private static boolean isPositiveFinite(double value) {
