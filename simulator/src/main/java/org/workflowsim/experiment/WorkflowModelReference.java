@@ -49,6 +49,110 @@ final class WorkflowModelReference {
 
     private WorkflowModelReference() {}
 
+    /** {@code calculate} 的图结构校验阶段：返回父度映射；图为非法结构时返回 {@code null}。 */
+    private static Map<Task, Integer> validatedRemainingParents(List<Task> tasks) {
+        Map<Task, Integer> remainingParents = new HashMap<Task, Integer>();
+        Set<Task> taskSet = new HashSet<Task>(tasks);
+        Set<Integer> taskIds = new HashSet<Integer>();
+        for (Task task : tasks) {
+            if (task == null || !taskIds.add(task.getCloudletId())) {
+                return null;
+            }
+            for (Task parent : task.getParentList()) {
+                if (parent == null || !taskSet.contains(parent)) {
+                    return null;
+                }
+            }
+            for (Task child : task.getChildList()) {
+                if (child == null || !taskSet.contains(child)) {
+                    return null;
+                }
+            }
+            remainingParents.put(task, task.getParentList().size());
+        }
+        return remainingParents;
+    }
+
+    /**
+     * {@code calculate} 的关键路径下界遍历阶段（BFS，就绪队列 + 子节点 ID 升序入队）。
+     *
+     * <p>返回值约定：unavailable 非空 = 前置失败（调用方直接透传）；
+     * 否则 processed/lowerBound 填入 and 遍历完成。</p>
+     */
+    private static TraversalResult traverseForLowerBound(
+            List<Task> tasks,
+            List<PlatformProfile.VmSpec> vms,
+            PlatformProfile platform,
+            SimulationConfig config,
+            Map<Task, Integer> remainingParents,
+            double stageSeconds) {
+        TraversalResult result = new TraversalResult();
+        Map<Task, Double> finishTimes = new HashMap<Task, Double>();
+        Deque<Task> ready = new ArrayDeque<Task>();
+        for (Task task : tasks) {
+            if (remainingParents.get(task).intValue() == 0) {
+                ready.addLast(task);
+            }
+        }
+        int processed = 0;
+        double lowerBound = 0.0;
+        while (!ready.isEmpty()) {
+            Task task = ready.removeFirst();
+            double readyTime = task.getParentList().isEmpty() ? stageSeconds : 0.0;
+            for (Task parent : task.getParentList()) {
+                readyTime = Math.max(readyTime, finishTimes.get(parent).doubleValue());
+            }
+            double duration;
+            try {
+                duration = fastestCompatibleDuration(
+                        task, vms, platform.getStorage().getMaxTransferRateMbPerSecond());
+            } catch (IllegalArgumentException | ArithmeticException unrepresentableCost) {
+                // This catches only the optional per-task candidate-cost calculation, never
+                // actual dispatch/execution or planner validation. A bad alternative invalidates
+                // the whole reference; ignoring it could advertise an unjustified bound.
+                result.unavailable = Reference.unavailable(UNREPRESENTABLE_EXECUTION_COST_SCOPE);
+                return result;
+            }
+            if (Double.isInfinite(duration)) {
+                result.unavailable = Reference.unavailable("UNAVAILABLE_NO_COMPATIBLE_VM");
+                return result;
+            }
+            double finish = readyTime + duration;
+            if (!Double.isFinite(finish) || finish < 0.0) {
+                result.unavailable = Reference.unavailable(UNREPRESENTABLE_EXECUTION_COST_SCOPE);
+                return result;
+            }
+            finishTimes.put(task, finish);
+            lowerBound = Math.max(lowerBound, finish);
+            processed++;
+
+            List<Task> children = new ArrayList<Task>(task.getChildList());
+            Collections.sort(children, new Comparator<Task>() {
+                @Override
+                public int compare(Task first, Task second) {
+                    return Integer.compare(first.getCloudletId(), second.getCloudletId());
+                }
+            });
+            for (Task child : children) {
+                int remaining = remainingParents.get(child).intValue() - 1;
+                remainingParents.put(child, Integer.valueOf(remaining));
+                if (remaining == 0) {
+                    ready.addLast(child);
+                }
+            }
+        }
+        result.processed = processed;
+        result.lowerBound = lowerBound;
+        return result;
+    }
+
+    /** 遍历阶段私有搬运结构：unavailable 非空时 processed/lowerBound 无意义。 */
+    private static final class TraversalResult {
+        private Reference unavailable;
+        private int processed;
+        private double lowerBound;
+    }
+
     static Reference calculate(List<Task> sourceTasks, SimulationConfig config, PlatformProfile platform) {
         if (!supportsControlledSharedStorage(config, platform)) {
             return Reference.unavailable(UNAVAILABLE_SCOPE);
@@ -72,24 +176,9 @@ final class WorkflowModelReference {
             }
         });
 
-        Map<Task, Integer> remainingParents = new HashMap<Task, Integer>();
-        Set<Task> taskSet = new HashSet<Task>(tasks);
-        Set<Integer> taskIds = new HashSet<Integer>();
-        for (Task task : tasks) {
-            if (task == null || !taskIds.add(task.getCloudletId())) {
-                return Reference.unavailable("UNAVAILABLE_INVALID_SOURCE_TASK_GRAPH");
-            }
-            for (Task parent : task.getParentList()) {
-                if (parent == null || !taskSet.contains(parent)) {
-                    return Reference.unavailable("UNAVAILABLE_INVALID_SOURCE_TASK_GRAPH");
-                }
-            }
-            for (Task child : task.getChildList()) {
-                if (child == null || !taskSet.contains(child)) {
-                    return Reference.unavailable("UNAVAILABLE_INVALID_SOURCE_TASK_GRAPH");
-                }
-            }
-            remainingParents.put(task, task.getParentList().size());
+        Map<Task, Integer> remainingParents = validatedRemainingParents(tasks);
+        if (remainingParents == null) {
+            return Reference.unavailable("UNAVAILABLE_INVALID_SOURCE_TASK_GRAPH");
         }
 
         double fastestMips = 0.0;
@@ -101,64 +190,18 @@ final class WorkflowModelReference {
         }
         // 根计算 Job 在 stage-in 事件完成后的一个 CloudSim 内核间隔才释放，
         // 与 WorkflowEngine/WorkflowScheduler 的实际行为保持一致。
-        double stageInSeconds = SimulationTiming.earliestCloudletCompletionTime(
+        double stageSeconds = SimulationTiming.earliestCloudletCompletionTime(
                         0.0, STAGE_IN_JOB_LENGTH_MI / fastestMips, config.getCloudSimMinEventIntervalSeconds())
                 + config.getCloudSimMinEventIntervalSeconds();
-        Map<Task, Double> finishTimes = new HashMap<Task, Double>();
-        Deque<Task> ready = new ArrayDeque<Task>();
-        for (Task task : tasks) {
-            if (remainingParents.get(task).intValue() == 0) {
-                ready.addLast(task);
-            }
-        }
-        int processed = 0;
-        double lowerBound = 0.0;
-        while (!ready.isEmpty()) {
-            Task task = ready.removeFirst();
-            double readyTime = task.getParentList().isEmpty() ? stageInSeconds : 0.0;
-            for (Task parent : task.getParentList()) {
-                readyTime = Math.max(readyTime, finishTimes.get(parent).doubleValue());
-            }
-            double duration;
-            try {
-                duration = fastestCompatibleDuration(
-                        task, vms, platform.getStorage().getMaxTransferRateMbPerSecond());
-            } catch (IllegalArgumentException | ArithmeticException unrepresentableCost) {
-                // This catches only the optional per-task candidate-cost calculation, never
-                // actual dispatch/execution or planner validation. A bad alternative invalidates
-                // the whole reference; ignoring it could advertise an unjustified bound.
-                return Reference.unavailable(UNREPRESENTABLE_EXECUTION_COST_SCOPE);
-            }
-            if (Double.isInfinite(duration)) {
-                return Reference.unavailable("UNAVAILABLE_NO_COMPATIBLE_VM");
-            }
-            double finish = readyTime + duration;
-            if (!Double.isFinite(finish) || finish < 0.0) {
-                return Reference.unavailable(UNREPRESENTABLE_EXECUTION_COST_SCOPE);
-            }
-            finishTimes.put(task, finish);
-            lowerBound = Math.max(lowerBound, finish);
-            processed++;
 
-            List<Task> children = new ArrayList<Task>(task.getChildList());
-            Collections.sort(children, new Comparator<Task>() {
-                @Override
-                public int compare(Task first, Task second) {
-                    return Integer.compare(first.getCloudletId(), second.getCloudletId());
-                }
-            });
-            for (Task child : children) {
-                int remaining = remainingParents.get(child).intValue() - 1;
-                remainingParents.put(child, remaining);
-                if (remaining == 0) {
-                    ready.addLast(child);
-                }
-            }
+        TraversalResult traversal = traverseForLowerBound(tasks, vms, platform, config, remainingParents, stageSeconds);
+        if (traversal.unavailable != null) {
+            return traversal.unavailable;
         }
-        if (processed != tasks.size()) {
+        if (traversal.processed != tasks.size()) {
             return Reference.unavailable("UNAVAILABLE_CYCLIC_SOURCE_TASK_GRAPH");
         }
-        return Reference.available(CONTROLLED_SHARED_STORAGE_SCOPE, lowerBound, tasks.size());
+        return Reference.available(CONTROLLED_SHARED_STORAGE_SCOPE, traversal.lowerBound, tasks.size());
     }
 
     private static double fastestCompatibleDuration(
