@@ -66,14 +66,22 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- 代码规范化工程 Phase 4：Spotless/Palantir 格式归一。
-                 存量归一以 format-only 前缀分批提交；全部模块归一后，
-                 spotless:check 绑入 validate 门禁（见 docs/advanced/CODE_STYLE.md）。
-                 与 checkstyle 分工：formatter 管机械风格统一（含 cloudbus 上游），
-                 checkstyle 管语义防护与结构指标（不含 cloudbus）。 -->
+            <!-- 代码规范化工程 Phase 4：Spotless/Palantir 格式门禁。
+                 存量已完成 format-only 四批归一（H1-H4），本执行块把
+                 spotless:check 绑入 validate——此后格式漂移即时红，
+                 与 checkstyle-tier-gate 并列构成 mvn validate 起的质量线。 -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>spotless-format-gate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
         <pluginManagement>
