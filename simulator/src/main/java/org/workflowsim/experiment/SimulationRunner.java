@@ -57,85 +57,7 @@ public final class SimulationRunner {
         org.workflowsim.network.FatTreeTopology fatTreeTopology = prepareFatTreeTopology(config, platform);
 
         try (SimulationSession session = SimulationSession.open(config)) {
-            SimulationEventRecorder events = new SimulationEventRecorder();
-            session.initializeCloudSim(1, Calendar.getInstance(), false);
-            WorkflowDatacenter datacenter = PlatformFactory.createDatacenter("datacenter-0", platform);
-            datacenter.setEventRecorder(events);
-            datacenter.setDataMovementModel(config.getDataMovementModel());
-            datacenter.setNetworkEvidenceConfig(config.getNetworkEvidenceConfig());
-            if (fatTreeTopology != null) {
-                datacenter.setFatTreeTopology(fatTreeTopology);
-            }
-            WorkflowPlanner planner = new WorkflowPlanner("planner-0", 1);
-            planner.setEventRecorder(events);
-            planner.setPlanningContext(new PlanningContext(config, platform));
-            planner.setTaskCostMatrix(config.getTaskCostMatrix());
-            WorkflowEngine engine = planner.getWorkflowEngine();
-            org.workflowsim.data.v2.CoherentDataflowRuntime coherent = null;
-            if (config.getDataMovementModel().usesCoherentDataflowRuntime()) {
-                int budget = config.getNetworkEvidenceConfig().isEnabled()
-                        ? config.getNetworkEvidenceConfig().getMaxTraceRecords()
-                        : 0;
-                coherent = config.getDataMovementModel().isCoherentStorageDataflowV3()
-                        ? org.workflowsim.data.v2.CoherentDataflowRuntime.withStorage(
-                                config.getDataMovementModel().usesSharedDataflowResources(),
-                                budget,
-                                config.getFileSystem() == org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED)
-                        : new org.workflowsim.data.v2.CoherentDataflowRuntime(
-                                config.getDataMovementModel().isCoherentShared(), budget);
-                if (platform.getSourceStorage() != null) datacenter.setSourceStorage(platform.getSourceStorage());
-                planner.setCoherentDataflowRuntime(coherent);
-                engine.setCoherentDataflowRuntime(coherent);
-                datacenter.setCoherentDataflowRuntime(coherent, engine.getId());
-                engine.setDataflowAssignmentConfig(config.getDataflowAssignmentConfig());
-                if (config.getDataflowAssignmentConfig().isEnabled())
-                    engine.getScheduler(0).enableDataflowBindingGuard();
-            }
-            List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
-            engine.submitVmList(vms, 0);
-            engine.bindSchedulerDatacenter(datacenter.getId(), 0);
-
-            double makespan = CloudSim.startSimulation();
-            // PLAT-14：停滞看门狗。仿真自然结束但引擎仍有待释放或在途 Job，说明事件链
-            // 断裂导致工作流静默停滞（无后续事件驱动释放/返回）。必须显式失败，
-            // 而不是产出只含 INCOMPLETE_LOGICAL_TASKS 标记的残缺报告。
-            // RetryLimitExceededException 等合法中止路径通过异常传播，不会到达本检查。
-            if (!engine.getJobsList().isEmpty() || engine.getInFlightJobCount() != 0) {
-                throw new SimulationExecutionException("Simulation terminated while the workflow engine "
-                        + "still holds " + engine.getJobsList().size() + " unreleased job(s) and "
-                        + engine.getInFlightJobCount() + " in-flight job(s): the event chain stalled "
-                        + "silently and the run would produce incomplete evidence");
-            }
-            if (coherent != null && !coherent.isQuiescent())
-                throw new SimulationExecutionException(
-                        "Simulation stopped before V2 file service and requested Jobs became quiescent");
-            List<Job> completedJobs = engine.getJobsReceivedList();
-            Map<Integer, Integer> actualVmHostAssignments =
-                    engine.getScheduler(0).getCreatedVmHostAssignments();
-            if (!platform.getVmHostAssignments().equals(actualVmHostAssignments)) {
-                throw new PlatformException("CloudSim VM-to-Host allocation " + actualVmHostAssignments
-                        + " does not match preflighted platform placement "
-                        + platform.getVmHostAssignments());
-            }
-            try {
-                return SimulationReport.capture(
-                        config,
-                        platform,
-                        makespan,
-                        planner.getWorkflowParser().getInputReports(),
-                        completedJobs,
-                        events.snapshot(),
-                        planner.getParsedTaskSnapshot(),
-                        planner.getSharedStorageDagPlanTrace(),
-                        actualVmHostAssignments,
-                        datacenter.captureNetworkEvidence(),
-                        datacenter.captureFileLifecycleEvidence(),
-                        coherent == null ? null : coherent.getFilePlanDocument(),
-                        datacenter.captureStorageLifecycleEvidence());
-            } catch (IOException exception) {
-                throw new SimulationExecutionException(
-                        "Simulation completed but its evidence record could not be created", exception);
-            }
+            return executeWithinSession(session, config, platform, fatTreeTopology);
         } catch (SimulationExecutionException e) {
             throw e;
         } catch (org.workflowsim.failure.RetryLimitExceededException e) {
@@ -157,6 +79,122 @@ public final class SimulationRunner {
             // 将其他未预期的异常包装为 SimulationExecutionException
             throw new SimulationExecutionException("Unexpected error during simulation execution", e);
         }
+    }
+
+    /** run() 会话内的装配阶段：datacenter/planner/engine/vm/coherent 装配（逐字搬运转写）。 */
+    private SimulationAssembly assembleSession(
+            SimulationSession session,
+            SimulationConfig config,
+            PlatformProfile platform,
+            SimulationEventRecorder events,
+            org.workflowsim.network.FatTreeTopology fatTreeTopology)
+            throws Exception {
+        session.initializeCloudSim(1, Calendar.getInstance(), false);
+        WorkflowDatacenter datacenter = PlatformFactory.createDatacenter("datacenter-0", platform);
+        datacenter.setEventRecorder(events);
+        datacenter.setDataMovementModel(config.getDataMovementModel());
+        datacenter.setNetworkEvidenceConfig(config.getNetworkEvidenceConfig());
+        if (fatTreeTopology != null) {
+            datacenter.setFatTreeTopology(fatTreeTopology);
+        }
+        WorkflowPlanner planner = new WorkflowPlanner("planner-0", 1);
+        planner.setEventRecorder(events);
+        planner.setPlanningContext(new PlanningContext(config, platform));
+        planner.setTaskCostMatrix(config.getTaskCostMatrix());
+        WorkflowEngine engine = planner.getWorkflowEngine();
+        org.workflowsim.data.v2.CoherentDataflowRuntime coherent = null;
+        if (config.getDataMovementModel().usesCoherentDataflowRuntime()) {
+            int budget = config.getNetworkEvidenceConfig().isEnabled()
+                    ? config.getNetworkEvidenceConfig().getMaxTraceRecords()
+                    : 0;
+            coherent = config.getDataMovementModel().isCoherentStorageDataflowV3()
+                    ? org.workflowsim.data.v2.CoherentDataflowRuntime.withStorage(
+                            config.getDataMovementModel().usesSharedDataflowResources(),
+                            budget,
+                            config.getFileSystem() == org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED)
+                    : new org.workflowsim.data.v2.CoherentDataflowRuntime(
+                            config.getDataMovementModel().isCoherentShared(), budget);
+            if (platform.getSourceStorage() != null) datacenter.setSourceStorage(platform.getSourceStorage());
+            planner.setCoherentDataflowRuntime(coherent);
+            engine.setCoherentDataflowRuntime(coherent);
+            datacenter.setCoherentDataflowRuntime(coherent, engine.getId());
+            engine.setDataflowAssignmentConfig(config.getDataflowAssignmentConfig());
+            if (config.getDataflowAssignmentConfig().isEnabled())
+                engine.getScheduler(0).enableDataflowBindingGuard();
+        }
+        List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
+        engine.submitVmList(vms, 0);
+        engine.bindSchedulerDatacenter(datacenter.getId(), 0);
+        SimulationAssembly assembly = new SimulationAssembly();
+        assembly.datacenter = datacenter;
+        assembly.planner = planner;
+        assembly.engine = engine;
+        assembly.coherent = coherent;
+        return assembly;
+    }
+
+    /** run() 会话内的执行/校验/捕获阶段（PLAT-14 看门狗与证据快照逐字搬运转写）。 */
+    private SimulationReport executeWithinSession(
+            SimulationSession session,
+            SimulationConfig config,
+            PlatformProfile platform,
+            org.workflowsim.network.FatTreeTopology fatTreeTopology)
+            throws Exception {
+        SimulationEventRecorder events = new SimulationEventRecorder();
+        SimulationAssembly assembly = assembleSession(session, config, platform, events, fatTreeTopology);
+        WorkflowDatacenter datacenter = assembly.datacenter;
+        WorkflowPlanner planner = assembly.planner;
+        WorkflowEngine engine = assembly.engine;
+        org.workflowsim.data.v2.CoherentDataflowRuntime coherent = assembly.coherent;
+
+        double makespan = CloudSim.startSimulation();
+        // PLAT-14：停滞看门狗。仿真自然结束但引擎仍有待释放或在途 Job，说明事件链
+        // 断裂导致工作流静默停滞（无后续事件驱动释放/返回）。必须显式失败，
+        // 而不是产出只含 INCOMPLETE_LOGICAL_TASKS 标记的残缺报告。
+        // RetryLimitExceededException 等合法中止路径通过异常传播，不会到达本检查。
+        if (!engine.getJobsList().isEmpty() || engine.getInFlightJobCount() != 0) {
+            throw new SimulationExecutionException("Simulation terminated while the workflow engine "
+                    + "still holds " + engine.getJobsList().size() + " unreleased job(s) and "
+                    + engine.getInFlightJobCount() + " in-flight job(s): the event chain stalled "
+                    + "silently and the run would produce incomplete evidence");
+        }
+        if (coherent != null && !coherent.isQuiescent())
+            throw new SimulationExecutionException(
+                    "Simulation stopped before V2 file service and requested Jobs became quiescent");
+        List<Job> completedJobs = engine.getJobsReceivedList();
+        Map<Integer, Integer> actualVmHostAssignments = engine.getScheduler(0).getCreatedVmHostAssignments();
+        if (!platform.getVmHostAssignments().equals(actualVmHostAssignments)) {
+            throw new PlatformException("CloudSim VM-to-Host allocation " + actualVmHostAssignments
+                    + " does not match preflighted platform placement "
+                    + platform.getVmHostAssignments());
+        }
+        try {
+            return SimulationReport.capture(
+                    config,
+                    platform,
+                    makespan,
+                    planner.getWorkflowParser().getInputReports(),
+                    completedJobs,
+                    events.snapshot(),
+                    planner.getParsedTaskSnapshot(),
+                    planner.getSharedStorageDagPlanTrace(),
+                    actualVmHostAssignments,
+                    datacenter.captureNetworkEvidence(),
+                    datacenter.captureFileLifecycleEvidence(),
+                    coherent == null ? null : coherent.getFilePlanDocument(),
+                    datacenter.captureStorageLifecycleEvidence());
+        } catch (IOException exception) {
+            throw new SimulationExecutionException(
+                    "Simulation completed but its evidence record could not be created", exception);
+        }
+    }
+
+    /** run() 会话装配的私有搬运结构（字段直读，无转发行为）。 */
+    private static final class SimulationAssembly {
+        private WorkflowDatacenter datacenter;
+        private WorkflowPlanner planner;
+        private WorkflowEngine engine;
+        private org.workflowsim.data.v2.CoherentDataflowRuntime coherent;
     }
 
     /**
