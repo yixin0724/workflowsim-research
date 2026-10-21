@@ -32,39 +32,8 @@ final class ManifestV4Validator {
         String workingDirectory =
                 text(required(object(object(root, "provenance"), "execution"), "workingDirectory"), "workingDirectory");
         for (int i = 0; i < arrivals.size(); i++) {
-            double arrival = number(arrivals.get(i), "workflowArrivalSeconds[" + i + "]", false);
-            String configuredPath = text(paths.get(i), "workflowPaths[" + i + "]");
-            if (!inputs.get(i).isJsonObject() || !outcomes.get(i).isJsonObject()) {
-                throw new IOException("inputs/workflowOutcomes must contain objects");
-            }
-            JsonObject input = inputs.get(i).getAsJsonObject();
-            JsonObject outcome = outcomes.get(i).getAsJsonObject();
-            try {
-                java.nio.file.Path configured = java.nio.file.Paths.get(workingDirectory)
-                        .resolve(configuredPath)
-                        .normalize();
-                java.nio.file.Path consumed = java.nio.file.Paths.get(text(required(input, "path"), "input.path"))
-                        .normalize();
-                java.nio.file.Path resultPath = java.nio.file.Paths.get(workingDirectory)
-                        .resolve(text(required(outcome, "path"), "workflowOutcomes.path"))
-                        .normalize();
-                if (!configured.equals(consumed) || !configured.equals(resultPath)) {
-                    throw new IOException("workflowPaths differ from inputs/workflowOutcomes");
-                }
-            } catch (java.nio.file.InvalidPathException invalid) {
-                throw new IOException("Invalid workflow path", invalid);
-            }
-            if (integer(required(outcome, "index"), "workflowOutcomes.index") != i
-                    || Double.compare(
-                                    arrival,
-                                    number(required(outcome, "arrivalSecond"), "workflowOutcomes.arrivalSecond", false))
-                            != 0) {
-                throw new IOException("workflowArrivalSeconds differs from workflowOutcomes");
-            }
-            JsonElement finish = required(outcome, "lastSuccessFinishSecond");
-            if (!finish.isJsonNull() && number(finish, "workflowOutcomes.lastSuccessFinishSecond", false) < arrival) {
-                throw new IOException("workflowOutcomes completion precedes arrival");
-            }
+            validateWorkflowInputAlignment(
+                    i, arrivals.get(i), paths.get(i), inputs.get(i), outcomes.get(i), workingDirectory);
         }
         equalText(config, "workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
         JsonArray hosts = array(platform, "hosts");
@@ -283,26 +252,7 @@ final class ManifestV4Validator {
         JsonElement core = required(value, "coreSwitchCount");
         Integer cores = core.isJsonNull() ? null : Integer.valueOf(integer(core, "networkTopology.coreSwitchCount"));
         JsonElement placement = required(value, "hostEdgePlacements");
-        Map<Integer, Integer> placements = null;
-        if (!placement.isJsonNull()) {
-            if (!placement.isJsonObject()) {
-                throw new IOException("networkTopology.hostEdgePlacements must be an object or null");
-            }
-            placements = new LinkedHashMap<Integer, Integer>();
-            for (Map.Entry<String, JsonElement> entry :
-                    placement.getAsJsonObject().entrySet()) {
-                int host;
-                try {
-                    host = Integer.parseInt(entry.getKey());
-                    if (host < 0 || !Integer.toString(host).equals(entry.getKey())) {
-                        throw new NumberFormatException();
-                    }
-                } catch (NumberFormatException exception) {
-                    throw new IOException("networkTopology.hostEdgePlacements has invalid host ID", exception);
-                }
-                placements.put(host, integer(entry.getValue(), "networkTopology.hostEdgePlacements.edge"));
-            }
-        }
+        Map<Integer, Integer> placements = parseHostEdgePlacements(placement);
         equalText(value, "defaultPlacementPolicy", "HOST_ID_ASCENDING_ROUND_ROBIN_OVER_EDGES");
         equalText(value, "routingPolicy", "DETERMINISTIC_AL_FARES_FAT_TREE_V1");
         equalText(value, "linkDirectionality", "INDEPENDENT_DIRECTED_LINKS");
@@ -325,19 +275,93 @@ final class ManifestV4Validator {
             throw new IOException("networkTopology capacity/coreSwitchCount is invalid");
         }
         if (placements != null) {
-            if (!placements.keySet().equals(hostIds)) {
-                throw new IOException("networkTopology.hostEdgePlacements must cover exactly the declared hosts");
+            verifyHostEdgePlacements(placements, hostIds, k, edgeCount);
+        }
+    }
+
+    /** validate() 的逐输入对账阶段（到达/路径/结果三向一致，逐字搬运转写）。 */
+    private static void validateWorkflowInputAlignment(
+            int i,
+            JsonElement arrivalElement,
+            JsonElement configuredPathElement,
+            JsonElement inputElement,
+            JsonElement outcomeElement,
+            String workingDirectory)
+            throws IOException {
+        double arrival = number(arrivalElement, "workflowArrivalSeconds[" + i + "]", false);
+        String configuredPath = text(configuredPathElement, "workflowPaths[" + i + "]");
+        if (!inputElement.isJsonObject() || !outcomeElement.isJsonObject()) {
+            throw new IOException("inputs/workflowOutcomes must contain objects");
+        }
+        JsonObject input = inputElement.getAsJsonObject();
+        JsonObject outcome = outcomeElement.getAsJsonObject();
+        try {
+            java.nio.file.Path configured = java.nio.file.Paths.get(workingDirectory)
+                    .resolve(configuredPath)
+                    .normalize();
+            java.nio.file.Path consumed = java.nio.file.Paths.get(text(required(input, "path"), "input.path"))
+                    .normalize();
+            java.nio.file.Path resultPath = java.nio.file.Paths.get(workingDirectory)
+                    .resolve(text(required(outcome, "path"), "workflowOutcomes.path"))
+                    .normalize();
+            if (!configured.equals(consumed) || !configured.equals(resultPath)) {
+                throw new IOException("workflowPaths differ from inputs/workflowOutcomes");
             }
-            Map<Integer, Integer> loads = new LinkedHashMap<Integer, Integer>();
-            for (Integer edge : placements.values()) {
-                if (edge >= edgeCount) {
-                    throw new IOException("networkTopology.hostEdgePlacements edge is out of range");
+        } catch (java.nio.file.InvalidPathException invalid) {
+            throw new IOException("Invalid workflow path", invalid);
+        }
+        if (integer(required(outcome, "index"), "workflowOutcomes.index") != i
+                || Double.compare(
+                                arrival,
+                                number(required(outcome, "arrivalSecond"), "workflowOutcomes.arrivalSecond", false))
+                        != 0) {
+            throw new IOException("workflowArrivalSeconds differs from workflowOutcomes");
+        }
+        JsonElement finish = required(outcome, "lastSuccessFinishSecond");
+        if (!finish.isJsonNull() && number(finish, "workflowOutcomes.lastSuccessFinishSecond", false) < arrival) {
+            throw new IOException("workflowOutcomes completion precedes arrival");
+        }
+    }
+
+    /** validateTopology() 的主机-边缘放置解析阶段（逐字搬运转写）。 */
+    private static Map<Integer, Integer> parseHostEdgePlacements(JsonElement placement) throws IOException {
+        if (placement.isJsonNull()) {
+            return null;
+        }
+        if (!placement.isJsonObject()) {
+            throw new IOException("networkTopology.hostEdgePlacements must be an object or null");
+        }
+        Map<Integer, Integer> placements = new LinkedHashMap<Integer, Integer>();
+        for (Map.Entry<String, JsonElement> entry : placement.getAsJsonObject().entrySet()) {
+            int host;
+            try {
+                host = Integer.parseInt(entry.getKey());
+                if (host < 0 || !Integer.toString(host).equals(entry.getKey())) {
+                    throw new NumberFormatException();
                 }
-                int load = loads.containsKey(edge) ? loads.get(edge) + 1 : 1;
-                loads.put(edge, load);
-                if (load > k / 2) {
-                    throw new IOException("networkTopology.hostEdgePlacements overloads an edge");
-                }
+            } catch (NumberFormatException exception) {
+                throw new IOException("networkTopology.hostEdgePlacements has invalid host ID", exception);
+            }
+            placements.put(host, integer(entry.getValue(), "networkTopology.hostEdgePlacements.edge"));
+        }
+        return placements;
+    }
+
+    /** validateTopology() 的放置覆盖与边缘负载校验阶段（逐字搬运转写）。 */
+    private static void verifyHostEdgePlacements(
+            Map<Integer, Integer> placements, Set<Integer> hostIds, int k, long edgeCount) throws IOException {
+        if (!placements.keySet().equals(hostIds)) {
+            throw new IOException("networkTopology.hostEdgePlacements must cover exactly the declared hosts");
+        }
+        Map<Integer, Integer> loads = new LinkedHashMap<Integer, Integer>();
+        for (Integer edge : placements.values()) {
+            if (edge >= edgeCount) {
+                throw new IOException("networkTopology.hostEdgePlacements edge is out of range");
+            }
+            int load = loads.containsKey(edge) ? loads.get(edge) + 1 : 1;
+            loads.put(edge, load);
+            if (load > k / 2) {
+                throw new IOException("networkTopology.hostEdgePlacements overloads an edge");
             }
         }
     }
