@@ -51,26 +51,11 @@ public final class NetworkStudyValidator {
 
     public static int validate(Path indexPath) throws IOException {
         try {
-            Path root = indexPath.toAbsolutePath().normalize().getParent();
-            Path realRoot = root.toRealPath();
-            JsonObject index = read(indexPath);
-            if (!"workflowsim-network-study-v1".equals(text(index, "schema"))) {
-                throw new IOException("Unsupported network study schema");
-            }
-            JsonObject plan = index.getAsJsonObject("plan");
-            Path protocolPath = root.resolve("protocol.json");
-            if (!protocolPath.toRealPath().startsWith(realRoot)) {
-                throw new IOException("Invalid protocol path");
-            }
-            byte[] protocolBytes = Files.readAllBytes(protocolPath);
-            JsonObject retained = JsonParser.parseString(new String(protocolBytes, StandardCharsets.UTF_8))
-                    .getAsJsonObject();
-            if (!ExactJsonValues.equal(plan, retained)) {
-                throw new IOException("Study plan differs from retained protocol");
-            }
-            NetworkStudyPlan registered = registeredPlan(plan);
-            String protocolSha256 = sha256(protocolBytes);
-            Set<String> expected = expectedCells(registered);
+            RetainedStudy retained = loadRetainedStudy(indexPath);
+            JsonObject index = retained.index;
+            JsonObject plan = retained.plan;
+            NetworkStudyPlan registered = retained.registered;
+            ValidationState state = new ValidationState(expectedCells(registered));
             Map<String, JsonObject> workflows = new LinkedHashMap<String, JsonObject>();
             Map<String, NetworkStudyPlan.WorkflowCase> logicalInputs =
                     new LinkedHashMap<String, NetworkStudyPlan.WorkflowCase>();
@@ -82,98 +67,12 @@ public final class NetworkStudyValidator {
                 logicalInputs.put(workflow.id, workflow);
             }
             boolean heterogeneityAxis = registered.getVariant() == NetworkStudyPlan.StudyVariant.SENSITIVITY_R13;
-            String datasetIdentity = null;
             for (JsonElement element : index.getAsJsonArray("runs")) {
-                JsonObject run = element.getAsJsonObject();
-                String workflowId = text(run, "workflowId");
-                int count = integer(run, "vmCount");
-                String network = text(run, "network");
-                String planner = text(run, "planner");
-                long seed = wholeNumber(run, "seed");
-                if (heterogeneityAxis != run.has("heterogeneity")) {
-                    throw new IOException("Unexpected heterogeneity axis");
-                }
-                String heterogeneity = heterogeneityAxis ? text(run, "heterogeneity") : NetworkStudyPlan.HOMOGENEOUS;
-                String cell = key(workflowId, count, network, heterogeneity, planner, seed);
-                if (!expected.remove(cell)) {
-                    throw new IOException("Duplicate or undeclared study cell: " + cell);
-                }
-                String runId = workflowId + "-v" + count + "-" + network
-                        + (heterogeneityAxis ? "-" + heterogeneity : "") + "-" + planner + "-s" + seed;
-                if (!runId.equals(text(run, "runId"))) {
-                    throw new IOException("Study runId differs from cell: " + cell);
-                }
-                JsonObject workflow = workflows.get(workflowId);
-                if (!text(workflow, "family").equals(text(run, "family"))
-                        || !text(workflow, "population").equals(text(run, "population"))) {
-                    throw new IOException("Study workflow population/family mismatch: " + cell);
-                }
-                if (!"COMPLETED_SUCCESSFULLY".equals(text(run, "status"))) {
-                    throw new IOException("Study contains failed run: " + cell);
-                }
-                String relative = text(run, "manifest");
-                Path manifest = root.resolve(relative).normalize();
-                if (Paths.get(relative).isAbsolute()
-                        || !manifest.startsWith(root)
-                        || !manifest.toRealPath().startsWith(realRoot)) {
-                    throw new IOException("Invalid study evidence path");
-                }
-                ExperimentArtifactValidator.validate(manifest);
-                JsonObject evidence = read(manifest);
-                if (!"workflowsim-experiment-manifest-v4".equals(text(evidence, "schema"))) {
-                    throw new IOException("Registered network studies require manifest v4");
-                }
-                String datasetRoot = validateProvenance(evidence, registered, protocolSha256);
-                if (datasetIdentity != null && !datasetIdentity.equals(datasetRoot)) {
-                    throw new IOException("Study runs disagree on their declared dataset root");
-                }
-                datasetIdentity = datasetRoot;
-                NetworkStudyPlan.WorkflowCase logicalInput = logicalInputs.get(workflowId);
-                if ("CLASSIC_DAX".equals(logicalInput.population)) {
-                    String expectedPath =
-                            portable(datasetRoot).replaceAll("/+$", "") + "/" + portable(logicalInput.path.toString());
-                    if (!expectedPath.equals(portable(text(workflow, "path")))) {
-                        throw new IOException("Input path differs from the declared dataset root: " + cell);
-                    }
-                }
-                validateConditions(
-                        evidence,
-                        registered,
-                        text(workflow, "path"),
-                        count,
-                        network,
-                        heterogeneity,
-                        PlanningAlgorithm.valueOf(planner),
-                        seed,
-                        cell);
-                if (evidence.getAsJsonArray("inputs").size() != 1) {
-                    throw new IOException("Study requires exactly one input");
-                }
-                JsonObject input = evidence.getAsJsonArray("inputs").get(0).getAsJsonObject();
-                if (!text(input, "sha256").equals(text(workflow, "sha256"))
-                        || !text(input, "sha256").equals(text(run, "inputSha256"))) {
-                    throw new IOException("Study input fingerprint differs from protocol: " + cell);
-                }
-                if (!text(input, "path").equals(text(workflow, "path"))
-                        || integer(input, "taskCount") != integer(run, "taskCount")) {
-                    throw new IOException("Input identity mismatch: " + cell);
-                }
-                JsonObject result = evidence.getAsJsonObject("result");
-                JsonObject metrics = evidence.getAsJsonObject("metrics");
-                if (!"COMPLETED_SUCCESSFULLY".equals(text(result, "logicalTaskCompletionStatus"))
-                        || !flag(result, "workflowCompletedSuccessfully")
-                        || !"COMPLETED_SUCCESSFULLY".equals(text(metrics, "logicalTaskCompletionStatus"))
-                        || !flag(metrics, "allLogicalTasksCompletedSuccessfully")) {
-                    throw new IOException("Study evidence is incomplete despite its index status: " + cell);
-                }
-                match(run, "makespanSeconds", metrics, "makespanSeconds");
-                match(run, "logicalCompletionSeconds", metrics, "logicalTaskCompletionSeconds");
-                match(run, "meanWaitingSeconds", metrics, "meanComputeTotalWaitingTimeSeconds");
-                match(run, "p95WaitingSeconds", metrics, "p95ComputeTotalWaitingTimeSeconds");
-                match(run, "meanVmUtilization", metrics, "meanVmModeledIntervalUtilization");
+                validateStudyRun(
+                        element.getAsJsonObject(), retained, workflows, logicalInputs, heterogeneityAxis, state);
             }
-            if (!expected.isEmpty()) {
-                throw new IOException("Study is missing " + expected.size() + " planned cells");
+            if (!state.expected.isEmpty()) {
+                throw new IOException("Study is missing " + state.expected.size() + " planned cells");
             }
             List<Map<String, Object>> runs =
                     JSON.fromJson(index.get("runs"), new TypeToken<List<Map<String, Object>>>() {}.getType());
@@ -183,6 +82,168 @@ public final class NetworkStudyValidator {
             return runs.size();
         } catch (RuntimeException exception) {
             throw new IOException("Malformed network study: " + exception.getMessage(), exception);
+        }
+    }
+
+    /** 路径/协议与计划加载阶段（逐字搬运转写自 validate()）。 */
+    private static RetainedStudy loadRetainedStudy(Path indexPath) throws IOException {
+        Path root = indexPath.toAbsolutePath().normalize().getParent();
+        Path realRoot = root.toRealPath();
+        JsonObject index = read(indexPath);
+        if (!"workflowsim-network-study-v1".equals(text(index, "schema"))) {
+            throw new IOException("Unsupported network study schema");
+        }
+        JsonObject plan = index.getAsJsonObject("plan");
+        Path protocolPath = root.resolve("protocol.json");
+        if (!protocolPath.toRealPath().startsWith(realRoot)) {
+            throw new IOException("Invalid protocol path");
+        }
+        byte[] protocolBytes = Files.readAllBytes(protocolPath);
+        JsonObject retained = JsonParser.parseString(new String(protocolBytes, StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        if (!ExactJsonValues.equal(plan, retained)) {
+            throw new IOException("Study plan differs from retained protocol");
+        }
+        NetworkStudyPlan registered = registeredPlan(plan);
+        String protocolSha256 = sha256(protocolBytes);
+        return new RetainedStudy(index, root, realRoot, plan, registered, protocolSha256);
+    }
+
+    /** 单个研究运行索引项与证据校验（逐字搬运转写）。 */
+    private static void validateStudyRun(
+            JsonObject run,
+            RetainedStudy retained,
+            Map<String, JsonObject> workflows,
+            Map<String, NetworkStudyPlan.WorkflowCase> logicalInputs,
+            boolean heterogeneityAxis,
+            ValidationState state)
+            throws IOException {
+        String workflowId = text(run, "workflowId");
+        int count = integer(run, "vmCount");
+        String network = text(run, "network");
+        String planner = text(run, "planner");
+        long seed = wholeNumber(run, "seed");
+        if (heterogeneityAxis != run.has("heterogeneity")) {
+            throw new IOException("Unexpected heterogeneity axis");
+        }
+        String heterogeneity = heterogeneityAxis ? text(run, "heterogeneity") : NetworkStudyPlan.HOMOGENEOUS;
+        String cell = key(workflowId, count, network, heterogeneity, planner, seed);
+        if (!state.expected.remove(cell)) {
+            throw new IOException("Duplicate or undeclared study cell: " + cell);
+        }
+        String runId = workflowId + "-v" + count + "-" + network + (heterogeneityAxis ? "-" + heterogeneity : "") + "-"
+                + planner + "-s" + seed;
+        if (!runId.equals(text(run, "runId"))) {
+            throw new IOException("Study runId differs from cell: " + cell);
+        }
+        JsonObject workflow = workflows.get(workflowId);
+        if (!text(workflow, "family").equals(text(run, "family"))
+                || !text(workflow, "population").equals(text(run, "population"))) {
+            throw new IOException("Study workflow population/family mismatch: " + cell);
+        }
+        if (!"COMPLETED_SUCCESSFULLY".equals(text(run, "status"))) {
+            throw new IOException("Study contains failed run: " + cell);
+        }
+        String relative = text(run, "manifest");
+        Path manifest = retained.root.resolve(relative).normalize();
+        if (Paths.get(relative).isAbsolute()
+                || !manifest.startsWith(retained.root)
+                || !manifest.toRealPath().startsWith(retained.realRoot)) {
+            throw new IOException("Invalid study evidence path");
+        }
+        ExperimentArtifactValidator.validate(manifest);
+        JsonObject evidence = read(manifest);
+        if (!"workflowsim-experiment-manifest-v4".equals(text(evidence, "schema"))) {
+            throw new IOException("Registered network studies require manifest v4");
+        }
+        String datasetRoot = validateProvenance(evidence, retained.registered, retained.protocolSha256);
+        if (state.datasetIdentity != null && !state.datasetIdentity.equals(datasetRoot)) {
+            throw new IOException("Study runs disagree on their declared dataset root");
+        }
+        state.datasetIdentity = datasetRoot;
+        NetworkStudyPlan.WorkflowCase logicalInput = logicalInputs.get(workflowId);
+        if ("CLASSIC_DAX".equals(logicalInput.population)) {
+            String expectedPath =
+                    portable(datasetRoot).replaceAll("/+$", "") + "/" + portable(logicalInput.path.toString());
+            if (!expectedPath.equals(portable(text(workflow, "path")))) {
+                throw new IOException("Input path differs from the declared dataset root: " + cell);
+            }
+        }
+        validateConditions(
+                evidence,
+                retained.registered,
+                text(workflow, "path"),
+                count,
+                network,
+                heterogeneity,
+                PlanningAlgorithm.valueOf(planner),
+                seed,
+                cell);
+        validateRunEvidence(run, workflow, cell, evidence);
+    }
+
+    /** 设计实验 manifest 指标与索引一致性校验（逐字搬运转写）。 */
+    private static void validateRunEvidence(JsonObject run, JsonObject workflow, String cell, JsonObject evidence)
+            throws IOException {
+        if (evidence.getAsJsonArray("inputs").size() != 1) {
+            throw new IOException("Study requires exactly one input");
+        }
+        JsonObject input = evidence.getAsJsonArray("inputs").get(0).getAsJsonObject();
+        if (!text(input, "sha256").equals(text(workflow, "sha256"))
+                || !text(input, "sha256").equals(text(run, "inputSha256"))) {
+            throw new IOException("Study input fingerprint differs from protocol: " + cell);
+        }
+        if (!text(input, "path").equals(text(workflow, "path"))
+                || integer(input, "taskCount") != integer(run, "taskCount")) {
+            throw new IOException("Input identity mismatch: " + cell);
+        }
+        JsonObject result = evidence.getAsJsonObject("result");
+        JsonObject metrics = evidence.getAsJsonObject("metrics");
+        if (!"COMPLETED_SUCCESSFULLY".equals(text(result, "logicalTaskCompletionStatus"))
+                || !flag(result, "workflowCompletedSuccessfully")
+                || !"COMPLETED_SUCCESSFULLY".equals(text(metrics, "logicalTaskCompletionStatus"))
+                || !flag(metrics, "allLogicalTasksCompletedSuccessfully")) {
+            throw new IOException("Study evidence is incomplete despite its index status: " + cell);
+        }
+        match(run, "makespanSeconds", metrics, "makespanSeconds");
+        match(run, "logicalCompletionSeconds", metrics, "logicalTaskCompletionSeconds");
+        match(run, "meanWaitingSeconds", metrics, "meanComputeTotalWaitingTimeSeconds");
+        match(run, "p95WaitingSeconds", metrics, "p95ComputeTotalWaitingTimeSeconds");
+        match(run, "meanVmUtilization", metrics, "meanVmModeledIntervalUtilization");
+    }
+
+    /** validate() 已保留研究上下文的私有搬运转写结构。 */
+    private static final class RetainedStudy {
+        final JsonObject index;
+        final Path root;
+        final Path realRoot;
+        final JsonObject plan;
+        final NetworkStudyPlan registered;
+        final String protocolSha256;
+
+        RetainedStudy(
+                JsonObject index,
+                Path root,
+                Path realRoot,
+                JsonObject plan,
+                NetworkStudyPlan registered,
+                String protocolSha256) {
+            this.index = index;
+            this.root = root;
+            this.realRoot = realRoot;
+            this.plan = plan;
+            this.registered = registered;
+            this.protocolSha256 = protocolSha256;
+        }
+    }
+
+    /** validate() 跨运行校验进度的私有搬运转写结构。 */
+    private static final class ValidationState {
+        final Set<String> expected;
+        String datasetIdentity;
+
+        ValidationState(Set<String> expected) {
+            this.expected = expected;
         }
     }
 
