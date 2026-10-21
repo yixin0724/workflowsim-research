@@ -77,6 +77,21 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
         }
         int fallbackVmId = vmIds.get(0);
 
+        List<Integer> fallbackRewrittenJobIds = applyBindingRules(mId2Vm, fallbackVmId);
+
+        if (!staticSchedulePlan.isEnforcingOrder()) {
+            for (Object item : getCloudletList()) {
+                scheduleIfIdle((Cloudlet) item, mId2Vm);
+            }
+            return;
+        }
+
+        // 模型生成的非计算 Job（当前为 stage-in）不属于 Task 规划器的计划，必须先行分派。
+        dispatchInPlannedOrder(vmIds, mId2Vm, fallbackRewrittenJobIds, fallbackVmId);
+    }
+
+    /** run() 的绑定校验与 fallback 阶段（PLAT-15 记录语义逐字搬运转写）。 */
+    private List<Integer> applyBindingRules(Map<Integer, CondorVM> mId2Vm, int fallbackVmId) {
         // PLAT-15：记录被 fallback 改写 VM 映射的 Job。当这类 Job 后续在强制顺序计划
         // 校验中失败时，错误信息能指出真实根因（缺少规划器映射），而不是只报表象。
         List<Integer> fallbackRewrittenJobIds = new ArrayList<Integer>();
@@ -104,14 +119,15 @@ public class StaticSchedulingAlgorithm extends BaseSchedulingAlgorithm {
                 fallbackRewrittenJobIds.add(cloudlet.getCloudletId());
             }
         }
+        return fallbackRewrittenJobIds;
+    }
 
-        if (!staticSchedulePlan.isEnforcingOrder()) {
-            for (Object item : getCloudletList()) {
-                scheduleIfIdle((Cloudlet) item, mId2Vm);
-            }
-            return;
-        }
-
+    /** run() 的强顺序计划派发阶段（PLAT-15 根因提示与逐 VM 期望 Job 派发逐字搬运转写）。 */
+    private void dispatchInPlannedOrder(
+            List<Integer> vmIds,
+            Map<Integer, CondorVM> mId2Vm,
+            List<Integer> fallbackRewrittenJobIds,
+            int fallbackVmId) {
         // 模型生成的非计算 Job（当前为 stage-in）不属于 Task 规划器的计划，必须先行分派。
         for (Object item : getCloudletList()) {
             Job job = (Job) item;

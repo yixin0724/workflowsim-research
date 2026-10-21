@@ -402,6 +402,15 @@ public class WorkflowScheduler extends DatacenterBroker {
         long decisionElapsed = System.nanoTime() - decisionStart;
 
         List<Cloudlet> scheduledList = scheduler.getScheduledList();
+        recordSchedulingCycle(readyJobs, idleVms, decisionElapsed, scheduledList);
+        dispatchScheduledJobs(scheduledList);
+        getCloudletList().removeAll(scheduledList);
+        getCloudletSubmittedList().addAll(scheduledList);
+        cloudletsSubmitted += scheduledList.size();
+    }
+
+    /** processCloudletUpdate 的调度周期事件阶段（事件键序原样）。 */
+    private void recordSchedulingCycle(int readyJobs, int idleVms, long decisionElapsed, List<Cloudlet> scheduledList) {
         eventRecorder.record(
                 SimulationEventType.SCHEDULING_CYCLE,
                 CloudSim.clock(),
@@ -417,6 +426,10 @@ public class WorkflowScheduler extends DatacenterBroker {
                         scheduledList.size(),
                         "decisionElapsedNanos",
                         decisionElapsed));
+    }
+
+    /** processCloudletUpdate 的派发阶段（队列延迟→事件记录→CloudSim 事件次序逐字搬运转写）。 */
+    private void dispatchScheduledJobs(List<Cloudlet> scheduledList) {
         for (Cloudlet cloudlet : scheduledList) {
             Job job = (Job) cloudlet;
             int vmId = cloudlet.getVmId();
@@ -440,9 +453,6 @@ public class WorkflowScheduler extends DatacenterBroker {
                     job,
                     SimulationEventRecorder.attributes("queueDelaySeconds", delay));
         }
-        getCloudletList().removeAll(scheduledList);
-        getCloudletSubmittedList().addAll(scheduledList);
-        cloudletsSubmitted += scheduledList.size();
     }
 
     /**

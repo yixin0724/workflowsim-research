@@ -131,35 +131,16 @@ public final class WfCommonsJsonParser {
 
         int nextTaskId = firstTaskId;
         for (SpecTask specTask : instance.workflow.specification.tasks) {
-            double runtimeSeconds = getRequiredRuntimeSeconds(runtimes, specTask.id);
-            long length = toCloudletLength(runtimeSeconds, specTask.id, report);
-            Task task = new Task(nextTaskId++, length);
-            task.setType(specTask.name == null ? "" : specTask.name);
-            task.setUserId(userId);
-
-            List<FileItem> taskFiles = new ArrayList<>();
-            addFiles(
-                    taskFiles,
-                    fileItemsByNameAndType,
-                    specTask.inputFiles,
+            Task task = buildTask(
+                    nextTaskId++,
+                    specTask,
+                    runtimes,
                     fileSizes,
-                    FileType.INPUT,
+                    userId,
                     fileNamespace,
-                    firstDeclaredInputs);
-            addFiles(
-                    taskFiles,
                     fileItemsByNameAndType,
-                    specTask.outputFiles,
-                    fileSizes,
-                    FileType.OUTPUT,
-                    fileNamespace,
-                    firstDeclaredInputs);
-
-            for (FileItem taskFile : taskFiles) {
-                task.addRequiredFile(taskFile.getName());
-            }
-            task.setFileList(taskFiles);
-
+                    firstDeclaredInputs,
+                    report);
             tasksByWfCommonsId.put(specTask.id, task);
             tasks.add(task);
         }
@@ -174,6 +155,48 @@ public final class WfCommonsJsonParser {
 
         Log.printLine("Parsed WfCommons JSON " + file.getName() + " with " + tasks.size() + " tasks.");
         return new ParseResult(tasks, nextTaskId, report);
+    }
+
+    /** parse() 的单任务构建阶段（逐字搬运转写：F-009 首轮声明表语义/道具顺序原样）。 */
+    private Task buildTask(
+            int taskId,
+            SpecTask specTask,
+            Map<String, Double> runtimes,
+            Map<String, Double> fileSizes,
+            int userId,
+            String fileNamespace,
+            Map<String, FileItem> fileItemsByNameAndType,
+            Map<String, FileItem> firstDeclaredInputs,
+            WorkflowInputReport report) {
+        double runtimeSeconds = getRequiredRuntimeSeconds(runtimes, specTask.id);
+        long length = toCloudletLength(runtimeSeconds, specTask.id, report);
+        Task task = new Task(taskId, length);
+        task.setType(specTask.name == null ? "" : specTask.name);
+        task.setUserId(userId);
+
+        List<FileItem> taskFiles = new ArrayList<>();
+        addFiles(
+                taskFiles,
+                fileItemsByNameAndType,
+                specTask.inputFiles,
+                fileSizes,
+                FileType.INPUT,
+                fileNamespace,
+                firstDeclaredInputs);
+        addFiles(
+                taskFiles,
+                fileItemsByNameAndType,
+                specTask.outputFiles,
+                fileSizes,
+                FileType.OUTPUT,
+                fileNamespace,
+                firstDeclaredInputs);
+
+        for (FileItem taskFile : taskFiles) {
+            task.addRequiredFile(taskFile.getName());
+        }
+        task.setFileList(taskFiles);
+        return task;
     }
 
     private static void validateInstance(WfCommonsInstance instance, File file) throws IOException {
