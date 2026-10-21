@@ -677,64 +677,14 @@ public final class WorkflowEngine extends SimEntity {
         }
         // 新数据移动模型下，计算 Job 统一记录传输证据（即使没有真实输入文件，
         // 与历史提交路径的证据覆盖保持一致）。
-        List<FileItem> fileList = job.getFileList();
-
         double now = CloudSim.clock();
-        double totalSeconds = 0.0;
-        double requiredBytes = 0.0;
-        int fileCount = 0;
-        double maxArrival = now;
-        Set<String> attributedNames = new HashSet<String>();
-        try {
-            // 每个父任务的文件在其完成时刻开始传输；到达相互独立，取最晚到达。
-            for (Object parentObj : job.getParentList()) {
-                Job parent = (Job) parentObj;
-                Set<String> produced = new HashSet<String>();
-                for (FileItem producedFile : parent.getFileList()) {
-                    if (producedFile.getType() == Parameters.FileType.OUTPUT) {
-                        produced.add(producedFile.getName());
-                    }
-                }
-                List<FileItem> fromParent = new ArrayList<FileItem>();
-                for (FileItem file : fileList) {
-                    if (file.isRealInputFile(fileList) && produced.contains(file.getName())) {
-                        fromParent.add(file);
-                        attributedNames.add(file.getName());
-                    }
-                }
-                if (fromParent.isEmpty()) {
-                    continue;
-                }
-                double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
-                validateTransferEstimate(sumTransferableBytes(fromParent, job, datacenter), seconds);
-                totalSeconds = addFiniteTransferQuantity(totalSeconds, seconds, "modeled transfer seconds");
-                maxArrival = Math.max(maxArrival, parent.getFinishTime() + seconds);
-            }
-            // 未由任何父任务产生的外部输入（SOURCE 副本）自始可用，传输自就绪时刻开始。
-            List<FileItem> external = new ArrayList<FileItem>();
-            for (FileItem file : fileList) {
-                if (file.isRealInputFile(fileList) && !attributedNames.contains(file.getName())) {
-                    external.add(file);
-                }
-            }
-            if (!external.isEmpty()) {
-                double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
-                validateTransferEstimate(sumTransferableBytes(external, job, datacenter), seconds);
-                totalSeconds = addFiniteTransferQuantity(totalSeconds, seconds, "modeled transfer seconds");
-                maxArrival = Math.max(maxArrival, now + seconds);
-            }
-            for (FileItem file : fileList) {
-                if (file.isRealInputFile(fileList)) {
-                    requiredBytes = addFiniteTransferQuantity(requiredBytes, file.getSize(), "required input bytes");
-                    fileCount++;
-                }
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "WorkflowEngine could not estimate pre-execution stage-in for Job " + job.getCloudletId(), e);
-        }
-
+        PreExecutionTransfer transfer = aggregatePreExecutionTransfer(job, datacenter, now);
+        double totalSeconds = transfer.totalSeconds;
+        double requiredBytes = transfer.requiredBytes;
+        int fileCount = transfer.fileCount;
+        double maxArrival = transfer.maxArrival;
         double delay = maxArrival - now;
+
         eventRecorder.record(
                 SimulationEventType.DATA_STAGE_IN_MODELED,
                 now,
@@ -764,6 +714,74 @@ public final class WorkflowEngine extends SimEntity {
         }
         // 事件延迟不得小于最小事件间隔，避免影响 CloudSim 事件定序。
         return Math.max(delay, CloudSim.getMinTimeBetweenEvents());
+    }
+
+    /** preExecutionStageInHoldSeconds() 的传输聚合阶段（父任务归因/外部输入/字节累计与异常包装，逐字搬运转写）。 */
+    private PreExecutionTransfer aggregatePreExecutionTransfer(Job job, WorkflowDatacenter datacenter, double now) {
+        List<FileItem> fileList = job.getFileList();
+        PreExecutionTransfer transfer = new PreExecutionTransfer();
+        transfer.maxArrival = now;
+        Set<String> attributedNames = new HashSet<String>();
+        try {
+            // 每个父任务的文件在其完成时刻开始传输；到达相互独立，取最晚到达。
+            for (Object parentObj : job.getParentList()) {
+                Job parent = (Job) parentObj;
+                Set<String> produced = new HashSet<String>();
+                for (FileItem producedFile : parent.getFileList()) {
+                    if (producedFile.getType() == Parameters.FileType.OUTPUT) {
+                        produced.add(producedFile.getName());
+                    }
+                }
+                List<FileItem> fromParent = new ArrayList<FileItem>();
+                for (FileItem file : fileList) {
+                    if (file.isRealInputFile(fileList) && produced.contains(file.getName())) {
+                        fromParent.add(file);
+                        attributedNames.add(file.getName());
+                    }
+                }
+                if (fromParent.isEmpty()) {
+                    continue;
+                }
+                double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
+                validateTransferEstimate(sumTransferableBytes(fromParent, job, datacenter), seconds);
+                transfer.totalSeconds =
+                        addFiniteTransferQuantity(transfer.totalSeconds, seconds, "modeled transfer seconds");
+                transfer.maxArrival = Math.max(transfer.maxArrival, parent.getFinishTime() + seconds);
+            }
+            // 未由任何父任务产生的外部输入（SOURCE 副本）自始可用，传输自就绪时刻开始。
+            List<FileItem> external = new ArrayList<FileItem>();
+            for (FileItem file : fileList) {
+                if (file.isRealInputFile(fileList) && !attributedNames.contains(file.getName())) {
+                    external.add(file);
+                }
+            }
+            if (!external.isEmpty()) {
+                double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
+                validateTransferEstimate(sumTransferableBytes(external, job, datacenter), seconds);
+                transfer.totalSeconds =
+                        addFiniteTransferQuantity(transfer.totalSeconds, seconds, "modeled transfer seconds");
+                transfer.maxArrival = Math.max(transfer.maxArrival, now + seconds);
+            }
+            for (FileItem file : fileList) {
+                if (file.isRealInputFile(fileList)) {
+                    transfer.requiredBytes =
+                            addFiniteTransferQuantity(transfer.requiredBytes, file.getSize(), "required input bytes");
+                    transfer.fileCount++;
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "WorkflowEngine could not estimate pre-execution stage-in for Job " + job.getCloudletId(), e);
+        }
+        return transfer;
+    }
+
+    /** preExecutionStageInHoldSeconds() 聚合量的私有搬运转写结构。 */
+    private static final class PreExecutionTransfer {
+        private double totalSeconds;
+        private double requiredBytes;
+        private int fileCount;
+        private double maxArrival;
     }
 
     /**
