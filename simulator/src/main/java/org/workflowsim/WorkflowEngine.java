@@ -1284,18 +1284,7 @@ public final class WorkflowEngine extends SimEntity {
                             prepareCoherentInput(job);
                     // PLAT-13：retry Job 的 JOB_READY 补充与失败原 Job 的关联属性，
                     // 使下游事件消费者能直接识别重试尝试（attempt 语义）。
-                    Integer retryOfFailedJobId = retryOfFailedJobIds.get(job.getCloudletId());
-                    eventRecorder.record(
-                            SimulationEventType.JOB_READY,
-                            CloudSim.clock(),
-                            job,
-                            retryOfFailedJobId != null
-                                    ? SimulationEventRecorder.attributes(
-                                            "parentJobCount",
-                                            parentList.size(),
-                                            "retryOfFailedJobId",
-                                            retryOfFailedJobId)
-                                    : SimulationEventRecorder.attributes("parentJobCount", parentList.size()));
+                    recordJobReady(job, retryOfFailedJobIds.get(job.getCloudletId()), parentList.size());
                     jobsSubmitted++;
                     getJobsSubmittedList().add(job);
                     list.remove(job);
@@ -1308,30 +1297,7 @@ public final class WorkflowEngine extends SimEntity {
                     // R2：链路争用模型优先——传输组登记进争用引擎后由争用检查事件
                     // 在全部传输组完成时释放；返回 true 表示争用路径已接管本 Job。
                     if (coherentPreparation != null) {
-                        coherentPendingJobs.put(job.getCloudletId(), job);
-                        if (!coherentDataflow.isStorageVersion())
-                            eventRecorder.record(
-                                    SimulationEventType.DATA_STAGE_IN_MODELED,
-                                    CloudSim.clock(),
-                                    job,
-                                    SimulationEventRecorder.attributes(
-                                            "modeledTransferSeconds",
-                                            coherentPreparation.getIsolatedSeconds(),
-                                            "requiredFileBytes",
-                                            coherentPreparation.getRequiredBytes(),
-                                            "modeledTransferFileCount",
-                                            coherentPreparation.getReferenceCount(),
-                                            "dataMovementModel",
-                                            ((WorkflowDatacenter) CloudSim.getEntity(boundDatacenterId))
-                                                    .getDataMovementModel()
-                                                    .getKind()
-                                                    .name(),
-                                            "newFileCopies",
-                                            coherentPreparation.getNewCopies(),
-                                            "joinedFileCopies",
-                                            coherentPreparation.getJoinedCopies(),
-                                            "transferUnit",
-                                            "LOGICAL_FILE_V2"));
+                        recordDataStageInModeled(job, coherentPreparation);
                     } else if (!startContentionStageIn(job)) {
                         double stageInHoldSeconds = preExecutionStageInHoldSeconds(job);
                         if (stageInHoldSeconds < 0.0 || stageInHoldSeconds == 0.0) {
@@ -1348,6 +1314,46 @@ public final class WorkflowEngine extends SimEntity {
         for (int i = 0; i < getSchedulers().size(); i++) {
             dispatchReadyBatch(getSchedulerId(i), allocationList.get(getSchedulerId(i)));
         }
+    }
+    /** submitJobs() 的 JOB_READY 事件记录阶段（PLAT-13 retry 关联属性，逐字搬运转写）。 */
+    private void recordJobReady(Job job, Integer retryOfFailedJobId, int parentCount) {
+        eventRecorder.record(
+                SimulationEventType.JOB_READY,
+                CloudSim.clock(),
+                job,
+                retryOfFailedJobId != null
+                        ? SimulationEventRecorder.attributes(
+                                "parentJobCount", parentCount, "retryOfFailedJobId", retryOfFailedJobId)
+                        : SimulationEventRecorder.attributes("parentJobCount", parentCount));
+    }
+
+    /** submitJobs() 的 DATA_STAGE_IN_MODELED 记录阶段（V2 coherent 数据准备，逐字搬运转写）。 */
+    private void recordDataStageInModeled(
+            Job job, org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation coherentPreparation) {
+        coherentPendingJobs.put(job.getCloudletId(), job);
+        if (!coherentDataflow.isStorageVersion())
+            eventRecorder.record(
+                    SimulationEventType.DATA_STAGE_IN_MODELED,
+                    CloudSim.clock(),
+                    job,
+                    SimulationEventRecorder.attributes(
+                            "modeledTransferSeconds",
+                            coherentPreparation.getIsolatedSeconds(),
+                            "requiredFileBytes",
+                            coherentPreparation.getRequiredBytes(),
+                            "modeledTransferFileCount",
+                            coherentPreparation.getReferenceCount(),
+                            "dataMovementModel",
+                            ((WorkflowDatacenter) CloudSim.getEntity(boundDatacenterId))
+                                    .getDataMovementModel()
+                                    .getKind()
+                                    .name(),
+                            "newFileCopies",
+                            coherentPreparation.getNewCopies(),
+                            "joinedFileCopies",
+                            coherentPreparation.getJoinedCopies(),
+                            "transferUnit",
+                            "LOGICAL_FILE_V2"));
     }
 
     /**
