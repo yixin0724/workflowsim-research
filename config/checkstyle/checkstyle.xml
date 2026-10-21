@@ -62,8 +62,11 @@
         <module name="PackageName">
             <property name="severity" value="error"/>
         </module>
-        <!-- import 正确性：重复导入 = 冗余代码；基线主源码 0 条 -->
+        <!-- import 正确性：重复导入 = 冗余代码；未用导入 = 死代码（2026-10-21 存量 11 已清零，升级 error） -->
         <module name="RedundantImport">
+            <property name="severity" value="error"/>
+        </module>
+        <module name="UnusedImports">
             <property name="severity" value="error"/>
         </module>
         <!-- 空语句 ";" 几乎必为笔误，correctness 一票否决 -->
@@ -83,10 +86,16 @@
             <property name="severity" value="error"/>
         </module>
 
+        <!-- switch 落空分支必须显式（2026-10-21 存量 6 条逐条人工审计后清零，升级 error；
+             审计记录：VerticalClustering/DistributionGenerator/FailureMonitor×3/示例各一处，
+             全部走"落空→break"同一路径的显式化，无控制流变化） -->
+        <module name="MissingSwitchDefault">
+            <property name="severity" value="error"/>
+        </module>
+
         <!-- ============ Tier-B（warning，存量在册逐批清零） ============ -->
-        <!-- import 卫生：未用/星型/顺序（11/17/226 条基线）。
+        <!-- import 卫生：星型/顺序（17/226 条基线）。
              groups/separated 维持基线审计口径：java, javax, org, com 四组且组间空行分隔。 -->
-        <module name="UnusedImports"/>
         <module name="AvoidStarImport"/>
         <module name="ImportOrder">
             <property name="groups" value="java,javax,org,com"/>
@@ -119,9 +128,6 @@
         <module name="CyclomaticComplexity">
             <property name="max" value="15"/>
         </module>
-
-        <!-- 语义敏感小存量（6 条基线）：修复需逐条人工判定，先在册 -->
-        <module name="MissingSwitchDefault"/>
 
         <!-- 文档性（info）：与 docs/advanced/CODE_STYLE.md 同步 -->
         <module name="MissingJavadocType">

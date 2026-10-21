@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;
-import org.workflowsim.WorkflowSimTags;
 
 /**
  * MinMin 调度算法 oracle 测试。

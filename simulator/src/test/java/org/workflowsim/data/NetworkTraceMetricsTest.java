@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** NF002B2 analytic byte/time oracles; no metric expectations obtained from the allocator. */

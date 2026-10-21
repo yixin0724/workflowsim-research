@@ -20,7 +20,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.WorkflowInputReport;
 import org.workflowsim.planning.SharedStorageDagPlanTrace;
 import org.workflowsim.platform.PlatformProfile;
-import org.workflowsim.exception.SimulationConfigurationException;
 import org.workflowsim.platform.PlatformProfiles;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.SimulationConfig;

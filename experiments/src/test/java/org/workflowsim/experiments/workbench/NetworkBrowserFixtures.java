@@ -1,7 +1,6 @@
 package org.workflowsim.experiments.workbench;
 
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.nio.file.Path;
 import java.util.ArrayList;

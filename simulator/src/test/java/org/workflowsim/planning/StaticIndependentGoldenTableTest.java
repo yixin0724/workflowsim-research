@@ -11,7 +11,6 @@ import org.cloudbus.cloudsim.CloudletSchedulerSpaceShared;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;
-import org.workflowsim.utils.Parameters;
 
 /**
  * 链 C（科学效度审计 S-C1，2026-10-20）：独立任务启发式的 Braun et al. 2001

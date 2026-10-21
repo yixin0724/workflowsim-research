@@ -5,20 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.platform.PlatformProfiles;
-import org.workflowsim.utils.ReplicaCatalog;
-import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.SimulationConfig;
-import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 
 /**
  * Phase 2 元变缺口补齐（审查工程 C08/C168-系列）。
