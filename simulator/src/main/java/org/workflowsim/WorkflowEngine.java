@@ -846,160 +846,19 @@ public final class WorkflowEngine extends SimEntity {
         TransferContentionEngine contention = datacenter.getTransferContentionEngine();
         double now = CloudSim.clock();
         settleContentionTransfers(datacenter, contention.advance(now).getCompletedTransferIds());
-        List<FileItem> fileList = job.getFileList();
-        Set<Long> pending = new LinkedHashSet<Long>();
-        double requiredBytes = 0.0;
-        int fileCount = 0;
-        int pathLinkCount = 0;
-        double modeledSeconds = 0.0;
-        boolean localFileSystem = ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.LOCAL;
-        try {
-            Set<String> attributedNames = new HashSet<String>();
-            // 按父任务产出归组：LOCAL 文件系统下源端点取父任务所在 VM；SHARED 文件系统
-            // 下文件经由共享存储，源端点视为 SOURCE（容量无上限）。
-            for (Object parentObj : job.getParentList()) {
-                Job parent = (Job) parentObj;
-                Set<String> produced = new HashSet<String>();
-                for (FileItem producedFile : parent.getFileList()) {
-                    if (producedFile.getType() == Parameters.FileType.OUTPUT) {
-                        produced.add(producedFile.getName());
-                    }
-                }
-                List<FileItem> fromParent = new ArrayList<FileItem>();
-                for (FileItem file : fileList) {
-                    if (file.isRealInputFile(fileList) && produced.contains(file.getName())) {
-                        fromParent.add(file);
-                        attributedNames.add(file.getName());
-                    }
-                }
-                if (fromParent.isEmpty()) {
-                    continue;
-                }
-                double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
-                double bytes = sumRealInputBytes(fromParent);
-                requiredBytes = addFiniteTransferQuantity(requiredBytes, bytes, "required input bytes");
-                fileCount += fromParent.size();
-                modeledSeconds = addFiniteTransferQuantity(modeledSeconds, seconds, "modeled transfer seconds");
-                // R8 审计修复（F2）：争用流只携带真正需要传输的字节（与 seconds
-                // 同口径）——已本地文件贡献零秒，也不再计入争用字节量。
-                double transferredBytes = sumTransferableBytes(fromParent, job, datacenter);
-                validateTransferEstimate(transferredBytes, seconds);
-                if (seconds <= 0.0 || transferredBytes <= 0.0) {
-                    continue; // 副本已在目标 VM 上，零传输。
-                }
-                String sourceEndpoint = localFileSystem ? "VM:" + parent.getVmId() : Parameters.SOURCE;
-                long transferId = nextContentionTransferId++;
-                String destinationEndpoint = "VM:" + job.getVmId();
-                List<String> resources;
-                if (fatTree) {
-                    // Fat-tree：资源集 = 两端点 + 确定性路由的全部链路键。
-                    List<String> pathLinks = Parameters.SOURCE.equals(sourceEndpoint)
-                            ? java.util.Collections.<String>emptyList()
-                            : datacenter.fatTreePathResources(parent.getVmId(), job.getVmId(), job.getUserId());
-                    pathLinkCount += pathLinks.size();
-                    resources = new ArrayList<String>();
-                    resources.add(sourceEndpoint);
-                    resources.add(destinationEndpoint);
-                    resources.addAll(pathLinks);
-                    settleContentionTransfers(
-                            datacenter,
-                            contention
-                                    .addTransfer(
-                                            transferId, transferredBytes, resources, transferredBytes / seconds, now)
-                                    .getCompletedTransferIds());
-                } else {
-                    resources = java.util.Arrays.asList(sourceEndpoint, destinationEndpoint);
-                    settleContentionTransfers(
-                            datacenter,
-                            contention
-                                    .addTransfer(
-                                            transferId, transferredBytes, resources, transferredBytes / seconds, now)
-                                    .getCompletedTransferIds());
-                }
-                datacenter.recordNetworkFlowBinding(
-                        transferId,
-                        job,
-                        Integer.valueOf(parent.getCloudletId()),
-                        NetworkFlowBinding.GroupKind.PARENT_GROUP_V1,
-                        sourceEndpoint,
-                        destinationEndpoint,
-                        resources);
-                contentionTransferJobs.put(transferId, job);
-                pending.add(transferId);
-            }
-            // 外部输入（SOURCE 副本）单独一组。
-            List<FileItem> external = new ArrayList<FileItem>();
-            for (FileItem file : fileList) {
-                if (file.isRealInputFile(fileList) && !attributedNames.contains(file.getName())) {
-                    external.add(file);
-                }
-            }
-            if (!external.isEmpty()) {
-                double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
-                double bytes = sumRealInputBytes(external);
-                requiredBytes = addFiniteTransferQuantity(requiredBytes, bytes, "required input bytes");
-                fileCount += external.size();
-                modeledSeconds = addFiniteTransferQuantity(modeledSeconds, seconds, "modeled transfer seconds");
-                // R8 审计修复（F2）：与父组同口径，只对真正传输的字节建流。
-                double transferredBytes = sumTransferableBytes(external, job, datacenter);
-                validateTransferEstimate(transferredBytes, seconds);
-                if (seconds > 0.0 && transferredBytes > 0.0) {
-                    long transferId = nextContentionTransferId++;
-                    String destinationEndpoint = "VM:" + job.getVmId();
-                    List<String> resources;
-                    if (fatTree) {
-                        // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
-                        resources = java.util.Collections.singletonList(destinationEndpoint);
-                        settleContentionTransfers(
-                                datacenter,
-                                contention
-                                        .addTransfer(
-                                                transferId,
-                                                transferredBytes,
-                                                resources,
-                                                transferredBytes / seconds,
-                                                now)
-                                        .getCompletedTransferIds());
-                    } else {
-                        resources = java.util.Arrays.asList(Parameters.SOURCE, destinationEndpoint);
-                        settleContentionTransfers(
-                                datacenter,
-                                contention
-                                        .addTransfer(
-                                                transferId,
-                                                transferredBytes,
-                                                resources,
-                                                transferredBytes / seconds,
-                                                now)
-                                        .getCompletedTransferIds());
-                    }
-                    datacenter.recordNetworkFlowBinding(
-                            transferId,
-                            job,
-                            null,
-                            NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1,
-                            Parameters.SOURCE,
-                            destinationEndpoint,
-                            resources);
-                    contentionTransferJobs.put(transferId, job);
-                    pending.add(transferId);
-                }
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "WorkflowEngine could not register contention stage-in " + "for Job " + job.getCloudletId(), e);
-        }
+        ContentionStageInAggregates aggregates =
+                registerContentionStageInGroups(job, datacenter, contention, now, fatTree);
         Map<String, Object> stageInAttributes = SimulationEventRecorder.attributes(
-                "modeledTransferSeconds", modeledSeconds,
-                "requiredFileBytes", requiredBytes,
-                "modeledTransferFileCount", fileCount,
+                "modeledTransferSeconds", aggregates.modeledSeconds,
+                "requiredFileBytes", aggregates.requiredBytes,
+                "modeledTransferFileCount", aggregates.fileCount,
                 "dataMovementModel", datacenter.getDataMovementModel().getKind().name(),
-                "contentionTransferGroupCount", (double) pending.size());
+                "contentionTransferGroupCount", (double) aggregates.pending.size());
         if (fatTree) {
-            stageInAttributes.put("fatTreePathLinkCount", (double) pathLinkCount);
+            stageInAttributes.put("fatTreePathLinkCount", (double) aggregates.pathLinkCount);
         }
         eventRecorder.record(SimulationEventType.DATA_STAGE_IN_MODELED, now, job, stageInAttributes);
-        if (pending.isEmpty()) {
+        if (aggregates.pending.isEmpty()) {
             // No actual transfer: join the ordinary ready batch instead of sampling WED once
             // per Job merely because a contention model was selected.
             try {
@@ -1010,7 +869,7 @@ public final class WorkflowEngine extends SimEntity {
             }
             return false;
         }
-        contentionJobPendingTransfers.put(job.getCloudletId(), pending);
+        contentionJobPendingTransfers.put(job.getCloudletId(), aggregates.pending);
         Double nextCompletion = contention.advance(now).getNextCompletionTime();
         schedule(
                 getId(),
@@ -1018,6 +877,191 @@ public final class WorkflowEngine extends SimEntity {
                 WorkflowSimTags.TRANSFER_CONTENTION_CHECK,
                 null);
         return true;
+    }
+
+    /** startContentionStageIn() 的分组注册阶段（父任务归组 + 外部输入，逐字搬运转写）。 */
+    private ContentionStageInAggregates registerContentionStageInGroups(
+            Job job, WorkflowDatacenter datacenter, TransferContentionEngine contention, double now, boolean fatTree) {
+        List<FileItem> fileList = job.getFileList();
+        ContentionStageInAggregates aggregates = new ContentionStageInAggregates();
+        boolean localFileSystem = ReplicaCatalog.getFileSystem() == ReplicaCatalog.FileSystem.LOCAL;
+        try {
+            Set<String> attributedNames = new HashSet<String>();
+            // 按父任务产出归组：LOCAL 文件系统下源端点取父任务所在 VM；SHARED 文件系统
+            // 下文件经由共享存储，源端点视为 SOURCE（容量无上限）。
+            for (Object parentObj : job.getParentList()) {
+                Job parent = (Job) parentObj;
+                List<FileItem> fromParent = collectFilesProducedByParent(parent, fileList, attributedNames);
+                if (fromParent.isEmpty()) {
+                    continue;
+                }
+                registerContentionTransferFromParent(
+                        job, parent, fromParent, datacenter, contention, now, fatTree, localFileSystem, aggregates);
+            }
+            // 外部输入（SOURCE 副本）单独一组。
+            registerExternalInputTransfers(
+                    job, fileList, datacenter, contention, now, fatTree, attributedNames, aggregates);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "WorkflowEngine could not register contention stage-in " + "for Job " + job.getCloudletId(), e);
+        }
+        return aggregates;
+    }
+
+    /** 按父任务产出归组收集输入文件（逐字搬运转写自父循环体）。 */
+    private static List<FileItem> collectFilesProducedByParent(
+            Job parent, List<FileItem> fileList, Set<String> attributedNames) {
+        Set<String> produced = new HashSet<String>();
+        for (FileItem producedFile : parent.getFileList()) {
+            if (producedFile.getType() == Parameters.FileType.OUTPUT) {
+                produced.add(producedFile.getName());
+            }
+        }
+        List<FileItem> fromParent = new ArrayList<FileItem>();
+        for (FileItem file : fileList) {
+            if (file.isRealInputFile(fileList) && produced.contains(file.getName())) {
+                fromParent.add(file);
+                attributedNames.add(file.getName());
+            }
+        }
+        return fromParent;
+    }
+
+    /** 单个父任务传输组的估算/登记/入账（逐字搬运转写；原循环体内的 continue 改为 return）。 */
+    private void registerContentionTransferFromParent(
+            Job job,
+            Job parent,
+            List<FileItem> fromParent,
+            WorkflowDatacenter datacenter,
+            TransferContentionEngine contention,
+            double now,
+            boolean fatTree,
+            boolean localFileSystem,
+            ContentionStageInAggregates aggregates)
+            throws Exception {
+        double seconds = datacenter.estimateTransferSecondsForFiles(fromParent, job);
+        double bytes = sumRealInputBytes(fromParent);
+        aggregates.requiredBytes = addFiniteTransferQuantity(aggregates.requiredBytes, bytes, "required input bytes");
+        aggregates.fileCount += fromParent.size();
+        aggregates.modeledSeconds =
+                addFiniteTransferQuantity(aggregates.modeledSeconds, seconds, "modeled transfer seconds");
+        // R8 审计修复（F2）：争用流只携带真正需要传输的字节（与 seconds
+        // 同口径）——已本地文件贡献零秒，也不再计入争用字节量。
+        double transferredBytes = sumTransferableBytes(fromParent, job, datacenter);
+        validateTransferEstimate(transferredBytes, seconds);
+        if (seconds <= 0.0 || transferredBytes <= 0.0) {
+            return; // 副本已在目标 VM 上，零传输。
+        }
+        String sourceEndpoint = localFileSystem ? "VM:" + parent.getVmId() : Parameters.SOURCE;
+        long transferId = nextContentionTransferId++;
+        String destinationEndpoint = "VM:" + job.getVmId();
+        List<String> resources;
+        if (fatTree) {
+            // Fat-tree：资源集 = 两端点 + 确定性路由的全部链路键。
+            List<String> pathLinks = Parameters.SOURCE.equals(sourceEndpoint)
+                    ? java.util.Collections.<String>emptyList()
+                    : datacenter.fatTreePathResources(parent.getVmId(), job.getVmId(), job.getUserId());
+            aggregates.pathLinkCount += pathLinks.size();
+            resources = new ArrayList<String>();
+            resources.add(sourceEndpoint);
+            resources.add(destinationEndpoint);
+            resources.addAll(pathLinks);
+            settleContentionTransfers(
+                    datacenter,
+                    contention
+                            .addTransfer(transferId, transferredBytes, resources, transferredBytes / seconds, now)
+                            .getCompletedTransferIds());
+        } else {
+            resources = java.util.Arrays.asList(sourceEndpoint, destinationEndpoint);
+            settleContentionTransfers(
+                    datacenter,
+                    contention
+                            .addTransfer(transferId, transferredBytes, resources, transferredBytes / seconds, now)
+                            .getCompletedTransferIds());
+        }
+        datacenter.recordNetworkFlowBinding(
+                transferId,
+                job,
+                Integer.valueOf(parent.getCloudletId()),
+                NetworkFlowBinding.GroupKind.PARENT_GROUP_V1,
+                sourceEndpoint,
+                destinationEndpoint,
+                resources);
+        contentionTransferJobs.put(transferId, job);
+        aggregates.pending.add(transferId);
+    }
+
+    /** 外部输入（SOURCE 副本）传输组的估算/登记（逐字搬运转写）。 */
+    private void registerExternalInputTransfers(
+            Job job,
+            List<FileItem> fileList,
+            WorkflowDatacenter datacenter,
+            TransferContentionEngine contention,
+            double now,
+            boolean fatTree,
+            Set<String> attributedNames,
+            ContentionStageInAggregates aggregates)
+            throws Exception {
+        List<FileItem> external = new ArrayList<FileItem>();
+        for (FileItem file : fileList) {
+            if (file.isRealInputFile(fileList) && !attributedNames.contains(file.getName())) {
+                external.add(file);
+            }
+        }
+        if (!external.isEmpty()) {
+            double seconds = datacenter.estimateTransferSecondsForFiles(external, job);
+            double bytes = sumRealInputBytes(external);
+            aggregates.requiredBytes =
+                    addFiniteTransferQuantity(aggregates.requiredBytes, bytes, "required input bytes");
+            aggregates.fileCount += external.size();
+            aggregates.modeledSeconds =
+                    addFiniteTransferQuantity(aggregates.modeledSeconds, seconds, "modeled transfer seconds");
+            // R8 审计修复（F2）：与父组同口径，只对真正传输的字节建流。
+            double transferredBytes = sumTransferableBytes(external, job, datacenter);
+            validateTransferEstimate(transferredBytes, seconds);
+            if (seconds > 0.0 && transferredBytes > 0.0) {
+                long transferId = nextContentionTransferId++;
+                String destinationEndpoint = "VM:" + job.getVmId();
+                List<String> resources;
+                if (fatTree) {
+                    // 诚实边界 v1：外部输入流量不经过 Fat-tree，仅占用目标端点。
+                    resources = java.util.Collections.singletonList(destinationEndpoint);
+                    settleContentionTransfers(
+                            datacenter,
+                            contention
+                                    .addTransfer(
+                                            transferId, transferredBytes, resources, transferredBytes / seconds, now)
+                                    .getCompletedTransferIds());
+                } else {
+                    resources = java.util.Arrays.asList(Parameters.SOURCE, destinationEndpoint);
+                    settleContentionTransfers(
+                            datacenter,
+                            contention
+                                    .addTransfer(
+                                            transferId, transferredBytes, resources, transferredBytes / seconds, now)
+                                    .getCompletedTransferIds());
+                }
+                datacenter.recordNetworkFlowBinding(
+                        transferId,
+                        job,
+                        null,
+                        NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1,
+                        Parameters.SOURCE,
+                        destinationEndpoint,
+                        resources);
+                contentionTransferJobs.put(transferId, job);
+                aggregates.pending.add(transferId);
+            }
+        }
+    }
+
+    /** startContentionStageIn() 分组注册阶段聚合量的私有搬运转写结构。 */
+    private static final class ContentionStageInAggregates {
+        private final Set<Long> pending = new LinkedHashSet<Long>();
+        private double requiredBytes;
+        private int fileCount;
+        private int pathLinkCount;
+        private double modeledSeconds;
     }
 
     /** 累计一组文件的字节量（组内均为真实输入文件）。 */
