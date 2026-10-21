@@ -25,7 +25,7 @@ final class DataflowAssignmentReportView {
     private static final String INPUT = "MAX_FILE_NOMINAL_REMAINING_CONDITIONAL_STORE_V1";
     private static final String CPU = "ACTIVE_COMPUTE_RESERVATION_FROM_OBSERVED_START_V1";
 
-    private DataflowAssignmentReportView() { }
+    private DataflowAssignmentReportView() {}
 
     /** Null means that the enclosing run has no validated online-assignment evidence. */
     static Map<String, Object> fromValidated(DataflowAssignmentValidator.Result checked) {
@@ -48,7 +48,8 @@ final class DataflowAssignmentReportView {
         summary.put("conditionalStoreCount", integer(conditionalStoreCount));
         summary.put("joinedInputCopyCount", decimal(joinedInputCopyCount));
 
-        JsonObject first = assignments.size() == 0 ? null
+        JsonObject first = assignments.size() == 0
+                ? null
                 : assignments.get(0).getAsJsonObject().getAsJsonObject("attributes");
         Map<String, Object> root = map();
         root.put("schema", "workflowsim-dataflow-assignment-display-v1");
@@ -83,16 +84,44 @@ final class DataflowAssignmentReportView {
         row.put("vmId", scalar(main.get("vmId")));
         row.put("time", scalar(main.get("simulationTime")));
         row.put("binding", attrs.get("binding").getAsString());
-        row.put("selected", fields(chosen, "inputSeconds", "cpuAvailableAt", "computeSeconds",
-                "scoreFinishSeconds", "conditionalStoreWait", "joinedInputCopies"));
-        row.put("observation", fields(attrs.getAsJsonObject("observation"), "contract", "status",
-                "storageVersion", "storeBackedInputs", "interFlowSharing", "observedThrough", "serviceThrough",
-                "activeCopyCount", "activeJobCount", "pendingOutputFileCount", "scopedFileCount"));
+        row.put(
+                "selected",
+                fields(
+                        chosen,
+                        "inputSeconds",
+                        "cpuAvailableAt",
+                        "computeSeconds",
+                        "scoreFinishSeconds",
+                        "conditionalStoreWait",
+                        "joinedInputCopies"));
+        row.put(
+                "observation",
+                fields(
+                        attrs.getAsJsonObject("observation"),
+                        "contract",
+                        "status",
+                        "storageVersion",
+                        "storeBackedInputs",
+                        "interFlowSharing",
+                        "observedThrough",
+                        "serviceThrough",
+                        "activeCopyCount",
+                        "activeJobCount",
+                        "pendingOutputFileCount",
+                        "scopedFileCount"));
 
         List<Map<String, Object>> candidateRows = new ArrayList<>();
         for (int i = 0; i < Math.min(CANDIDATE_LIMIT, candidates.size()); i++) {
-            candidateRows.add(fields(candidates.get(i).getAsJsonObject(), "vmId", "compatible", "inputSeconds",
-                    "cpuAvailableAt", "computeSeconds", "scoreFinishSeconds", "conditionalStoreWait", "joinedInputCopies"));
+            candidateRows.add(fields(
+                    candidates.get(i).getAsJsonObject(),
+                    "vmId",
+                    "compatible",
+                    "inputSeconds",
+                    "cpuAvailableAt",
+                    "computeSeconds",
+                    "scoreFinishSeconds",
+                    "conditionalStoreWait",
+                    "joinedInputCopies"));
         }
         row.put("candidates", preview(candidates.size(), CANDIDATE_LIMIT, candidateRows));
         return freeze(row);
@@ -135,13 +164,26 @@ final class DataflowAssignmentReportView {
 
     // Preserve the validated JSON decimal value, not a rounded binary64 approximation of it.
     // Numeric text is never clipped, epsilon-rounded, or formatted as a date/scientific notation.
-    private static BigDecimal exact(JsonElement value) { return new BigDecimal(value.getAsString()); }
-    private static String decimal(BigDecimal value) { return value.stripTrailingZeros().toPlainString(); }
-    private static String integer(long value) { return Long.toString(value); }
+    private static BigDecimal exact(JsonElement value) {
+        return new BigDecimal(value.getAsString());
+    }
+
+    private static String decimal(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
+    private static String integer(long value) {
+        return Long.toString(value);
+    }
+
     private static String metadata(JsonObject first, String name, String fallback) {
         return first == null ? fallback : first.get(name).getAsString();
     }
-    private static Map<String, Object> map() { return new LinkedHashMap<>(); }
+
+    private static Map<String, Object> map() {
+        return new LinkedHashMap<>();
+    }
+
     private static Map<String, Object> freeze(Map<String, Object> values) {
         return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }

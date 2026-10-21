@@ -46,8 +46,7 @@ public final class RerunDiffExecutor {
     /** 未预期异常退出码（与全部 verdict 码不重叠）。 */
     static final int EXIT_UNEXPECTED = 70;
 
-    private RerunDiffExecutor() {
-    }
+    private RerunDiffExecutor() {}
 
     /**
      * CLI 入口：verdict 退出码 0-5；用法错误 64；未预期异常 70。
@@ -62,10 +61,9 @@ public final class RerunDiffExecutor {
         }
         try {
             RerunReport report = execute(Paths.get(args[0]), Paths.get(args[1]));
-            System.out.println("verdict: " + report.getVerdict().name()
-                    + " (exit code " + report.getExitCode() + ")");
-            System.out.println("report: " + Paths.get(args[1]).toAbsolutePath().normalize()
-                    .resolve(REPORT_JSON_NAME));
+            System.out.println("verdict: " + report.getVerdict().name() + " (exit code " + report.getExitCode() + ")");
+            System.out.println(
+                    "report: " + Paths.get(args[1]).toAbsolutePath().normalize().resolve(REPORT_JSON_NAME));
             System.exit(report.getExitCode());
         } catch (IllegalArgumentException | IllegalStateException e) {
             System.err.println("rerun refused: " + e.getMessage());
@@ -90,8 +88,7 @@ public final class RerunDiffExecutor {
      * @throws IllegalArgumentException 入参为空
      * @throws IllegalStateException 输出目录已存在且非空（不覆盖任何已有文件）
      */
-    public static RerunReport execute(Path runDirectory, Path outputDirectory)
-            throws IOException {
+    public static RerunReport execute(Path runDirectory, Path outputDirectory) throws IOException {
         if (runDirectory == null || outputDirectory == null) {
             throw new IllegalArgumentException("Run directory and output directory are required");
         }
@@ -106,36 +103,35 @@ public final class RerunDiffExecutor {
         RerunReport report;
         try {
             evidence = RerunEvidenceReader.read(absoluteRun);
-            RerunExecutor.RerunExecution execution =
-                    RerunExecutor.execute(evidence, absoluteOutput);
-            RerunEvidence rerunEvidence =
-                    RerunEvidenceReader.read(execution.getRerunDirectory());
-            EvidenceCoreDiffer.DiffResult diff =
-                    EvidenceCoreDiffer.compare(evidence, rerunEvidence);
-            report = builder
-                    .verdict(diff.isIdenticalCore()
-                            ? RerunVerdict.IDENTICAL_CORE : RerunVerdict.DIVERGED)
+            RerunExecutor.RerunExecution execution = RerunExecutor.execute(evidence, absoluteOutput);
+            RerunEvidence rerunEvidence = RerunEvidenceReader.read(execution.getRerunDirectory());
+            EvidenceCoreDiffer.DiffResult diff = EvidenceCoreDiffer.compare(evidence, rerunEvidence);
+            report = builder.verdict(diff.isIdenticalCore() ? RerunVerdict.IDENTICAL_CORE : RerunVerdict.DIVERGED)
                     .inputResolution(RerunReport.inputResolutionsOf(execution.getInputs()))
                     .divergences(diff)
-                    .networkEvidenceCoverage(evidence.getNetworkCaptureStatus(),rerunEvidence.getNetworkCaptureStatus())
-                    .codeIdentityNote(identityNote(diff.getOriginalSourceTreeSha256(),
-                            diff.getRerunSourceTreeSha256()))
+                    .networkEvidenceCoverage(
+                            evidence.getNetworkCaptureStatus(), rerunEvidence.getNetworkCaptureStatus())
+                    .codeIdentityNote(identityNote(diff.getOriginalSourceTreeSha256(), diff.getRerunSourceTreeSha256()))
                     .build();
         } catch (RerunFailureException e) {
-            report = failureReport(builder, evidence, e.getVerdict(),
-                    e.getMessage(), e.getDetails());
+            report = failureReport(builder, evidence, e.getVerdict(), e.getMessage(), e.getDetails());
         } catch (SimulationExecutionException | RetryLimitExceededException e) {
-            report = failureReport(builder, evidence, RerunVerdict.RECONSTRUCTION_REJECTED,
-                    "模拟执行阶段被当前代码拒绝复现（历史证据与当前语义不兼容）: "
-                            + e.getClass().getSimpleName() + ": " + e.getMessage(),
+            report = failureReport(
+                    builder,
+                    evidence,
+                    RerunVerdict.RECONSTRUCTION_REJECTED,
+                    "模拟执行阶段被当前代码拒绝复现（历史证据与当前语义不兼容）: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
                     Collections.<String>emptyList());
         }
         writeReports(absoluteOutput, report);
         return report;
     }
 
-    private static RerunReport failureReport(RerunReport.Builder builder,
-            RerunEvidence evidence, RerunVerdict verdict, String reason,
+    private static RerunReport failureReport(
+            RerunReport.Builder builder,
+            RerunEvidence evidence,
+            RerunVerdict verdict,
+            String reason,
             List<String> details) {
         if (evidence != null) {
             builder.originalIdentity(
@@ -152,8 +148,7 @@ public final class RerunDiffExecutor {
         if (original.equals(rerun)) {
             return "代码版本与原始运行一致（sourceTreeSha256 相同）。";
         }
-        return "⚠ 代码版本与原始运行不同：核心量若有分歧，优先排查代码变更；"
-                + "核心量一致则说明该证据对代码演化稳健。";
+        return "⚠ 代码版本与原始运行不同：核心量若有分歧，优先排查代码变更；" + "核心量一致则说明该证据对代码演化稳健。";
     }
 
     private static void requireEmptyOrNonexistent(Path output) throws IOException {
@@ -161,23 +156,20 @@ public final class RerunDiffExecutor {
             return;
         }
         if (!Files.isDirectory(output)) {
-            throw new IllegalStateException("Output path exists but is not a directory: "
-                    + output);
+            throw new IllegalStateException("Output path exists but is not a directory: " + output);
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(output)) {
             if (stream.iterator().hasNext()) {
-                throw new IllegalStateException(
-                        "Output directory must be empty or nonexistent: " + output);
+                throw new IllegalStateException("Output directory must be empty or nonexistent: " + output);
             }
         }
     }
 
-    private static void writeReports(Path outputDirectory, RerunReport report)
-            throws IOException {
+    private static void writeReports(Path outputDirectory, RerunReport report) throws IOException {
         Files.createDirectories(outputDirectory);
-        Files.write(outputDirectory.resolve(REPORT_JSON_NAME),
-                report.toJson().getBytes(StandardCharsets.UTF_8));
-        Files.write(outputDirectory.resolve(REPORT_MARKDOWN_NAME),
+        Files.write(outputDirectory.resolve(REPORT_JSON_NAME), report.toJson().getBytes(StandardCharsets.UTF_8));
+        Files.write(
+                outputDirectory.resolve(REPORT_MARKDOWN_NAME),
                 report.toMarkdown().getBytes(StandardCharsets.UTF_8));
     }
 }

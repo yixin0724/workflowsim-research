@@ -63,14 +63,13 @@ class ManifestConfigRebuilderTest {
         RerunInputs inputs = RerunInputResolver.resolve(evidence);
         RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, inputs);
 
-        SimulationConfig expected = SimulationConfig
-                .builder(RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax"), 3)
+        SimulationConfig expected = SimulationConfig.builder(
+                        RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax"), 3)
                 .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
                 .randomSeed(91L)
                 .build();
         assertConfigEquals(expected, rebuilt.getConfig());
-        assertPlatformEquals(PlatformProfiles.homogeneousLocal("rerun-fixture", 3),
-                rebuilt.getPlatform());
+        assertPlatformEquals(PlatformProfiles.homogeneousLocal("rerun-fixture", 3), rebuilt.getPlatform());
     }
 
     @Test
@@ -91,11 +90,11 @@ class ManifestConfigRebuilderTest {
         RerunTestSupport.generateEvidence(run, expected, expectedPlatform);
 
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence,
-                RerunInputResolver.resolve(evidence));
+        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, RerunInputResolver.resolve(evidence));
         assertConfigEquals(expected, rebuilt.getConfig());
         assertPlatformEquals(expectedPlatform, rebuilt.getPlatform());
-        assertEquals(DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1,
+        assertEquals(
+                DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1,
                 rebuilt.getConfig().getDataMovementModel().getKind());
     }
 
@@ -103,10 +102,9 @@ class ManifestConfigRebuilderTest {
     void rebuildsOverheadModelRunFaithfully() throws Exception {
         Path run = Files.createDirectories(tempDir.resolve("overhead-replay"));
         String dax = RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax");
-        Map<Integer, DistributionSpec> queueDelays =
-                new LinkedHashMap<Integer, DistributionSpec>();
-        queueDelays.put(Integer.valueOf(0), DistributionSpec.withPriors(
-                DistributionFamily.WEIBULL, 10.0, 1.5, 2.0, 3.0, 0.5));
+        Map<Integer, DistributionSpec> queueDelays = new LinkedHashMap<Integer, DistributionSpec>();
+        queueDelays.put(
+                Integer.valueOf(0), DistributionSpec.withPriors(DistributionFamily.WEIBULL, 10.0, 1.5, 2.0, 3.0, 0.5));
         SimulationConfig expected = SimulationConfig.builder(dax, 3)
                 .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
                 .randomSeed(55L)
@@ -116,13 +114,11 @@ class ManifestConfigRebuilderTest {
                         .queueDelays(queueDelays)
                         .build())
                 .build();
-        PlatformProfile expectedPlatform =
-                PlatformProfiles.homogeneousLocal("overhead-replay", 3);
+        PlatformProfile expectedPlatform = PlatformProfiles.homogeneousLocal("overhead-replay", 3);
         RerunTestSupport.generateEvidence(run, expected, expectedPlatform);
 
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence,
-                RerunInputResolver.resolve(evidence));
+        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, RerunInputResolver.resolve(evidence));
         assertConfigEquals(expected, rebuilt.getConfig());
         assertPlatformEquals(expectedPlatform, rebuilt.getPlatform());
     }
@@ -137,8 +133,8 @@ class ManifestConfigRebuilderTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                        DistributionFamily.WEIBULL, 5000.0, 1.0)}})
+                .generatorSpecs(
+                        new DistributionSpec[][] {{DistributionSpec.of(DistributionFamily.WEIBULL, 5000.0, 1.0)}})
                 .maxTotalRetryJobs(16)
                 .build();
         SimulationConfig expected = SimulationConfig.builder(dax, 1)
@@ -146,13 +142,11 @@ class ManifestConfigRebuilderTest {
                 .randomSeed(20260902L)
                 .failureModel(failure)
                 .build();
-        PlatformProfile expectedPlatform =
-                PlatformProfiles.homogeneousLocal("failure-replay", 1);
+        PlatformProfile expectedPlatform = PlatformProfiles.homogeneousLocal("failure-replay", 1);
         RerunTestSupport.generateEvidence(run, expected, expectedPlatform);
 
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence,
-                RerunInputResolver.resolve(evidence));
+        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, RerunInputResolver.resolve(evidence));
         assertConfigEquals(expected, rebuilt.getConfig());
         assertPlatformEquals(expectedPlatform, rebuilt.getPlatform());
         assertTrue(rebuilt.getConfig().getFailureModel().isEnabled());
@@ -165,30 +159,24 @@ class ManifestConfigRebuilderTest {
     void rejectsIncompatibleSchedulerPlannerCombination() throws Exception {
         Path run = copyFixtureTo("bad-combo");
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonObject("configuration")
-                .addProperty("planningAlgorithm", "PSO");
+        manifest.getAsJsonObject("configuration").addProperty("planningAlgorithm", "PSO");
         writeManifest(run, manifest);
 
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> rebuildFrom(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> rebuildFrom(run));
         assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, failure.getVerdict());
-        assertTrue(failure.getMessage().contains("Manifest cannot be rebuilt"),
-                failure.getMessage());
+        assertTrue(failure.getMessage().contains("Manifest cannot be rebuilt"), failure.getMessage());
     }
 
     @Test
     void rejectsUnknownEnumValue() throws Exception {
         Path run = copyFixtureTo("bad-enum");
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonObject("configuration")
-                .addProperty("schedulingAlgorithm", "NOT_AN_ALGORITHM");
+        manifest.getAsJsonObject("configuration").addProperty("schedulingAlgorithm", "NOT_AN_ALGORITHM");
         writeManifest(run, manifest);
 
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> rebuildFrom(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> rebuildFrom(run));
         assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, failure.getVerdict());
-        assertTrue(failure.getMessage().contains("unknown value: NOT_AN_ALGORITHM"),
-                failure.getMessage());
+        assertTrue(failure.getMessage().contains("unknown value: NOT_AN_ALGORITHM"), failure.getMessage());
     }
 
     @Test
@@ -197,30 +185,26 @@ class ManifestConfigRebuilderTest {
         JsonObject manifest = readManifest(run);
         JsonArray vms = manifest.getAsJsonObject("platform").getAsJsonArray("vms");
         int recorded = vms.get(0).getAsJsonObject().get("preflightHostId").getAsInt();
-        vms.get(0).getAsJsonObject().addProperty("preflightHostId",
-                recorded == 2 ? 1 : 2);
+        vms.get(0).getAsJsonObject().addProperty("preflightHostId", recorded == 2 ? 1 : 2);
         writeManifest(run, manifest);
 
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> rebuildFrom(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> rebuildFrom(run));
         assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, failure.getVerdict());
-        assertTrue(failure.getMessage().contains("preflight host assignment differs"),
-                failure.getMessage());
+        assertTrue(failure.getMessage().contains("preflight host assignment differs"), failure.getMessage());
     }
 
     @Test
     void rejectsDataMovementParameterMismatch() throws Exception {
         Path run = copyFixtureTo("bad-dmm");
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonObject("configuration").getAsJsonObject("dataMovementModel")
+        manifest.getAsJsonObject("configuration")
+                .getAsJsonObject("dataMovementModel")
                 .addProperty("accessLinkBandwidthMbPerSecond", 987654.321);
         writeManifest(run, manifest);
 
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> rebuildFrom(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> rebuildFrom(run));
         assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, failure.getVerdict());
-        assertTrue(failure.getMessage().contains("do not match the rebuilt"),
-                failure.getMessage());
+        assertTrue(failure.getMessage().contains("do not match the rebuilt"), failure.getMessage());
     }
 
     @Test
@@ -231,13 +215,17 @@ class ManifestConfigRebuilderTest {
         JsonObject manifest = readManifest(run);
         JsonObject configuration = manifest.getAsJsonObject("configuration");
         configuration.add("taskCostMatrix", completeMatrix());
-        RerunEvidence evidence = new RerunEvidence(run,
-                run.resolve("result.manifest.json"), run.resolve("result.metrics.json"),
-                run.resolve("result.events.jsonl"), 0, manifest);
+        RerunEvidence evidence = new RerunEvidence(
+                run,
+                run.resolve("result.manifest.json"),
+                run.resolve("result.metrics.json"),
+                run.resolve("result.events.jsonl"),
+                0,
+                manifest);
         RerunInputs inputs = RerunInputResolver.resolve(evidence);
 
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> ManifestConfigRebuilder.rebuild(evidence, inputs));
+        RerunFailureException failure =
+                assertThrows(RerunFailureException.class, () -> ManifestConfigRebuilder.rebuild(evidence, inputs));
         assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, failure.getVerdict());
     }
 
@@ -252,17 +240,14 @@ class ManifestConfigRebuilderTest {
         writeManifest(run, manifest);
 
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence,
-                RerunInputResolver.resolve(evidence));
+        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, RerunInputResolver.resolve(evidence));
         SimulationConfig config = rebuilt.getConfig();
         assertEquals(SchedulingAlgorithm.STATIC, config.getSchedulingAlgorithm());
         assertEquals(PlanningAlgorithm.STATIC_ROUND_ROBIN, config.getPlanningAlgorithm());
         Map<Integer, Map<Integer, Double>> costs = config.getTaskCostMatrix().asMap();
         assertEquals(6, costs.size());
-        assertEquals(Double.valueOf(12.0),
-                costs.get(Integer.valueOf(0)).get(Integer.valueOf(2)));
-        assertEquals(Double.valueOf(14.0),
-                costs.get(Integer.valueOf(4)).get(Integer.valueOf(0)));
+        assertEquals(Double.valueOf(12.0), costs.get(Integer.valueOf(0)).get(Integer.valueOf(2)));
+        assertEquals(Double.valueOf(14.0), costs.get(Integer.valueOf(4)).get(Integer.valueOf(0)));
     }
 
     // ---- 定位路径替换 ----
@@ -271,8 +256,7 @@ class ManifestConfigRebuilderTest {
     void usesResolvedInputPathsInsteadOfRecordedOnes() throws Exception {
         Path run = studyLayoutRun();
         // 记录路径指向不存在的原机器位置；同名文件在 <study>/inputs/ 下（tier 1）。
-        Path studyInput = run.getParent().getParent().resolve("inputs")
-                .resolve("reproducibility-workflow.dax");
+        Path studyInput = run.getParent().getParent().resolve("inputs").resolve("reproducibility-workflow.dax");
         Files.createDirectories(studyInput.getParent());
         JsonObject manifest = readManifest(run);
         Files.copy(Paths.get(inputPath(manifest)), studyInput);
@@ -283,7 +267,8 @@ class ManifestConfigRebuilderTest {
         RerunInputs inputs = RerunInputResolver.resolve(evidence.getManifest(), run, tempDir);
         assertEquals(1, inputs.get(0).getTier());
         RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, inputs);
-        assertEquals(Collections.singletonList(studyInput.toString()),
+        assertEquals(
+                Collections.singletonList(studyInput.toString()),
                 rebuilt.getConfig().getWorkflowPaths());
     }
 
@@ -295,8 +280,8 @@ class ManifestConfigRebuilderTest {
             builder.addHost(new PlatformProfile.HostSpec(i, 2, 1000.0, 8192, 1000000L, 1000000L));
         }
         for (int i = 0; i < 4; i++) {
-            builder.addVm(new PlatformProfile.VmSpec(i, 1000.0, 2, 4096, 1000000L, 1000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    i, 1000.0, 2, 4096, 1000000L, 1000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         builder.storage(new PlatformProfile.StorageSpec(1000000L, 100000));
         builder.costs(new PlatformProfile.CostSpec(0.12, 0.05, 0.001, 0.0002));
@@ -308,8 +293,7 @@ class ManifestConfigRebuilderTest {
     private static JsonObject completeMatrix() {
         JsonObject matrix = new JsonObject();
         matrix.addProperty("unit", "EXECUTION_SECONDS");
-        matrix.addProperty("runtimeConversion",
-                "ROUND_SECONDS_TIMES_VM_MIPS_TO_POSITIVE_INTEGER_MI");
+        matrix.addProperty("runtimeConversion", "ROUND_SECONDS_TIMES_VM_MIPS_TO_POSITIVE_INTEGER_MI");
         JsonArray entries = new JsonArray();
         for (int taskId = 0; taskId < 6; taskId++) {
             for (int vmId = 0; vmId < 3; vmId++) {
@@ -344,31 +328,34 @@ class ManifestConfigRebuilderTest {
     }
 
     private static String inputPath(JsonObject manifest) {
-        return manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .get("path").getAsString();
+        return manifest.getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
+                .get("path")
+                .getAsString();
     }
 
     private static JsonObject readManifest(Path run) throws Exception {
-        return JsonParser.parseString(new String(
-                Files.readAllBytes(run.resolve("result.manifest.json")),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        return JsonParser.parseString(
+                        new String(Files.readAllBytes(run.resolve("result.manifest.json")), StandardCharsets.UTF_8))
+                .getAsJsonObject();
     }
 
     private static void writeManifest(Path run, JsonObject manifest) throws Exception {
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
-        Files.write(run.resolve("result.manifest.json"),
-                gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
+        Files.write(run.resolve("result.manifest.json"), gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
     }
 
     /** 同步改写 inputs/workflowPaths/workflowOutcomes 三处路径（v4 交叉校验要求）。 */
     private static void rewriteInputPathIn(JsonObject manifest, String newPath) {
-        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .addProperty("path", newPath);
-        JsonArray workflowPaths = manifest.getAsJsonObject("configuration")
-                .getAsJsonArray("workflowPaths");
+        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", newPath);
+        JsonArray workflowPaths = manifest.getAsJsonObject("configuration").getAsJsonArray("workflowPaths");
         workflowPaths.set(0, new JsonPrimitive(newPath));
-        manifest.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
-                .get(0).getAsJsonObject().addProperty("path", newPath);
+        manifest.getAsJsonObject("result")
+                .getAsJsonArray("workflowOutcomes")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("path", newPath);
     }
 
     // ---- 字段级比较 ----
@@ -385,34 +372,29 @@ class ManifestConfigRebuilderTest {
         assertEquals(expected.getRandomSeed(), actual.getRandomSeed());
         assertEquals(expected.getRuntimeScale(), actual.getRuntimeScale());
         assertEquals(expected.getRuntimeReferenceMips(), actual.getRuntimeReferenceMips());
-        assertEquals(expected.getCloudSimMinEventIntervalSeconds(),
-                actual.getCloudSimMinEventIntervalSeconds());
+        assertEquals(expected.getCloudSimMinEventIntervalSeconds(), actual.getCloudSimMinEventIntervalSeconds());
         assertEquals(expected.getCostModel(), actual.getCostModel());
         assertDataMovementEquals(expected.getDataMovementModel(), actual.getDataMovementModel());
         assertOverheadEquals(expected.getOverheadModel(), actual.getOverheadModel());
-        assertClusteringEquals(expected.getClusteringParameters(),
-                actual.getClusteringParameters());
+        assertClusteringEquals(expected.getClusteringParameters(), actual.getClusteringParameters());
         assertFailureEquals(expected.getFailureModel(), actual.getFailureModel());
         assertEquals(expected.getTaskCostMatrix() == null, actual.getTaskCostMatrix() == null);
         if (expected.getTaskCostMatrix() != null) {
-            assertEquals(expected.getTaskCostMatrix().asMap(), actual.getTaskCostMatrix().asMap());
+            assertEquals(
+                    expected.getTaskCostMatrix().asMap(),
+                    actual.getTaskCostMatrix().asMap());
         }
     }
 
-    private static void assertDataMovementEquals(DataMovementModel expected,
-            DataMovementModel actual) {
+    private static void assertDataMovementEquals(DataMovementModel expected, DataMovementModel actual) {
         assertEquals(expected.getKind(), actual.getKind());
-        assertEquals(expected.getAccessLinkBandwidthMbPerSecond(),
-                actual.getAccessLinkBandwidthMbPerSecond());
+        assertEquals(expected.getAccessLinkBandwidthMbPerSecond(), actual.getAccessLinkBandwidthMbPerSecond());
         assertEquals(expected.getAccessLinkLatencySeconds(), actual.getAccessLinkLatencySeconds());
-        assertEquals(expected.getSourceEndpointBandwidthMbPerSecond(),
-                actual.getSourceEndpointBandwidthMbPerSecond());
+        assertEquals(expected.getSourceEndpointBandwidthMbPerSecond(), actual.getSourceEndpointBandwidthMbPerSecond());
     }
 
-    private static void assertOverheadEquals(OverheadModelConfig expected,
-            OverheadModelConfig actual) {
-        assertEquals(expected.getWorkflowEngineDelayInterval(),
-                actual.getWorkflowEngineDelayInterval());
+    private static void assertOverheadEquals(OverheadModelConfig expected, OverheadModelConfig actual) {
+        assertEquals(expected.getWorkflowEngineDelayInterval(), actual.getWorkflowEngineDelayInterval());
         assertEquals(expected.getBandwidth(), actual.getBandwidth());
         assertSpecMapEquals(expected.getWorkflowEngineDelays(), actual.getWorkflowEngineDelays());
         assertSpecMapEquals(expected.getQueueDelays(), actual.getQueueDelays());
@@ -420,8 +402,8 @@ class ManifestConfigRebuilderTest {
         assertSpecMapEquals(expected.getClusteringDelays(), actual.getClusteringDelays());
     }
 
-    private static void assertSpecMapEquals(Map<Integer, DistributionSpec> expected,
-            Map<Integer, DistributionSpec> actual) {
+    private static void assertSpecMapEquals(
+            Map<Integer, DistributionSpec> expected, Map<Integer, DistributionSpec> actual) {
         assertEquals(expected.keySet(), actual.keySet());
         for (Map.Entry<Integer, DistributionSpec> entry : expected.entrySet()) {
             assertSpecEquals(entry.getValue(), actual.get(entry.getKey()));
@@ -430,25 +412,21 @@ class ManifestConfigRebuilderTest {
 
     private static void assertSpecEquals(DistributionSpec expected, DistributionSpec actual) {
         assertEquals(expected.getFamily(), actual.getFamily());
-        assertEquals(Double.doubleToLongBits(expected.getScale()),
-                Double.doubleToLongBits(actual.getScale()));
-        assertEquals(Double.doubleToLongBits(expected.getShape()),
-                Double.doubleToLongBits(actual.getShape()));
+        assertEquals(Double.doubleToLongBits(expected.getScale()), Double.doubleToLongBits(actual.getScale()));
+        assertEquals(Double.doubleToLongBits(expected.getShape()), Double.doubleToLongBits(actual.getShape()));
         assertEquals(expected.getPriorShape(), actual.getPriorShape());
         assertEquals(expected.getPriorScale(), actual.getPriorScale());
         assertEquals(expected.getLikelihoodPrior(), actual.getLikelihoodPrior());
     }
 
-    private static void assertClusteringEquals(ClusteringParameters expected,
-            ClusteringParameters actual) {
+    private static void assertClusteringEquals(ClusteringParameters expected, ClusteringParameters actual) {
         assertEquals(expected.getClusteringMethod(), actual.getClusteringMethod());
         assertEquals(expected.getClustersNum(), actual.getClustersNum());
         assertEquals(expected.getClustersSize(), actual.getClustersSize());
         assertEquals(expected.getCode(), actual.getCode());
     }
 
-    private static void assertFailureEquals(FailureModelConfig expected,
-            FailureModelConfig actual) {
+    private static void assertFailureEquals(FailureModelConfig expected, FailureModelConfig actual) {
         assertEquals(expected.isEnabled(), actual.isEnabled());
         assertEquals(expected.getClusteringAlgorithm(), actual.getClusteringAlgorithm());
         assertEquals(expected.getMonitorMode(), actual.getMonitorMode());
@@ -464,10 +442,11 @@ class ManifestConfigRebuilderTest {
                 assertSpecEquals(expectedSpecs[row][column], actualSpecs[row][column]);
             }
         }
-        assertEquals(expected.getGeneratorSpecsByVmId().keySet(),
+        assertEquals(
+                expected.getGeneratorSpecsByVmId().keySet(),
                 actual.getGeneratorSpecsByVmId().keySet());
-        for (Map.Entry<Integer, DistributionSpec[]> entry
-                : expected.getGeneratorSpecsByVmId().entrySet()) {
+        for (Map.Entry<Integer, DistributionSpec[]> entry :
+                expected.getGeneratorSpecsByVmId().entrySet()) {
             DistributionSpec[] actualRow = actual.getGeneratorSpecsByVmId().get(entry.getKey());
             assertEquals(entry.getValue().length, actualRow.length);
             for (int i = 0; i < actualRow.length; i++) {
@@ -507,7 +486,8 @@ class ManifestConfigRebuilderTest {
             }
         }
         assertEquals(expected.getStorage().getCapacityMb(), actual.getStorage().getCapacityMb());
-        assertEquals(expected.getStorage().getMaxTransferRateMbPerSecond(),
+        assertEquals(
+                expected.getStorage().getMaxTransferRateMbPerSecond(),
                 actual.getStorage().getMaxTransferRateMbPerSecond());
         assertCostEquals(expected.getCosts(), actual.getCosts());
         assertEquals(expected.getPinnedVmHostIds(), actual.getPinnedVmHostIds());
@@ -524,8 +504,7 @@ class ManifestConfigRebuilderTest {
         }
     }
 
-    private static void assertCostEquals(PlatformProfile.CostSpec expected,
-            PlatformProfile.CostSpec actual) {
+    private static void assertCostEquals(PlatformProfile.CostSpec expected, PlatformProfile.CostSpec actual) {
         assertEquals(expected.getCpuPerSecond(), actual.getCpuPerSecond());
         assertEquals(expected.getMemory(), actual.getMemory());
         assertEquals(expected.getStorage(), actual.getStorage());

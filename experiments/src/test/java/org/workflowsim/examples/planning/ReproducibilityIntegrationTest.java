@@ -43,11 +43,17 @@ class ReproducibilityIntegrationTest extends WorkflowSimBasicExample1 {
 
         String daxPath = Paths.get(daxResource.toURI()).toString();
         Parameters.setRandomSeed(20260901L);
-        Parameters.init(3, daxPath, null, null,
+        Parameters.init(
+                3,
+                daxPath,
+                null,
+                null,
                 new OverheadParameters(0, null, null, null, null, 0),
                 new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null),
                 Parameters.SchedulingAlgorithm.READY_BATCH_MINMIN,
-                Parameters.PlanningAlgorithm.INVALID, null, 0);
+                Parameters.PlanningAlgorithm.INVALID,
+                null,
+                0);
         ReplicaCatalog.init(ReplicaCatalog.FileSystem.SHARED);
 
         Log.disable();

@@ -23,8 +23,8 @@ import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.examples.ExampleCliSupport;
@@ -80,15 +80,13 @@ public class WorkflowSimCostExample1 extends WorkflowSimBasicExample1 {
             ClusteringParameters cp = new ClusteringParameters(0, 0, method, null);
 
             /** 初始化历史静态参数与文件副本目录。 */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建模拟实体前初始化 CloudSim。
-            int num_user = 1;   // 模拟用户数。
+            int num_user = 1; // 模拟用户数。
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录 CloudSim 事件轨迹。
+            boolean trace_flag = false; // 是否记录 CloudSim 事件轨迹。
 
             // 初始化 CloudSim 事件引擎。
             CloudSim.init(num_user, calendar, trace_flag);
@@ -145,18 +143,60 @@ public class WorkflowSimCostExample1 extends WorkflowSimBasicExample1 {
             cost += job.getProcessingCost();
             if (job.getCloudletStatus() == Cloudlet.SUCCESS) {
                 Log.print("SUCCESS");
-                Log.printLine(indent + indent + job.getResourceId() + indent + indent + indent + job.getVmId()
-                        + indent + indent + indent + dft.format(job.getActualCPUTime())
-                        + indent + indent + dft.format(job.getExecStartTime()) + indent + indent + indent
-                        + dft.format(job.getFinishTime()) + indent + indent + indent + job.getDepth()
-                        + indent + indent + indent + dft.format(job.getProcessingCost()));
+                Log.printLine(indent
+                        + indent
+                        + job.getResourceId()
+                        + indent
+                        + indent
+                        + indent
+                        + job.getVmId()
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getActualCPUTime())
+                        + indent
+                        + indent
+                        + dft.format(job.getExecStartTime())
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getFinishTime())
+                        + indent
+                        + indent
+                        + indent
+                        + job.getDepth()
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getProcessingCost()));
             } else if (job.getCloudletStatus() == Cloudlet.FAILED) {
                 Log.print("FAILED");
-                Log.printLine(indent + indent + job.getResourceId() + indent + indent + indent + job.getVmId()
-                        + indent + indent + indent + dft.format(job.getActualCPUTime())
-                        + indent + indent + dft.format(job.getExecStartTime()) + indent + indent + indent
-                        + dft.format(job.getFinishTime()) + indent + indent + indent + job.getDepth()
-                        + indent + indent + indent + dft.format(job.getProcessingCost()));
+                Log.printLine(indent
+                        + indent
+                        + job.getResourceId()
+                        + indent
+                        + indent
+                        + indent
+                        + job.getVmId()
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getActualCPUTime())
+                        + indent
+                        + indent
+                        + dft.format(job.getExecStartTime())
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getFinishTime())
+                        + indent
+                        + indent
+                        + indent
+                        + job.getDepth()
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getProcessingCost()));
             }
         }
         Log.printLine("The total cost is " + dft.format(cost));

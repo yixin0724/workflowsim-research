@@ -27,21 +27,36 @@ public final class P7WfInstancesPilotMatrix {
     public static final double RUNTIME_SCALE = 1.0;
 
     private static final List<Scenario> SCENARIOS = Collections.unmodifiableList(Arrays.asList(
-            new Scenario("makeflow-blast-small-001", "Makeflow", "BLAST", 43,
+            new Scenario(
+                    "makeflow-blast-small-001",
+                    "Makeflow",
+                    "BLAST",
+                    43,
                     "wfinstances/v1.5/makeflow/blast/blast-chameleon-small-001.json",
                     "5e132ac7f63096dec62173da1c7512554f9ddb08dc420f2005af277a04b8e845"),
-            new Scenario("nextflow-bacass-001", "Nextflow", "Bacass", 11,
+            new Scenario(
+                    "nextflow-bacass-001",
+                    "Nextflow",
+                    "Bacass",
+                    11,
                     "wfinstances/v1.5/nextflow/bacass-dirt02-001.json",
                     "4cbab2c46e2d7c6094701d5a9d03bc4675d59bbb96effc2ae3c255c5a4fb2999"),
-            new Scenario("pegasus-srasearch-10a-001", "Pegasus", "SRaSearch", 22,
+            new Scenario(
+                    "pegasus-srasearch-10a-001",
+                    "Pegasus",
+                    "SRaSearch",
+                    22,
                     "wfinstances/v1.5/pegasus/srasearch/srasearch-chameleon-10a-001.json",
                     "c2b5d73841750b5af68e5ff65f5f2d04b51a4b6b18086e7a5b1dfb72317fd4b6"),
-            new Scenario("pegasus-montage-2mass-005d-001", "Pegasus", "Montage", 58,
+            new Scenario(
+                    "pegasus-montage-2mass-005d-001",
+                    "Pegasus",
+                    "Montage",
+                    58,
                     "wfinstances/v1.5/pegasus/montage/montage-chameleon-2mass-005d-001.json",
                     "5795e0ab9e13bb7d50d046796bcbc8ec0a884eba0512a95222bbd557bc6d0b65")));
 
-    private P7WfInstancesPilotMatrix() {
-    }
+    private P7WfInstancesPilotMatrix() {}
 
     /**
      * 返回固定的 WfInstances 输入认证场景。
@@ -61,8 +76,8 @@ public final class P7WfInstancesPilotMatrix {
      * @return 无故障、无开销、共享存储的固定基线配置
      * @throws IllegalArgumentException 当任一必要参数为 {@code null} 时
      */
-    public static SimulationConfig baselineConfig(Scenario scenario, Path datasetRoot,
-            Parameters.SchedulingAlgorithm algorithm) {
+    public static SimulationConfig baselineConfig(
+            Scenario scenario, Path datasetRoot, Parameters.SchedulingAlgorithm algorithm) {
         if (scenario == null || datasetRoot == null || algorithm == null) {
             throw new IllegalArgumentException("Scenario, dataset root, and scheduling algorithm are required");
         }
@@ -74,8 +89,7 @@ public final class P7WfInstancesPilotMatrix {
                 .runtimeReferenceMips(RUNTIME_REFERENCE_MIPS)
                 .runtimeScale(RUNTIME_SCALE)
                 .overheadModel(OverheadModelConfig.none())
-                .clusteringParameters(new ClusteringParameters(0, 0,
-                        ClusteringParameters.ClusteringMethod.NONE, null))
+                .clusteringParameters(new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null))
                 .failureModel(FailureModelConfig.disabled())
                 .costModel(Parameters.CostModel.DATACENTER)
                 .build();
@@ -99,8 +113,13 @@ public final class P7WfInstancesPilotMatrix {
         private final String relativePath;
         private final String expectedSha256;
 
-        private Scenario(String id, String system, String workflowFamily, int expectedTaskCount,
-                String relativePath, String expectedSha256) {
+        private Scenario(
+                String id,
+                String system,
+                String workflowFamily,
+                int expectedTaskCount,
+                String relativePath,
+                String expectedSha256) {
             this.id = id;
             this.system = system;
             this.workflowFamily = workflowFamily;
@@ -109,12 +128,29 @@ public final class P7WfInstancesPilotMatrix {
             this.expectedSha256 = expectedSha256;
         }
 
-        public String getId() { return id; }
-        public String getSystem() { return system; }
-        public String getWorkflowFamily() { return workflowFamily; }
-        public int getExpectedTaskCount() { return expectedTaskCount; }
-        public String getRelativePath() { return relativePath; }
-        public String getExpectedSha256() { return expectedSha256; }
+        public String getId() {
+            return id;
+        }
+
+        public String getSystem() {
+            return system;
+        }
+
+        public String getWorkflowFamily() {
+            return workflowFamily;
+        }
+
+        public int getExpectedTaskCount() {
+            return expectedTaskCount;
+        }
+
+        public String getRelativePath() {
+            return relativePath;
+        }
+
+        public String getExpectedSha256() {
+            return expectedSha256;
+        }
 
         /**
          * 将场景相对路径解析为规范化绝对路径。

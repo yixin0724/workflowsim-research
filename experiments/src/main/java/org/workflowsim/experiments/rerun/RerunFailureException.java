@@ -30,8 +30,7 @@ public final class RerunFailureException extends Exception {
         this(verdict, message, Collections.<String>emptyList(), cause);
     }
 
-    public RerunFailureException(RerunVerdict verdict, String message, List<String> details,
-            Throwable cause) {
+    public RerunFailureException(RerunVerdict verdict, String message, List<String> details, Throwable cause) {
         super(message, cause);
         if (verdict == null || message == null || details == null) {
             throw new IllegalArgumentException("Verdict, message and details are required");

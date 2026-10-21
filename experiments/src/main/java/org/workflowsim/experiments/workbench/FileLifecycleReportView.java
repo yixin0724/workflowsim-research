@@ -18,12 +18,10 @@ import org.workflowsim.data.v2.FileLifecycleCodec;
  * Only strings, structural booleans, nulls and deeply immutable maps/lists leave this class.
  */
 final class FileLifecycleReportView {
-    static final int COPY_LIMIT = 64, RESOURCE_LIMIT = 64, EVENT_LIMIT = 128,
-            LIST_LIMIT = 12, LABEL_LIMIT = 256;
-
+    static final int COPY_LIMIT = 64, RESOURCE_LIMIT = 64, EVENT_LIMIT = 128, LIST_LIMIT = 12, LABEL_LIMIT = 256;
     private long labelsClipped, nestedItemsOmitted;
 
-    private FileLifecycleReportView() { }
+    private FileLifecycleReportView() {}
 
     /** Null means OFF; only the caller can attest to validation against an enclosing run. */
     static Map<String, Object> fromDecoded(FileLifecycleCodec.Decoded decoded, boolean contextValidated) {
@@ -58,13 +56,15 @@ final class FileLifecycleReportView {
                     long ordinal = payload.get("copyOrdinal").getAsLong();
                     settlements.put(ordinal, event);
                     // Settled payload is the declared object size, not rate * elapsed or size - residual.
-                    totals.settled = totals.settled.add(exact(admissions.get(ordinal)
-                            .getAsJsonObject("payload").get("bytes")));
+                    totals.settled = totals.settled.add(exact(
+                            admissions.get(ordinal).getAsJsonObject("payload").get("bytes")));
                     totals.residual = totals.residual.add(exact(payload.get("remainingAfterService")));
                     break;
                 case "INPUT_RESOLVED":
-                    BigDecimal references = BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
-                    BigDecimal bytes = fileBytes.get(fileKey(payload.getAsJsonObject("fileId")))
+                    BigDecimal references =
+                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
+                    BigDecimal bytes = fileBytes
+                            .get(fileKey(payload.getAsJsonObject("fileId")))
                             .multiply(references);
                     totals.references = totals.references.add(references);
                     totals.requiredBytes = totals.requiredBytes.add(bytes);
@@ -89,7 +89,9 @@ final class FileLifecycleReportView {
         root.put("contextValidated", contextValidated);
         root.put("certificateScope", document.get("certificateScope").getAsString());
         root.put("modelKind", document.get("modelKind").getAsString());
-        root.put("sharingPolicy", document.getAsJsonObject("policies").get("sharing").getAsString());
+        root.put(
+                "sharingPolicy",
+                document.getAsJsonObject("policies").get("sharing").getAsString());
         root.put("traceBudget", integer(document.getAsJsonObject("recording").get("maxTraceRecords")));
         root.put("retainedRecords", integer(capture.get("retainedRecords")));
         root.put("observedThrough", quantity(capture.get("observedThrough")));
@@ -174,8 +176,10 @@ final class FileLifecycleReportView {
         JsonObject payload = event.getAsJsonObject("payload");
         JsonObject file = payload.has("fileId") ? payload.getAsJsonObject("fileId") : null;
         if ("COPY_SETTLED".equals(type)) {
-            file = admissions.get(payload.get("copyOrdinal").getAsLong())
-                    .getAsJsonObject("payload").getAsJsonObject("fileId");
+            file = admissions
+                    .get(payload.get("copyOrdinal").getAsLong())
+                    .getAsJsonObject("payload")
+                    .getAsJsonObject("fileId");
         }
         Map<String, Object> row = map();
         row.put("sequence", integer(event.get("sequence")));
@@ -183,11 +187,16 @@ final class FileLifecycleReportView {
         row.put("observedTime", quantity(event.get("observedTime")));
         row.put("jobId", integer(payload.get("jobId")));
         // Other job-scoped records need not repeat their logical Task; do not invent a copy owner.
-        row.put("taskId", "JOB_INPUT_REQUESTED".equals(type)
-                ? integer(payload.getAsJsonArray("taskIds").get(0)) : integer(payload.get("taskId")));
+        row.put(
+                "taskId",
+                "JOB_INPUT_REQUESTED".equals(type)
+                        ? integer(payload.getAsJsonArray("taskIds").get(0))
+                        : integer(payload.get("taskId")));
         row.put("copyOrdinal", integer(payload.get("copyOrdinal")));
         row.put("fileId", file == null ? null : fileLabel(file));
-        row.put("resolution", payload.has("resolution") ? payload.get("resolution").getAsString() : null);
+        row.put(
+                "resolution",
+                payload.has("resolution") ? payload.get("resolution").getAsString() : null);
         row.put("detail", detail(type, payload));
         return freeze(row);
     }
@@ -198,14 +207,15 @@ final class FileLifecycleReportView {
             case "EXTERNAL_SEEDED":
                 return "location=" + location(payload.getAsJsonObject("location"));
             case "TASK_FINISHED":
-                return "location=" + vm(payload.get("vmId")) + "; success=" + payload.get("success").getAsBoolean();
+                return "location=" + vm(payload.get("vmId")) + "; success="
+                        + payload.get("success").getAsBoolean();
             case "JOB_INPUT_REQUESTED":
                 JsonArray tasks = payload.getAsJsonArray("taskIds");
                 return "destination=" + vm(payload.get("destinationVmId")) + "; taskIds=" + ids(tasks)
                         + "; taskIdsOmitted=" + integer(omitted(tasks));
             case "INPUT_RESOLVED":
-                return "source=" + location(payload.getAsJsonObject("source"))
-                        + "; referenceCount=" + integer(payload.get("referenceCount"));
+                return "source=" + location(payload.getAsJsonObject("source")) + "; referenceCount="
+                        + integer(payload.get("referenceCount"));
             case "COPY_ADMITTED":
                 JsonObject source = payload.getAsJsonObject("sourceReplica");
                 JsonObject origin = source.getAsJsonObject("origin");
@@ -221,8 +231,8 @@ final class FileLifecycleReportView {
                         + "; isolatedSeconds=" + quantity(payload.get("isolatedSeconds"))
                         + "; resources=" + labels(path) + "; resourcesOmitted=" + integer(omitted(path));
             case "COPY_SETTLED":
-                return "effectiveTime=" + quantity(payload.get("effectiveTime"))
-                        + "; completionResidualBytes=" + quantity(payload.get("remainingAfterService"));
+                return "effectiveTime=" + quantity(payload.get("effectiveTime")) + "; completionResidualBytes="
+                        + quantity(payload.get("remainingAfterService"));
             case "JOB_DATA_READY":
                 return "jobId=" + integer(payload.get("jobId"));
             case "JOB_CPU_STARTED":
@@ -233,20 +243,25 @@ final class FileLifecycleReportView {
     }
 
     private String fileLabel(JsonObject file) {
-        return label("input[" + integer(file.get("workflowInputIndex")) + "]/" + file.get("name").getAsString());
+        return label("input[" + integer(file.get("workflowInputIndex")) + "]/"
+                + file.get("name").getAsString());
     }
 
     private static DataflowFilePlan.FileId fileKey(JsonObject file) {
         // Display clipping is never used as identity when joining file-plan bytes to references.
-        return DataflowFilePlan.FileId.of(file.get("workflowInputIndex").getAsInt(), file.get("name").getAsString());
+        return DataflowFilePlan.FileId.of(
+                file.get("workflowInputIndex").getAsInt(), file.get("name").getAsString());
     }
 
     private String location(JsonObject location) {
-        return "VM".equals(location.get("kind").getAsString()) ? vm(location.get("vmId"))
+        return "VM".equals(location.get("kind").getAsString())
+                ? vm(location.get("vmId"))
                 : label("SOURCE:" + location.get("sourceId").getAsString());
     }
 
-    private static String vm(JsonElement id) { return "VM:" + integer(id); }
+    private static String vm(JsonElement id) {
+        return "VM:" + integer(id);
+    }
 
     private String label(String value) {
         if (value.length() <= LABEL_LIMIT) return value;
@@ -258,7 +273,8 @@ final class FileLifecycleReportView {
 
     private List<String> labels(JsonArray values) {
         List<String> shown = new ArrayList<>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) shown.add(label(values.get(i).getAsString()));
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++)
+            shown.add(label(values.get(i).getAsString()));
         nestedItemsOmitted += omitted(values);
         return immutableList(shown);
     }
@@ -270,7 +286,9 @@ final class FileLifecycleReportView {
         return immutableList(shown);
     }
 
-    private static int omitted(JsonArray values) { return Math.max(0, values.size() - LIST_LIMIT); }
+    private static int omitted(JsonArray values) {
+        return Math.max(0, values.size() - LIST_LIMIT);
+    }
 
     private static Map<String, Object> preview(long total, int limit, List<Map<String, Object>> rows) {
         Map<String, Object> preview = map();
@@ -282,27 +300,52 @@ final class FileLifecycleReportView {
         return freeze(preview);
     }
 
-    private static String integer(long value) { return Long.toString(value); }
-    private static String integer(JsonElement value) { return absent(value) ? null : integer(value.getAsLong()); }
-    private static boolean absent(JsonElement value) { return value == null || value.isJsonNull(); }
-    private static BigDecimal exact(JsonElement value) { return new BigDecimal(value.getAsDouble()); }
-    private static String quantity(JsonElement value) { return absent(value) ? null : decimal(exact(value)); }
+    private static String integer(long value) {
+        return Long.toString(value);
+    }
+
+    private static String integer(JsonElement value) {
+        return absent(value) ? null : integer(value.getAsLong());
+    }
+
+    private static boolean absent(JsonElement value) {
+        return value == null || value.isJsonNull();
+    }
+
+    private static BigDecimal exact(JsonElement value) {
+        return new BigDecimal(value.getAsDouble());
+    }
+
+    private static String quantity(JsonElement value) {
+        return absent(value) ? null : decimal(exact(value));
+    }
+
     private static String decimal(BigDecimal value) {
         // Plain decimal is deliberately unabridged even for subnormals and sums beyond binary64.
         return value == null ? null : value.stripTrailingZeros().toPlainString();
     }
-    private static Map<String, Object> map() { return new LinkedHashMap<>(); }
+
+    private static Map<String, Object> map() {
+        return new LinkedHashMap<>();
+    }
+
     private static Map<String, Object> freeze(Map<String, Object> values) {
         return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
+
     private static <T> List<T> immutableList(List<T> values) {
         return Collections.unmodifiableList(new ArrayList<>(values));
     }
 
     private static final class Totals {
-        BigDecimal admitted = BigDecimal.ZERO, settled = BigDecimal.ZERO, residual = BigDecimal.ZERO,
-                references = BigDecimal.ZERO, localReferences = BigDecimal.ZERO, joinedReferences = BigDecimal.ZERO,
-                requiredBytes = BigDecimal.ZERO, localBytes = BigDecimal.ZERO;
+        BigDecimal admitted = BigDecimal.ZERO,
+                settled = BigDecimal.ZERO,
+                residual = BigDecimal.ZERO,
+                references = BigDecimal.ZERO,
+                localReferences = BigDecimal.ZERO,
+                joinedReferences = BigDecimal.ZERO,
+                requiredBytes = BigDecimal.ZERO,
+                localBytes = BigDecimal.ZERO;
 
         Map<String, Object> display() {
             Map<String, Object> totals = map();

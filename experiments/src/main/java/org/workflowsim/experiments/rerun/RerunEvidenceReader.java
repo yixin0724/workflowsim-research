@@ -31,8 +31,7 @@ public final class RerunEvidenceReader {
     private static final String SCHEMA_V3 = "workflowsim-experiment-manifest-v3";
     private static final String SCHEMA_V2 = "workflowsim-experiment-manifest-v2";
 
-    private RerunEvidenceReader() {
-    }
+    private RerunEvidenceReader() {}
 
     /**
      * 读取并校验一个 run 目录的证据包。
@@ -71,11 +70,22 @@ public final class RerunEvidenceReader {
         } catch (IllegalArgumentException e) {
             throw fail("Evidence structure validation failed: " + e.getMessage(), e);
         }
-        JsonObject snapshot=validated.getManifestSnapshot();
-        if(!SCHEMA_V4.equals(schemaOf(snapshot)))throw fail("Validated manifest snapshot is not v4; evidence may have changed during reading");
-        return new RerunEvidence(directory, validated.getManifest(), validated.getMetrics(),
-                validated.getEvents(), validated.getEventCount(), snapshot,
-                validated.getNetworkLedger(), validated.getNetworkCaptureStatus(),validated.getFileLifecycle(),validated.getFileLifecycleCaptureStatus(),validated.getStorageLifecycle(),validated.getStorageLifecycleCaptureStatus());
+        JsonObject snapshot = validated.getManifestSnapshot();
+        if (!SCHEMA_V4.equals(schemaOf(snapshot)))
+            throw fail("Validated manifest snapshot is not v4; evidence may have changed during reading");
+        return new RerunEvidence(
+                directory,
+                validated.getManifest(),
+                validated.getMetrics(),
+                validated.getEvents(),
+                validated.getEventCount(),
+                snapshot,
+                validated.getNetworkLedger(),
+                validated.getNetworkCaptureStatus(),
+                validated.getFileLifecycle(),
+                validated.getFileLifecycleCaptureStatus(),
+                validated.getStorageLifecycle(),
+                validated.getStorageLifecycleCaptureStatus());
     }
 
     private static Path locateManifest(Path directory) throws RerunFailureException, IOException {
@@ -93,17 +103,17 @@ public final class RerunEvidenceReader {
             return candidates.get(0);
         }
         if (candidates.isEmpty()) {
-            throw fail("No manifest found in run directory: " + directory
-                    + " (expected " + DEFAULT_MANIFEST_NAME + ")");
+            throw fail(
+                    "No manifest found in run directory: " + directory + " (expected " + DEFAULT_MANIFEST_NAME + ")");
         }
-        throw fail("Ambiguous run directory: multiple manifests found",
-                pathsAsStrings(candidates));
+        throw fail("Ambiguous run directory: multiple manifests found", pathsAsStrings(candidates));
     }
 
     private static JsonObject parseManifest(Path manifest) throws RerunFailureException, IOException {
         byte[] bytes = Files.readAllBytes(manifest);
         try {
-            return JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
+            return JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
         } catch (JsonSyntaxException | IllegalStateException e) {
             throw fail("Manifest is not a JSON object: " + manifest, e);
         }

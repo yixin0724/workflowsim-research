@@ -37,37 +37,38 @@ class P7BaselineMatrixTest {
             assertTrue(Files.isRegularFile(workflow), scenario.getRelativeWorkflowPath());
             assertEquals(scenario.getExpectedWorkflowSha256(), sha256(workflow));
 
-            SimulationConfig parserConfig = P7BaselineMatrix.baselineConfig(scenario,
-                    Parameters.SchedulingAlgorithm.FCFS, datasetRoot);
+            SimulationConfig parserConfig =
+                    P7BaselineMatrix.baselineConfig(scenario, Parameters.SchedulingAlgorithm.FCFS, datasetRoot);
             try (SimulationSession session = SimulationSession.open(parserConfig)) {
                 WorkflowParser parser = new WorkflowParser(0);
                 parser.parse();
-                assertEquals(scenario.getExpectedTaskCount(), parser.getTaskList().size());
-                assertEquals(scenario.getExpectedTaskCount(),
+                assertEquals(
+                        scenario.getExpectedTaskCount(), parser.getTaskList().size());
+                assertEquals(
+                        scenario.getExpectedTaskCount(),
                         parser.getInputReports().get(0).getTaskCount());
             }
 
-            for (Parameters.SchedulingAlgorithm algorithm
-                    : P7BaselineMatrix.schedulingAlgorithms()) {
-                SimulationConfig config = P7BaselineMatrix.baselineConfig(
-                        scenario, algorithm, datasetRoot);
+            for (Parameters.SchedulingAlgorithm algorithm : P7BaselineMatrix.schedulingAlgorithms()) {
+                SimulationConfig config = P7BaselineMatrix.baselineConfig(scenario, algorithm, datasetRoot);
                 assertEquals(algorithm, config.getSchedulingAlgorithm());
                 assertEquals(Parameters.PlanningAlgorithm.INVALID, config.getPlanningAlgorithm());
-                assertEquals(org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED,
-                        config.getFileSystem());
+                assertEquals(org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED, config.getFileSystem());
                 assertEquals(P7BaselineMatrix.ROOT_SEED, config.getRandomSeed());
-                assertEquals(P7BaselineMatrix.RUNTIME_REFERENCE_MIPS,
-                        config.getRuntimeReferenceMips(), 0.0);
+                assertEquals(P7BaselineMatrix.RUNTIME_REFERENCE_MIPS, config.getRuntimeReferenceMips(), 0.0);
                 assertEquals(P7BaselineMatrix.RUNTIME_SCALE, config.getRuntimeScale(), 0.0);
-                assertEquals(P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS,
-                        config.getCloudSimMinEventIntervalSeconds(), 0.0);
+                assertEquals(
+                        P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS,
+                        config.getCloudSimMinEventIntervalSeconds(),
+                        0.0);
                 assertFalse(config.getFailureModel().isEnabled());
                 assertEquals(0, config.getOverheadModel().getWorkflowEngineDelayInterval());
                 assertTrue(config.getOverheadModel().getWorkflowEngineDelays().isEmpty());
                 assertTrue(config.getOverheadModel().getQueueDelays().isEmpty());
                 assertTrue(config.getOverheadModel().getPostDelays().isEmpty());
                 assertTrue(config.getOverheadModel().getClusteringDelays().isEmpty());
-                assertEquals(org.workflowsim.utils.ClusteringParameters.ClusteringMethod.NONE,
+                assertEquals(
+                        org.workflowsim.utils.ClusteringParameters.ClusteringMethod.NONE,
                         config.getClusteringParameters().getClusteringMethod());
             }
         }
@@ -84,7 +85,8 @@ class P7BaselineMatrixTest {
             for (int index = 0; index < platform.getVms().size(); index++) {
                 assertEquals(index, platform.getHosts().get(index).getId());
                 assertEquals(index, platform.getVms().get(index).getId());
-                assertEquals(PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                assertEquals(
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
                         platform.getVms().get(index).getSchedulerMode());
             }
             double totalMips = 0.0;
@@ -97,10 +99,9 @@ class P7BaselineMatrixTest {
 
     @Test
     void referenceDatasetContractRejectsRelativeRootsAndEscapingPaths() {
-        assertThrows(IllegalArgumentException.class,
-                () -> P7BaselineMatrix.scenarios(Paths.get("datasets")));
-        assertThrows(IllegalArgumentException.class,
-                () -> ReferenceDatasetRoot.resolveFile(datasetRoot(), "../pom.xml"));
+        assertThrows(IllegalArgumentException.class, () -> P7BaselineMatrix.scenarios(Paths.get("datasets")));
+        assertThrows(
+                IllegalArgumentException.class, () -> ReferenceDatasetRoot.resolveFile(datasetRoot(), "../pom.xml"));
     }
 
     private static Path datasetRoot() {

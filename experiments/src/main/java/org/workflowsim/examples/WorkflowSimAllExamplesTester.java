@@ -32,8 +32,7 @@ public final class WorkflowSimAllExamplesTester {
 
     private static final long EXAMPLE_TIMEOUT_SECONDS = 90L;
 
-    private WorkflowSimAllExamplesTester() {
-    }
+    private WorkflowSimAllExamplesTester() {}
 
     /**
      * 运行全部 catalog 示例，或使用 {@code --list} 列出稳定标识和主类。
@@ -65,21 +64,19 @@ public final class WorkflowSimAllExamplesTester {
         }
     }
 
-    private static void runExample(String classpath, ExampleCatalog.Descriptor descriptor)
-            throws Exception {
-        ProcessBuilder builder = new ProcessBuilder(javaExecutable(), "-cp", classpath,
-                descriptor.getMainClass());
+    private static void runExample(String classpath, ExampleCatalog.Descriptor descriptor) throws Exception {
+        ProcessBuilder builder = new ProcessBuilder(javaExecutable(), "-cp", classpath, descriptor.getMainClass());
         builder.directory(new File(System.getProperty("user.dir")));
         builder.inheritIO();
         Process process = builder.start();
         if (!process.waitFor(EXAMPLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             process.destroyForcibly();
-            throw new IllegalStateException("Historical example timed out after "
-                    + EXAMPLE_TIMEOUT_SECONDS + " seconds: " + descriptor.getId());
+            throw new IllegalStateException("Historical example timed out after " + EXAMPLE_TIMEOUT_SECONDS
+                    + " seconds: " + descriptor.getId());
         }
         if (process.exitValue() != 0) {
-            throw new IllegalStateException("Historical example failed with exit code "
-                    + process.exitValue() + ": " + descriptor.getId());
+            throw new IllegalStateException(
+                    "Historical example failed with exit code " + process.exitValue() + ": " + descriptor.getId());
         }
     }
 

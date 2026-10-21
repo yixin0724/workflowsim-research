@@ -23,8 +23,8 @@ import org.cloudbus.cloudsim.CloudletSchedulerDynamicWorkload;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.utils.ClusteringParameters;
@@ -62,7 +62,16 @@ public class DynamicWorkloadExample1 extends WorkflowSimBasicExample1 {
 
         for (int i = 0; i < vms; i++) {
             double ratio = 1.0;
-            vm[i] = new CondorVM(i, userId, mips * ratio, pesNumber, ram, bw, size, vmm, new CloudletSchedulerDynamicWorkload(mips * ratio, pesNumber));
+            vm[i] = new CondorVM(
+                    i,
+                    userId,
+                    mips * ratio,
+                    pesNumber,
+                    ram,
+                    bw,
+                    size,
+                    vmm,
+                    new CloudletSchedulerDynamicWorkload(mips * ratio, pesNumber));
             list.add(vm[i]);
         }
 
@@ -118,15 +127,13 @@ public class DynamicWorkloadExample1 extends WorkflowSimBasicExample1 {
             /**
              * 初始化历史全局参数与文件目录。
              */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建任何 CloudSim 实体之前完成初始化。
-            int num_user = 1;   // Grid 用户数
+            int num_user = 1; // Grid 用户数
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录事件追踪
+            boolean trace_flag = false; // 是否记录事件追踪
 
             // 初始化 CloudSim。
             CloudSim.init(num_user, calendar, trace_flag);

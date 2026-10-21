@@ -24,8 +24,8 @@ public final class RerunReport {
     /** 报告 schema 标识。 */
     public static final String SCHEMA_V1 = "workflowsim-rerun-report-v1";
 
-    private static final Gson JSON = new GsonBuilder()
-            .setPrettyPrinting().serializeNulls().create();
+    private static final Gson JSON =
+            new GsonBuilder().setPrettyPrinting().serializeNulls().create();
 
     private final String schema = SCHEMA_V1;
     private final String verdict;
@@ -60,7 +60,7 @@ public final class RerunReport {
         this.rerunSourceTreeSha256 = builder.rerunSourceTreeSha256;
         this.originalAlgorithmContract = builder.originalAlgorithmContract;
         this.rerunAlgorithmContract = builder.rerunAlgorithmContract;
-        this.networkEvidenceCoverageNote=builder.networkEvidenceCoverageNote;
+        this.networkEvidenceCoverageNote = builder.networkEvidenceCoverageNote;
     }
 
     public RerunVerdict getVerdict() {
@@ -123,13 +123,16 @@ public final class RerunReport {
     }
 
     /** @return conditional warning for truncated network evidence, or null */
-    public String getNetworkEvidenceCoverageNote() { return networkEvidenceCoverageNote; }
+    public String getNetworkEvidenceCoverageNote() {
+        return networkEvidenceCoverageNote;
+    }
 
     /** 机器可读JSON；旧字段保留null，网络覆盖说明只在截断时增加。 */
     public String toJson() {
-        if(networkEvidenceCoverageNote==null)return JSON.toJson(this);
-        JsonObject document=JSON.toJsonTree(this).getAsJsonObject();
-        if(networkEvidenceCoverageNote!=null)document.addProperty("networkEvidenceCoverageNote",networkEvidenceCoverageNote);
+        if (networkEvidenceCoverageNote == null) return JSON.toJson(this);
+        JsonObject document = JSON.toJsonTree(this).getAsJsonObject();
+        if (networkEvidenceCoverageNote != null)
+            document.addProperty("networkEvidenceCoverageNote", networkEvidenceCoverageNote);
         return JSON.toJson(document);
     }
 
@@ -137,12 +140,15 @@ public final class RerunReport {
     public String toMarkdown() {
         StringBuilder md = new StringBuilder();
         md.append("# Rerun 差异比对报告\n\n");
-        md.append("- **verdict: `").append(verdict).append("`**（退出码 ")
-                .append(exitCode).append("）\n");
+        md.append("- **verdict: `")
+                .append(verdict)
+                .append("`**（退出码 ")
+                .append(exitCode)
+                .append("）\n");
         md.append("- 原始 run：`").append(runDirectory).append("`\n");
         md.append("- 输出目录：`").append(outputDirectory).append("`\n\n");
 
-        if(networkEvidenceCoverageNote!=null){
+        if (networkEvidenceCoverageNote != null) {
             md.append("## 网络证据覆盖\n\n").append(networkEvidenceCoverageNote).append("\n\n");
         }
         md.append("## 代码身份\n\n");
@@ -150,14 +156,14 @@ public final class RerunReport {
             md.append("（未取得两侧源码树哈希，无法比较）\n\n");
         } else {
             md.append(codeIdentityNote).append("\n\n");
-            md.append("- 原始 sourceTreeSha256：`").append(originalSourceTreeSha256)
+            md.append("- 原始 sourceTreeSha256：`")
+                    .append(originalSourceTreeSha256)
                     .append("`\n");
-            md.append("- 当前 sourceTreeSha256：`").append(rerunSourceTreeSha256)
-                    .append("`\n\n");
+            md.append("- 当前 sourceTreeSha256：`").append(rerunSourceTreeSha256).append("`\n\n");
         }
         if (originalAlgorithmContract != null || rerunAlgorithmContract != null) {
-            boolean same = originalAlgorithmContract != null
-                    && originalAlgorithmContract.equals(rerunAlgorithmContract);
+            boolean same =
+                    originalAlgorithmContract != null && originalAlgorithmContract.equals(rerunAlgorithmContract);
             md.append("- algorithmContract：")
                     .append(same ? "两侧一致" : "两侧不同或缺失，见 JSON 报告字段")
                     .append("\n\n");
@@ -183,10 +189,16 @@ public final class RerunReport {
             md.append("|---|---|---|---|---|\n");
             for (int i = 0; i < inputResolution.size(); i++) {
                 InputResolution entry = inputResolution.get(i);
-                md.append("| ").append(i).append(" | `").append(entry.recordedPath)
-                        .append("` | `").append(entry.resolvedPath)
-                        .append("` | ").append(entry.tier)
-                        .append(" | ").append(entry.verified ? "通过" : "未通过")
+                md.append("| ")
+                        .append(i)
+                        .append(" | `")
+                        .append(entry.recordedPath)
+                        .append("` | `")
+                        .append(entry.resolvedPath)
+                        .append("` | ")
+                        .append(entry.tier)
+                        .append(" | ")
+                        .append(entry.verified ? "通过" : "未通过")
                         .append(" |\n");
             }
             md.append("\n");
@@ -194,22 +206,24 @@ public final class RerunReport {
 
         md.append("## 核心量分歧（").append(coreDivergences.size()).append(" 处）\n\n");
         appendDivergences(md, coreDivergences, "核心量逐位一致，无任何分歧。");
-        md.append("## 易变量差异（仅记录，")
-                .append(volatileFieldsNoted.size()).append(" 处）\n\n");
+        md.append("## 易变量差异（仅记录，").append(volatileFieldsNoted.size()).append(" 处）\n\n");
         appendDivergences(md, volatileFieldsNoted, "（白名单内字段两侧取值一致）");
         return md.toString();
     }
 
-    private static void appendDivergences(StringBuilder md, List<DivergenceEntry> entries,
-            String emptyNote) {
+    private static void appendDivergences(StringBuilder md, List<DivergenceEntry> entries, String emptyNote) {
         if (entries.isEmpty()) {
             md.append(emptyNote).append("\n\n");
             return;
         }
         for (DivergenceEntry entry : entries) {
-            md.append("- `").append(entry.pointer).append("`：`")
-                    .append(entry.original).append("` → `")
-                    .append(entry.rerun).append("`\n");
+            md.append("- `")
+                    .append(entry.pointer)
+                    .append("`：`")
+                    .append(entry.original)
+                    .append("` → `")
+                    .append(entry.rerun)
+                    .append("`\n");
         }
         md.append("\n");
     }
@@ -220,8 +234,7 @@ public final class RerunReport {
     }
 
     private static <T> List<T> immutable(List<T> list) {
-        return list == null ? Collections.<T>emptyList()
-                : Collections.unmodifiableList(new ArrayList<T>(list));
+        return list == null ? Collections.<T>emptyList() : Collections.unmodifiableList(new ArrayList<T>(list));
     }
 
     /** 单个输入的命中路径与哈希核对结果。 */
@@ -234,8 +247,8 @@ public final class RerunReport {
         private final long sizeBytes;
         private final boolean verified;
 
-        InputResolution(String recordedPath, String resolvedPath, int tier,
-                String sha256, long sizeBytes, boolean verified) {
+        InputResolution(
+                String recordedPath, String resolvedPath, int tier, String sha256, long sizeBytes, boolean verified) {
             this.recordedPath = recordedPath;
             this.resolvedPath = resolvedPath;
             this.tier = tier;
@@ -351,12 +364,13 @@ public final class RerunReport {
             return this;
         }
 
-        Builder networkEvidenceCoverage(org.workflowsim.data.TransferTraceSnapshot.Status original,
+        Builder networkEvidenceCoverage(
+                org.workflowsim.data.TransferTraceSnapshot.Status original,
                 org.workflowsim.data.TransferTraceSnapshot.Status rerun) {
-            this.networkEvidenceCoverageNote=original==org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED
-                    ||rerun==org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED
+            this.networkEvidenceCoverageNote = original == org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED
+                            || rerun == org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED
                     ? "⚠ 网络账本已截断：即使结论为 IDENTICAL_CORE，也仅表示保留的网络记录与聚合观察一致，不证明完整网络服务历史一致。"
-                    :null;
+                    : null;
             return this;
         }
 
@@ -373,18 +387,16 @@ public final class RerunReport {
 
         RerunReport build() {
             if (verdict == null || runDirectory == null || outputDirectory == null) {
-                throw new IllegalStateException(
-                        "Verdict, runDirectory and outputDirectory are required");
+                throw new IllegalStateException("Verdict, runDirectory and outputDirectory are required");
             }
             return new RerunReport(this);
         }
 
-        private static List<DivergenceEntry> entriesOf(
-                List<EvidenceCoreDiffer.Divergence> divergences) {
+        private static List<DivergenceEntry> entriesOf(List<EvidenceCoreDiffer.Divergence> divergences) {
             List<DivergenceEntry> entries = new ArrayList<DivergenceEntry>();
             for (EvidenceCoreDiffer.Divergence divergence : divergences) {
-                entries.add(new DivergenceEntry(divergence.getPointer(),
-                        divergence.getOriginalValue(), divergence.getRerunValue()));
+                entries.add(new DivergenceEntry(
+                        divergence.getPointer(), divergence.getOriginalValue(), divergence.getRerunValue()));
             }
             return entries;
         }
@@ -398,9 +410,13 @@ public final class RerunReport {
         }
         for (RerunInputs.ResolvedInput input : inputs.getResolved()) {
             // resolver 返回即代表 sha256/sizeBytes 已核对通过（不符会抛异常）。
-            entries.add(new InputResolution(input.getRecordedPath(),
-                    input.getResolvedPath().toString(), input.getTier(),
-                    input.getSha256(), input.getSizeBytes(), true));
+            entries.add(new InputResolution(
+                    input.getRecordedPath(),
+                    input.getResolvedPath().toString(),
+                    input.getTier(),
+                    input.getSha256(),
+                    input.getSizeBytes(),
+                    true));
         }
         return entries;
     }

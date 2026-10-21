@@ -34,8 +34,8 @@ import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 import org.workflowsim.ClusterStorage;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.utils.ClusteringParameters;
@@ -72,7 +72,16 @@ public class WorkflowSimMultipleClusterExample1 extends WorkflowSimBasicExample1
         CondorVM[] vm = new CondorVM[vms];
         for (int i = 0; i < vms; i++) {
             double ratio = 1.0;
-            vm[i] = new CondorVM(vmIdBase + i, userId, mips * ratio, pesNumber, ram, bw, size, vmm, new CloudletSchedulerSpaceShared());
+            vm[i] = new CondorVM(
+                    vmIdBase + i,
+                    userId,
+                    mips * ratio,
+                    pesNumber,
+                    ram,
+                    bw,
+                    size,
+                    vmm,
+                    new CloudletSchedulerSpaceShared());
             list.add(vm[i]);
         }
         return list;
@@ -123,15 +132,13 @@ public class WorkflowSimMultipleClusterExample1 extends WorkflowSimBasicExample1
             /**
              * 初始化历史全局参数与文件目录。
              */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建任何 CloudSim 实体之前完成初始化。
-            int num_user = 1;   // Grid 用户数
+            int num_user = 1; // Grid 用户数
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录事件追踪
+            boolean trace_flag = false; // 是否记录事件追踪
 
             // 初始化 CloudSim。
             CloudSim.init(num_user, calendar, trace_flag);
@@ -152,7 +159,8 @@ public class WorkflowSimMultipleClusterExample1 extends WorkflowSimBasicExample1
              * 开始编号。
              */
             List<CondorVM> vmlist0 = createVM(wfEngine.getSchedulerId(0), Parameters.getVmNum() / 2, 0);
-            List<CondorVM> vmlist1 = createVM(wfEngine.getSchedulerId(0), Parameters.getVmNum() / 2, Parameters.getVmNum() / 2);
+            List<CondorVM> vmlist1 =
+                    createVM(wfEngine.getSchedulerId(0), Parameters.getVmNum() / 2, Parameters.getVmNum() / 2);
 
             /**
              * 将两组 VM 提交给工作流执行引擎。
@@ -198,27 +206,26 @@ public class WorkflowSimMultipleClusterExample1 extends WorkflowSimBasicExample1
             int ram = 2048; // Host 内存（MB）。
             long storage = 1000000; // Host 存储容量。
             int bw = 10000;
-            hostList.add(
-                    new Host(
-                            hostId,
-                            new RamProvisionerSimple(ram),
-                            new BwProvisionerSimple(bw),
-                            storage,
-                            peList1,
-                            new VmSchedulerTimeShared(peList1))); // 本示例的 Host 调度器。
+            hostList.add(new Host(
+                    hostId,
+                    new RamProvisionerSimple(ram),
+                    new BwProvisionerSimple(bw),
+                    storage,
+                    peList1,
+                    new VmSchedulerTimeShared(peList1))); // 本示例的 Host 调度器。
             hostId++;
         }
 
         // 描述数据中心的体系结构、操作系统、Host 列表、时区和抽象成本。
-        String arch = "x86";      // 系统体系结构。
-        String os = "Linux";          // 操作系统。
+        String arch = "x86"; // 系统体系结构。
+        String os = "Linux"; // 操作系统。
         String vmm = "Xen";
-        double time_zone = 10.0;         // 资源所在时区。
-        double cost = 3.0;              // 抽象计算成本。
-        double costPerMem = 0.05;		// 抽象内存成本。
-        double costPerStorage = 0.1;	// 抽象存储成本。
-        double costPerBw = 0.1;			// 抽象带宽成本。
-        LinkedList<Storage> storageList = new LinkedList<>();	// 本示例不建模 SAN 设备。
+        double time_zone = 10.0; // 资源所在时区。
+        double cost = 3.0; // 抽象计算成本。
+        double costPerMem = 0.05; // 抽象内存成本。
+        double costPerStorage = 0.1; // 抽象存储成本。
+        double costPerBw = 0.1; // 抽象带宽成本。
+        LinkedList<Storage> storageList = new LinkedList<>(); // 本示例不建模 SAN 设备。
         WorkflowDatacenter datacenter = null;
         DatacenterCharacteristics characteristics = new DatacenterCharacteristics(
                 arch, os, vmm, hostList, time_zone, cost, costPerMem, costPerStorage, costPerBw);
@@ -252,7 +259,8 @@ public class WorkflowSimMultipleClusterExample1 extends WorkflowSimBasicExample1
             // 到源站的带宽。
             s1.setBandwidth("source", interBandwidth);
             storageList.add(s1);
-            datacenter = new WorkflowDatacenter(name, characteristics, new VmAllocationPolicySimple(hostList), storageList, 0);
+            datacenter = new WorkflowDatacenter(
+                    name, characteristics, new VmAllocationPolicySimple(hostList), storageList, 0);
         } catch (Exception e) {
             e.printStackTrace();
         }

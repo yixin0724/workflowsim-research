@@ -23,8 +23,8 @@ import org.cloudbus.cloudsim.CloudletSchedulerSpaceShared;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.examples.ExampleCliSupport;
@@ -81,15 +81,13 @@ public class WorkflowSimCostExample2 extends WorkflowSimCostExample1 {
             ClusteringParameters cp = new ClusteringParameters(0, 0, method, null);
 
             /** 初始化历史静态参数与文件副本目录。 */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建模拟实体前初始化 CloudSim。
-            int num_user = 1;   // 模拟用户数。
+            int num_user = 1; // 模拟用户数。
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录 CloudSim 事件轨迹。
+            boolean trace_flag = false; // 是否记录 CloudSim 事件轨迹。
 
             // 初始化 CloudSim 事件引擎。
             CloudSim.init(num_user, calendar, trace_flag);
@@ -135,14 +133,26 @@ public class WorkflowSimCostExample2 extends WorkflowSimCostExample1 {
 
         // 创建带抽象单价字段的 VM。
         CondorVM[] vm = new CondorVM[vms];
-        double cost = 3.0;              // 抽象计算单价。
-        double costPerMem = 0.05;		// 抽象内存单价。
-        double costPerStorage = 0.1;	// 抽象存储单价。
-        double costPerBw = 0.1;			// 抽象带宽单价。
+        double cost = 3.0; // 抽象计算单价。
+        double costPerMem = 0.05; // 抽象内存单价。
+        double costPerStorage = 0.1; // 抽象存储单价。
+        double costPerBw = 0.1; // 抽象带宽单价。
         for (int i = 0; i < vms; i++) {
             double ratio = 1.0;
-            vm[i] = new CondorVM(i, userId, mips * ratio, pesNumber, ram, bw, size, vmm,
-                    cost, costPerMem, costPerStorage, costPerBw, new CloudletSchedulerSpaceShared());
+            vm[i] = new CondorVM(
+                    i,
+                    userId,
+                    mips * ratio,
+                    pesNumber,
+                    ram,
+                    bw,
+                    size,
+                    vmm,
+                    cost,
+                    costPerMem,
+                    costPerStorage,
+                    costPerBw,
+                    new CloudletSchedulerSpaceShared());
             list.add(vm[i]);
         }
         return list;

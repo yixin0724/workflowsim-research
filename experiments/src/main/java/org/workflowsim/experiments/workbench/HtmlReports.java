@@ -20,7 +20,8 @@ import org.workflowsim.experiment.ExperimentArtifactValidator;
 /** Offline report rendering from validated evidence; no CDN, server or executable user HTML. */
 public final class HtmlReports {
     private static final Gson JSON = new GsonBuilder().serializeNulls().create();
-    private HtmlReports() { }
+
+    private HtmlReports() {}
 
     public static void experiment(String name, List<Map<String, Object>> runs, Path target) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
@@ -37,22 +38,30 @@ public final class HtmlReports {
             }
             displayRuns.add(display);
         }
-        payload.put("name", name); payload.put("runs", displayRuns);
+        payload.put("name", name);
+        payload.put("runs", displayRuns);
         String template;
         try (InputStream input = HtmlReports.class.getResourceAsStream("/workbench/report.html")) {
-            if (input == null) { throw new IOException("Missing workbench report template"); }
+            if (input == null) {
+                throw new IOException("Missing workbench report template");
+            }
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            byte[] buffer = new byte[8192]; int length;
-            while ((length = input.read(buffer)) >= 0) { bytes.write(buffer, 0, length); }
+            byte[] buffer = new byte[8192];
+            int length;
+            while ((length = input.read(buffer)) >= 0) {
+                bytes.write(buffer, 0, length);
+            }
             template = new String(bytes.toByteArray(), StandardCharsets.UTF_8);
         }
         // Gson HTML escaping encodes '<', '>', '&' and quotes; also protect JS separators.
         String data = JSON.toJson(payload).replace("\u2028", "\\u2028").replace("\u2029", "\\u2029");
-        java.util.regex.Matcher marker = java.util.regex.Pattern.compile("@@(TITLE|DATA)@@").matcher(template);
+        java.util.regex.Matcher marker =
+                java.util.regex.Pattern.compile("@@(TITLE|DATA)@@").matcher(template);
         StringBuffer rendered = new StringBuffer();
         while (marker.find()) {
-            marker.appendReplacement(rendered, java.util.regex.Matcher.quoteReplacement(
-                    "TITLE".equals(marker.group(1)) ? escape(name) : data));
+            marker.appendReplacement(
+                    rendered,
+                    java.util.regex.Matcher.quoteReplacement("TITLE".equals(marker.group(1)) ? escape(name) : data));
         }
         marker.appendTail(rendered);
         writeAtomic(target, rendered.toString());
@@ -68,31 +77,55 @@ public final class HtmlReports {
     }
 
     static ValidatedReport validatedReport(ExperimentArtifactValidator.ValidationResult validated) {
-        return new ValidatedReport(validated.getManifestSnapshot(),
-                NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(),true),
-                FileLifecycleReportView.fromDecoded(validated.getDecodedFileLifecycle(),true),
-                StorageLifecycleReportView.fromDecoded(validated.getDecodedStorageLifecycle(),true),
+        return new ValidatedReport(
+                validated.getManifestSnapshot(),
+                NetworkReportView.fromDecoded(validated.getDecodedNetworkLedger(), true),
+                FileLifecycleReportView.fromDecoded(validated.getDecodedFileLifecycle(), true),
+                StorageLifecycleReportView.fromDecoded(validated.getDecodedStorageLifecycle(), true),
                 DataflowAssignmentReportView.fromValidated(validated.getDataflowAssignment()));
     }
 
     static final class ValidatedReport {
         private final JsonObject manifest;
-        private final Map<String,Object> network;
-        private final Map<String,Object> fileLifecycle,storageLifecycle,dataflowAssignment;
-        private ValidatedReport(JsonObject manifest,Map<String,Object> network,Map<String,Object> fileLifecycle,Map<String,Object> storageLifecycle,Map<String,Object> dataflowAssignment){this.manifest=manifest;this.network=network;this.fileLifecycle=fileLifecycle;this.storageLifecycle=storageLifecycle;this.dataflowAssignment=dataflowAssignment;}
-        JsonObject getManifest(){return manifest;}
-        void attachTo(Map<String,Object> row){
-            row.put("manifest",manifest);
-            if(network==null)row.remove("networkEvidence");else row.put("networkEvidence",network);
-            if(fileLifecycle==null)row.remove("fileLifecycle");else row.put("fileLifecycle",fileLifecycle);
-            if(storageLifecycle==null)row.remove("storageLifecycle");else row.put("storageLifecycle",storageLifecycle);
-            if(dataflowAssignment==null)row.remove("dataflowAssignment");else row.put("dataflowAssignment",dataflowAssignment);
+        private final Map<String, Object> network;
+        private final Map<String, Object> fileLifecycle, storageLifecycle, dataflowAssignment;
+
+        private ValidatedReport(
+                JsonObject manifest,
+                Map<String, Object> network,
+                Map<String, Object> fileLifecycle,
+                Map<String, Object> storageLifecycle,
+                Map<String, Object> dataflowAssignment) {
+            this.manifest = manifest;
+            this.network = network;
+            this.fileLifecycle = fileLifecycle;
+            this.storageLifecycle = storageLifecycle;
+            this.dataflowAssignment = dataflowAssignment;
+        }
+
+        JsonObject getManifest() {
+            return manifest;
+        }
+
+        void attachTo(Map<String, Object> row) {
+            row.put("manifest", manifest);
+            if (network == null) row.remove("networkEvidence");
+            else row.put("networkEvidence", network);
+            if (fileLifecycle == null) row.remove("fileLifecycle");
+            else row.put("fileLifecycle", fileLifecycle);
+            if (storageLifecycle == null) row.remove("storageLifecycle");
+            else row.put("storageLifecycle", storageLifecycle);
+            if (dataflowAssignment == null) row.remove("dataflowAssignment");
+            else row.put("dataflowAssignment", dataflowAssignment);
         }
     }
 
     static String escape(String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                .replace("\"", "&quot;").replace("'", "&#39;");
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     public static void writeAtomic(Path target, String content) throws IOException {
@@ -101,8 +134,13 @@ public final class HtmlReports {
         Path temporary = Files.createTempFile(absolute.getParent(), ".report-", ".tmp");
         try {
             Files.write(temporary, content.getBytes(StandardCharsets.UTF_8));
-            try { Files.move(temporary, absolute, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
-            catch (AtomicMoveNotSupportedException e) { Files.move(temporary, absolute, StandardCopyOption.REPLACE_EXISTING); }
-        } finally { Files.deleteIfExists(temporary); }
+            try {
+                Files.move(temporary, absolute, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(temporary, absolute, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 }

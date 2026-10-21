@@ -42,19 +42,15 @@ import org.workflowsim.experiments.common.ExactJsonValues;
 public final class EvidenceCoreDiffer {
 
     /** metrics 中豁免的本机墙钟纳秒字段（契约逐项点名，禁止扩散）。 */
-    public static final Set<String> VOLATILE_METRIC_FIELDS = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList(
-                    "totalSchedulingDecisionWallClockNanos",
-                    "totalPlanningDecisionWallClockNanos")));
+    public static final Set<String> VOLATILE_METRIC_FIELDS = Collections.unmodifiableSet(new LinkedHashSet<String>(
+            Arrays.asList("totalSchedulingDecisionWallClockNanos", "totalPlanningDecisionWallClockNanos")));
 
     /** 事件 attributes 中豁免的本机耗时键（REPRODUCIBILITY 契约声明排除在指纹外）。 */
     public static final Set<String> VOLATILE_EVENT_ATTRIBUTE_KEYS = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList(
-                    "decisionElapsedNanos",
-                    "planningDecisionElapsedNanos")));
+            new LinkedHashSet<String>(Arrays.asList("decisionElapsedNanos", "planningDecisionElapsedNanos")));
 
-    private static final List<String> VOLATILE_SUBTREE_PREFIXES = Collections.unmodifiableList(
-            Arrays.asList("/provenance", "/runtime"));
+    private static final List<String> VOLATILE_SUBTREE_PREFIXES =
+            Collections.unmodifiableList(Arrays.asList("/provenance", "/runtime"));
 
     /**
      * 比对行为使用的豁免叶子模式。
@@ -79,8 +75,8 @@ public final class EvidenceCoreDiffer {
         patterns.add(Pattern.compile("/result/workflowOutcomes/\\d+/path"));
         patterns.add(Pattern.compile("/artifacts/\\d+/(sha256|sizeBytes)"));
         patterns.add(Pattern.compile("/metrics/(" + regexAlternation(VOLATILE_METRIC_FIELDS) + ")"));
-        patterns.add(Pattern.compile("/events/\\d+/attributes/("
-                + regexAlternation(VOLATILE_EVENT_ATTRIBUTE_KEYS) + ")"));
+        patterns.add(
+                Pattern.compile("/events/\\d+/attributes/(" + regexAlternation(VOLATILE_EVENT_ATTRIBUTE_KEYS) + ")"));
         return Collections.unmodifiableList(patterns);
     }
 
@@ -103,8 +99,7 @@ public final class EvidenceCoreDiffer {
 
     private static final Gson COMPACT = new GsonBuilder().serializeNulls().create();
 
-    private EvidenceCoreDiffer() {
-    }
+    private EvidenceCoreDiffer() {}
 
     /**
      * 比对原始证据与 rerun 新证据的全部核心量。
@@ -114,8 +109,7 @@ public final class EvidenceCoreDiffer {
      * @return 结构化差异结果（核心量分歧清单、易变量差异记录、双侧身份信息）
      * @throws IOException sidecar 文件不可读
      */
-    public static DiffResult compare(RerunEvidence original, RerunEvidence rerun)
-            throws IOException {
+    public static DiffResult compare(RerunEvidence original, RerunEvidence rerun) throws IOException {
         if (original == null || rerun == null) {
             throw new IllegalArgumentException("Original and rerun evidence are required");
         }
@@ -123,38 +117,60 @@ public final class EvidenceCoreDiffer {
         List<Divergence> volatileNoted = new ArrayList<Divergence>();
 
         compareJson("", original.getManifest(), rerun.getManifest(), false, core, volatileNoted);
-        compareJson("", readJson(original.getMetricsPath()), readJson(rerun.getMetricsPath()),
-                false, core, volatileNoted);
+        compareJson(
+                "", readJson(original.getMetricsPath()), readJson(rerun.getMetricsPath()), false, core, volatileNoted);
         compareEvents(original.getEventsPath(), rerun.getEventsPath(), core, volatileNoted);
         // Artifact hashes/sizes remain volatile, but the ledger contents are scientific core.
         // The separate namespace deliberately inherits NONE of the root provenance/runtime exemptions.
-        if(original.getNetworkLedgerPath()!=null||rerun.getNetworkLedgerPath()!=null){
-            compareJson("/networkLedger",original.getNetworkLedgerPath()==null?null:readNetworkJson(original.getNetworkLedgerPath()),
-                    rerun.getNetworkLedgerPath()==null?null:readNetworkJson(rerun.getNetworkLedgerPath()),false,core,volatileNoted);
+        if (original.getNetworkLedgerPath() != null || rerun.getNetworkLedgerPath() != null) {
+            compareJson(
+                    "/networkLedger",
+                    original.getNetworkLedgerPath() == null ? null : readNetworkJson(original.getNetworkLedgerPath()),
+                    rerun.getNetworkLedgerPath() == null ? null : readNetworkJson(rerun.getNetworkLedgerPath()),
+                    false,
+                    core,
+                    volatileNoted);
         }
 
-        if(original.getFileLifecyclePath()!=null||rerun.getFileLifecyclePath()!=null){
-            compareJson("/fileLifecycle",original.getFileLifecyclePath()==null?null:readNetworkJson(original.getFileLifecyclePath()),
-                    rerun.getFileLifecyclePath()==null?null:readNetworkJson(rerun.getFileLifecyclePath()),false,core,volatileNoted);
+        if (original.getFileLifecyclePath() != null || rerun.getFileLifecyclePath() != null) {
+            compareJson(
+                    "/fileLifecycle",
+                    original.getFileLifecyclePath() == null ? null : readNetworkJson(original.getFileLifecyclePath()),
+                    rerun.getFileLifecyclePath() == null ? null : readNetworkJson(rerun.getFileLifecyclePath()),
+                    false,
+                    core,
+                    volatileNoted);
         }
 
-        if(original.getStorageLifecyclePath()!=null||rerun.getStorageLifecyclePath()!=null){
-            compareJson("/storageLifecycle",original.getStorageLifecyclePath()==null?null:readNetworkJson(original.getStorageLifecyclePath()),rerun.getStorageLifecyclePath()==null?null:readNetworkJson(rerun.getStorageLifecyclePath()),false,core,volatileNoted);
+        if (original.getStorageLifecyclePath() != null || rerun.getStorageLifecyclePath() != null) {
+            compareJson(
+                    "/storageLifecycle",
+                    original.getStorageLifecyclePath() == null
+                            ? null
+                            : readNetworkJson(original.getStorageLifecyclePath()),
+                    rerun.getStorageLifecyclePath() == null ? null : readNetworkJson(rerun.getStorageLifecyclePath()),
+                    false,
+                    core,
+                    volatileNoted);
         }
 
         // manifest 内嵌 metrics 与 sidecar 是同一份核心量（工件校验器强制相等），
         // 两处比对会对同一分歧各记一条；按（指针, 旧值, 新值）精确去重。
-        return new DiffResult(deduplicate(core), volatileNoted,
-                sourceTreeSha256(original.getManifest()), sourceTreeSha256(rerun.getManifest()),
-                algorithmContract(original.getManifest()), algorithmContract(rerun.getManifest()));
+        return new DiffResult(
+                deduplicate(core),
+                volatileNoted,
+                sourceTreeSha256(original.getManifest()),
+                sourceTreeSha256(rerun.getManifest()),
+                algorithmContract(original.getManifest()),
+                algorithmContract(rerun.getManifest()));
     }
 
     private static List<Divergence> deduplicate(List<Divergence> divergences) {
         List<Divergence> unique = new ArrayList<Divergence>();
         Set<String> seen = new LinkedHashSet<String>();
         for (Divergence divergence : divergences) {
-            String key = divergence.getPointer() + "\u0000" + divergence.getOriginalValue()
-                    + "\u0000" + divergence.getRerunValue();
+            String key = divergence.getPointer() + "\u0000" + divergence.getOriginalValue() + "\u0000"
+                    + divergence.getRerunValue();
             if (seen.add(key)) {
                 unique.add(divergence);
             }
@@ -164,34 +180,35 @@ public final class EvidenceCoreDiffer {
 
     // ---- manifest 与 metrics 的通用递归比对 ----
 
-    private static void compareJson(String pointer, JsonElement original, JsonElement rerun,
-            boolean volatileScope, List<Divergence> core, List<Divergence> volatileNoted) {
+    private static void compareJson(
+            String pointer,
+            JsonElement original,
+            JsonElement rerun,
+            boolean volatileScope,
+            List<Divergence> core,
+            List<Divergence> volatileNoted) {
         if (volatileScope || isVolatileSubtreeRoot(pointer)) {
             // 易变子树：递归到叶子，仅记录差异，不参与核心量判定。
-            if (original != null && rerun != null
-                    && original.isJsonObject() && rerun.isJsonObject()) {
+            if (original != null && rerun != null && original.isJsonObject() && rerun.isJsonObject()) {
                 JsonObject a = original.getAsJsonObject();
                 JsonObject b = rerun.getAsJsonObject();
                 Set<String> keys = new TreeSet<String>();
                 keys.addAll(a.keySet());
                 keys.addAll(b.keySet());
                 for (String key : keys) {
-                    compareJson(pointer + "/" + escapePointerToken(key), a.get(key), b.get(key),
-                            true, core, volatileNoted);
+                    compareJson(
+                            pointer + "/" + escapePointerToken(key), a.get(key), b.get(key), true, core, volatileNoted);
                 }
                 return;
             }
-            if (original != null && rerun != null
-                    && original.isJsonArray() && rerun.isJsonArray()) {
+            if (original != null && rerun != null && original.isJsonArray() && rerun.isJsonArray()) {
                 JsonArray a = original.getAsJsonArray();
                 JsonArray b = rerun.getAsJsonArray();
                 if (a.size() != b.size()) {
-                    volatileNoted.add(new Divergence(pointer,
-                            "array length " + a.size(), "array length " + b.size()));
+                    volatileNoted.add(new Divergence(pointer, "array length " + a.size(), "array length " + b.size()));
                 }
                 for (int i = 0; i < Math.min(a.size(), b.size()); i++) {
-                    compareJson(pointer + "/" + i, a.get(i), b.get(i),
-                            true, core, volatileNoted);
+                    compareJson(pointer + "/" + i, a.get(i), b.get(i), true, core, volatileNoted);
                 }
                 return;
             }
@@ -219,8 +236,8 @@ public final class EvidenceCoreDiffer {
             keys.addAll(a.keySet());
             keys.addAll(b.keySet());
             for (String key : keys) {
-                compareJson(pointer + "/" + escapePointerToken(key), a.get(key), b.get(key),
-                        false, core, volatileNoted);
+                compareJson(
+                        pointer + "/" + escapePointerToken(key), a.get(key), b.get(key), false, core, volatileNoted);
             }
             return;
         }
@@ -228,8 +245,7 @@ public final class EvidenceCoreDiffer {
             JsonArray a = original.getAsJsonArray();
             JsonArray b = rerun.getAsJsonArray();
             if (a.size() != b.size()) {
-                core.add(new Divergence(pointer, "array length " + a.size(),
-                        "array length " + b.size()));
+                core.add(new Divergence(pointer, "array length " + a.size(), "array length " + b.size()));
             }
             for (int i = 0; i < Math.min(a.size(), b.size()); i++) {
                 compareJson(pointer + "/" + i, a.get(i), b.get(i), false, core, volatileNoted);
@@ -243,13 +259,14 @@ public final class EvidenceCoreDiffer {
 
     // ---- events 逐行比对（行数即事件总数） ----
 
-    private static void compareEvents(Path originalEvents, Path rerunEvents,
-            List<Divergence> core, List<Divergence> volatileNoted) throws IOException {
+    private static void compareEvents(
+            Path originalEvents, Path rerunEvents, List<Divergence> core, List<Divergence> volatileNoted)
+            throws IOException {
         List<String> originalLines = Files.readAllLines(originalEvents, StandardCharsets.UTF_8);
         List<String> rerunLines = Files.readAllLines(rerunEvents, StandardCharsets.UTF_8);
         if (originalLines.size() != rerunLines.size()) {
-            core.add(new Divergence("/events/eventCount",
-                    String.valueOf(originalLines.size()), String.valueOf(rerunLines.size())));
+            core.add(new Divergence(
+                    "/events/eventCount", String.valueOf(originalLines.size()), String.valueOf(rerunLines.size())));
         }
         for (int i = 0; i < Math.min(originalLines.size(), rerunLines.size()); i++) {
             JsonElement a = JsonParser.parseString(originalLines.get(i));
@@ -291,8 +308,7 @@ public final class EvidenceCoreDiffer {
     public static String sourceTreeSha256(JsonObject manifest) {
         JsonElement value = manifest;
         for (String key : Arrays.asList("provenance", "core", "sourceTreeSha256")) {
-            if (!(value instanceof JsonObject)
-                    || !((JsonObject) value).has(key)) {
+            if (!(value instanceof JsonObject) || !((JsonObject) value).has(key)) {
                 return null;
             }
             value = ((JsonObject) value).get(key);
@@ -313,14 +329,20 @@ public final class EvidenceCoreDiffer {
     // ---- 小工具 ----
 
     private static JsonObject readJson(Path path) throws IOException {
-        return JsonParser.parseString(new String(Files.readAllBytes(path),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        return JsonParser.parseString(new String(Files.readAllBytes(path), StandardCharsets.UTF_8))
+                .getAsJsonObject();
     }
 
     private static JsonObject readNetworkJson(Path path) throws IOException {
-        String text=StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(Files.readAllBytes(path))).toString();
-        try { return org.workflowsim.data.NetworkLedgerCodec.parseDocument(text); }
-        catch(IllegalArgumentException invalid){throw new IOException("Invalid network JSON during core comparison",invalid);}
+        String text = StandardCharsets.UTF_8
+                .newDecoder()
+                .decode(java.nio.ByteBuffer.wrap(Files.readAllBytes(path)))
+                .toString();
+        try {
+            return org.workflowsim.data.NetworkLedgerCodec.parseDocument(text);
+        } catch (IllegalArgumentException invalid) {
+            throw new IOException("Invalid network JSON during core comparison", invalid);
+        }
     }
 
     private static boolean nullSafeEquals(JsonElement a, JsonElement b) {
@@ -381,13 +403,15 @@ public final class EvidenceCoreDiffer {
         private final String originalAlgorithmContract;
         private final String rerunAlgorithmContract;
 
-        DiffResult(List<Divergence> coreDivergences, List<Divergence> volatileNoted,
-                String originalSourceTreeSha256, String rerunSourceTreeSha256,
-                String originalAlgorithmContract, String rerunAlgorithmContract) {
-            this.coreDivergences = Collections.unmodifiableList(
-                    new ArrayList<Divergence>(coreDivergences));
-            this.volatileNoted = Collections.unmodifiableList(
-                    new ArrayList<Divergence>(volatileNoted));
+        DiffResult(
+                List<Divergence> coreDivergences,
+                List<Divergence> volatileNoted,
+                String originalSourceTreeSha256,
+                String rerunSourceTreeSha256,
+                String originalAlgorithmContract,
+                String rerunAlgorithmContract) {
+            this.coreDivergences = Collections.unmodifiableList(new ArrayList<Divergence>(coreDivergences));
+            this.volatileNoted = Collections.unmodifiableList(new ArrayList<Divergence>(volatileNoted));
             this.originalSourceTreeSha256 = originalSourceTreeSha256;
             this.rerunSourceTreeSha256 = rerunSourceTreeSha256;
             this.originalAlgorithmContract = originalAlgorithmContract;
@@ -419,8 +443,7 @@ public final class EvidenceCoreDiffer {
 
         /** 代码树哈希是否一致（rerun 侧哈希即当前代码的哈希）。 */
         public boolean isCodeIdentityMatching() {
-            return originalSourceTreeSha256 != null
-                    && originalSourceTreeSha256.equals(rerunSourceTreeSha256);
+            return originalSourceTreeSha256 != null && originalSourceTreeSha256.equals(rerunSourceTreeSha256);
         }
 
         public String getOriginalAlgorithmContract() {

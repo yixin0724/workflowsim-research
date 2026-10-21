@@ -18,8 +18,7 @@ final class P7ReferenceIdentity {
     static final String PROTOCOL_ID = "docs/experiments/reference-baselines/" + PROTOCOL_FILE_NAME;
     static final String SOURCE_SUBPATH = "org/workflowsim/experiments/reference/p7";
 
-    private P7ReferenceIdentity() {
-    }
+    private P7ReferenceIdentity() {}
 
     /**
      * 创建当前 P7 driver、协议和显式数据集根的不可变证据上下文。
@@ -42,17 +41,22 @@ final class P7ReferenceIdentity {
 
     private static Path protocolFile() {
         try {
-            URL codeSource = P7BaselineExecutor.class.getProtectionDomain().getCodeSource().getLocation();
+            URL codeSource = P7BaselineExecutor.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation();
             if (codeSource == null) {
                 return null;
             }
             Path classes = Paths.get(codeSource.toURI()).toAbsolutePath().normalize();
-            if (!Files.isDirectory(classes) || classes.getFileName() == null
+            if (!Files.isDirectory(classes)
+                    || classes.getFileName() == null
                     || !"classes".equals(classes.getFileName().toString())) {
                 return null;
             }
             Path target = classes.getParent();
-            if (target == null || target.getFileName() == null
+            if (target == null
+                    || target.getFileName() == null
                     || !"target".equals(target.getFileName().toString())) {
                 return null;
             }
@@ -61,7 +65,8 @@ final class P7ReferenceIdentity {
                 return null;
             }
             Path projectRoot = experimentModule.getParent();
-            Path candidate = projectRoot == null ? null
+            Path candidate = projectRoot == null
+                    ? null
                     : projectRoot.resolve(PROTOCOL_ID).normalize();
             return candidate != null && Files.isRegularFile(candidate) ? candidate : null;
         } catch (SecurityException | URISyntaxException | IllegalArgumentException exception) {

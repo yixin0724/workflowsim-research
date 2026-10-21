@@ -33,8 +33,9 @@ class FatTreeSchedulingCampaignExecutorTest {
 
     private static final String V1 =
             DataMovementModel.preExecutionTransferDelayV1().getKind().name();
-    private static final String R2 =
-            DataMovementModel.preExecutionTransferDelayWithContentionV1().getKind().name();
+    private static final String R2 = DataMovementModel.preExecutionTransferDelayWithContentionV1()
+            .getKind()
+            .name();
     private static final String R6 =
             DataMovementModel.fatTreeContentionV1().getKind().name();
     private static final String HEFT = Parameters.PlanningAlgorithm.LOCAL_HEFT.name();
@@ -50,25 +51,22 @@ class FatTreeSchedulingCampaignExecutorTest {
     /** 3 主机敏感性与 4 主机结构块：6 变体、同序、A5 放置按主机数覆盖。 */
     @Test
     void sensitivityAndStructuralVariantContracts() {
-        List<String> expectedIds = Arrays.asList("baseline-k4-full", "A1-k4-oversub2x",
-                "A2-k8-full", "A3-k8-oversub2x", "A4-k4-full-link10x");
-        List<TopologyVariant> sensitivity =
-                FatTreeSchedulingCampaignExecutor.SENSITIVITY_VARIANTS;
+        List<String> expectedIds = Arrays.asList(
+                "baseline-k4-full", "A1-k4-oversub2x", "A2-k8-full", "A3-k8-oversub2x", "A4-k4-full-link10x");
+        List<TopologyVariant> sensitivity = FatTreeSchedulingCampaignExecutor.SENSITIVITY_VARIANTS;
         assertEquals(6, sensitivity.size());
         for (int i = 0; i < 5; i++) {
             assertEquals(expectedIds.get(i), sensitivity.get(i).id);
         }
         assertEquals("A5-k4-full-same-edge-pair", sensitivity.get(5).id);
         // 3 主机 A5：host0/host1 同 edge0，host2 放 edge2。
-        Map<Integer, Integer> three =
-                sensitivity.get(5).spec.getHostEdgePlacements();
+        Map<Integer, Integer> three = sensitivity.get(5).spec.getHostEdgePlacements();
         assertEquals(3, three.size());
         assertEquals(Integer.valueOf(0), three.get(Integer.valueOf(0)));
         assertEquals(Integer.valueOf(0), three.get(Integer.valueOf(1)));
         assertEquals(Integer.valueOf(2), three.get(Integer.valueOf(2)));
 
-        List<TopologyVariant> structural =
-                FatTreeSchedulingCampaignExecutor.structuralVariants();
+        List<TopologyVariant> structural = FatTreeSchedulingCampaignExecutor.structuralVariants();
         assertEquals(6, structural.size());
         for (int i = 0; i < 5; i++) {
             assertEquals(expectedIds.get(i), structural.get(i).id);
@@ -94,8 +92,7 @@ class FatTreeSchedulingCampaignExecutorTest {
     @Test
     void discoverCoreDagsReturnsTenExpectedInstances() throws IOException {
         Path datasetsRoot = Paths.get("..", "datasets").toAbsolutePath().normalize();
-        List<DagScenario> dags =
-                FatTreeSchedulingCampaignExecutor.discoverCoreDags(datasetsRoot);
+        List<DagScenario> dags = FatTreeSchedulingCampaignExecutor.discoverCoreDags(datasetsRoot);
         assertEquals(10, dags.size());
         List<String> ids = new ArrayList<String>();
         for (DagScenario dag : dags) {
@@ -103,22 +100,30 @@ class FatTreeSchedulingCampaignExecutorTest {
             assertTrue(Files.exists(dag.daxPath), "DAX 必须存在: " + dag.daxPath);
             assertTrue(dag.id.startsWith(dag.family), "id 必须携带家族前缀: " + dag.id);
         }
-        assertEquals(Arrays.asList("heft-paper-example",
-                "epigenomics-n24", "epigenomics-n46", "epigenomics-n100",
-                "cybershake-n30", "cybershake-n50", "cybershake-n100",
-                "inspiral-n30", "inspiral-n50", "inspiral-n100"), ids);
+        assertEquals(
+                Arrays.asList(
+                        "heft-paper-example",
+                        "epigenomics-n24",
+                        "epigenomics-n46",
+                        "epigenomics-n100",
+                        "cybershake-n30",
+                        "cybershake-n50",
+                        "cybershake-n100",
+                        "inspiral-n30",
+                        "inspiral-n50",
+                        "inspiral-n100"),
+                ids);
     }
 
     /** 畸形数据集根：空目录与多 DAX 目录都被显式拒绝。 */
     @Test
-    void discoverCoreDagsRejectsMalformedDatasetRoots(@TempDir Path tempRoot)
-            throws IOException {
+    void discoverCoreDagsRejectsMalformedDatasetRoots(@TempDir Path tempRoot) throws IOException {
         // 空 scale 目录 → "No .dax file"。
         Path empty = tempRoot.resolve("empty");
         prepareHeftExample(empty);
         Files.createDirectories(empty.resolve("dax/epigenomics/n24"));
-        IllegalStateException noDax = assertThrows(IllegalStateException.class,
-                () -> FatTreeSchedulingCampaignExecutor.discoverCoreDags(empty));
+        IllegalStateException noDax = assertThrows(
+                IllegalStateException.class, () -> FatTreeSchedulingCampaignExecutor.discoverCoreDags(empty));
         assertTrue(noDax.getMessage().contains("No .dax file"), noDax.getMessage());
         // 同目录多 DAX → "Multiple .dax files"。
         Path multiple = tempRoot.resolve("multiple");
@@ -127,16 +132,15 @@ class FatTreeSchedulingCampaignExecutorTest {
         Files.createDirectories(scale);
         Files.write(scale.resolve("a.dax"), "<adag/>".getBytes(StandardCharsets.UTF_8));
         Files.write(scale.resolve("b.dax"), "<adag/>".getBytes(StandardCharsets.UTF_8));
-        IllegalStateException multi = assertThrows(IllegalStateException.class,
-                () -> FatTreeSchedulingCampaignExecutor.discoverCoreDags(multiple));
+        IllegalStateException multi = assertThrows(
+                IllegalStateException.class, () -> FatTreeSchedulingCampaignExecutor.discoverCoreDags(multiple));
         assertTrue(multi.getMessage().contains("Multiple .dax files"), multi.getMessage());
     }
 
     private static void prepareHeftExample(Path root) throws IOException {
         Path heftDir = root.resolve("dax/heft");
         Files.createDirectories(heftDir);
-        Files.write(heftDir.resolve("heft-paper-example.dax"),
-                "<adag/>".getBytes(StandardCharsets.UTF_8));
+        Files.write(heftDir.resolve("heft-paper-example.dax"), "<adag/>".getBytes(StandardCharsets.UTF_8));
     }
 
     // ------------------------------------------------------------------
@@ -172,11 +176,9 @@ class FatTreeSchedulingCampaignExecutorTest {
         assertEquals("dag-b", violation.get("dax"));
         assertEquals(PSO, violation.get("planner"));
         double deviation = ((Double) violation.get("maxRelativeDeviation")).doubleValue();
-        assertTrue(deviation > 0.0 && deviation <= 1.0e-4,
-                "交叉必须为噪声级: " + deviation);
+        assertTrue(deviation > 0.0 && deviation <= 1.0e-4, "交叉必须为噪声级: " + deviation);
         assertEquals(121.0, ((Double) violation.get("v1MakespanSeconds")).doubleValue(), 1e-9);
-        IllegalStateException thrown = assertThrows(IllegalStateException.class,
-                results::assertWeakMonotonicity);
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, results::assertWeakMonotonicity);
         assertTrue(thrown.getMessage().contains("弱单调性破坏"));
     }
 
@@ -209,21 +211,18 @@ class FatTreeSchedulingCampaignExecutorTest {
     void scanStatisticsSeparatesDegenerateAndEffectiveAxes() {
         CampaignResults results = fixture(false);
         for (String block : new String[] {"sensitivity", "structural"}) {
-            List<Map<String, Object>> statistics = "sensitivity".equals(block)
-                    ? results.sensitivityStatistics() : results.structuralStatistics();
+            List<Map<String, Object>> statistics =
+                    "sensitivity".equals(block) ? results.sensitivityStatistics() : results.structuralStatistics();
             assertEquals(10, statistics.size(), block + ": 2 规划器 × 5 非基线变体");
             for (Map<String, Object> record : statistics) {
                 String axis = (String) record.get("axis");
                 assertTrue(axis.startsWith(block + "@"), axis);
                 String candidate = (String) record.get("candidate");
                 if (candidate.startsWith("A4")) {
-                    assertEquals("AVAILABLE_WILCOXON_SIGNED_RANK_EXACT", record.get("status"),
-                            axis);
-                    assertEquals(-10.0,
-                            ((Double) record.get("medianDifferenceSeconds")).doubleValue(), 1e-9);
+                    assertEquals("AVAILABLE_WILCOXON_SIGNED_RANK_EXACT", record.get("status"), axis);
+                    assertEquals(-10.0, ((Double) record.get("medianDifferenceSeconds")).doubleValue(), 1e-9);
                 } else {
-                    assertEquals("UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO",
-                            record.get("status"), axis);
+                    assertEquals("UNAVAILABLE_ALL_PAIRED_DIFFERENCES_ARE_ZERO", record.get("status"), axis);
                     assertEquals(Integer.valueOf(0), record.get("effectiveSampleCount"), axis);
                 }
             }
@@ -237,17 +236,15 @@ class FatTreeSchedulingCampaignExecutorTest {
         assertEquals(100.0, results.makespan("dag-a", HEFT, V1), 1e-9);
         assertEquals(130.0, results.sensitivityMakespan("dag-a", HEFT, "baseline-k4-full"), 1e-9);
         assertEquals(130.0, results.structuralMakespan("dag-b", CPOP, "baseline-k4-full"), 1e-9);
-        IllegalStateException missingMain = assertThrows(IllegalStateException.class,
-                () -> results.makespan("dag-zz", HEFT, V1));
+        IllegalStateException missingMain =
+                assertThrows(IllegalStateException.class, () -> results.makespan("dag-zz", HEFT, V1));
         assertTrue(missingMain.getMessage().contains("Missing"));
-        IllegalStateException missingSens = assertThrows(IllegalStateException.class,
-                () -> results.sensitivityMakespan("dag-a", HEFT, "A9-unknown"));
-        assertTrue(missingSens.getMessage().contains("Missing sensitivity record"),
-                missingSens.getMessage());
-        IllegalStateException missingStruct = assertThrows(IllegalStateException.class,
-                () -> results.structuralMakespan("dag-a", HEFT, "A9-unknown"));
-        assertTrue(missingStruct.getMessage().contains("Missing structural record"),
-                missingStruct.getMessage());
+        IllegalStateException missingSens = assertThrows(
+                IllegalStateException.class, () -> results.sensitivityMakespan("dag-a", HEFT, "A9-unknown"));
+        assertTrue(missingSens.getMessage().contains("Missing sensitivity record"), missingSens.getMessage());
+        IllegalStateException missingStruct = assertThrows(
+                IllegalStateException.class, () -> results.structuralMakespan("dag-a", HEFT, "A9-unknown"));
+        assertTrue(missingStruct.getMessage().contains("Missing structural record"), missingStruct.getMessage());
     }
 
     // ------------------------------------------------------------------
@@ -332,10 +329,12 @@ class FatTreeSchedulingCampaignExecutorTest {
             double dagAddition = "dag-b".equals(dag.id) ? 1.0 : 0.0;
             for (Map.Entry<String, Double> planner : plannerBase.entrySet()) {
                 for (Map.Entry<String, Double> model : modelAdd.entrySet()) {
-                    double value = planner.getValue().doubleValue()
-                            + model.getValue().doubleValue() + dagAddition;
-                    if (withViolation && "dag-b".equals(dag.id)
-                            && PSO.equals(planner.getKey()) && R6.equals(model.getKey())) {
+                    double value =
+                            planner.getValue().doubleValue() + model.getValue().doubleValue() + dagAddition;
+                    if (withViolation
+                            && "dag-b".equals(dag.id)
+                            && PSO.equals(planner.getKey())
+                            && R6.equals(model.getKey())) {
                         // 压到同 DAG 的 R2 值（base + 10 + dagAddition）之下 0.001。
                         value = planner.getValue().doubleValue() + 10.0 + dagAddition - 0.001;
                     }
@@ -361,20 +360,18 @@ class FatTreeSchedulingCampaignExecutorTest {
     /** 仅主矩阵的 fixture（IT 子集运行形态）。 */
     private static CampaignResults mainOnlyFixture() {
         CampaignResults full = fixture(false);
-        return new CampaignResults(full.dags, full.mainMatrix,
-                new ArrayList<Map<String, Object>>(), new ArrayList<Map<String, Object>>());
+        return new CampaignResults(
+                full.dags, full.mainMatrix, new ArrayList<Map<String, Object>>(), new ArrayList<Map<String, Object>>());
     }
 
     /** 扫描块记录：基线 = R6 值（120/130），结构变体恒等，A4 = 基线 − 10。 */
-    private static List<Map<String, Object>> scanRecords(
-            List<DagScenario> dags, List<TopologyVariant> variants) {
+    private static List<Map<String, Object>> scanRecords(List<DagScenario> dags, List<TopologyVariant> variants) {
         List<Map<String, Object>> records = new ArrayList<Map<String, Object>>();
         for (DagScenario dag : dags) {
             for (String planner : new String[] {HEFT, CPOP}) {
                 for (TopologyVariant variant : variants) {
                     double baseline = 130.0;
-                    double value = variant.id.startsWith("A4")
-                            ? baseline - 10.0 : baseline;
+                    double value = variant.id.startsWith("A4") ? baseline - 10.0 : baseline;
                     Map<String, Object> record = new LinkedHashMap<String, Object>();
                     record.put("dax", dag.id);
                     record.put("planner", planner);

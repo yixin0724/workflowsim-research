@@ -35,16 +35,16 @@ import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 import org.workflowsim.CondorVM;
+import org.workflowsim.Job;
 import org.workflowsim.Task;
 import org.workflowsim.WorkflowDatacenter;
-import org.workflowsim.Job;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.utils.ClusteringParameters;
 import org.workflowsim.utils.OverheadParameters;
 import org.workflowsim.utils.Parameters;
-import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.Parameters.ClassType;
+import org.workflowsim.utils.ReplicaCatalog;
 
 /**
  * 使用一个工作流规划器、一个执行引擎、一个数据中心和 20 个 VM 演示历史
@@ -79,7 +79,8 @@ public class WorkflowSimBasicExample1 {
         CondorVM[] vm = new CondorVM[vms];
         for (int i = 0; i < vms; i++) {
             double ratio = 1.0;
-            vm[i] = new CondorVM(i, userId, mips * ratio, pesNumber, ram, bw, size, vmm, new CloudletSchedulerSpaceShared());
+            vm[i] = new CondorVM(
+                    i, userId, mips * ratio, pesNumber, ram, bw, size, vmm, new CloudletSchedulerSpaceShared());
             list.add(vm[i]);
         }
         return list;
@@ -128,15 +129,13 @@ public class WorkflowSimBasicExample1 {
             /**
              * 初始化历史全局参数与文件目录。
              */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建任何 CloudSim 实体之前完成初始化。
-            int num_user = 1;   // Grid 用户数
+            int num_user = 1; // Grid 用户数
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录事件追踪
+            boolean trace_flag = false; // 是否记录事件追踪
 
             // 初始化 CloudSim。
             CloudSim.init(num_user, calendar, trace_flag);
@@ -171,8 +170,7 @@ public class WorkflowSimBasicExample1 {
             printJobList(outputList0);
             ExampleCliSupport.reportCompletion(outputList0);
         } catch (Exception exception) {
-            Log.printLine("The simulation has been terminated due to an unexpected error: "
-                    + exception.getMessage());
+            Log.printLine("The simulation has been terminated due to an unexpected error: " + exception.getMessage());
             throw new IllegalStateException("Historical DAX example failed", exception);
         } finally {
             ExampleCliSupport.end();
@@ -196,26 +194,25 @@ public class WorkflowSimBasicExample1 {
             int ram = 2048; // Host 内存（MB）
             long storage = 1000000; // Host 存储容量
             int bw = 10000;
-            hostList.add(
-                    new Host(
-                            hostId,
-                            new RamProvisionerSimple(ram),
-                            new BwProvisionerSimple(bw),
-                            storage,
-                            peList1,
-                            new VmSchedulerTimeShared(peList1))); // 该示例中的 Host 调度器
+            hostList.add(new Host(
+                    hostId,
+                    new RamProvisionerSimple(ram),
+                    new BwProvisionerSimple(bw),
+                    storage,
+                    peList1,
+                    new VmSchedulerTimeShared(peList1))); // 该示例中的 Host 调度器
         }
 
         // 描述数据中心的体系结构、操作系统、Host 列表、时区和抽象成本。
-        String arch = "x86";      // 系统体系结构
-        String os = "Linux";          // 操作系统
+        String arch = "x86"; // 系统体系结构
+        String os = "Linux"; // 操作系统
         String vmm = "Xen";
-        double time_zone = 10.0;         // 资源所在时区
-        double cost = 3.0;              // 抽象计算成本
-        double costPerMem = 0.05;		// 抽象内存成本
-        double costPerStorage = 0.1;	// 抽象存储成本
-        double costPerBw = 0.1;			// 抽象带宽成本
-        LinkedList<Storage> storageList = new LinkedList<>();	// 本示例不建模 SAN 设备
+        double time_zone = 10.0; // 资源所在时区
+        double cost = 3.0; // 抽象计算成本
+        double costPerMem = 0.05; // 抽象内存成本
+        double costPerStorage = 0.1; // 抽象存储成本
+        double costPerBw = 0.1; // 抽象带宽成本
+        LinkedList<Storage> storageList = new LinkedList<>(); // 本示例不建模 SAN 设备
         WorkflowDatacenter datacenter = null;
 
         DatacenterCharacteristics characteristics = new DatacenterCharacteristics(
@@ -232,7 +229,8 @@ public class WorkflowSimBasicExample1 {
             HarddriveStorage s1 = new HarddriveStorage(name, 1e12);
             s1.setMaxTransferRate(maxTransferRate);
             storageList.add(s1);
-            datacenter = new WorkflowDatacenter(name, characteristics, new VmAllocationPolicySimple(hostList), storageList, 0);
+            datacenter = new WorkflowDatacenter(
+                    name, characteristics, new VmAllocationPolicySimple(hostList), storageList, 0);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -264,16 +262,52 @@ public class WorkflowSimBasicExample1 {
 
             if (job.getCloudletStatus() == Cloudlet.SUCCESS) {
                 Log.print("SUCCESS");
-                Log.printLine(indent + indent + job.getResourceId() + indent + indent + indent + job.getVmId()
-                        + indent + indent + indent + dft.format(job.getActualCPUTime())
-                        + indent + indent + dft.format(job.getExecStartTime()) + indent + indent + indent
-                        + dft.format(job.getFinishTime()) + indent + indent + indent + job.getDepth());
+                Log.printLine(indent
+                        + indent
+                        + job.getResourceId()
+                        + indent
+                        + indent
+                        + indent
+                        + job.getVmId()
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getActualCPUTime())
+                        + indent
+                        + indent
+                        + dft.format(job.getExecStartTime())
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getFinishTime())
+                        + indent
+                        + indent
+                        + indent
+                        + job.getDepth());
             } else if (job.getCloudletStatus() == Cloudlet.FAILED) {
                 Log.print("FAILED");
-                Log.printLine(indent + indent + job.getResourceId() + indent + indent + indent + job.getVmId()
-                        + indent + indent + indent + dft.format(job.getActualCPUTime())
-                        + indent + indent + dft.format(job.getExecStartTime()) + indent + indent + indent
-                        + dft.format(job.getFinishTime()) + indent + indent + indent + job.getDepth());
+                Log.printLine(indent
+                        + indent
+                        + job.getResourceId()
+                        + indent
+                        + indent
+                        + indent
+                        + job.getVmId()
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getActualCPUTime())
+                        + indent
+                        + indent
+                        + dft.format(job.getExecStartTime())
+                        + indent
+                        + indent
+                        + indent
+                        + dft.format(job.getFinishTime())
+                        + indent
+                        + indent
+                        + indent
+                        + job.getDepth());
             }
         }
     }

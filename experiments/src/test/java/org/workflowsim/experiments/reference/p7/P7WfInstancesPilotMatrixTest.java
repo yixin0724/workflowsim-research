@@ -26,8 +26,7 @@ class P7WfInstancesPilotMatrixTest {
     }
 
     @Test
-    void selectedWfInstancesInputsHaveFrozenHashesAndStrictlyRunAsAbstractWorkloads()
-            throws Exception {
+    void selectedWfInstancesInputsHaveFrozenHashesAndStrictlyRunAsAbstractWorkloads() throws Exception {
         Path root = datasetRoot();
         List<P7WfInstancesPilotMatrix.Scenario> scenarios = P7WfInstancesPilotMatrix.scenarios();
         assertEquals(4, scenarios.size());
@@ -37,8 +36,7 @@ class P7WfInstancesPilotMatrixTest {
         for (P7WfInstancesPilotMatrix.Scenario scenario : scenarios) {
             assertTrue(
                     Files.isRegularFile(root.resolve(scenario.getRelativePath()).normalize()),
-                    "Resident WfInstances corpus must be present for "
-                            + scenario.getRelativePath());
+                    "Resident WfInstances corpus must be present for " + scenario.getRelativePath());
         }
         Log.disable();
 
@@ -47,15 +45,18 @@ class P7WfInstancesPilotMatrixTest {
             assertTrue(Files.isRegularFile(input), scenario.getRelativePath());
             assertEquals(scenario.getExpectedSha256(), sha256(input));
 
-            SimulationReport report = new SimulationRunner().run(
-                    P7WfInstancesPilotMatrix.baselineConfig(scenario, root,
-                            Parameters.SchedulingAlgorithm.FCFS),
-                    P7WfInstancesPilotMatrix.baselinePlatform());
+            SimulationReport report = new SimulationRunner()
+                    .run(
+                            P7WfInstancesPilotMatrix.baselineConfig(
+                                    scenario, root, Parameters.SchedulingAlgorithm.FCFS),
+                            P7WfInstancesPilotMatrix.baselinePlatform());
             assertEquals(1, report.getInputReports().size());
-            assertEquals(WorkflowInputReport.Format.WFCOMMONS_JSON,
+            assertEquals(
+                    WorkflowInputReport.Format.WFCOMMONS_JSON,
                     report.getInputReports().get(0).getFormat());
             assertEquals("1.5", report.getInputReports().get(0).getDeclaredVersion());
-            assertEquals(scenario.getExpectedTaskCount(),
+            assertEquals(
+                    scenario.getExpectedTaskCount(),
                     report.getInputReports().get(0).getTaskCount());
             assertEquals(scenario.getExpectedTaskCount(), report.getTasks().size());
             assertEquals(report.getTotalJobs(), report.getSuccessfulJobs());

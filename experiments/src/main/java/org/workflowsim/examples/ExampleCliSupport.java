@@ -27,8 +27,7 @@ import org.workflowsim.utils.ReplicaCatalog;
 public final class ExampleCliSupport {
 
     /** 已通过严格 DAX 输入契约并适合历史单工作流教学示例的默认输入。 */
-    public static final String DEFAULT_DAX_PATH =
-            "datasets/dax/epigenomics/n100/Epigenomics_100.dax";
+    public static final String DEFAULT_DAX_PATH = "datasets/dax/epigenomics/n100/Epigenomics_100.dax";
 
     /** 多工作流历史示例使用的三个严格输入候选。 */
     public static final List<String> DEFAULT_MULTIPLE_DAX_PATHS = Collections.unmodifiableList(Arrays.asList(
@@ -60,8 +59,7 @@ public final class ExampleCliSupport {
 
     private static final ThreadLocal<String> activeExampleId = new ThreadLocal<String>();
 
-    private ExampleCliSupport() {
-    }
+    private ExampleCliSupport() {}
 
     /**
      * 开始一个历史教学场景，清理上一场景可能遗留的 WorkflowSim 静态状态并安装固定种子。
@@ -121,8 +119,7 @@ public final class ExampleCliSupport {
         }
         int count = args == null ? 0 : args.length;
         if (count != 0 && count != expectedCount) {
-            throw new IllegalArgumentException("Expected zero or exactly " + expectedCount
-                    + " DAX input paths");
+            throw new IllegalArgumentException("Expected zero or exactly " + expectedCount + " DAX input paths");
         }
         List<String> selected = count == 0 ? defaults : Arrays.asList(args);
         java.util.ArrayList<String> validated = new java.util.ArrayList<String>(selected.size());

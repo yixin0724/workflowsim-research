@@ -21,12 +21,15 @@ import org.workflowsim.data.v2.StorageLifecycleCodec;
  * Only strings, structural booleans, nulls and deeply immutable maps/lists leave this class.
  */
 final class StorageLifecycleReportView {
-    static final int COPY_LIMIT = 64, RESOURCE_LIMIT = 64, EVENT_LIMIT = 128,
-            JOB_LIMIT = 64, LIST_LIMIT = 12, LABEL_LIMIT = 256;
-
+    static final int COPY_LIMIT = 64,
+            RESOURCE_LIMIT = 64,
+            EVENT_LIMIT = 128,
+            JOB_LIMIT = 64,
+            LIST_LIMIT = 12,
+            LABEL_LIMIT = 256;
     private long labelsClipped, nestedItemsOmitted;
 
-    private StorageLifecycleReportView() { }
+    private StorageLifecycleReportView() {}
 
     /** Null means OFF; only the caller can attest to validation against an enclosing run. */
     static Map<String, Object> fromDecoded(StorageLifecycleCodec.Decoded decoded, boolean contextValidated) {
@@ -60,7 +63,8 @@ final class StorageLifecycleReportView {
             switch (event.get("type").getAsString()) {
                 case "COPY_ADMITTED":
                     admissions.put(payload.get("copyOrdinal").getAsLong(), event);
-                    if (isOutput(payload)) totals.admittedOutput = totals.admittedOutput.add(exact(payload.get("bytes")));
+                    if (isOutput(payload))
+                        totals.admittedOutput = totals.admittedOutput.add(exact(payload.get("bytes")));
                     else totals.admittedInput = totals.admittedInput.add(exact(payload.get("bytes")));
                     break;
                 case "COPY_SETTLED":
@@ -81,16 +85,19 @@ final class StorageLifecycleReportView {
                 case "INPUT_WAITING_FOR_STORE":
                     DataflowFilePlan.FileId waitingFile = fileKey(payload.getAsJsonObject("fileId"));
                     jobs.get(payload.get("jobId").getAsInt()).storeWaits.add(waitingFile);
-                    BigDecimal waitingReferences = BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
+                    BigDecimal waitingReferences =
+                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
                     // Required references already exist at request, even before their source commits.
                     totals.references = totals.references.add(waitingReferences);
-                    totals.requiredBytes = totals.requiredBytes.add(fileBytes.get(waitingFile).multiply(waitingReferences));
+                    totals.requiredBytes =
+                            totals.requiredBytes.add(fileBytes.get(waitingFile).multiply(waitingReferences));
                     break;
                 case "INPUT_RESOLVED":
                     DataflowFilePlan.FileId file = fileKey(payload.getAsJsonObject("fileId"));
                     Job job = jobs.get(payload.get("jobId").getAsInt());
                     boolean deferred = job.storeWaits.remove(file);
-                    BigDecimal references = BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
+                    BigDecimal references =
+                            BigDecimal.valueOf(payload.get("referenceCount").getAsLong());
                     BigDecimal referenceBytes = fileBytes.get(file).multiply(references);
                     if (!deferred) {
                         totals.references = totals.references.add(references);
@@ -106,12 +113,16 @@ final class StorageLifecycleReportView {
                     if ("NEW_COPY".equals(resolution) || "JOIN_EXISTING".equals(resolution)) {
                         // Match the runtime's actual resolution-order binary64 accumulation, including
                         // a joined copy's full estimate even when its owner is another Job attempt.
-                        job.nominalInputSeconds += admissions.get(payload.get("copyOrdinal").getAsLong())
-                                .getAsJsonObject("payload").get("isolatedSeconds").getAsDouble();
+                        job.nominalInputSeconds += admissions
+                                .get(payload.get("copyOrdinal").getAsLong())
+                                .getAsJsonObject("payload")
+                                .get("isolatedSeconds")
+                                .getAsDouble();
                     }
                     if (deferred) {
                         // Every deferred STORE wait starts at request; overlapping waits are not additive.
-                        job.storeGateWait = job.storeGateWait.max(exact(event.get("observedTime")).subtract(job.requestedAt));
+                        job.storeGateWait = job.storeGateWait.max(
+                                exact(event.get("observedTime")).subtract(job.requestedAt));
                     }
                     break;
                 case "JOB_DATA_READY":
@@ -163,8 +174,11 @@ final class StorageLifecycleReportView {
         root.put("totals", totals.display());
         root.put("lastCpuFinishTime", decimal(lastCpuFinish));
         root.put("lastStoreCommitTime", decimal(lastStoreCommit));
-        root.put("completedObservedOutputTailSeconds", decoded.isQuiescent() && lastCpuFinish != null && lastStoreCommit != null
-                ? decimal(lastStoreCommit.subtract(lastCpuFinish).max(BigDecimal.ZERO)) : null);
+        root.put(
+                "completedObservedOutputTailSeconds",
+                decoded.isQuiescent() && lastCpuFinish != null && lastStoreCommit != null
+                        ? decimal(lastStoreCommit.subtract(lastCpuFinish).max(BigDecimal.ZERO))
+                        : null);
 
         List<Map<String, Object>> copies = new ArrayList<>();
         for (Map.Entry<Long, JsonObject> entry : admissions.entrySet()) {
@@ -204,16 +218,25 @@ final class StorageLifecycleReportView {
 
     private static Map<String, Object> store(JsonObject fabric, JsonArray resources) {
         Map<String, Object> store = map();
-        store.put("attachmentHostId", integer(fabric.getAsJsonObject("sourceStorage").get("attachmentHostId")));
+        store.put(
+                "attachmentHostId",
+                integer(fabric.getAsJsonObject("sourceStorage").get("attachmentHostId")));
         // Display the validated physical inventory, not a fresh MB/s conversion or guessed bottleneck.
         for (JsonElement value : resources) {
             JsonObject resource = value.getAsJsonObject();
             String key;
             switch (resource.get("key").getAsString()) {
-                case DataTransferFabric.STORE_READ: key = "readCapacityBytesPerSecond"; break;
-                case DataTransferFabric.STORE_WRITE: key = "writeCapacityBytesPerSecond"; break;
-                case DataTransferFabric.STORE_NIC: key = "networkCapacityBytesPerSecond"; break;
-                default: continue;
+                case DataTransferFabric.STORE_READ:
+                    key = "readCapacityBytesPerSecond";
+                    break;
+                case DataTransferFabric.STORE_WRITE:
+                    key = "writeCapacityBytesPerSecond";
+                    break;
+                case DataTransferFabric.STORE_NIC:
+                    key = "networkCapacityBytesPerSecond";
+                    break;
+                default:
+                    continue;
             }
             store.put(key, quantity(resource.get("capacityBytesPerSecond")));
         }
@@ -261,9 +284,13 @@ final class StorageLifecycleReportView {
     private Map<String, Object> eventRow(JsonObject event, Map<Long, JsonObject> admissions) {
         String type = event.get("type").getAsString();
         JsonObject payload = event.getAsJsonObject("payload");
-        JsonObject copy = "COPY_ADMITTED".equals(type) ? payload : "COPY_SETTLED".equals(type)
-                ? admissions.get(payload.get("copyOrdinal").getAsLong()).getAsJsonObject("payload") : null;
-        JsonObject file = copy != null ? copy.getAsJsonObject("fileId")
+        JsonObject copy = "COPY_ADMITTED".equals(type)
+                ? payload
+                : "COPY_SETTLED".equals(type)
+                        ? admissions.get(payload.get("copyOrdinal").getAsLong()).getAsJsonObject("payload")
+                        : null;
+        JsonObject file = copy != null
+                ? copy.getAsJsonObject("fileId")
                 : payload.has("fileId") ? payload.getAsJsonObject("fileId") : null;
         Map<String, Object> row = map();
         row.put("sequence", integer(event.get("sequence")));
@@ -271,11 +298,16 @@ final class StorageLifecycleReportView {
         row.put("observedTime", quantity(event.get("observedTime")));
         // A copy event displays its admission owner, NOT a claim that it serves only that Job.
         row.put("jobId", integer(copy == null ? payload.get("jobId") : copy.get("ownerJobId")));
-        row.put("taskId", "JOB_INPUT_REQUESTED".equals(type)
-                ? integer(payload.getAsJsonArray("taskIds").get(0)) : integer(payload.get("taskId")));
+        row.put(
+                "taskId",
+                "JOB_INPUT_REQUESTED".equals(type)
+                        ? integer(payload.getAsJsonArray("taskIds").get(0))
+                        : integer(payload.get("taskId")));
         row.put("copyOrdinal", integer(payload.get("copyOrdinal")));
         row.put("fileId", file == null ? null : fileLabel(file));
-        row.put("resolution", payload.has("resolution") ? payload.get("resolution").getAsString() : null);
+        row.put(
+                "resolution",
+                payload.has("resolution") ? payload.get("resolution").getAsString() : null);
         row.put("detail", detail(type, payload, copy));
         return freeze(row);
     }
@@ -286,7 +318,8 @@ final class StorageLifecycleReportView {
             case "EXTERNAL_SEEDED":
                 return "location=" + location(payload.getAsJsonObject("location"));
             case "TASK_FINISHED":
-                return "location=" + vm(payload.get("vmId")) + "; success=" + payload.get("success").getAsBoolean();
+                return "location=" + vm(payload.get("vmId")) + "; success="
+                        + payload.get("success").getAsBoolean();
             case "JOB_INPUT_REQUESTED":
                 JsonArray tasks = payload.getAsJsonArray("taskIds");
                 return "destination=" + vm(payload.get("destinationVmId")) + "; taskIds=" + ids(tasks)
@@ -294,8 +327,8 @@ final class StorageLifecycleReportView {
             case "INPUT_WAITING_FOR_STORE":
                 return "waitingFor=SOURCE:source; referenceCount=" + integer(payload.get("referenceCount"));
             case "INPUT_RESOLVED":
-                return "source=" + location(payload.getAsJsonObject("source"))
-                        + "; referenceCount=" + integer(payload.get("referenceCount"));
+                return "source=" + location(payload.getAsJsonObject("source")) + "; referenceCount="
+                        + integer(payload.get("referenceCount"));
             case "OUTPUT_RESOLVED":
                 return "source=" + location(payload.getAsJsonObject("source"));
             case "COPY_ADMITTED":
@@ -329,21 +362,29 @@ final class StorageLifecycleReportView {
     }
 
     private String fileLabel(JsonObject file) {
-        return label("input[" + integer(file.get("workflowInputIndex")) + "]/" + file.get("name").getAsString());
+        return label("input[" + integer(file.get("workflowInputIndex")) + "]/"
+                + file.get("name").getAsString());
     }
 
     private static DataflowFilePlan.FileId fileKey(JsonObject file) {
         // Clipped display labels must never become identity keys for references or deferred waits.
-        return DataflowFilePlan.FileId.of(file.get("workflowInputIndex").getAsInt(), file.get("name").getAsString());
+        return DataflowFilePlan.FileId.of(
+                file.get("workflowInputIndex").getAsInt(), file.get("name").getAsString());
     }
 
     private String location(JsonObject location) {
-        return "VM".equals(location.get("kind").getAsString()) ? vm(location.get("vmId"))
+        return "VM".equals(location.get("kind").getAsString())
+                ? vm(location.get("vmId"))
                 : label("SOURCE:" + location.get("sourceId").getAsString());
     }
 
-    private static String vm(JsonElement id) { return "VM:" + integer(id); }
-    private static boolean isOutput(JsonObject payload) { return "OUTPUT".equals(payload.get("purpose").getAsString()); }
+    private static String vm(JsonElement id) {
+        return "VM:" + integer(id);
+    }
+
+    private static boolean isOutput(JsonObject payload) {
+        return "OUTPUT".equals(payload.get("purpose").getAsString());
+    }
 
     private String label(String value) {
         if (value.length() <= LABEL_LIMIT) return value;
@@ -355,7 +396,8 @@ final class StorageLifecycleReportView {
 
     private List<String> labels(JsonArray values) {
         List<String> shown = new ArrayList<>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) shown.add(label(values.get(i).getAsString()));
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++)
+            shown.add(label(values.get(i).getAsString()));
         nestedItemsOmitted += omitted(values);
         return immutableList(shown);
     }
@@ -367,7 +409,9 @@ final class StorageLifecycleReportView {
         return immutableList(shown);
     }
 
-    private static int omitted(JsonArray values) { return Math.max(0, values.size() - LIST_LIMIT); }
+    private static int omitted(JsonArray values) {
+        return Math.max(0, values.size() - LIST_LIMIT);
+    }
 
     private static Map<String, Object> preview(long total, int limit, List<Map<String, Object>> rows) {
         Map<String, Object> preview = map();
@@ -379,20 +423,43 @@ final class StorageLifecycleReportView {
         return freeze(preview);
     }
 
-    private static String integer(long value) { return Long.toString(value); }
-    private static String integer(JsonElement value) { return absent(value) ? null : integer(value.getAsLong()); }
-    private static boolean absent(JsonElement value) { return value == null || value.isJsonNull(); }
-    private static BigDecimal exact(JsonElement value) { return new BigDecimal(value.getAsDouble()); }
-    private static String quantity(JsonElement value) { return absent(value) ? null : decimal(exact(value)); }
-    private static BigDecimal maximum(BigDecimal previous, BigDecimal value) { return previous == null ? value : previous.max(value); }
+    private static String integer(long value) {
+        return Long.toString(value);
+    }
+
+    private static String integer(JsonElement value) {
+        return absent(value) ? null : integer(value.getAsLong());
+    }
+
+    private static boolean absent(JsonElement value) {
+        return value == null || value.isJsonNull();
+    }
+
+    private static BigDecimal exact(JsonElement value) {
+        return new BigDecimal(value.getAsDouble());
+    }
+
+    private static String quantity(JsonElement value) {
+        return absent(value) ? null : decimal(exact(value));
+    }
+
+    private static BigDecimal maximum(BigDecimal previous, BigDecimal value) {
+        return previous == null ? value : previous.max(value);
+    }
+
     private static String decimal(BigDecimal value) {
         // Unabridged plain decimal, including subnormals and exact sums beyond binary64's range.
         return value == null ? null : value.stripTrailingZeros().toPlainString();
     }
-    private static Map<String, Object> map() { return new LinkedHashMap<>(); }
+
+    private static Map<String, Object> map() {
+        return new LinkedHashMap<>();
+    }
+
     private static Map<String, Object> freeze(Map<String, Object> values) {
         return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
+
     private static <T> List<T> immutableList(List<T> values) {
         return Collections.unmodifiableList(new ArrayList<>(values));
     }
@@ -424,17 +491,25 @@ final class StorageLifecycleReportView {
             row.put("finishedAt", decimal(finishedAt));
             // A STORE-unresolved prefix has only a partial estimate. Do not present it as final.
             row.put("nominalInputSeconds", storeWaits.isEmpty() ? decimal(new BigDecimal(nominalInputSeconds)) : null);
-            row.put("observedPreparationSeconds", dataReadyAt == null ? null : decimal(dataReadyAt.subtract(requestedAt)));
+            row.put(
+                    "observedPreparationSeconds",
+                    dataReadyAt == null ? null : decimal(dataReadyAt.subtract(requestedAt)));
             row.put("storeGateWaitSeconds", storeWaits.isEmpty() ? decimal(storeGateWait) : null);
             return freeze(row);
         }
     }
 
     private static final class Totals {
-        BigDecimal admittedInput = BigDecimal.ZERO, admittedOutput = BigDecimal.ZERO,
-                settledInput = BigDecimal.ZERO, settledOutput = BigDecimal.ZERO, residual = BigDecimal.ZERO,
-                references = BigDecimal.ZERO, localReferences = BigDecimal.ZERO, joinedReferences = BigDecimal.ZERO,
-                requiredBytes = BigDecimal.ZERO, localBytes = BigDecimal.ZERO;
+        BigDecimal admittedInput = BigDecimal.ZERO,
+                admittedOutput = BigDecimal.ZERO,
+                settledInput = BigDecimal.ZERO,
+                settledOutput = BigDecimal.ZERO,
+                residual = BigDecimal.ZERO,
+                references = BigDecimal.ZERO,
+                localReferences = BigDecimal.ZERO,
+                joinedReferences = BigDecimal.ZERO,
+                requiredBytes = BigDecimal.ZERO,
+                localBytes = BigDecimal.ZERO;
 
         Map<String, Object> display() {
             Map<String, Object> totals = map();

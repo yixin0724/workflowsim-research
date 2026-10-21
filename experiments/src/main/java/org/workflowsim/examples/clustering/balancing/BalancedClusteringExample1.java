@@ -21,14 +21,14 @@ import java.util.List;
 import java.util.Map;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.examples.ExampleCliSupport;
 import org.workflowsim.examples.clustering.HorizontalClusteringExample1;
-import org.workflowsim.utils.DistributionGenerator;
 import org.workflowsim.utils.ClusteringParameters;
+import org.workflowsim.utils.DistributionGenerator;
 import org.workflowsim.utils.OverheadParameters;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
@@ -53,22 +53,22 @@ public class BalancedClusteringExample1 extends HorizontalClusteringExample1 {
 
         try {
             ExampleCliSupport.begin("balanced-clustering");
-            Map<String, String> options = ExampleCliSupport.parseValueOptions(args,
-                    "-c", "-d", "-l", "-q", "-e", "-p", "-i");
-            String code = ExampleCliSupport.allowedCharacters("-c",
-                    ExampleCliSupport.optionOrDefault(options, "-c", "i"), "vcridh");
+            Map<String, String> options =
+                    ExampleCliSupport.parseValueOptions(args, "-c", "-d", "-l", "-q", "-e", "-p", "-i");
+            String code = ExampleCliSupport.allowedCharacters(
+                    "-c", ExampleCliSupport.optionOrDefault(options, "-c", "i"), "vcridh");
             String daxPath = ExampleCliSupport.requireDax(
                     ExampleCliSupport.optionOrDefault(options, "-d", ExampleCliSupport.DEFAULT_DAX_PATH));
-            double c_delay = ExampleCliSupport.nonNegativeFinite("-l",
-                    ExampleCliSupport.optionOrDefault(options, "-l", "0"));
-            double q_delay = ExampleCliSupport.nonNegativeFinite("-q",
-                    ExampleCliSupport.optionOrDefault(options, "-q", "0"));
-            double e_delay = ExampleCliSupport.nonNegativeFinite("-e",
-                    ExampleCliSupport.optionOrDefault(options, "-e", "0"));
-            double p_delay = ExampleCliSupport.nonNegativeFinite("-p",
-                    ExampleCliSupport.optionOrDefault(options, "-p", "0"));
-            int interval = ExampleCliSupport.nonNegativeInt("-i",
-                    ExampleCliSupport.optionOrDefault(options, "-i", "0"));
+            double c_delay =
+                    ExampleCliSupport.nonNegativeFinite("-l", ExampleCliSupport.optionOrDefault(options, "-l", "0"));
+            double q_delay =
+                    ExampleCliSupport.nonNegativeFinite("-q", ExampleCliSupport.optionOrDefault(options, "-q", "0"));
+            double e_delay =
+                    ExampleCliSupport.nonNegativeFinite("-e", ExampleCliSupport.optionOrDefault(options, "-e", "0"));
+            double p_delay =
+                    ExampleCliSupport.nonNegativeFinite("-p", ExampleCliSupport.optionOrDefault(options, "-p", "0"));
+            int interval =
+                    ExampleCliSupport.nonNegativeInt("-i", ExampleCliSupport.optionOrDefault(options, "-i", "0"));
 
             // 第一步：初始化历史 WorkflowSim 静态参数。
             /**
@@ -93,24 +93,29 @@ public class BalancedClusteringExample1 extends HorizontalClusteringExample1 {
             int maxLevel = 11;
             for (int level = 0; level < maxLevel; level++) {
                 if (c_delay != 0.0) {
-                    DistributionGenerator cluster_delay = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, c_delay, 1.0);
+                    DistributionGenerator cluster_delay =
+                            new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, c_delay, 1.0);
                     clusteringDelay.put(level, cluster_delay);
                 }
                 if (q_delay != 0.0) {
-                    DistributionGenerator queue_delay = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, q_delay, 1.0);
+                    DistributionGenerator queue_delay =
+                            new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, q_delay, 1.0);
                     queueDelay.put(level, queue_delay);
                 }
                 if (p_delay != 0.0) {
-                    DistributionGenerator postscript_delay = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, p_delay, 1.0);
+                    DistributionGenerator postscript_delay =
+                            new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, p_delay, 1.0);
                     postscriptDelay.put(level, postscript_delay);
                 }
                 if (e_delay != 0.0) {
-                    DistributionGenerator engine_delay = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, e_delay, 1.0);
+                    DistributionGenerator engine_delay =
+                            new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, e_delay, 1.0);
                     engineDelay.put(level, engine_delay);
                 }
             }
 
-            OverheadParameters op = new OverheadParameters(interval, engineDelay, queueDelay, postscriptDelay, clusteringDelay, 0);
+            OverheadParameters op =
+                    new OverheadParameters(interval, engineDelay, queueDelay, postscriptDelay, clusteringDelay, 0);
 
             /** 选择均衡聚类。 */
             ClusteringParameters.ClusteringMethod method = ClusteringParameters.ClusteringMethod.BALANCED;
@@ -122,15 +127,13 @@ public class BalancedClusteringExample1 extends HorizontalClusteringExample1 {
             ClusteringParameters cp = new ClusteringParameters(20, 0, method, code);
 
             /** 初始化历史静态参数与文件副本目录。 */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建模拟实体前初始化 CloudSim。
-            int num_user = 1;   // 模拟用户数。
+            int num_user = 1; // 模拟用户数。
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录 CloudSim 事件轨迹。
+            boolean trace_flag = false; // 是否记录 CloudSim 事件轨迹。
 
             // 初始化 CloudSim 事件引擎。
             CloudSim.init(num_user, calendar, trace_flag);

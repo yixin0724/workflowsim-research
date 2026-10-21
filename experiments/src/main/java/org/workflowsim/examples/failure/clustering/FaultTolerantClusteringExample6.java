@@ -63,37 +63,35 @@ public class FaultTolerantClusteringExample6 extends FaultTolerantClusteringExam
      */
     public static void main(String[] args) {
         try {
-            Map<String, String> options = ExampleCliSupport.parseValueOptions(args,
-                    "-c", "-d", "-b", "-w", "-q", "-s", "-p", "-t", "-r");
-            long rootSeed = ExampleCliSupport.longValue("-r",
-                    ExampleCliSupport.optionOrDefault(options, "-r",
-                            Long.toString(ExampleCliSupport.LEGACY_DEMO_SEED)));
+            Map<String, String> options =
+                    ExampleCliSupport.parseValueOptions(args, "-c", "-d", "-b", "-w", "-q", "-s", "-p", "-t", "-r");
+            long rootSeed = ExampleCliSupport.longValue(
+                    "-r",
+                    ExampleCliSupport.optionOrDefault(
+                            options, "-r", Long.toString(ExampleCliSupport.LEGACY_DEMO_SEED)));
             ExampleCliSupport.begin(EXAMPLE_ID, rootSeed);
 
             int vmNum = 20;
-            String daxPath = ExampleCliSupport.requireDax(ExampleCliSupport.optionOrDefault(
-                    options, "-d", ExampleCliSupport.DEFAULT_DAX_PATH));
-            String clustering = ExampleCliSupport.allowedValue("-c",
-                    ExampleCliSupport.optionOrDefault(options, "-c", "DR"),
-                    "SR", "DR", "NOOP", "DC", "VR");
-            double runtimeScaleTenths = ExampleCliSupport.positiveFinite("-b",
-                    ExampleCliSupport.optionOrDefault(options, "-b", "10"));
-            double queuePriorWeight = ExampleCliSupport.positiveFinite("-w",
-                    ExampleCliSupport.optionOrDefault(options, "-w", "3"));
-            double queueScale = ExampleCliSupport.positiveFinite("-q",
-                    ExampleCliSupport.optionOrDefault(options, "-q", "50"));
-            double queueShape = ExampleCliSupport.positiveFinite("-s",
-                    ExampleCliSupport.optionOrDefault(options, "-s", "3"));
-            double failureScale = ExampleCliSupport.positiveFinite("-p",
-                    ExampleCliSupport.optionOrDefault(options, "-p",
-                            Double.toString(
-                                    DEFAULT_FAILURE_INTERVAL_SCALE)));
-            double failurePriorWeight = ExampleCliSupport.positiveFinite("-t",
-                    ExampleCliSupport.optionOrDefault(options, "-t", "30"));
-            double queuePriorScale = ExampleCliSupport.positiveFiniteProduct("-w * -q",
-                    queuePriorWeight, queueScale);
-            double failurePriorScale = ExampleCliSupport.positiveFiniteProduct("-t * -p",
-                    failurePriorWeight, failureScale);
+            String daxPath = ExampleCliSupport.requireDax(
+                    ExampleCliSupport.optionOrDefault(options, "-d", ExampleCliSupport.DEFAULT_DAX_PATH));
+            String clustering = ExampleCliSupport.allowedValue(
+                    "-c", ExampleCliSupport.optionOrDefault(options, "-c", "DR"), "SR", "DR", "NOOP", "DC", "VR");
+            double runtimeScaleTenths =
+                    ExampleCliSupport.positiveFinite("-b", ExampleCliSupport.optionOrDefault(options, "-b", "10"));
+            double queuePriorWeight =
+                    ExampleCliSupport.positiveFinite("-w", ExampleCliSupport.optionOrDefault(options, "-w", "3"));
+            double queueScale =
+                    ExampleCliSupport.positiveFinite("-q", ExampleCliSupport.optionOrDefault(options, "-q", "50"));
+            double queueShape =
+                    ExampleCliSupport.positiveFinite("-s", ExampleCliSupport.optionOrDefault(options, "-s", "3"));
+            double failureScale = ExampleCliSupport.positiveFinite(
+                    "-p",
+                    ExampleCliSupport.optionOrDefault(options, "-p", Double.toString(DEFAULT_FAILURE_INTERVAL_SCALE)));
+            double failurePriorWeight =
+                    ExampleCliSupport.positiveFinite("-t", ExampleCliSupport.optionOrDefault(options, "-t", "30"));
+            double queuePriorScale = ExampleCliSupport.positiveFiniteProduct("-w * -q", queuePriorWeight, queueScale);
+            double failurePriorScale =
+                    ExampleCliSupport.positiveFiniteProduct("-t * -p", failurePriorWeight, failureScale);
 
             ClusteringParameters.ClusteringMethod clusteringMethod = "VR".equals(clustering)
                     ? ClusteringParameters.ClusteringMethod.VERTICAL
@@ -105,7 +103,11 @@ public class FaultTolerantClusteringExample6 extends FaultTolerantClusteringExam
             // 历史 E6 使用一个共享全局故障时钟；它不是 VM-深度独立故障模型。
             DistributionGenerator failureGenerator = new DistributionGenerator(
                     DistributionGenerator.DistributionFamily.WEIBULL,
-                    failureScale, 0.78, failurePriorWeight, failurePriorScale, 0.78,
+                    failureScale,
+                    0.78,
+                    failurePriorWeight,
+                    failurePriorScale,
+                    0.78,
                     "example.fault-clustering-options.legacy-shared-clock");
             for (int level = 0; level < maxLevel; level++) {
                 for (int vmId = 0; vmId < vmNum; vmId++) {
@@ -115,25 +117,42 @@ public class FaultTolerantClusteringExample6 extends FaultTolerantClusteringExam
 
             Map<Integer, DistributionGenerator> queueDelay = new HashMap<Integer, DistributionGenerator>();
             DistributionGenerator queueGenerator = new DistributionGenerator(
-                    DistributionGenerator.DistributionFamily.GAMMA, queueScale, queueShape,
-                    queuePriorWeight, queuePriorScale, queueShape,
+                    DistributionGenerator.DistributionFamily.GAMMA,
+                    queueScale,
+                    queueShape,
+                    queuePriorWeight,
+                    queuePriorScale,
+                    queueShape,
                     "example.fault-clustering-options.queue");
             for (int level = 0; level < maxLevel; level++) {
                 queueDelay.put(level, queueGenerator);
             }
 
-            OverheadParameters overhead = new OverheadParameters(0,
-                    new HashMap<Integer, DistributionGenerator>(), queueDelay,
+            OverheadParameters overhead = new OverheadParameters(
+                    0,
                     new HashMap<Integer, DistributionGenerator>(),
-                    new HashMap<Integer, DistributionGenerator>(), 0);
-            ClusteringParameters clusteringParameters = new ClusteringParameters(vmNum, 0,
-                    clusteringMethod, null);
+                    queueDelay,
+                    new HashMap<Integer, DistributionGenerator>(),
+                    new HashMap<Integer, DistributionGenerator>(),
+                    0);
+            ClusteringParameters clusteringParameters = new ClusteringParameters(vmNum, 0, clusteringMethod, null);
 
-            FailureParameters.init(strategy, FailureParameters.FTCMonitor.MONITOR_VM_JOB,
-                    FailureParameters.FTCFailure.FAILURE_VM_JOB, failureGenerators);
-            Parameters.init(vmNum, daxPath, null, null, overhead, clusteringParameters,
-                    Parameters.SchedulingAlgorithm.MINMIN, Parameters.PlanningAlgorithm.INVALID,
-                    null, 0);
+            FailureParameters.init(
+                    strategy,
+                    FailureParameters.FTCMonitor.MONITOR_VM_JOB,
+                    FailureParameters.FTCFailure.FAILURE_VM_JOB,
+                    failureGenerators);
+            Parameters.init(
+                    vmNum,
+                    daxPath,
+                    null,
+                    null,
+                    overhead,
+                    clusteringParameters,
+                    Parameters.SchedulingAlgorithm.MINMIN,
+                    Parameters.PlanningAlgorithm.INVALID,
+                    null,
+                    0);
             Parameters.setRuntimeScale(runtimeScaleTenths / 10.0);
             ReplicaCatalog.init(ReplicaCatalog.FileSystem.SHARED);
             FailureMonitor.init();

@@ -44,7 +44,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.experiment.ExperimentArtifactValidator;
 
 class WorkbenchIntegrationTest {
-    @TempDir Path directory;
+    @TempDir
+    Path directory;
+
     private boolean loggingWasDisabled;
 
     @BeforeEach
@@ -63,13 +65,19 @@ class WorkbenchIntegrationTest {
         JsonObject source = base();
         source.addProperty("name", "two schedulers, two seeds");
         algorithms(source, algorithm("fcfs", "FCFS", null), algorithm("minmin", "READY_BATCH_MINMIN", null));
-        JsonArray seeds = new JsonArray(); seeds.add(17L); seeds.add(23L); source.add("seeds", seeds);
+        JsonArray seeds = new JsonArray();
+        seeds.add(17L);
+        seeds.add(23L);
+        source.add("seeds", seeds);
         Path config = json(directory.resolve("experiment-config.json"), source);
         Path root = directory.resolve("output");
 
         Path experiment = Workbench.run(config, root);
 
-        assertEquals(source, object(experiment.resolve("configuration.json")), "preserve the user's submitted configuration");
+        assertEquals(
+                source,
+                object(experiment.resolve("configuration.json")),
+                "preserve the user's submitted configuration");
         JsonObject record = object(experiment.resolve("experiment.json"));
         assertEquals("workflowsim-workbench-experiment-v1", record.get("schema").getAsString());
         assertEquals("COMPLETED_SUCCESSFULLY", record.get("status").getAsString());
@@ -92,28 +100,52 @@ class WorkbenchIntegrationTest {
             assertFalse(Paths.get(relative).isAbsolute());
             Path manifestPath = experiment.resolve(relative).normalize();
             assertTrue(manifestPath.startsWith(experiment));
-            ExperimentArtifactValidator.ValidationResult validation = ExperimentArtifactValidator.validate(manifestPath);
+            ExperimentArtifactValidator.ValidationResult validation =
+                    ExperimentArtifactValidator.validate(manifestPath);
             assertTrue(validation.getEventCount() > 0);
             assertTrue(Files.isRegularFile(validation.getMetrics()));
             assertTrue(Files.isRegularFile(validation.getEvents()));
             JsonObject manifest = object(manifestPath);
-            assertEquals("workflowsim-experiment-manifest-v4", manifest.get("schema").getAsString());
-            assertEquals("workflowsim-provenance-v3", manifest.getAsJsonObject("provenance").get("schema").getAsString());
-            assertEquals("workbench-experiment", manifest.getAsJsonObject("provenance").getAsJsonObject("study").get("id").getAsString());
+            assertEquals(
+                    "workflowsim-experiment-manifest-v4", manifest.get("schema").getAsString());
+            assertEquals(
+                    "workflowsim-provenance-v3",
+                    manifest.getAsJsonObject("provenance").get("schema").getAsString());
+            assertEquals(
+                    "workbench-experiment",
+                    manifest.getAsJsonObject("provenance")
+                            .getAsJsonObject("study")
+                            .get("id")
+                            .getAsString());
             JsonObject conditions = manifest.getAsJsonObject("configuration");
             assertEquals(seed, conditions.get("rootSeed").getAsLong());
-            assertEquals("fcfs".equals(candidate) ? "FCFS" : "READY_BATCH_MINMIN",
+            assertEquals(
+                    "fcfs".equals(candidate) ? "FCFS" : "READY_BATCH_MINMIN",
                     conditions.get("schedulingAlgorithm").getAsString());
-            assertEquals(0.0, conditions.getAsJsonArray("workflowArrivalSeconds").get(0).getAsDouble(), 0.0);
+            assertEquals(
+                    0.0,
+                    conditions.getAsJsonArray("workflowArrivalSeconds").get(0).getAsDouble(),
+                    0.0);
             assertTrue(conditions.get("taskCostMatrix").isJsonNull());
-            assertTrue(manifest.getAsJsonObject("platform").get("networkTopology").isJsonNull());
-            assertEquals(2, manifest.getAsJsonObject("workflowProfile").get("taskCount").getAsInt());
-            assertEquals(1, manifest.getAsJsonObject("workflowProfile").get("edgeCount").getAsInt());
-            assertEquals(manifest.getAsJsonObject("metrics"), object(validation.getMetrics()).getAsJsonObject("metrics"));
-            assertEquals(run.get("makespanSeconds").getAsDouble(),
-                    manifest.getAsJsonObject("metrics").get("makespanSeconds").getAsDouble(), 0.0);
-            JsonObject displayedRun = displayed.getAsJsonArray("runs").get(index).getAsJsonObject();
-            assertEquals(manifest, displayedRun.getAsJsonObject("manifest"), "HTML must display the validated evidence");
+            assertTrue(
+                    manifest.getAsJsonObject("platform").get("networkTopology").isJsonNull());
+            assertEquals(
+                    2,
+                    manifest.getAsJsonObject("workflowProfile").get("taskCount").getAsInt());
+            assertEquals(
+                    1,
+                    manifest.getAsJsonObject("workflowProfile").get("edgeCount").getAsInt());
+            assertEquals(
+                    manifest.getAsJsonObject("metrics"),
+                    object(validation.getMetrics()).getAsJsonObject("metrics"));
+            assertEquals(
+                    run.get("makespanSeconds").getAsDouble(),
+                    manifest.getAsJsonObject("metrics").get("makespanSeconds").getAsDouble(),
+                    0.0);
+            JsonObject displayedRun =
+                    displayed.getAsJsonArray("runs").get(index).getAsJsonObject();
+            assertEquals(
+                    manifest, displayedRun.getAsJsonObject("manifest"), "HTML must display the validated evidence");
         }
         assertEquals(new HashSet<String>(Arrays.asList("fcfs:17", "fcfs:23", "minmin:17", "minmin:23")), cells);
         String html = text(experiment.resolve("report.html"));
@@ -123,7 +155,8 @@ class WorkbenchIntegrationTest {
         assertTrue(html.contains("任务执行时间线"));
         assertTrue(html.contains("资源利用率"));
         JsonObject history = onlyHistoryRecord(root);
-        assertEquals(experiment.getFileName().toString(), history.get("directory").getAsString());
+        assertEquals(
+                experiment.getFileName().toString(), history.get("directory").getAsString());
         assertEquals("COMPLETED_SUCCESSFULLY", history.get("status").getAsString());
         assertEquals(4, history.get("successfulRuns").getAsInt());
         assertTrue(text(root.resolve("index.html")).contains(experiment.getFileName() + "/report.html"));
@@ -137,7 +170,8 @@ class WorkbenchIntegrationTest {
         Path experiment = Workbench.run(json(directory.resolve("injection.json"), source), directory.resolve("output"));
 
         String html = text(experiment.resolve("report.html"));
-        assertEquals(title, payload(experiment.resolve("report.html")).get("name").getAsString());
+        assertEquals(
+                title, payload(experiment.resolve("report.html")).get("name").getAsString());
         assertFalse(html.contains("<script>alert('xss')</script>"));
         assertTrue(html.contains("&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"));
         assertTrue(html.contains("\\u003cscript\\u003e"), "the JSON script element must not contain executable markup");
@@ -145,14 +179,20 @@ class WorkbenchIntegrationTest {
         String history = text(directory.resolve("output/index.html"));
         assertFalse(history.contains("<script>alert('xss')</script>"));
         assertTrue(history.contains("&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"));
-        assertEquals(title, onlyHistoryRecord(directory.resolve("output")).get("name").getAsString());
+        assertEquals(
+                title,
+                onlyHistoryRecord(directory.resolve("output")).get("name").getAsString());
     }
 
     @Test
     void literalTemplateMarkersInTitleRemainUserData() throws Exception {
-        JsonObject source = base(); source.addProperty("name", "@@TITLE@@ @@DATA@@");
-        Path experiment = Workbench.run(json(directory.resolve("markers.json"), source), directory.resolve("marker-output"));
-        assertEquals("@@TITLE@@ @@DATA@@", payload(experiment.resolve("report.html")).get("name").getAsString());
+        JsonObject source = base();
+        source.addProperty("name", "@@TITLE@@ @@DATA@@");
+        Path experiment =
+                Workbench.run(json(directory.resolve("markers.json"), source), directory.resolve("marker-output"));
+        assertEquals(
+                "@@TITLE@@ @@DATA@@",
+                payload(experiment.resolve("report.html")).get("name").getAsString());
     }
 
     @Test
@@ -178,7 +218,10 @@ class WorkbenchIntegrationTest {
         for (JsonElement row : array(root.resolve("history.json"))) {
             directories.add(row.getAsJsonObject().get("directory").getAsString());
         }
-        assertEquals(new HashSet<String>(Arrays.asList(first.getFileName().toString(), second.getFileName().toString())), directories);
+        assertEquals(
+                new HashSet<String>(Arrays.asList(
+                        first.getFileName().toString(), second.getFileName().toString())),
+                directories);
         assertEquals(2, array(root.resolve("history.json")).size());
     }
 
@@ -188,9 +231,13 @@ class WorkbenchIntegrationTest {
         Path successful = Workbench.run(json(directory.resolve("good.json"), base()), root);
         Map<Path, byte[]> successfulFiles = snapshot(successful);
         JsonObject bad = failingConfiguration();
-        JsonArray seeds = new JsonArray(); seeds.add(5L); seeds.add(6L); bad.add("seeds", seeds);
+        JsonArray seeds = new JsonArray();
+        seeds.add(5L);
+        seeds.add(6L);
+        bad.add("seeds", seeds);
         Path config = json(directory.resolve("runtime-failure.json"), bad);
-        assertDoesNotThrow(() -> WorkbenchConfig.read(config).validateInputs(),
+        assertDoesNotThrow(
+                () -> WorkbenchConfig.read(config).validateInputs(),
                 "positive matrix costs cover inputs; the rejection must occur when runtime MI rounds to zero");
 
         Path failed = Workbench.run(config, root);
@@ -200,8 +247,12 @@ class WorkbenchIntegrationTest {
         ExperimentArtifactValidator.validate(manifest(successful));
         JsonArray history = array(root.resolve("history.json"));
         assertEquals(2, history.size());
-        assertEquals("FAILED_OR_INCOMPLETE", historyRecord(history, failed).get("status").getAsString());
-        assertEquals("COMPLETED_SUCCESSFULLY", historyRecord(history, successful).get("status").getAsString());
+        assertEquals(
+                "FAILED_OR_INCOMPLETE",
+                historyRecord(history, failed).get("status").getAsString());
+        assertEquals(
+                "COMPLETED_SUCCESSFULLY",
+                historyRecord(history, successful).get("status").getAsString());
         assertTrue(text(root.resolve("index.html")).contains(failed.getFileName() + "/report.html"));
         assertTrue(Log.isDisabled());
     }
@@ -210,25 +261,27 @@ class WorkbenchIntegrationTest {
     void cliValidatesRunsListsHistoryAndRegeneratesAReportWithoutOverwritingIt() throws Exception {
         Path config = json(directory.resolve("config.json"), base());
         Path root = directory.resolve("cli-output");
-        String validation = outputOf(() -> Workbench.main(new String[]{"validate", config.toString()}));
+        String validation = outputOf(() -> Workbench.main(new String[] {"validate", config.toString()}));
         assertTrue(validation.contains("WORKBENCH_VALIDATED runs=1"));
-        String emptyHistory = outputOf(() -> Workbench.main(new String[]{"history", root.toString()}));
+        String emptyHistory = outputOf(() -> Workbench.main(new String[] {"history", root.toString()}));
         assertTrue(emptyHistory.contains("WORKBENCH_HISTORY"));
         assertEquals(0, array(root.resolve("history.json")).size());
-        String runOutput = outputOf(() -> Workbench.main(new String[]{"run", config.toString(), root.toString()}));
+        String runOutput = outputOf(() -> Workbench.main(new String[] {"run", config.toString(), root.toString()}));
         assertTrue(runOutput.contains("WORKBENCH_REPORT"));
         Path experiment = root.resolve(onlyHistoryRecord(root).get("directory").getAsString());
         Path target = directory.resolve("regenerated/report.html");
 
-        Workbench.main(new String[]{"report", manifest(experiment).toString(), target.toString()});
+        Workbench.main(new String[] {"report", manifest(experiment).toString(), target.toString()});
 
         assertTrue(Files.isRegularFile(target));
         JsonArray rows = payload(target).getAsJsonArray("runs");
         assertEquals(1, rows.size());
         assertEquals(object(manifest(experiment)), rows.get(0).getAsJsonObject().getAsJsonObject("manifest"));
         byte[] before = Files.readAllBytes(target);
-        IOException collision = assertThrows(IOException.class,
-                () -> Workbench.main(new String[]{"report", manifest(experiment).toString(), target.toString()}));
+        IOException collision = assertThrows(
+                IOException.class,
+                () -> Workbench.main(
+                        new String[] {"report", manifest(experiment).toString(), target.toString()}));
         assertTrue(collision.getMessage().contains("already exists"));
         assertArrayEquals(before, Files.readAllBytes(target));
     }
@@ -238,13 +291,13 @@ class WorkbenchIntegrationTest {
         for (String selected : Arrays.asList("FCFS", "READY_BATCH_MCT", "RANDOM")) {
             JsonObject source = base();
             boolean staticPlanner = "RANDOM".equals(selected);
-            algorithms(source, algorithm("candidate", staticPlanner ? null : selected,
-                    staticPlanner ? selected : null));
-            Path experiment = Workbench.run(json(directory.resolve(selected + ".json"), source),
-                    directory.resolve("label-output"));
+            algorithms(
+                    source, algorithm("candidate", staticPlanner ? null : selected, staticPlanner ? selected : null));
+            Path experiment = Workbench.run(
+                    json(directory.resolve(selected + ".json"), source), directory.resolve("label-output"));
             Path target = directory.resolve(selected + "-report.html");
 
-            Workbench.main(new String[]{"report", manifest(experiment).toString(), target.toString()});
+            Workbench.main(new String[] {"report", manifest(experiment).toString(), target.toString()});
 
             JsonObject displayed = payload(target).getAsJsonArray("runs").get(0).getAsJsonObject();
             assertEquals(selected, displayed.get("candidate").getAsString());
@@ -257,10 +310,12 @@ class WorkbenchIntegrationTest {
         long[] expected = {9007199254740992L, 9007199254740993L, Long.MIN_VALUE, Long.MAX_VALUE};
         JsonObject source = base();
         JsonArray seeds = new JsonArray();
-        for (long seed : expected) { seeds.add(seed); }
+        for (long seed : expected) {
+            seeds.add(seed);
+        }
         source.add("seeds", seeds);
-        Path experiment = Workbench.run(json(directory.resolve("large-seeds.json"), source),
-                directory.resolve("seed-output"));
+        Path experiment =
+                Workbench.run(json(directory.resolve("large-seeds.json"), source), directory.resolve("seed-output"));
         JsonArray records = object(experiment.resolve("experiment.json")).getAsJsonArray("runs");
         JsonArray displayed = payload(experiment.resolve("report.html")).getAsJsonArray("runs");
         Set<String> displayedSeeds = new HashSet<String>();
@@ -271,20 +326,30 @@ class WorkbenchIntegrationTest {
             JsonObject row = displayed.get(i).getAsJsonObject();
             assertTrue(record.get("seed").getAsJsonPrimitive().isNumber());
             assertEquals(expected[i], record.get("seed").getAsLong());
-            assertTrue(row.get("seed").getAsJsonPrimitive().isString(),
+            assertTrue(
+                    row.get("seed").getAsJsonPrimitive().isString(),
                     "HTML display seeds must survive JavaScript JSON.parse without Number rounding");
             assertEquals(Long.toString(expected[i]), row.get("seed").getAsString());
             displayedSeeds.add(row.get("seed").getAsString());
-            JsonObject manifest = object(experiment.resolve(record.get("manifest").getAsString()));
-            assertEquals(expected[i], manifest.getAsJsonObject("configuration").get("rootSeed").getAsLong());
-            assertTrue(manifest.getAsJsonObject("configuration").get("rootSeed").getAsJsonPrimitive().isNumber());
+            JsonObject manifest =
+                    object(experiment.resolve(record.get("manifest").getAsString()));
+            assertEquals(
+                    expected[i],
+                    manifest.getAsJsonObject("configuration").get("rootSeed").getAsLong());
+            assertTrue(manifest.getAsJsonObject("configuration")
+                    .get("rootSeed")
+                    .getAsJsonPrimitive()
+                    .isNumber());
             assertEquals(manifest, row.getAsJsonObject("manifest"), "do not rewrite the validated evidence payload");
         }
         assertEquals(expected.length, displayedSeeds.size());
         Path standalone = directory.resolve("large-seed-standalone.html");
-        Workbench.main(new String[]{"report", manifest(experiment).toString(), standalone.toString()});
-        JsonElement standaloneSeed = payload(standalone).getAsJsonArray("runs")
-                .get(0).getAsJsonObject().get("seed");
+        Workbench.main(new String[] {"report", manifest(experiment).toString(), standalone.toString()});
+        JsonElement standaloneSeed = payload(standalone)
+                .getAsJsonArray("runs")
+                .get(0)
+                .getAsJsonObject()
+                .get("seed");
         assertTrue(standaloneSeed.getAsJsonPrimitive().isString());
         assertEquals(Long.toString(expected[0]), standaloneSeed.getAsString());
     }
@@ -294,8 +359,9 @@ class WorkbenchIntegrationTest {
         Path config = json(directory.resolve("failing-config.json"), failingConfiguration());
         Path root = directory.resolve("failed-cli-output");
 
-        IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> outputOf(() -> Workbench.main(new String[]{"run", config.toString(), root.toString()})));
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> outputOf(() -> Workbench.main(new String[] {"run", config.toString(), root.toString()})));
 
         assertTrue(failure.getMessage().contains("failed runs"));
         JsonObject history = onlyHistoryRecord(root);
@@ -308,10 +374,16 @@ class WorkbenchIntegrationTest {
     @Test
     void cliRejectsUnknownCommandsAndIncorrectArgumentCounts() {
         String[][] invalid = {
-            {}, {"unknown"}, {"validate"}, {"validate", "config.json", "extra"},
-            {"run", "config.json"}, {"run", "config.json", "output", "extra"},
-            {"history"}, {"history", "output", "extra"},
-            {"report", "manifest.json"}, {"report", "manifest.json", "report.html", "extra"}
+            {},
+            {"unknown"},
+            {"validate"},
+            {"validate", "config.json", "extra"},
+            {"run", "config.json"},
+            {"run", "config.json", "output", "extra"},
+            {"history"},
+            {"history", "output", "extra"},
+            {"report", "manifest.json"},
+            {"report", "manifest.json", "report.html", "extra"}
         };
         for (String[] arguments : invalid) {
             assertThrows(IllegalArgumentException.class, () -> Workbench.main(arguments), Arrays.toString(arguments));
@@ -329,8 +401,9 @@ class WorkbenchIntegrationTest {
         text(bundle.getMetrics(), "{}");
         Path target = directory.resolve("rejected.html");
 
-        assertThrows(IOException.class,
-                () -> Workbench.main(new String[]{"report", manifest.toString(), target.toString()}));
+        assertThrows(
+                IOException.class,
+                () -> Workbench.main(new String[] {"report", manifest.toString(), target.toString()}));
 
         assertFalse(Files.exists(target));
         assertArrayEquals(reportBefore, Files.readAllBytes(experiment.resolve("report.html")));
@@ -343,8 +416,10 @@ class WorkbenchIntegrationTest {
         text(root.resolve("experiment-corrupt/experiment.json"), "{not-json");
         JsonObject interrupted = new JsonObject();
         interrupted.addProperty("schema", "workflowsim-workbench-experiment-v1");
-        interrupted.addProperty("name", "unfinished experiment"); interrupted.addProperty("status", "RUNNING");
-        interrupted.addProperty("plannedRuns", 2); interrupted.addProperty("startedAt", "2026-01-01T00:00:00Z");
+        interrupted.addProperty("name", "unfinished experiment");
+        interrupted.addProperty("status", "RUNNING");
+        interrupted.addProperty("plannedRuns", 2);
+        interrupted.addProperty("startedAt", "2026-01-01T00:00:00Z");
         json(root.resolve("experiment-running/experiment.json"), interrupted);
         Files.createDirectory(root.resolve("unrelated-directory"));
         text(root.resolve("experiment-not-a-directory"), "keep this file");
@@ -377,7 +452,13 @@ class WorkbenchIntegrationTest {
         assertFalse(html.contains("should-not-appear-as-success"));
         assertFalse(html.contains("COMPLETED_SUCCESSFULLY"));
         assertEquals(1, array(root.resolve("history.json")).size());
-        assertEquals("INVALID_RECORD", array(root.resolve("history.json")).get(0).getAsJsonObject().get("status").getAsString());
+        assertEquals(
+                "INVALID_RECORD",
+                array(root.resolve("history.json"))
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("status")
+                        .getAsString());
     }
 
     private JsonObject base() throws Exception {
@@ -394,7 +475,10 @@ class WorkbenchIntegrationTest {
     }
 
     private static Path manifest(Path experiment) throws IOException {
-        JsonObject first = object(experiment.resolve("experiment.json")).getAsJsonArray("runs").get(0).getAsJsonObject();
+        JsonObject first = object(experiment.resolve("experiment.json"))
+                .getAsJsonArray("runs")
+                .get(0)
+                .getAsJsonObject();
         return experiment.resolve(first.get("manifest").getAsString()).normalize();
     }
 
@@ -408,7 +492,9 @@ class WorkbenchIntegrationTest {
         String wanted = experiment.getFileName().toString();
         for (JsonElement value : records) {
             JsonObject row = value.getAsJsonObject();
-            if (wanted.equals(row.get("directory").getAsString())) { return row; }
+            if (wanted.equals(row.get("directory").getAsString())) {
+                return row;
+            }
         }
         throw new AssertionError("Missing history entry for " + wanted);
     }
@@ -444,14 +530,19 @@ class WorkbenchIntegrationTest {
             files = stream.filter(Files::isRegularFile).collect(Collectors.toList());
         }
         Map<Path, byte[]> result = new LinkedHashMap<Path, byte[]>();
-        for (Path file : files) { result.put(root.relativize(file), Files.readAllBytes(file)); }
+        for (Path file : files) {
+            result.put(root.relativize(file), Files.readAllBytes(file));
+        }
         return result;
     }
 
     private static void assertUnchanged(Path root, Map<Path, byte[]> expected) throws IOException {
         assertEquals(expected.keySet(), snapshot(root).keySet());
         for (Map.Entry<Path, byte[]> file : expected.entrySet()) {
-            assertArrayEquals(file.getValue(), Files.readAllBytes(root.resolve(file.getKey())), file.getKey().toString());
+            assertArrayEquals(
+                    file.getValue(),
+                    Files.readAllBytes(root.resolve(file.getKey())),
+                    file.getKey().toString());
         }
     }
 
@@ -459,8 +550,11 @@ class WorkbenchIntegrationTest {
         PrintStream original = System.out;
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
         try (PrintStream stream = new PrintStream(captured, true, "UTF-8")) {
-            System.setOut(stream); action.run();
-        } finally { System.setOut(original); }
+            System.setOut(stream);
+            action.run();
+        } finally {
+            System.setOut(original);
+        }
         return new String(captured.toByteArray(), StandardCharsets.UTF_8);
     }
 

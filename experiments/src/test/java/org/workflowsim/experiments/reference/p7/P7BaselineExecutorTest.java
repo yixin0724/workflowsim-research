@@ -1,13 +1,13 @@
 package org.workflowsim.experiments.reference.p7;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,14 +33,16 @@ class P7BaselineExecutorTest {
     }
 
     @Test
-    void selectionWritesASeparateNonBaselineIndexAndRejectsTampering(@TempDir Path outputDirectory)
-            throws Exception {
+    void selectionWritesASeparateNonBaselineIndexAndRejectsTampering(@TempDir Path outputDirectory) throws Exception {
         Path datasetRoot = datasetRoot();
-        P7BaselineMatrix.Scenario scenario = P7BaselineMatrix.scenarios(datasetRoot).get(0);
+        P7BaselineMatrix.Scenario scenario =
+                P7BaselineMatrix.scenarios(datasetRoot).get(0);
 
         Log.disable();
-        List<P7BaselineExecutor.RunRecord> records = P7BaselineExecutor.executeSelection(datasetRoot,
-                outputDirectory, Collections.singletonList(scenario),
+        List<P7BaselineExecutor.RunRecord> records = P7BaselineExecutor.executeSelection(
+                datasetRoot,
+                outputDirectory,
+                Collections.singletonList(scenario),
                 Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS));
 
         assertEquals(1, records.size());
@@ -73,31 +75,40 @@ class P7BaselineExecutorTest {
         assertTrue(contents.contains(record.getEvents()));
         assertEquals(1, P7EvidenceIndexValidator.validate(selectionIndex).getRunCount());
 
-        JsonObject alteredConfiguration = JsonParser.parseString(manifestContents).getAsJsonObject();
+        JsonObject alteredConfiguration =
+                JsonParser.parseString(manifestContents).getAsJsonObject();
         alteredConfiguration.getAsJsonObject("configuration").addProperty("fileSystem", "LOCAL");
         Files.write(manifest, JSON.toJson(alteredConfiguration).getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> P7EvidenceIndexValidator.validate(selectionIndex));
         Files.write(manifest, manifestContents.getBytes(StandardCharsets.UTF_8));
 
         JsonObject alteredPlatform = JsonParser.parseString(manifestContents).getAsJsonObject();
-        alteredPlatform.getAsJsonObject("platform").getAsJsonArray("vms").get(0).getAsJsonObject()
+        alteredPlatform
+                .getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(0)
+                .getAsJsonObject()
                 .addProperty("mips", 999.0);
         Files.write(manifest, JSON.toJson(alteredPlatform).getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> P7EvidenceIndexValidator.validate(selectionIndex));
         Files.write(manifest, manifestContents.getBytes(StandardCharsets.UTF_8));
 
-        Files.write(selectionIndex, contents.replace("\"cloudSimMinEventIntervalSeconds\": 0.1",
-                "\"cloudSimMinEventIntervalSeconds\": 0.2")
-                .getBytes(StandardCharsets.UTF_8));
+        Files.write(
+                selectionIndex,
+                contents.replace("\"cloudSimMinEventIntervalSeconds\": 0.1", "\"cloudSimMinEventIntervalSeconds\": 0.2")
+                        .getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> P7EvidenceIndexValidator.validate(selectionIndex));
 
-        Files.write(selectionIndex, contents.replace("\"schedulingAlgorithm\": \"FCFS\"",
-                "\"schedulingAlgorithm\": \"READY_BATCH_MCT\"")
-                .getBytes(StandardCharsets.UTF_8));
+        Files.write(
+                selectionIndex,
+                contents.replace("\"schedulingAlgorithm\": \"FCFS\"", "\"schedulingAlgorithm\": \"READY_BATCH_MCT\"")
+                        .getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> P7EvidenceIndexValidator.validate(selectionIndex));
 
         JsonObject alteredIdentity = JsonParser.parseString(contents).getAsJsonObject();
-        alteredIdentity.getAsJsonObject("referenceIdentity").getAsJsonObject("dataset")
+        alteredIdentity
+                .getAsJsonObject("referenceIdentity")
+                .getAsJsonObject("dataset")
                 .addProperty("root", "/different-absolute-dataset-root");
         Files.write(selectionIndex, JSON.toJson(alteredIdentity).getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> P7EvidenceIndexValidator.validate(selectionIndex));
@@ -111,23 +122,24 @@ class P7BaselineExecutorTest {
     }
 
     @Test
-    void frozenBaselineCoversTheExactMatrixAndHistoricalV2ShapeRemainsReadable(
-            @TempDir Path outputDirectory) throws Exception {
+    void frozenBaselineCoversTheExactMatrixAndHistoricalV2ShapeRemainsReadable(@TempDir Path outputDirectory)
+            throws Exception {
         Path datasetRoot = datasetRoot();
         Log.disable();
         // 通过正式 CLI 覆盖参数校验、日志恢复和完整冻结矩阵，而不是绕过入口直接调用实现。
         P7BaselineExecutor.main(new String[] {datasetRoot.toString(), outputDirectory.toString()});
 
         Path indexPath = outputDirectory.resolve(P7BaselineExecutor.BASELINE_INDEX_FILE_NAME);
-        JsonObject index = JsonParser.parseString(new String(Files.readAllBytes(indexPath),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject index = JsonParser.parseString(new String(Files.readAllBytes(indexPath), StandardCharsets.UTF_8))
+                .getAsJsonObject();
         com.google.gson.JsonArray records = index.getAsJsonArray("runs");
 
         assertEquals(P7BaselineMatrix.baselineCellKeys().size(), records.size());
         Set<String> actualCells = new HashSet<String>();
         for (com.google.gson.JsonElement recordElement : records) {
             JsonObject record = recordElement.getAsJsonObject();
-            actualCells.add(P7BaselineMatrix.cellKey(record.get("scenarioId").getAsString(),
+            actualCells.add(P7BaselineMatrix.cellKey(
+                    record.get("scenarioId").getAsString(),
                     record.get("schedulingAlgorithm").getAsString()));
         }
         assertEquals(P7BaselineMatrix.baselineCellKeys(), actualCells);
@@ -135,14 +147,16 @@ class P7BaselineExecutorTest {
         String indexContents = new String(Files.readAllBytes(indexPath), StandardCharsets.UTF_8);
         assertTrue(indexContents.contains(P7BaselineExecutor.BASELINE_INDEX_SCHEMA));
         assertTrue(indexContents.contains(P7BaselineExecutor.BASELINE_INDEX_KIND));
-        assertEquals(records.size(), P7EvidenceIndexValidator.validate(indexPath).getRunCount());
+        assertEquals(
+                records.size(), P7EvidenceIndexValidator.validate(indexPath).getRunCount());
         P7EvidenceIndexValidator.main(new String[] {indexPath.toString()});
 
         for (com.google.gson.JsonElement recordElement : records) {
             JsonObject record = recordElement.getAsJsonObject();
             Path manifestPath = outputDirectory.resolve(record.get("manifest").getAsString());
-            JsonObject manifest = JsonParser.parseString(new String(Files.readAllBytes(manifestPath),
-                    StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonObject manifest = JsonParser.parseString(
+                            new String(Files.readAllBytes(manifestPath), StandardCharsets.UTF_8))
+                    .getAsJsonObject();
             manifest.addProperty("schema", "workflowsim-experiment-manifest-v2");
             removeV4Fields(manifest);
             Files.write(manifestPath, JSON.toJson(manifest).getBytes(StandardCharsets.UTF_8));
@@ -154,42 +168,47 @@ class P7BaselineExecutorTest {
         historicalIndex.remove("referenceIdentity");
         Files.write(indexPath, JSON.toJson(historicalIndex).getBytes(StandardCharsets.UTF_8));
 
-        assertEquals(records.size(), P7EvidenceIndexValidator.validate(indexPath).getRunCount());
+        assertEquals(
+                records.size(), P7EvidenceIndexValidator.validate(indexPath).getRunCount());
     }
 
     @Test
     void commandLineRequiresExactlyTwoArgumentsOrUsesDefaults() {
         // 无参数时使用默认值，不再抛异常（支持 IDE 直接运行）
         // P7BaselineExecutor.main(new String[0]); // 现在会使用默认路径
-        
+
         // 只有一个参数仍然抛异常
-        assertThrows(IllegalArgumentException.class,
-                () -> P7BaselineExecutor.main(new String[] {"datasets"}));
+        assertThrows(IllegalArgumentException.class, () -> P7BaselineExecutor.main(new String[] {"datasets"}));
     }
 
     @Test
-    void validatorRetainsHistoricalV3ProtocolIdentityCompatibility(@TempDir Path outputDirectory)
-            throws Exception {
+    void validatorRetainsHistoricalV3ProtocolIdentityCompatibility(@TempDir Path outputDirectory) throws Exception {
         Path datasetRoot = datasetRoot();
-        P7BaselineMatrix.Scenario scenario = P7BaselineMatrix.scenarios(datasetRoot).get(0);
+        P7BaselineMatrix.Scenario scenario =
+                P7BaselineMatrix.scenarios(datasetRoot).get(0);
         Log.disable();
-        List<P7BaselineExecutor.RunRecord> records = P7BaselineExecutor.executeSelection(datasetRoot,
-                outputDirectory, Collections.singletonList(scenario),
+        List<P7BaselineExecutor.RunRecord> records = P7BaselineExecutor.executeSelection(
+                datasetRoot,
+                outputDirectory,
+                Collections.singletonList(scenario),
                 Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS));
 
         Path indexPath = outputDirectory.resolve(P7BaselineExecutor.SELECTION_INDEX_FILE_NAME);
-        JsonObject index = JsonParser.parseString(new String(Files.readAllBytes(indexPath),
-                StandardCharsets.UTF_8)).getAsJsonObject();
-        JsonObject historicalIdentity = index.getAsJsonObject("referenceIdentity").deepCopy();
-        historicalIdentity.getAsJsonObject("protocol").addProperty("logicalId",
-                "docs/experiments/reference-baselines/P7_EXPERIMENT_PROTOCOL.md");
+        JsonObject index = JsonParser.parseString(new String(Files.readAllBytes(indexPath), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        JsonObject historicalIdentity =
+                index.getAsJsonObject("referenceIdentity").deepCopy();
+        historicalIdentity
+                .getAsJsonObject("protocol")
+                .addProperty("logicalId", "docs/experiments/reference-baselines/P7_EXPERIMENT_PROTOCOL.md");
         index.addProperty("protocol", "P7_EXPERIMENT_PROTOCOL.md");
         index.add("referenceIdentity", historicalIdentity);
 
         for (P7BaselineExecutor.RunRecord record : records) {
             Path manifestPath = outputDirectory.resolve(record.getManifest());
-            JsonObject manifest = JsonParser.parseString(new String(Files.readAllBytes(manifestPath),
-                    StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonObject manifest = JsonParser.parseString(
+                            new String(Files.readAllBytes(manifestPath), StandardCharsets.UTF_8))
+                    .getAsJsonObject();
             manifest.addProperty("schema", "workflowsim-experiment-manifest-v3");
             removeV4Fields(manifest);
             manifest.getAsJsonObject("provenance").add("study", historicalIdentity.deepCopy());
@@ -197,38 +216,52 @@ class P7BaselineExecutorTest {
         }
         Files.write(indexPath, JSON.toJson(index).getBytes(StandardCharsets.UTF_8));
 
-        assertEquals(records.size(), P7EvidenceIndexValidator.validate(indexPath).getRunCount());
+        assertEquals(
+                records.size(), P7EvidenceIndexValidator.validate(indexPath).getRunCount());
     }
 
     @Test
     void selectionRejectsDuplicateCellsBeforeWritingArtifacts(@TempDir Path outputDirectory) {
         Path datasetRoot = datasetRoot();
-        P7BaselineMatrix.Scenario scenario = P7BaselineMatrix.scenarios(datasetRoot).get(0);
-        assertThrows(IllegalArgumentException.class, () -> P7BaselineExecutor.executeSelection(datasetRoot,
-                outputDirectory, Collections.singletonList(scenario), Arrays.asList(
-                        Parameters.SchedulingAlgorithm.FCFS, Parameters.SchedulingAlgorithm.FCFS)));
+        P7BaselineMatrix.Scenario scenario =
+                P7BaselineMatrix.scenarios(datasetRoot).get(0);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> P7BaselineExecutor.executeSelection(
+                        datasetRoot,
+                        outputDirectory,
+                        Collections.singletonList(scenario),
+                        Arrays.asList(Parameters.SchedulingAlgorithm.FCFS, Parameters.SchedulingAlgorithm.FCFS)));
     }
 
     @Test
     void executorRejectsRelativeDatasetRoot(@TempDir Path outputDirectory) {
-        assertThrows(IllegalArgumentException.class, () -> P7BaselineExecutor.executeSelection(
-                Paths.get("datasets"), outputDirectory,
-                Collections.<P7BaselineMatrix.Scenario>singletonList(null),
-                Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> P7BaselineExecutor.executeSelection(
+                        Paths.get("datasets"),
+                        outputDirectory,
+                        Collections.<P7BaselineMatrix.Scenario>singletonList(null),
+                        Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS)));
     }
 
     @Test
     void executorRejectsRelativeOutputDirectory() {
         Path datasetRoot = datasetRoot();
-        P7BaselineMatrix.Scenario scenario = P7BaselineMatrix.scenarios(datasetRoot).get(0);
-        assertThrows(IllegalArgumentException.class, () -> P7BaselineExecutor.executeSelection(
-                datasetRoot, Paths.get("p7-output"), Collections.singletonList(scenario),
-                Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS)));
+        P7BaselineMatrix.Scenario scenario =
+                P7BaselineMatrix.scenarios(datasetRoot).get(0);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> P7BaselineExecutor.executeSelection(
+                        datasetRoot,
+                        Paths.get("p7-output"),
+                        Collections.singletonList(scenario),
+                        Collections.singletonList(Parameters.SchedulingAlgorithm.FCFS)));
     }
 
     private static void removeV4Fields(JsonObject manifest) {
-        for (String field : Arrays.asList("workflowPaths", "workflowArrivalSeconds",
-                "workflowArrivalSemantics", "taskCostMatrix")) {
+        for (String field : Arrays.asList(
+                "workflowPaths", "workflowArrivalSeconds", "workflowArrivalSemantics", "taskCostMatrix")) {
             manifest.getAsJsonObject("configuration").remove(field);
         }
         manifest.getAsJsonObject("platform").remove("networkTopology");

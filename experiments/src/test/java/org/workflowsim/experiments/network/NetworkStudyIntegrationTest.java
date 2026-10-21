@@ -1,5 +1,7 @@
 package org.workflowsim.experiments.network;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
@@ -7,15 +9,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import static org.junit.jupiter.api.Assertions.*;
 
 class NetworkStudyIntegrationTest {
-    @Test void smallStudyRunsEvidenceValidationAndIndependentSummaryChecks(@TempDir Path temp) throws Exception {
+    @Test
+    void smallStudyRunsEvidenceValidationAndIndependentSummaryChecks(@TempDir Path temp) throws Exception {
         Path output = temp.resolve("study");
         Path index = NetworkStudyExecutor.execute("smoke", NetworkStudyTest.datasets(), output);
         assertEquals(36, NetworkStudyValidator.validate(index));
         assertTrue(Files.size(output.resolve("results.md")) > 1000);
-        assertThrows(java.io.IOException.class, () -> NetworkStudyExecutor.execute("smoke", NetworkStudyTest.datasets(), output));
+        assertThrows(
+                java.io.IOException.class,
+                () -> NetworkStudyExecutor.execute("smoke", NetworkStudyTest.datasets(), output));
         String original = new String(Files.readAllBytes(index), StandardCharsets.UTF_8);
         JsonObject changed = JsonParser.parseString(original).getAsJsonObject();
         changed.getAsJsonObject("summary").addProperty("runCount", 35);
@@ -36,24 +40,36 @@ class NetworkStudyIntegrationTest {
         assertThrows(java.io.IOException.class, () -> NetworkStudyValidator.validate(index));
         Files.write(index, original.getBytes(StandardCharsets.UTF_8));
         JsonObject document = JsonParser.parseString(original).getAsJsonObject();
-        Path manifest = output.resolve(document.getAsJsonArray("runs").get(0).getAsJsonObject().get("manifest").getAsString());
+        Path manifest = output.resolve(document.getAsJsonArray("runs")
+                .get(0)
+                .getAsJsonObject()
+                .get("manifest")
+                .getAsString());
         String originalManifest = new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8);
         JsonObject forged = JsonParser.parseString(originalManifest).getAsJsonObject();
-        forged.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("sha256", "0000000000000000000000000000000000000000000000000000000000000000");
+        forged.getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("sha256", "0000000000000000000000000000000000000000000000000000000000000000");
         Files.write(manifest, forged.toString().getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> NetworkStudyValidator.validate(index));
         forged = JsonParser.parseString(originalManifest).getAsJsonObject();
-        forged.getAsJsonObject("platform").getAsJsonArray("vms").get(0).getAsJsonObject().addProperty("mips", 999.0);
+        forged.getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("mips", 999.0);
         Files.write(manifest, forged.toString().getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> NetworkStudyValidator.validate(index));
         Files.write(manifest, originalManifest.getBytes(StandardCharsets.UTF_8));
         assertEquals(36, NetworkStudyValidator.validate(index));
     }
 
-    @Test void sensitivitySmokeStudyRunsAcrossHeterogeneityAxis(@TempDir Path temp) throws Exception {
+    @Test
+    void sensitivitySmokeStudyRunsAcrossHeterogeneityAxis(@TempDir Path temp) throws Exception {
         Path output = temp.resolve("r13-study");
-        Path index = NetworkStudyExecutor.execute("smoke", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13,
-                NetworkStudyTest.datasets(), output);
+        Path index = NetworkStudyExecutor.execute(
+                "smoke", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, NetworkStudyTest.datasets(), output);
         assertEquals(30, NetworkStudyValidator.validate(index));
         String document = new String(Files.readAllBytes(index), StandardCharsets.UTF_8);
         assertTrue(document.contains("sensitivity-response-r13-v2"));
@@ -63,7 +79,12 @@ class NetworkStudyIntegrationTest {
         JsonObject plan = JsonParser.parseString(document).getAsJsonObject().getAsJsonObject("plan");
         assertEquals(5, plan.getAsJsonArray("conditions").size());
         assertEquals(30, plan.get("runCount").getAsInt());
-        assertEquals(30, JsonParser.parseString(document).getAsJsonObject().getAsJsonArray("runs").size());
+        assertEquals(
+                30,
+                JsonParser.parseString(document)
+                        .getAsJsonObject()
+                        .getAsJsonArray("runs")
+                        .size());
         String markdown = new String(Files.readAllBytes(output.resolve("results.md")), StandardCharsets.UTF_8);
         assertTrue(markdown.contains("敏感性响应面研究"));
         assertTrue(markdown.contains("异构度"));
@@ -77,23 +98,37 @@ class NetworkStudyIntegrationTest {
         JsonObject original = JsonParser.parseString(document).getAsJsonObject();
         int hetRun = -1;
         for (int i = 0; i < original.getAsJsonArray("runs").size(); i++) {
-            if (original.getAsJsonArray("runs").get(i).getAsJsonObject().get("runId").getAsString().contains("-HET_STRONG-")) {
-                hetRun = i; break;
+            if (original.getAsJsonArray("runs")
+                    .get(i)
+                    .getAsJsonObject()
+                    .get("runId")
+                    .getAsString()
+                    .contains("-HET_STRONG-")) {
+                hetRun = i;
+                break;
             }
         }
         assertTrue(hetRun >= 0);
-        Path manifest = output.resolve(original.getAsJsonArray("runs").get(hetRun).getAsJsonObject()
-                .get("manifest").getAsString());
+        Path manifest = output.resolve(original.getAsJsonArray("runs")
+                .get(hetRun)
+                .getAsJsonObject()
+                .get("manifest")
+                .getAsString());
         String originalManifest = new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8);
         JsonObject forged = JsonParser.parseString(originalManifest).getAsJsonObject();
-        forged.getAsJsonObject("platform").getAsJsonArray("vms").get(0).getAsJsonObject().addProperty("mips", 1000.0);
+        forged.getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("mips", 1000.0);
         Files.write(manifest, forged.toString().getBytes(StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> NetworkStudyValidator.validate(index));
         Files.write(manifest, originalManifest.getBytes(StandardCharsets.UTF_8));
         assertEquals(30, NetworkStudyValidator.validate(index));
     }
 
-    @Test void peftComparisonSmokeStudyRunsOnFrozenR10Matrix(@TempDir Path temp) throws Exception {
+    @Test
+    void peftComparisonSmokeStudyRunsOnFrozenR10Matrix(@TempDir Path temp) throws Exception {
         Path output = temp.resolve("peft-study");
         Path index = NetworkStudyExecutor.execute("smoke", true, NetworkStudyTest.datasets(), output);
         assertEquals(18, NetworkStudyValidator.validate(index));

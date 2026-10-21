@@ -30,13 +30,12 @@ public final class P7EvidenceIndexValidator {
     private static final String SELECTION_SCHEMA = P7BaselineExecutor.SELECTION_INDEX_SCHEMA;
     // 历史 v2/v3 工件写入过的协议路径必须继续可读，不能因文档改名而失效。
     private static final String HISTORICAL_PROTOCOL_REFERENCE = "P7_EXPERIMENT_PROTOCOL.md";
-    private static final String HISTORICAL_PROTOCOL_ID = "docs/experiments/reference-baselines/" + HISTORICAL_PROTOCOL_REFERENCE;
+    private static final String HISTORICAL_PROTOCOL_ID =
+            "docs/experiments/reference-baselines/" + HISTORICAL_PROTOCOL_REFERENCE;
     private static final String P7_STUDY_ID = "p7-baseline";
-    private static final String P7_DRIVER_CLASS
-            = "org.workflowsim.experiments.reference.p7.P7BaselineExecutor";
+    private static final String P7_DRIVER_CLASS = "org.workflowsim.experiments.reference.p7.P7BaselineExecutor";
 
-    private P7EvidenceIndexValidator() {
-    }
+    private P7EvidenceIndexValidator() {}
 
     /**
      * 校验 P7 索引、每个相对证据路径以及索引和 manifest 的关键配置/结果一致性。
@@ -68,18 +67,18 @@ public final class P7EvidenceIndexValidator {
         long rootSeed = requireLong(document, "rootSeed", "P7 index");
         double runtimeReferenceMips = requireFiniteNumber(document, "runtimeReferenceMips", "P7 index");
         double runtimeScale = requireFiniteNumber(document, "runtimeScale", "P7 index");
-        double cloudSimMinEventIntervalSeconds = requireFiniteNumber(document,
-                "cloudSimMinEventIntervalSeconds", "P7 index");
-        validateFrozenSettings(rootSeed, runtimeReferenceMips, runtimeScale,
-                cloudSimMinEventIntervalSeconds, "P7 index");
+        double cloudSimMinEventIntervalSeconds =
+                requireFiniteNumber(document, "cloudSimMinEventIntervalSeconds", "P7 index");
+        validateFrozenSettings(
+                rootSeed, runtimeReferenceMips, runtimeScale, cloudSimMinEventIntervalSeconds, "P7 index");
         int expectedRunCount = requireInt(document, "runCount", "P7 index");
         JsonArray runs = requireArray(document, "runs", "P7 index");
         if (expectedRunCount <= 0) {
             throw new IOException("P7 index must contain at least one run");
         }
         if (runs.size() != expectedRunCount) {
-            throw new IOException("P7 index runCount mismatch: declares " + expectedRunCount
-                    + " but contains " + runs.size());
+            throw new IOException(
+                    "P7 index runCount mismatch: declares " + expectedRunCount + " but contains " + runs.size());
         }
 
         Set<String> uniqueCells = new HashSet<String>();
@@ -87,9 +86,16 @@ public final class P7EvidenceIndexValidator {
             if (!element.isJsonObject()) {
                 throw new IOException("P7 index run entry must be an object");
             }
-            validateRun(rootDirectory, element.getAsJsonObject(), uniqueCells, rootSeed,
-                    runtimeReferenceMips, runtimeScale, cloudSimMinEventIntervalSeconds,
-                    requiresStudyIdentity, referenceIdentity);
+            validateRun(
+                    rootDirectory,
+                    element.getAsJsonObject(),
+                    uniqueCells,
+                    rootSeed,
+                    runtimeReferenceMips,
+                    runtimeScale,
+                    cloudSimMinEventIntervalSeconds,
+                    requiresStudyIdentity,
+                    referenceIdentity);
         }
         if (indexKind == IndexKind.FROZEN_BASELINE
                 && !P7BaselineMatrix.baselineCellKeys().equals(uniqueCells)) {
@@ -104,8 +110,7 @@ public final class P7EvidenceIndexValidator {
             throw new IllegalArgumentException("Usage: P7EvidenceIndexValidator <p7-index.json>");
         }
         ValidationResult result = validate(Paths.get(args[0]));
-        System.out.println("P7_INDEX_VALIDATION PASSED index=" + result.getIndex()
-                + " runs=" + result.getRunCount());
+        System.out.println("P7_INDEX_VALIDATION PASSED index=" + result.getIndex() + " runs=" + result.getRunCount());
     }
 
     private static IndexKind determineIndexKind(JsonObject document, String schema) throws IOException {
@@ -133,8 +138,7 @@ public final class P7EvidenceIndexValidator {
         }
         JsonObject component = requireObject(identity, "component", "P7 reference identity");
         requireString(component, "groupId", "P7 reference component");
-        if (!"workflowsim-experiments".equals(requireString(component, "artifactId",
-                "P7 reference component"))) {
+        if (!"workflowsim-experiments".equals(requireString(component, "artifactId", "P7 reference component"))) {
             throw new IOException("P7 reference identity has an unexpected artifactId");
         }
         requireString(component, "version", "P7 reference component");
@@ -157,26 +161,31 @@ public final class P7EvidenceIndexValidator {
         if (!isAbsolutePath(requireString(dataset, "root", "P7 reference dataset"))) {
             throw new IOException("P7 reference identity has a non-absolute dataset root");
         }
-        if (!"EXPLICIT_ABSOLUTE_DATASET_ROOT".equals(requireString(dataset,
-                "resolutionPolicy", "P7 reference dataset"))) {
+        if (!"EXPLICIT_ABSOLUTE_DATASET_ROOT"
+                .equals(requireString(dataset, "resolutionPolicy", "P7 reference dataset"))) {
             throw new IOException("P7 reference identity has an unsupported dataset resolution policy");
         }
         return identity;
     }
 
     private static boolean isAcceptedProtocolReference(String value) {
-        return P7BaselineExecutor.PROTOCOL_REFERENCE.equals(value)
-                || HISTORICAL_PROTOCOL_REFERENCE.equals(value);
+        return P7BaselineExecutor.PROTOCOL_REFERENCE.equals(value) || HISTORICAL_PROTOCOL_REFERENCE.equals(value);
     }
 
     private static boolean isAcceptedProtocolId(String value) {
-        return P7ReferenceIdentity.PROTOCOL_ID.equals(value)
-                || HISTORICAL_PROTOCOL_ID.equals(value);
+        return P7ReferenceIdentity.PROTOCOL_ID.equals(value) || HISTORICAL_PROTOCOL_ID.equals(value);
     }
 
-    private static void validateRun(Path rootDirectory, JsonObject record, Set<String> uniqueCells,
-            long rootSeed, double runtimeReferenceMips, double runtimeScale,
-            double cloudSimMinEventIntervalSeconds, boolean v3, JsonObject referenceIdentity)
+    private static void validateRun(
+            Path rootDirectory,
+            JsonObject record,
+            Set<String> uniqueCells,
+            long rootSeed,
+            double runtimeReferenceMips,
+            double runtimeScale,
+            double cloudSimMinEventIntervalSeconds,
+            boolean v3,
+            JsonObject referenceIdentity)
             throws IOException {
         String scenario = requireString(record, "scenarioId", "P7 index run");
         String algorithm = requireString(record, "schedulingAlgorithm", "P7 index run");
@@ -186,28 +195,24 @@ public final class P7EvidenceIndexValidator {
         }
         String cell = P7BaselineMatrix.cellKey(scenario, algorithm);
         if (!P7BaselineMatrix.baselineCellKeys().contains(cell)) {
-            throw new IOException("P7 index contains a cell outside the frozen matrix: "
-                    + scenario + "/" + algorithm);
+            throw new IOException("P7 index contains a cell outside the frozen matrix: " + scenario + "/" + algorithm);
         }
         if (!uniqueCells.add(cell)) {
-            throw new IOException("P7 index has duplicate scenario/algorithm cell: "
-                    + scenario + "/" + algorithm);
+            throw new IOException("P7 index has duplicate scenario/algorithm cell: " + scenario + "/" + algorithm);
         }
         validateRecordDefinition(record, expectedScenario, algorithm);
         String workflowSha256 = requireString(record, "workflowSha256", "P7 index run");
         if (!expectedScenario.getExpectedWorkflowSha256().equals(workflowSha256)) {
             throw new IOException("P7 index workflow hash differs from frozen input for " + scenario);
         }
-        Path manifest = requiredRelativeFile(rootDirectory,
-                requireString(record, "manifest", "P7 index run"), "manifest");
-        Path metrics = requiredRelativeFile(rootDirectory,
-                requireString(record, "metrics", "P7 index run"), "metrics");
-        Path events = requiredRelativeFile(rootDirectory,
-                requireString(record, "events", "P7 index run"), "events");
+        Path manifest =
+                requiredRelativeFile(rootDirectory, requireString(record, "manifest", "P7 index run"), "manifest");
+        Path metrics = requiredRelativeFile(rootDirectory, requireString(record, "metrics", "P7 index run"), "metrics");
+        Path events = requiredRelativeFile(rootDirectory, requireString(record, "events", "P7 index run"), "events");
         ExperimentArtifactValidator.ValidationResult bundle = ExperimentArtifactValidator.validate(manifest);
         if (!metrics.equals(bundle.getMetrics()) || !events.equals(bundle.getEvents())) {
-            throw new IOException("P7 index sidecar path does not match manifest artifacts for "
-                    + scenario + "/" + algorithm);
+            throw new IOException(
+                    "P7 index sidecar path does not match manifest artifacts for " + scenario + "/" + algorithm);
         }
 
         JsonObject manifestDocument = object(manifest, "referenced experiment manifest");
@@ -218,12 +223,19 @@ public final class P7EvidenceIndexValidator {
         }
         validateP7Configuration(configuration, expectedScenario, algorithm);
         if (rootSeed != requireLong(configuration, "rootSeed", "manifest configuration")
-                || Double.compare(runtimeReferenceMips,
-                        requireFiniteNumber(configuration, "runtimeReferenceMips", "manifest configuration")) != 0
-                || Double.compare(runtimeScale,
-                        requireFiniteNumber(configuration, "runtimeScale", "manifest configuration")) != 0
-                || Double.compare(cloudSimMinEventIntervalSeconds, requireFiniteNumber(configuration,
-                        "cloudSimMinEventIntervalSeconds", "manifest configuration")) != 0) {
+                || Double.compare(
+                                runtimeReferenceMips,
+                                requireFiniteNumber(configuration, "runtimeReferenceMips", "manifest configuration"))
+                        != 0
+                || Double.compare(
+                                runtimeScale,
+                                requireFiniteNumber(configuration, "runtimeScale", "manifest configuration"))
+                        != 0
+                || Double.compare(
+                                cloudSimMinEventIntervalSeconds,
+                                requireFiniteNumber(
+                                        configuration, "cloudSimMinEventIntervalSeconds", "manifest configuration"))
+                        != 0) {
             throw new IOException("P7 index root seed, runtime conversion, or CloudSim event cadence differs "
                     + "from manifest for " + scenario);
         }
@@ -231,10 +243,9 @@ public final class P7EvidenceIndexValidator {
         if (inputs.size() != 1 || !inputs.get(0).isJsonObject()) {
             throw new IOException("P7 manifest must reference exactly one workflow input for " + scenario);
         }
-        validateP7Input(inputs.get(0).getAsJsonObject(), expectedScenario, workflowSha256,
-                referenceIdentity, scenario);
-        validateP7Platform(requireObject(manifestDocument, "platform", "experiment manifest"),
-                expectedScenario, scenario);
+        validateP7Input(inputs.get(0).getAsJsonObject(), expectedScenario, workflowSha256, referenceIdentity, scenario);
+        validateP7Platform(
+                requireObject(manifestDocument, "platform", "experiment manifest"), expectedScenario, scenario);
         JsonObject result = requireObject(manifestDocument, "result", "experiment manifest");
         validateActualVmHostAssignments(result, expectedScenario, scenario);
         compareRecordNumber(record, result, "makespan", scenario);
@@ -243,31 +254,36 @@ public final class P7EvidenceIndexValidator {
         compareRecordInteger(record, result, "failedJobs", scenario);
     }
 
-    private static void validateFrozenSettings(long rootSeed, double runtimeReferenceMips,
-            double runtimeScale, double cloudSimMinEventIntervalSeconds, String subject)
+    private static void validateFrozenSettings(
+            long rootSeed,
+            double runtimeReferenceMips,
+            double runtimeScale,
+            double cloudSimMinEventIntervalSeconds,
+            String subject)
             throws IOException {
         if (rootSeed != P7BaselineMatrix.ROOT_SEED
                 || Double.compare(runtimeReferenceMips, P7BaselineMatrix.RUNTIME_REFERENCE_MIPS) != 0
                 || Double.compare(runtimeScale, P7BaselineMatrix.RUNTIME_SCALE) != 0
-                || Double.compare(cloudSimMinEventIntervalSeconds,
-                        P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS) != 0) {
+                || Double.compare(cloudSimMinEventIntervalSeconds, P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS)
+                        != 0) {
             throw new IOException(subject + " differs from the frozen P7 seed, runtime conversion, or event cadence");
         }
     }
 
-    private static void validateRecordDefinition(JsonObject record,
-            P7BaselineMatrix.Scenario expectedScenario, String algorithm) throws IOException {
+    private static void validateRecordDefinition(
+            JsonObject record, P7BaselineMatrix.Scenario expectedScenario, String algorithm) throws IOException {
         String subject = "P7 index run";
         requireExactString(record, "workflowFamily", expectedScenario.getWorkflowFamily(), subject);
         requireExactInt(record, "expectedTaskCount", expectedScenario.getExpectedTaskCount(), subject);
-        requireExactString(record, "platformVariant", expectedScenario.getPlatformVariant().name(), subject);
+        requireExactString(
+                record, "platformVariant", expectedScenario.getPlatformVariant().name(), subject);
         if (!P7BaselineMatrix.isBaselineAlgorithmName(algorithm)) {
             throw new IOException("P7 index contains an unsupported scheduling algorithm: " + algorithm);
         }
     }
 
-    private static void validateP7Configuration(JsonObject configuration,
-            P7BaselineMatrix.Scenario expectedScenario, String algorithm) throws IOException {
+    private static void validateP7Configuration(
+            JsonObject configuration, P7BaselineMatrix.Scenario expectedScenario, String algorithm) throws IOException {
         String subject = "P7 manifest configuration";
         if (configuration.has("workflowArrivalSeconds")) {
             JsonArray arrivals = requireArray(configuration, "workflowArrivalSeconds", subject);
@@ -282,22 +298,23 @@ public final class P7EvidenceIndexValidator {
         requireExactLong(configuration, "deadline", 0L, subject);
         requireExactString(configuration, "fileSystem", "SHARED", subject);
         requireExactLong(configuration, "rootSeed", P7BaselineMatrix.ROOT_SEED, subject);
-        requireExactNumber(configuration, "runtimeReferenceMips",
-                P7BaselineMatrix.RUNTIME_REFERENCE_MIPS, subject);
+        requireExactNumber(configuration, "runtimeReferenceMips", P7BaselineMatrix.RUNTIME_REFERENCE_MIPS, subject);
         requireExactNumber(configuration, "runtimeScale", P7BaselineMatrix.RUNTIME_SCALE, subject);
-        requireExactNumber(configuration, "cloudSimMinEventIntervalSeconds",
-                P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS, subject);
+        requireExactNumber(
+                configuration,
+                "cloudSimMinEventIntervalSeconds",
+                P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS,
+                subject);
         requireExactString(configuration, "costModel", "DATACENTER", subject);
 
         JsonObject dataMovement = requireObject(configuration, "dataMovementModel", subject);
         requireExactString(dataMovement, "kind", "LEGACY_WORKFLOWSIM_V1", subject + " data movement");
-        requireExactNumber(dataMovement, "accessLinkBandwidthMbPerSecond", 0.0,
-                subject + " data movement");
-        requireExactNumber(dataMovement, "accessLinkLatencySeconds", 0.0,
-                subject + " data movement");
-        requireExactNumber(dataMovement, "sourceEndpointBandwidthMbPerSecond", 0.0,
-                subject + " data movement");
-        requireExactString(dataMovement, "contentionSemantics",
+        requireExactNumber(dataMovement, "accessLinkBandwidthMbPerSecond", 0.0, subject + " data movement");
+        requireExactNumber(dataMovement, "accessLinkLatencySeconds", 0.0, subject + " data movement");
+        requireExactNumber(dataMovement, "sourceEndpointBandwidthMbPerSecond", 0.0, subject + " data movement");
+        requireExactString(
+                dataMovement,
+                "contentionSemantics",
                 "LEGACY_IMPLEMENTATION_DEFINED_NO_EXPLICIT_CONTENTION_MODEL",
                 subject + " data movement");
 
@@ -320,16 +337,20 @@ public final class P7EvidenceIndexValidator {
         requireExactString(failure, "generatorMode", "FAILURE_NONE", subject + " failure model");
         requireExactString(failure, "distributionFamily", "WEIBULL", subject + " failure model");
         requireExactInt(failure, "maxTotalRetryJobs", 0, subject + " failure model");
-        requireExactString(failure, "generatorAddressing", "DENSE_VM_ID_MATRIX",
-                subject + " failure model");
+        requireExactString(failure, "generatorAddressing", "DENSE_VM_ID_MATRIX", subject + " failure model");
         if (requireArray(failure, "generators", subject + " failure model").size() != 0) {
             throw new IOException(subject + " failure model must not declare generators");
         }
         requireEmptyObject(failure, "generatorsByVmId", subject + " failure model");
     }
 
-    private static void validateP7Input(JsonObject input, P7BaselineMatrix.Scenario expectedScenario,
-            String indexedWorkflowSha256, JsonObject referenceIdentity, String scenario) throws IOException {
+    private static void validateP7Input(
+            JsonObject input,
+            P7BaselineMatrix.Scenario expectedScenario,
+            String indexedWorkflowSha256,
+            JsonObject referenceIdentity,
+            String scenario)
+            throws IOException {
         String subject = "P7 manifest input";
         requireExactString(input, "sha256", expectedScenario.getExpectedWorkflowSha256(), subject);
         if (!indexedWorkflowSha256.equals(requireString(input, "sha256", subject))) {
@@ -346,18 +367,18 @@ public final class P7EvidenceIndexValidator {
         }
         if (referenceIdentity != null) {
             JsonObject dataset = requireObject(referenceIdentity, "dataset", "P7 reference identity");
-            Path datasetRoot = absolutePath(requireString(dataset, "root", "P7 reference dataset"),
-                    "P7 reference dataset root");
+            Path datasetRoot =
+                    absolutePath(requireString(dataset, "root", "P7 reference dataset"), "P7 reference dataset root");
             Path expectedPath = datasetRoot.resolve(relativeWorkflow).normalize();
             if (!expectedPath.equals(inputPath)) {
-                throw new IOException("P7 manifest input path does not resolve from its recorded dataset root for "
-                        + scenario);
+                throw new IOException(
+                        "P7 manifest input path does not resolve from its recorded dataset root for " + scenario);
             }
         }
     }
 
-    private static void validateP7Platform(JsonObject actual,
-            P7BaselineMatrix.Scenario expectedScenario, String scenario) throws IOException {
+    private static void validateP7Platform(
+            JsonObject actual, P7BaselineMatrix.Scenario expectedScenario, String scenario) throws IOException {
         PlatformProfile expected = P7BaselineMatrix.baselinePlatform(expectedScenario);
         String subject = "P7 manifest platform for " + scenario;
         requireNullOrAbsent(actual, "networkTopology", subject);
@@ -366,7 +387,8 @@ public final class P7EvidenceIndexValidator {
         requireExactInt(actual, "vmCount", expected.getVms().size(), subject);
         JsonArray actualHosts = requireArray(actual, "hosts", subject);
         JsonArray actualVms = requireArray(actual, "vms", subject);
-        if (actualHosts.size() != expected.getHosts().size() || actualVms.size() != expected.getVms().size()) {
+        if (actualHosts.size() != expected.getHosts().size()
+                || actualVms.size() != expected.getVms().size()) {
             throw new IOException(subject + " host or VM list size differs from the frozen platform");
         }
         for (int index = 0; index < expected.getHosts().size(); index++) {
@@ -390,41 +412,51 @@ public final class P7EvidenceIndexValidator {
             requireExactLong(actualVm, "imageSizeMb", vm.getImageSizeMb(), subject + " VM");
             requireExactString(actualVm, "vmm", vm.getVmm(), subject + " VM");
             requireExactString(actualVm, "schedulerMode", vm.getSchedulerMode().name(), subject + " VM");
-            requireExactInt(actualVm, "preflightHostId",
-                    expected.getVmHostAssignments().get(vm.getId()).intValue(), subject + " VM");
+            requireExactInt(
+                    actualVm,
+                    "preflightHostId",
+                    expected.getVmHostAssignments().get(vm.getId()).intValue(),
+                    subject + " VM");
             requireNullOrAbsent(actualVm, "pinnedHostId", subject + " VM");
             requireNullOrAbsent(actualVm, "costs", subject + " VM");
         }
         JsonObject storage = requireObject(actual, "storage", subject);
         requireExactLong(storage, "capacityMb", expected.getStorage().getCapacityMb(), subject + " storage");
-        requireExactInt(storage, "maxTransferRateMbPerSecond",
-                expected.getStorage().getMaxTransferRateMbPerSecond(), subject + " storage");
+        requireExactInt(
+                storage,
+                "maxTransferRateMbPerSecond",
+                expected.getStorage().getMaxTransferRateMbPerSecond(),
+                subject + " storage");
         validateCostSpec(requireObject(actual, "costs", subject), expected.getCosts(), subject + " costs");
     }
 
-    private static void validateActualVmHostAssignments(JsonObject result,
-            P7BaselineMatrix.Scenario expectedScenario, String scenario) throws IOException {
+    private static void validateActualVmHostAssignments(
+            JsonObject result, P7BaselineMatrix.Scenario expectedScenario, String scenario) throws IOException {
         PlatformProfile expected = P7BaselineMatrix.baselinePlatform(expectedScenario);
         JsonObject actual = requireObject(result, "actualVmHostAssignments", "P7 manifest result");
         if (actual.size() != expected.getVmHostAssignments().size()) {
             throw new IOException("P7 manifest actual VM-host assignment count differs for " + scenario);
         }
-        for (java.util.Map.Entry<Integer, Integer> entry : expected.getVmHostAssignments().entrySet()) {
-            requireExactInt(actual, Integer.toString(entry.getKey()), entry.getValue().intValue(),
+        for (java.util.Map.Entry<Integer, Integer> entry :
+                expected.getVmHostAssignments().entrySet()) {
+            requireExactInt(
+                    actual,
+                    Integer.toString(entry.getKey()),
+                    entry.getValue().intValue(),
                     "P7 manifest actual VM-host assignments");
         }
     }
 
-    private static void validateCostSpec(JsonObject actual, PlatformProfile.CostSpec expected,
-            String subject) throws IOException {
+    private static void validateCostSpec(JsonObject actual, PlatformProfile.CostSpec expected, String subject)
+            throws IOException {
         requireExactNumber(actual, "cpuPerSecond", expected.getCpuPerSecond(), subject);
         requireExactNumber(actual, "memory", expected.getMemory(), subject);
         requireExactNumber(actual, "storage", expected.getStorage(), subject);
         requireExactNumber(actual, "bandwidth", expected.getBandwidth(), subject);
     }
 
-    private static void validateManifestStudyIdentity(JsonObject manifest, boolean v3,
-            JsonObject referenceIdentity, String scenario) throws IOException {
+    private static void validateManifestStudyIdentity(
+            JsonObject manifest, boolean v3, JsonObject referenceIdentity, String scenario) throws IOException {
         String schema = requireString(manifest, "schema", "referenced experiment manifest");
         boolean accepted = v3
                 ? ExperimentArtifactValidator.MANIFEST_SCHEMA_V3.equals(schema)
@@ -445,8 +477,8 @@ public final class P7EvidenceIndexValidator {
         }
     }
 
-    private static void compareRecordNumber(JsonObject record, JsonObject result, String key,
-            String scenario) throws IOException {
+    private static void compareRecordNumber(JsonObject record, JsonObject result, String key, String scenario)
+            throws IOException {
         double indexed = requireFiniteNumber(record, key, "P7 index run");
         double manifested = requireFiniteNumber(result, key, "manifest result");
         if (Double.compare(indexed, manifested) != 0) {
@@ -454,8 +486,8 @@ public final class P7EvidenceIndexValidator {
         }
     }
 
-    private static void compareRecordInteger(JsonObject record, JsonObject result, String key,
-            String scenario) throws IOException {
+    private static void compareRecordInteger(JsonObject record, JsonObject result, String key, String scenario)
+            throws IOException {
         if (requireInt(record, key, "P7 index run") != requireInt(result, key, "manifest result")) {
             throw new IOException("P7 index " + key + " does not match manifest for " + scenario);
         }
@@ -520,22 +552,20 @@ public final class P7EvidenceIndexValidator {
         return object.get(key).getAsJsonArray();
     }
 
-    private static void requireEmptyObject(JsonObject object, String key, String subject)
-            throws IOException {
+    private static void requireEmptyObject(JsonObject object, String key, String subject) throws IOException {
         if (!requireObject(object, key, subject).entrySet().isEmpty()) {
             throw new IOException(subject + " must have an empty object " + key);
         }
     }
 
-    private static void requireNullOrAbsent(JsonObject object, String key, String subject)
-            throws IOException {
+    private static void requireNullOrAbsent(JsonObject object, String key, String subject) throws IOException {
         if (object.has(key) && !object.get(key).isJsonNull()) {
             throw new IOException(subject + " must have null or absent " + key);
         }
     }
 
-    private static void requireExactString(JsonObject object, String key, String expected,
-            String subject) throws IOException {
+    private static void requireExactString(JsonObject object, String key, String expected, String subject)
+            throws IOException {
         String actual = requireString(object, key, subject);
         if (!expected.equals(actual)) {
             throw new IOException(subject + " has unexpected " + key + ": " + actual);
@@ -558,8 +588,8 @@ public final class P7EvidenceIndexValidator {
         }
     }
 
-    private static void requireExactNumber(JsonObject object, String key, double expected,
-            String subject) throws IOException {
+    private static void requireExactNumber(JsonObject object, String key, double expected, String subject)
+            throws IOException {
         double actual = requireFiniteNumber(object, key, subject);
         if (Double.compare(actual, expected) != 0) {
             throw new IOException(subject + " has unexpected " + key + ": " + actual);
@@ -577,9 +607,9 @@ public final class P7EvidenceIndexValidator {
         return primitive.getAsString();
     }
 
-    private static boolean requireBoolean(JsonObject object, String key, String subject)
-            throws IOException {
-        if (!object.has(key) || !object.get(key).isJsonPrimitive()
+    private static boolean requireBoolean(JsonObject object, String key, String subject) throws IOException {
+        if (!object.has(key)
+                || !object.get(key).isJsonPrimitive()
                 || !object.get(key).getAsJsonPrimitive().isBoolean()) {
             throw new IOException(subject + " has invalid boolean " + key);
         }
@@ -595,7 +625,8 @@ public final class P7EvidenceIndexValidator {
     }
 
     private static long requireLong(JsonObject object, String key, String subject) throws IOException {
-        if (!object.has(key) || !object.get(key).isJsonPrimitive()
+        if (!object.has(key)
+                || !object.get(key).isJsonPrimitive()
                 || !object.get(key).getAsJsonPrimitive().isNumber()) {
             throw new IOException(subject + " is missing number " + key);
         }
@@ -606,9 +637,9 @@ public final class P7EvidenceIndexValidator {
         }
     }
 
-    private static double requireFiniteNumber(JsonObject object, String key, String subject)
-            throws IOException {
-        if (!object.has(key) || !object.get(key).isJsonPrimitive()
+    private static double requireFiniteNumber(JsonObject object, String key, String subject) throws IOException {
+        if (!object.has(key)
+                || !object.get(key).isJsonPrimitive()
                 || !object.get(key).getAsJsonPrimitive().isNumber()) {
             throw new IOException(subject + " is missing number " + key);
         }
@@ -623,8 +654,7 @@ public final class P7EvidenceIndexValidator {
         }
     }
 
-    private static String requireNullableSha256(JsonObject object, String key, String subject)
-            throws IOException {
+    private static String requireNullableSha256(JsonObject object, String key, String subject) throws IOException {
         if (!object.has(key)) {
             throw new IOException(subject + " is missing nullable SHA-256 " + key);
         }
@@ -632,7 +662,8 @@ public final class P7EvidenceIndexValidator {
         if (value.isJsonNull()) {
             return null;
         }
-        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+        if (!value.isJsonPrimitive()
+                || !value.getAsJsonPrimitive().isString()
                 || !value.getAsString().matches("[0-9a-f]{64}")) {
             throw new IOException(subject + " has invalid nullable SHA-256 " + key);
         }
@@ -662,7 +693,12 @@ public final class P7EvidenceIndexValidator {
             this.runCount = runCount;
         }
 
-        public Path getIndex() { return index; }
-        public int getRunCount() { return runCount; }
+        public Path getIndex() {
+            return index;
+        }
+
+        public int getRunCount() {
+            return runCount;
+        }
     }
 }

@@ -1,5 +1,7 @@
 package org.workflowsim.examples;
 
+import java.util.Map;
+import java.util.TreeMap;
 import org.cloudbus.cloudsim.Log;
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.experiment.SimulationReport;
@@ -10,9 +12,6 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 import org.workflowsim.utils.TaskCostMatrix;
-
-import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * HEFT 论文复现实验——Topcuoglu, Hariri &amp; Wu, "Performance-Effective and
@@ -44,16 +43,17 @@ public class HeftPaperReproductionExperiment {
 
     /** 论文成本矩阵（任务 i 在 p1/p2/p3 = vm0/vm1/vm2 上的计算秒数）。 */
     private static final double[][] PAPER_COST_SECONDS = {
-            {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
-            {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16},
+        {14, 16, 9}, {13, 19, 18}, {11, 13, 19}, {13, 8, 17}, {12, 13, 10},
+        {13, 16, 9}, {7, 15, 11}, {5, 11, 14}, {18, 12, 20}, {21, 7, 16},
     };
     /** 论文表 2 的 HEFT 调度（vm 映射 / 开始 / 完成，用于逐任务对照）。 */
     private static final int[] PAPER_VM = {-1, 2, 0, 2, 1, 2, 1, 2, 0, 1, 1};
+
     private static final double[] PAPER_START = {0, 0, 27, 9, 18, 28, 26, 38, 57, 56, 73};
     private static final double[] PAPER_FINISH = {0, 9, 40, 28, 26, 38, 42, 49, 62, 68, 80};
     /** 论文 rank_u 表值（复现侧 rank 由规划器内部计算，此处仅打印对照）。 */
-    private static final double[] PAPER_RANK =
-            {0, 108.0, 77.0, 80.0, 80.0, 69.0, 63.333, 42.667, 35.667, 44.333, 14.667};
+    private static final double[] PAPER_RANK = {0, 108.0, 77.0, 80.0, 80.0, 69.0, 63.333, 42.667, 35.667, 44.333, 14.667
+    };
 
     public static void main(String[] args) throws Exception {
         Log.disable();
@@ -67,8 +67,8 @@ public class HeftPaperReproductionExperiment {
         Map<Integer, SimulationReport.JobOutcome> jobs = computeJobs(heft);
 
         System.out.println();
-        System.out.println(String.format("%-5s %-10s %-10s %-18s %-18s %s",
-                "任务", "论文rank", "论文调度", "受控调度(相对)", "映射对照", "传输秒"));
+        System.out.println(
+                String.format("%-5s %-10s %-10s %-18s %-18s %s", "任务", "论文rank", "论文调度", "受控调度(相对)", "映射对照", "传输秒"));
         int mappingMatches = 0;
         for (int t = 1; t <= 10; t++) {
             SimulationReport.JobOutcome job = jobs.get(Integer.valueOf(t));
@@ -78,30 +78,38 @@ public class HeftPaperReproductionExperiment {
             }
             System.out.println(String.format(
                     "t%-4d %8.3f  p%d[%2.0f-%2.0f]  vm%d[%5.1f-%5.1f]    %-14s %6.1f",
-                    t, PAPER_RANK[t], PAPER_VM[t] + 1, PAPER_START[t], PAPER_FINISH[t],
-                    job.getVmId(), job.getStartTime() - BOOTSTRAP,
+                    t,
+                    PAPER_RANK[t],
+                    PAPER_VM[t] + 1,
+                    PAPER_START[t],
+                    PAPER_FINISH[t],
+                    job.getVmId(),
+                    job.getStartTime() - BOOTSTRAP,
                     job.getFinishTime() - BOOTSTRAP,
-                    match ? "一致" : "分歧", transferSeconds(heft, t)));
+                    match ? "一致" : "分歧",
+                    transferSeconds(heft, t)));
         }
 
         double relativeMakespan = heft.getMakespan() - BOOTSTRAP;
         System.out.println();
-        System.out.println(String.format("VM 映射一致率: %d/10（执行前传输延迟语义下与论文逐位一致）",
-                mappingMatches));
-        System.out.println(String.format("论文 makespan: 80.0   受控相对 makespan: %.1f"
-                + "   受控绝对 makespan: %.1f（含引导偏移 %.1f）",
+        System.out.println(String.format("VM 映射一致率: %d/10（执行前传输延迟语义下与论文逐位一致）", mappingMatches));
+        System.out.println(String.format(
+                "论文 makespan: 80.0   受控相对 makespan: %.1f" + "   受控绝对 makespan: %.1f（含引导偏移 %.1f）",
                 relativeMakespan, heft.getMakespan(), BOOTSTRAP + 0.1));
-        System.out.println(String.format("建模传输总秒数: %.1f（跨 VM 边权和；同 VM 副本局部性为 0）",
-                heft.getMetrics().getTotalModeledDataTransferSeconds()));
+        System.out.println(String.format(
+                "建模传输总秒数: %.1f（跨 VM 边权和；同 VM 副本局部性为 0）", heft.getMetrics().getTotalModeledDataTransferSeconds()));
 
         // 基线对照：RANDOM+STATIC（同平台、同成本矩阵、同 LOCAL 通信模型）
         // 与同论文第二算法 LOCAL_CPOP（R10正确关键路径 {n1,n2,n9,n10}，p_CP=vm1）。
         System.out.println();
         System.out.println(String.format("%-22s %14s %14s", "配置", "相对Makespan", "传输总秒"));
-        System.out.println(String.format("%-22s %14.1f %14.1f", "LOCAL_HEFT",
-                relativeMakespan, heft.getMetrics().getTotalModeledDataTransferSeconds()));
+        System.out.println(String.format(
+                "%-22s %14.1f %14.1f",
+                "LOCAL_HEFT", relativeMakespan, heft.getMetrics().getTotalModeledDataTransferSeconds()));
         SimulationReport cpop = run(PlanningAlgorithm.LOCAL_CPOP, 42L);
-        System.out.println(String.format("%-22s %14.1f %14.1f", "LOCAL_CPOP(论文=86)",
+        System.out.println(String.format(
+                "%-22s %14.1f %14.1f",
+                "LOCAL_CPOP(论文=86)",
                 cpop.getMakespan() - BOOTSTRAP,
                 cpop.getMetrics().getTotalModeledDataTransferSeconds()));
         double randomSum = 0.0;
@@ -111,8 +119,9 @@ public class HeftPaperReproductionExperiment {
             double rel = random.getMakespan() - BOOTSTRAP;
             randomSum += rel;
             randomCount++;
-            System.out.println(String.format("%-22s %14.1f %14.1f", "RANDOM(seed" + seed + ")",
-                    rel, random.getMetrics().getTotalModeledDataTransferSeconds()));
+            System.out.println(String.format(
+                    "%-22s %14.1f %14.1f",
+                    "RANDOM(seed" + seed + ")", rel, random.getMetrics().getTotalModeledDataTransferSeconds()));
         }
         System.out.println(String.format("%-22s %14.1f", "RANDOM 均值", randomSum / randomCount));
         System.out.println();
@@ -139,8 +148,8 @@ public class HeftPaperReproductionExperiment {
         PlatformProfile.Builder builder = PlatformProfile.builder("heft-paper-platform");
         for (int id = 0; id < VM_COUNT; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }
@@ -156,8 +165,7 @@ public class HeftPaperReproductionExperiment {
     }
 
     private static Map<Integer, SimulationReport.JobOutcome> computeJobs(SimulationReport report) {
-        Map<Integer, SimulationReport.JobOutcome> jobs =
-                new TreeMap<Integer, SimulationReport.JobOutcome>();
+        Map<Integer, SimulationReport.JobOutcome> jobs = new TreeMap<Integer, SimulationReport.JobOutcome>();
         for (SimulationReport.JobOutcome job : report.getJobs()) {
             if (job.getClassType() == 2 && job.getTaskIds().size() == 1) {
                 jobs.put(job.getTaskIds().get(0), job);

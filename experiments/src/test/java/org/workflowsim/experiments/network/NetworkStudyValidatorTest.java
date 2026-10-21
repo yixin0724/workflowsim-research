@@ -9,9 +9,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
-import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,17 +32,22 @@ import org.workflowsim.experiment.ExperimentArtifactValidator;
 
 /** Protocol-certification regressions use fresh small bundles, never retained research output. */
 class NetworkStudyValidatorTest {
-    private static final Gson JSON = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
-    private static final String ZERO_SHA =
-            "0000000000000000000000000000000000000000000000000000000000000000";
+    private static final Gson JSON =
+            new GsonBuilder().serializeNulls().setPrettyPrinting().create();
+    private static final String ZERO_SHA = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final String[][] AUXILIARY_METRICS = {
-            {"meanWaitingSeconds", "meanComputeTotalWaitingTimeSeconds"},
-            {"p95WaitingSeconds", "p95ComputeTotalWaitingTimeSeconds"},
-            {"meanVmUtilization", "meanVmModeledIntervalUtilization"},
-            {"logicalCompletionSeconds", "logicalTaskCompletionSeconds"}
+        {"meanWaitingSeconds", "meanComputeTotalWaitingTimeSeconds"},
+        {"p95WaitingSeconds", "p95ComputeTotalWaitingTimeSeconds"},
+        {"meanVmUtilization", "meanVmModeledIntervalUtilization"},
+        {"logicalCompletionSeconds", "logicalTaskCompletionSeconds"}
     };
-    @TempDir static Path fixtures;
-    @TempDir Path temporary;
+
+    @TempDir
+    static Path fixtures;
+
+    @TempDir
+    Path temporary;
+
     private static Path smoke;
 
     @BeforeAll
@@ -112,8 +117,15 @@ class NetworkStudyValidatorTest {
 
     @Test
     void rejectsContradictoryPhysicalAndStatisticalProtocolMetadata() throws Exception {
-        String[] fields = {"vmMips", "endpointMbPerSecond", "fatTreeK", "constrainedLinkMbPerSecond",
-                "wideLinkMbPerSecond", "transferStart", "inference"};
+        String[] fields = {
+            "vmMips",
+            "endpointMbPerSecond",
+            "fatTreeK",
+            "constrainedLinkMbPerSecond",
+            "wideLinkMbPerSecond",
+            "transferStart",
+            "inference"
+        };
         for (String field : fields) {
             Path root = copySmoke("metadata-" + field);
             JsonObject index = read(root.resolve(NetworkStudyExecutor.INDEX));
@@ -131,8 +143,8 @@ class NetworkStudyValidatorTest {
     @Test
     void rejectsProtocolHashMismatchWithoutRequiringCurrentSourceIdentity() throws Exception {
         Path root = copySmoke("protocol-sha");
-        mutateFirstManifest(root, manifest -> study(manifest).getAsJsonObject("protocol")
-                .addProperty("sha256", ZERO_SHA));
+        mutateFirstManifest(
+                root, manifest -> study(manifest).getAsJsonObject("protocol").addProperty("sha256", ZERO_SHA));
         assertRejected(root, "run provenance must bind the retained protocol bytes");
     }
 
@@ -161,11 +173,12 @@ class NetworkStudyValidatorTest {
     void sourceTreeEvolutionAloneDoesNotInvalidateHistoricalIntegrity() throws Exception {
         Path root = copySmoke("different-source");
         mutateFirstManifest(root, manifest -> {
-            manifest.getAsJsonObject("provenance").getAsJsonObject("core")
-                    .addProperty("sourceTreeSha256", ZERO_SHA);
+            manifest.getAsJsonObject("provenance").getAsJsonObject("core").addProperty("sourceTreeSha256", ZERO_SHA);
             study(manifest).getAsJsonObject("component").addProperty("sourceTreeSha256", ZERO_SHA);
         });
-        assertEquals(18, NetworkStudyValidator.validate(root.resolve(NetworkStudyExecutor.INDEX)),
+        assertEquals(
+                18,
+                NetworkStudyValidator.validate(root.resolve(NetworkStudyExecutor.INDEX)),
                 "integrity validation is not a claim of identical current-code execution");
     }
 
@@ -173,9 +186,12 @@ class NetworkStudyValidatorTest {
     void rejectsNonzeroOverheadUnderTheFixedStudyProtocol() throws Exception {
         Path root = copySmoke("overhead");
         mutateFirstManifest(root, manifest -> manifest.getAsJsonObject("configuration")
-                .getAsJsonObject("overheadModel").getAsJsonObject("queueDelays")
-                .add("1", JsonParser.parseString("{\"family\":\"WEIBULL\",\"scale\":1.0,\"shape\":1.0,"
-                        + "\"priorShape\":null,\"priorScale\":null,\"likelihoodPrior\":null}")));
+                .getAsJsonObject("overheadModel")
+                .getAsJsonObject("queueDelays")
+                .add(
+                        "1",
+                        JsonParser.parseString("{\"family\":\"WEIBULL\",\"scale\":1.0,\"shape\":1.0,"
+                                + "\"priorShape\":null,\"priorScale\":null,\"likelihoodPrior\":null}")));
         assertRejected(root, "fixed study conditions exclude modeled overhead");
     }
 
@@ -191,7 +207,8 @@ class NetworkStudyValidatorTest {
                 } else if ("preflight".equals(field)) {
                     platform.getAsJsonArray("vms").get(0).getAsJsonObject().addProperty("preflightHostId", 1);
                 } else {
-                    manifest.getAsJsonObject("result").getAsJsonObject("actualVmHostAssignments")
+                    manifest.getAsJsonObject("result")
+                            .getAsJsonObject("actualVmHostAssignments")
                             .addProperty("0", 1);
                 }
             });
@@ -208,10 +225,12 @@ class NetworkStudyValidatorTest {
                 if ("costModel".equals(field)) {
                     manifest.getAsJsonObject("configuration").addProperty("costModel", "VM");
                 } else if ("storage".equals(field)) {
-                    manifest.getAsJsonObject("platform").getAsJsonObject("storage")
+                    manifest.getAsJsonObject("platform")
+                            .getAsJsonObject("storage")
                             .addProperty("maxTransferRateMbPerSecond", 30);
                 } else {
-                    manifest.getAsJsonObject("platform").getAsJsonObject("costs")
+                    manifest.getAsJsonObject("platform")
+                            .getAsJsonObject("costs")
                             .addProperty("cpuPerSecond", 6.0);
                 }
             });
@@ -232,7 +251,8 @@ class NetworkStudyValidatorTest {
     @Test
     void correctedProtocolRequiresItsExecutionSemanticsDeclaration() throws Exception {
         Path root = copySmoke("missing-execution-revision");
-        mutateFirstManifest(root, manifest -> manifest.getAsJsonObject("configuration").remove("executionSemantics"));
+        mutateFirstManifest(
+                root, manifest -> manifest.getAsJsonObject("configuration").remove("executionSemantics"));
         assertRejected(root, "new protocol evidence must declare its corrected execution model");
     }
 
@@ -303,7 +323,8 @@ class NetworkStudyValidatorTest {
             for (String[] metric : AUXILIARY_METRICS) {
                 Path root = copySmoke("negative-metric-" + value + "-" + metric[0]);
                 changeFirstMetricConsistently(root, metric[0], metric[1], values[value]);
-                assertRejected(root, "negative metrics remain invalid even if double conversion underflows: " + metric[0]);
+                assertRejected(
+                        root, "negative metrics remain invalid even if double conversion underflows: " + metric[0]);
             }
         }
     }
@@ -332,8 +353,10 @@ class NetworkStudyValidatorTest {
     void finiteMetricWireDomainIncludesZeroWaitingAndUnitUtilization() throws Exception {
         Path root = copySmoke("metric-domain-boundaries");
         // These are wire-format boundary controls, not claims that the edited values were simulated.
-        changeFirstMetricConsistently(root, "p95WaitingSeconds", "p95ComputeTotalWaitingTimeSeconds", new JsonPrimitive(0.0));
-        changeFirstMetricConsistently(root, "meanVmUtilization", "meanVmModeledIntervalUtilization", new JsonPrimitive(1.0));
+        changeFirstMetricConsistently(
+                root, "p95WaitingSeconds", "p95ComputeTotalWaitingTimeSeconds", new JsonPrimitive(0.0));
+        changeFirstMetricConsistently(
+                root, "meanVmUtilization", "meanVmModeledIntervalUtilization", new JsonPrimitive(1.0));
         assertEquals(18, NetworkStudyValidator.validate(root.resolve(NetworkStudyExecutor.INDEX)));
     }
 
@@ -342,23 +365,28 @@ class NetworkStudyValidatorTest {
         NetworkStudyPlan.StudyVariant[] variants = NetworkStudyPlan.StudyVariant.values();
         for (int i = 0; i < variants.length; i++) {
             Path root = Files.createDirectories(temporary.resolve(mode + "-" + variants[i]));
-            NetworkStudyPlan declared = NetworkStudyPlan.create(mode, variants[i], NetworkStudyTest.datasets(),
-                    root.resolve("inputs"));
+            NetworkStudyPlan declared =
+                    NetworkStudyPlan.create(mode, variants[i], NetworkStudyTest.datasets(), root.resolve("inputs"));
             List<String> ids = new ArrayList<String>();
             ids.add(historical[i]);
-            if (!historical[i].equals(declared.getProtocol())) { ids.add(declared.getProtocol()); }
+            if (!historical[i].equals(declared.getProtocol())) {
+                ids.add(declared.getProtocol());
+            }
             for (String id : ids) {
                 JsonObject plan = JSON.toJsonTree(declared.asMap()).getAsJsonObject();
                 plan.addProperty("protocol", id);
-                if (historical[i].equals(id)) { plan.remove("executionSemantics"); }
+                if (historical[i].equals(id)) {
+                    plan.remove("executionSemantics");
+                }
                 plan.add("workflows", new JsonArray());
                 plan.addProperty("runCount", 0);
                 JsonObject index = new JsonObject();
                 index.addProperty("schema", "workflowsim-network-study-v1");
                 index.add("plan", plan);
                 index.add("runs", new JsonArray());
-                index.add("summary", JSON.toJsonTree(NetworkStudySummary.summarize(
-                        Collections.<Map<String, Object>>emptyList())));
+                index.add(
+                        "summary",
+                        JSON.toJsonTree(NetworkStudySummary.summarize(Collections.<Map<String, Object>>emptyList())));
                 write(root.resolve("protocol.json"), plan);
                 write(root.resolve(NetworkStudyExecutor.INDEX), index);
                 assertRejected(root, "an empty " + mode + " matrix cannot claim " + id);
@@ -369,11 +397,16 @@ class NetworkStudyValidatorTest {
     private Path copySmoke(String name) throws Exception {
         Path target = temporary.resolve(name);
         List<Path> paths;
-        try (Stream<Path> stream = Files.walk(smoke)) { paths = stream.collect(Collectors.toList()); }
+        try (Stream<Path> stream = Files.walk(smoke)) {
+            paths = stream.collect(Collectors.toList());
+        }
         for (Path path : paths) {
             Path destination = target.resolve(smoke.relativize(path));
-            if (Files.isDirectory(path)) { Files.createDirectories(destination); }
-            else { Files.copy(path, destination); }
+            if (Files.isDirectory(path)) {
+                Files.createDirectories(destination);
+            } else {
+                Files.copy(path, destination);
+            }
         }
         return target;
     }
@@ -388,8 +421,8 @@ class NetworkStudyValidatorTest {
     }
 
     /** Mutate all metric representations and repair the sidecar binding before testing the study gate. */
-    private static void changeFirstMetricConsistently(Path root, String runKey, String metricKey,
-            JsonElement replacement) throws Exception {
+    private static void changeFirstMetricConsistently(
+            Path root, String runKey, String metricKey, JsonElement replacement) throws Exception {
         JsonObject index = read(root.resolve(NetworkStudyExecutor.INDEX));
         JsonObject run = index.getAsJsonArray("runs").get(0).getAsJsonObject();
         Path manifestPath = root.resolve(run.get("manifest").getAsString());
@@ -397,10 +430,16 @@ class NetworkStudyValidatorTest {
         JsonObject metricsArtifact = null;
         for (JsonElement value : manifest.getAsJsonArray("artifacts")) {
             JsonObject artifact = value.getAsJsonObject();
-            if ("metrics".equals(artifact.get("role").getAsString())) { metricsArtifact = artifact; break; }
+            if ("metrics".equals(artifact.get("role").getAsString())) {
+                metricsArtifact = artifact;
+                break;
+            }
         }
-        if (metricsArtifact == null) { throw new AssertionError("Fixture has no metrics artifact"); }
-        Path metricsPath = manifestPath.getParent().resolve(metricsArtifact.get("path").getAsString());
+        if (metricsArtifact == null) {
+            throw new AssertionError("Fixture has no metrics artifact");
+        }
+        Path metricsPath =
+                manifestPath.getParent().resolve(metricsArtifact.get("path").getAsString());
         JsonObject sidecar = read(metricsPath);
         if (replacement == null) {
             run.remove(runKey);
@@ -415,14 +454,20 @@ class NetworkStudyValidatorTest {
         byte[] bytes = Files.readAllBytes(metricsPath);
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
         StringBuilder sha = new StringBuilder();
-        for (byte value : digest) { sha.append(String.format(java.util.Locale.ROOT, "%02x", value & 255)); }
+        for (byte value : digest) {
+            sha.append(String.format(java.util.Locale.ROOT, "%02x", value & 255));
+        }
         metricsArtifact.addProperty("sha256", sha.toString());
         metricsArtifact.addProperty("sizeBytes", bytes.length);
         write(manifestPath, manifest);
         refreshSummary(index);
         write(root.resolve(NetworkStudyExecutor.INDEX), index);
-        assertDoesNotThrow(() -> { ExperimentArtifactValidator.validate(manifestPath); },
-                "The coordinated " + metricKey + " fixture must pass generic artifact integrity before the study-specific assertion");
+        assertDoesNotThrow(
+                () -> {
+                    ExperimentArtifactValidator.validate(manifestPath);
+                },
+                "The coordinated " + metricKey
+                        + " fixture must pass generic artifact integrity before the study-specific assertion");
     }
 
     private static JsonObject study(JsonObject manifest) {
@@ -436,8 +481,8 @@ class NetworkStudyValidatorTest {
     }
 
     private static void refreshSummary(JsonObject index) {
-        List<Map<String, Object>> runs = JSON.fromJson(index.get("runs"),
-                new TypeToken<List<Map<String, Object>>>() { }.getType());
+        List<Map<String, Object>> runs =
+                JSON.fromJson(index.get("runs"), new TypeToken<List<Map<String, Object>>>() {}.getType());
         index.add("summary", JSON.toJsonTree(NetworkStudySummary.summarize(runs)));
     }
 
@@ -448,13 +493,17 @@ class NetworkStudyValidatorTest {
         write(protocol, plan);
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(protocol));
         StringBuilder sha = new StringBuilder();
-        for (byte value : digest) { sha.append(String.format(java.util.Locale.ROOT, "%02x", value & 255)); }
+        for (byte value : digest) {
+            sha.append(String.format(java.util.Locale.ROOT, "%02x", value & 255));
+        }
         for (JsonElement element : index.getAsJsonArray("runs")) {
-            Path manifestPath = root.resolve(element.getAsJsonObject().get("manifest").getAsString());
+            Path manifestPath =
+                    root.resolve(element.getAsJsonObject().get("manifest").getAsString());
             JsonObject manifest = read(manifestPath);
             JsonObject study = study(manifest);
             study.addProperty("id", plan.get("protocol").getAsString());
-            study.getAsJsonObject("protocol").addProperty("logicalId", plan.get("protocol").getAsString());
+            study.getAsJsonObject("protocol")
+                    .addProperty("logicalId", plan.get("protocol").getAsString());
             study.getAsJsonObject("protocol").addProperty("available", true);
             study.getAsJsonObject("protocol").addProperty("sha256", sha.toString());
             write(manifestPath, manifest);
@@ -463,11 +512,15 @@ class NetworkStudyValidatorTest {
     }
 
     private static void assertRejected(Path root, String reason) {
-        assertThrows(IOException.class, () -> NetworkStudyValidator.validate(root.resolve(NetworkStudyExecutor.INDEX)), reason);
+        assertThrows(
+                IOException.class,
+                () -> NetworkStudyValidator.validate(root.resolve(NetworkStudyExecutor.INDEX)),
+                reason);
     }
 
     private static JsonObject read(Path path) throws IOException {
-        return JsonParser.parseString(new String(Files.readAllBytes(path), StandardCharsets.UTF_8)).getAsJsonObject();
+        return JsonParser.parseString(new String(Files.readAllBytes(path), StandardCharsets.UTF_8))
+                .getAsJsonObject();
     }
 
     private static void write(Path path, JsonElement value) throws IOException {

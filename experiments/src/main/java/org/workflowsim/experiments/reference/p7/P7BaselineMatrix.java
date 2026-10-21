@@ -30,6 +30,7 @@ public final class P7BaselineMatrix {
     public static final double RUNTIME_SCALE = 1.0;
     /** 冻结的 CloudSim 内核节拍；改变它会改变模型中的任务开始时间。 */
     public static final double CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS = 0.1;
+
     public static final int SMALL_VM_COUNT = 10;
     public static final int LARGE_VM_COUNT = 50;
 
@@ -42,17 +43,24 @@ public final class P7BaselineMatrix {
                     Parameters.SchedulingAlgorithm.READY_BATCH_MAXMIN));
 
     private static final List<Workload> WORKLOADS = Collections.unmodifiableList(Arrays.asList(
-            new Workload("epigenomics-n100", "Epigenomics", 100, SMALL_VM_COUNT,
+            new Workload(
+                    "epigenomics-n100",
+                    "Epigenomics",
+                    100,
+                    SMALL_VM_COUNT,
                     "dax/epigenomics/n100/Epigenomics_100.dax",
                     "374521746417b18133682de21b654b84c32acde6332462c0ce916c4ba12c7f36"),
-            new Workload("epigenomics-n997", "Epigenomics", 997, LARGE_VM_COUNT,
+            new Workload(
+                    "epigenomics-n997",
+                    "Epigenomics",
+                    997,
+                    LARGE_VM_COUNT,
                     "dax/epigenomics/n997/Epigenomics_997.dax",
                     "2ed853db24126750a1bf427b5731d5fb18b6d31baf3d2088c14b310478bed628")));
 
     private static final Set<String> BASELINE_CELL_KEYS = buildBaselineCellKeys();
 
-    private P7BaselineMatrix() {
-    }
+    private P7BaselineMatrix() {}
 
     /**
      * 返回 P7 基线协议允许使用的调度算法。
@@ -182,14 +190,14 @@ public final class P7BaselineMatrix {
      * @return 具有固定种子、运行时换算参数和 CloudSim 节拍的配置
      * @throws IllegalArgumentException 当参数为空或算法不属于 P7 基线时
      */
-    public static SimulationConfig baselineConfig(Scenario scenario,
-            Parameters.SchedulingAlgorithm schedulingAlgorithm, Path datasetRoot) {
+    public static SimulationConfig baselineConfig(
+            Scenario scenario, Parameters.SchedulingAlgorithm schedulingAlgorithm, Path datasetRoot) {
         if (scenario == null || schedulingAlgorithm == null || datasetRoot == null) {
             throw new IllegalArgumentException("Scenario, scheduling algorithm, and dataset root are required");
         }
         if (!SCHEDULING_ALGORITHMS.contains(schedulingAlgorithm)) {
-            throw new IllegalArgumentException("Scheduling algorithm is outside the P7 baseline: "
-                    + schedulingAlgorithm);
+            throw new IllegalArgumentException(
+                    "Scheduling algorithm is outside the P7 baseline: " + schedulingAlgorithm);
         }
         return SimulationConfig.builder(scenario.resolveWorkflow(datasetRoot).toString(), scenario.getVmCount())
                 .schedulingAlgorithm(schedulingAlgorithm)
@@ -200,8 +208,7 @@ public final class P7BaselineMatrix {
                 .runtimeScale(RUNTIME_SCALE)
                 .cloudSimMinEventIntervalSeconds(CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS)
                 .overheadModel(OverheadModelConfig.none())
-                .clusteringParameters(new ClusteringParameters(0, 0,
-                        ClusteringParameters.ClusteringMethod.NONE, null))
+                .clusteringParameters(new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null))
                 .failureModel(FailureModelConfig.disabled())
                 .costModel(Parameters.CostModel.DATACENTER)
                 .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
@@ -222,12 +229,11 @@ public final class P7BaselineMatrix {
         PlatformProfile.Builder builder = PlatformProfile.builder("p7-" + scenario.getId());
         for (int id = 0; id < scenario.getVmCount(); id++) {
             double vmMips = scenario.getPlatformVariant() == PlatformVariant.H0_HOMOGENEOUS
-                    ? 1000.0 : (id % 2 == 0 ? 500.0 : 1500.0);
-            builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000.0,
-                    2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, vmMips, 1, 512,
-                    1000L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+                    ? 1000.0
+                    : (id % 2 == 0 ? 500.0 : 1500.0);
+            builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000.0, 2048, 10_000L, 1_000_000L));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, vmMips, 1, 512, 1000L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }
@@ -298,8 +304,13 @@ public final class P7BaselineMatrix {
         private final String relativeWorkflowPath;
         private final String expectedWorkflowSha256;
 
-        private Workload(String id, String family, int expectedTaskCount, int vmCount,
-                String relativeWorkflowPath, String expectedWorkflowSha256) {
+        private Workload(
+                String id,
+                String family,
+                int expectedTaskCount,
+                int vmCount,
+                String relativeWorkflowPath,
+                String expectedWorkflowSha256) {
             this.id = id;
             this.family = family;
             this.expectedTaskCount = expectedTaskCount;

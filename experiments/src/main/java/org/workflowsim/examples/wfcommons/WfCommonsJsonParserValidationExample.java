@@ -29,8 +29,7 @@ import org.workflowsim.utils.ReplicaCatalog;
  */
 public final class WfCommonsJsonParserValidationExample {
 
-    private WfCommonsJsonParserValidationExample() {
-    }
+    private WfCommonsJsonParserValidationExample() {}
 
     public static void main(String[] args) throws Exception {
         if (args != null && args.length > 1) {
@@ -60,20 +59,13 @@ public final class WfCommonsJsonParserValidationExample {
             totalEdges += edgeCount;
             System.out.println(String.format(
                     "WFJSON file=%s tasks=%d edges=%d roots=%d leaves=%d",
-                    jsonFile.getPath(),
-                    tasks.size(),
-                    edgeCount,
-                    countRoots(tasks),
-                    countLeaves(tasks)));
+                    jsonFile.getPath(), tasks.size(), edgeCount, countRoots(tasks), countLeaves(tasks)));
         }
 
         long elapsedMillis = System.currentTimeMillis() - startMillis;
         System.out.println(String.format(
                 "WFJSON_VALIDATION PASSED files=%d tasks=%d edges=%d elapsed_ms=%d",
-                jsonFiles.size(),
-                totalTasks,
-                totalEdges,
-                elapsedMillis));
+                jsonFiles.size(), totalTasks, totalEdges, elapsedMillis));
     }
 
     private static List<File> findJsonFiles(File root) throws IOException {
@@ -117,12 +109,12 @@ public final class WfCommonsJsonParserValidationExample {
         }
         for (Task task : tasks) {
             if (task.getCloudletLength() <= 0L) {
-                throw new IllegalStateException("Task " + task.getCloudletId()
-                        + " has non-positive length in " + jsonFile.getPath());
+                throw new IllegalStateException(
+                        "Task " + task.getCloudletId() + " has non-positive length in " + jsonFile.getPath());
             }
             if (task.getDepth() <= 0) {
-                throw new IllegalStateException("Task " + task.getCloudletId()
-                        + " has non-positive depth in " + jsonFile.getPath());
+                throw new IllegalStateException(
+                        "Task " + task.getCloudletId() + " has non-positive depth in " + jsonFile.getPath());
             }
             for (Task child : task.getChildList()) {
                 if (!child.getParentList().contains(task)) {

@@ -32,13 +32,18 @@ class FatTreeCampaignDagCompatibilityIntegrationTest {
 
     private static final List<String> EXPECTED_PASSED = Arrays.asList(
             "heft-paper-example",
-            "epigenomics-n24", "epigenomics-n46", "epigenomics-n100",
-            "cybershake-n30", "cybershake-n50", "cybershake-n100",
-            "inspiral-n30", "inspiral-n50", "inspiral-n100");
+            "epigenomics-n24",
+            "epigenomics-n46",
+            "epigenomics-n100",
+            "cybershake-n30",
+            "cybershake-n50",
+            "cybershake-n100",
+            "inspiral-n30",
+            "inspiral-n50",
+            "inspiral-n100");
 
-    private static final List<String> EXPECTED_REJECTED = Arrays.asList(
-            "montage-n25", "montage-n50", "montage-n100",
-            "sipht-n30", "sipht-n60", "sipht-n100");
+    private static final List<String> EXPECTED_REJECTED =
+            Arrays.asList("montage-n25", "montage-n50", "montage-n100", "sipht-n30", "sipht-n60", "sipht-n100");
 
     /** campaign DAG 集 = 兼容性通过集，逐元素精确。 */
     @Test
@@ -60,8 +65,7 @@ class FatTreeCampaignDagCompatibilityIntegrationTest {
         List<String> passed = new ArrayList<String>();
         List<String> rejected = new ArrayList<String>();
         for (CandidateDag candidate : allCandidates()) {
-            SimulationConfig config = SimulationConfig
-                    .builder(candidate.daxPath, 3)
+            SimulationConfig config = SimulationConfig.builder(candidate.daxPath, 3)
                     .planningAlgorithm(Parameters.PlanningAlgorithm.LOCAL_HEFT)
                     .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                     .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -73,9 +77,9 @@ class FatTreeCampaignDagCompatibilityIntegrationTest {
                 passed.add(candidate.id);
             } catch (Exception exception) {
                 rejected.add(candidate.id);
-                assertTrue(rootCauseMessage(exception).contains("inconsistent size declarations"),
-                        candidate.id + ": 拒绝原因必须是文件尺寸不一致，实际 "
-                                + rootCauseMessage(exception));
+                assertTrue(
+                        rootCauseMessage(exception).contains("inconsistent size declarations"),
+                        candidate.id + ": 拒绝原因必须是文件尺寸不一致，实际 " + rootCauseMessage(exception));
             }
         }
         assertEquals(EXPECTED_PASSED, passed, "通过集逐元素一致");
@@ -84,13 +88,15 @@ class FatTreeCampaignDagCompatibilityIntegrationTest {
 
     private static List<CandidateDag> allCandidates() throws IOException {
         String[][] families = {
-                {"montage", "n25", "n50", "n100"},
-                {"epigenomics", "n24", "n46", "n100"},
-                {"cybershake", "n30", "n50", "n100"},
-                {"inspiral", "n30", "n50", "n100"},
-                {"sipht", "n30", "n60", "n100"}};
+            {"montage", "n25", "n50", "n100"},
+            {"epigenomics", "n24", "n46", "n100"},
+            {"cybershake", "n30", "n50", "n100"},
+            {"inspiral", "n30", "n50", "n100"},
+            {"sipht", "n30", "n60", "n100"}
+        };
         List<CandidateDag> candidates = new ArrayList<CandidateDag>();
-        candidates.add(new CandidateDag("heft-paper-example",
+        candidates.add(new CandidateDag(
+                "heft-paper-example",
                 datasetsRoot().resolve("dax/heft/heft-paper-example.dax").toString()));
         for (String[] family : families) {
             for (int scaleIndex = 1; scaleIndex < family.length; scaleIndex++) {
@@ -127,8 +133,8 @@ class FatTreeCampaignDagCompatibilityIntegrationTest {
         PlatformProfile.Builder builder = PlatformProfile.builder("dag-compat-platform");
         for (int id = 0; id < 3; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         return builder.build();
     }

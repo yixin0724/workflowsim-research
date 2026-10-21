@@ -6,10 +6,10 @@
  */
 package org.workflowsim.examples.wfcommons;
 
-import java.text.DecimalFormat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import org.cloudbus.cloudsim.Log;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
@@ -28,17 +28,15 @@ import org.workflowsim.utils.SimulationConfig;
  */
 public final class WfCommonsSimulationExample1 {
 
-    private WfCommonsSimulationExample1() {
-    }
+    private WfCommonsSimulationExample1() {}
 
     public static void main(String[] args) throws Exception {
         if (args != null && args.length > 1) {
             throw new IllegalArgumentException("Usage: WfCommonsSimulationExample1 [jsonPath]");
         }
         int vmNum = 20;
-        String jsonPath = args != null && args.length > 0
-                ? args[0]
-                : "datasets/wfformat/montage/n100/montage-100-000.json";
+        String jsonPath =
+                args != null && args.length > 0 ? args[0] : "datasets/wfformat/montage/n100/montage-100-000.json";
         Path jsonFile = Paths.get(jsonPath).toAbsolutePath().normalize();
         if (!Files.isRegularFile(jsonFile)) {
             throw new IllegalArgumentException("Workflow JSON does not exist or is not a regular file: " + jsonFile);
@@ -48,8 +46,7 @@ public final class WfCommonsSimulationExample1 {
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.READY_BATCH_MINMIN)
                 .randomSeed(20260901L)
                 .build();
-        PlatformProfile platform = PlatformProfiles.homogeneousLocal(
-                "wfcommons-homogeneous-local", vmNum);
+        PlatformProfile platform = PlatformProfiles.homogeneousLocal("wfcommons-homogeneous-local", vmNum);
         SimulationReport report = new SimulationRunner().run(config, platform);
         printReport(report);
     }

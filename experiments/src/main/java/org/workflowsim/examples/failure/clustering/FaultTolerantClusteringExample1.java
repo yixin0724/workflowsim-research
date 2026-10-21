@@ -21,8 +21,8 @@ import java.util.List;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.examples.ExampleCliSupport;
@@ -85,9 +85,14 @@ public class FaultTolerantClusteringExample1 extends FaultTolerantSchedulingExam
                 /*
                  * 为教学简化，各层复用同一 Weibull 到达间隔参数。它是抽象情景设定，
                  * 不应解释为已校准的固定任务失败率。
-                */
-                DistributionGenerator generator = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL,
-                        ExampleCliSupport.LEGACY_CLUSTERING_DEMO_FAILURE_INTERVAL_SCALE, 1.0, 30, 300, 0.78);
+                 */
+                DistributionGenerator generator = new DistributionGenerator(
+                        DistributionGenerator.DistributionFamily.WEIBULL,
+                        ExampleCliSupport.LEGACY_CLUSTERING_DEMO_FAILURE_INTERVAL_SCALE,
+                        1.0,
+                        30,
+                        300,
+                        0.78);
                 for (int vmId = 0; vmId < vmNum; vmId++) {
                     failureGenerators[vmId][level] = generator;
                 }
@@ -107,18 +112,16 @@ public class FaultTolerantClusteringExample1 extends FaultTolerantSchedulingExam
 
             /** 初始化旧版故障状态、静态参数与文件目录。 */
             FailureParameters.init(ftc_method, ftc_monitor, ftc_failure, failureGenerators);
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             FailureMonitor.init();
             FailureGenerator.init();
 
             // 在创建模拟实体前初始化 CloudSim。
-            int num_user = 1;   // 模拟用户数。
+            int num_user = 1; // 模拟用户数。
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录 CloudSim 事件轨迹。
+            boolean trace_flag = false; // 是否记录 CloudSim 事件轨迹。
 
             // 初始化 CloudSim 事件引擎。
             CloudSim.init(num_user, calendar, trace_flag);

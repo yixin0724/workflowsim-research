@@ -4,11 +4,11 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.workflowsim.exception.SimulationExecutionException;
 import org.workflowsim.experiment.ExperimentArtifactWriter;
 import org.workflowsim.experiment.ExperimentArtifactWriter.ExperimentArtifacts;
 import org.workflowsim.experiment.SimulationReport;
 import org.workflowsim.experiment.SimulationRunner;
-import org.workflowsim.exception.SimulationExecutionException;
 
 /**
  * D2 阶段 4：完整复跑流水线——读取 v4 证据 → 三级定位输入 → 重建配置/平台 →
@@ -31,8 +31,7 @@ public final class RerunExecutor {
     /** rerun 产物的 runId，与历史证据保持同构（result.*）。 */
     public static final String RERUN_RUN_ID = "result";
 
-    private RerunExecutor() {
-    }
+    private RerunExecutor() {}
 
     /**
      * 从 run 目录执行完整复跑流水线。
@@ -67,12 +66,10 @@ public final class RerunExecutor {
         Path absoluteOutput = outputDirectory.toAbsolutePath().normalize();
         refuseNonEmptyDirectory(absoluteOutput);
         RerunInputs inputs = RerunInputResolver.resolve(evidence);
-        ManifestConfigRebuilder.RebuiltConfiguration rebuilt =
-                ManifestConfigRebuilder.rebuild(evidence, inputs);
-        SimulationReport report =
-                new SimulationRunner().run(rebuilt.getConfig(), rebuilt.getPlatform());
-        ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(report,
-                absoluteOutput.resolve(RERUN_DIRECTORY_NAME), RERUN_RUN_ID);
+        ManifestConfigRebuilder.RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, inputs);
+        SimulationReport report = new SimulationRunner().run(rebuilt.getConfig(), rebuilt.getPlatform());
+        ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, absoluteOutput.resolve(RERUN_DIRECTORY_NAME), RERUN_RUN_ID);
         return new RerunExecution(evidence, inputs, artifacts);
     }
 
@@ -82,13 +79,11 @@ public final class RerunExecutor {
             return;
         }
         if (!Files.isDirectory(directory)) {
-            throw new IllegalStateException(
-                    "Output path exists but is not a directory: " + directory);
+            throw new IllegalStateException("Output path exists but is not a directory: " + directory);
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
             if (stream.iterator().hasNext()) {
-                throw new IllegalStateException(
-                        "Output directory must be empty or nonexistent: " + directory);
+                throw new IllegalStateException("Output directory must be empty or nonexistent: " + directory);
             }
         }
     }
@@ -100,8 +95,7 @@ public final class RerunExecutor {
         private final RerunInputs inputs;
         private final ExperimentArtifacts artifacts;
 
-        RerunExecution(RerunEvidence evidence, RerunInputs inputs,
-                ExperimentArtifacts artifacts) {
+        RerunExecution(RerunEvidence evidence, RerunInputs inputs, ExperimentArtifacts artifacts) {
             this.evidence = evidence;
             this.inputs = inputs;
             this.artifacts = artifacts;

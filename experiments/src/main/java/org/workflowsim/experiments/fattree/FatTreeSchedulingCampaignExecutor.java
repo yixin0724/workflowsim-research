@@ -53,12 +53,11 @@ public final class FatTreeSchedulingCampaignExecutor {
     static final long FIXED_SEED = 91L;
 
     /** campaign 对照规划器：两个通信感知 + 两个通信无感知基线（探测验证合法）。 */
-    static final List<Parameters.PlanningAlgorithm> PLANNERS = Collections.unmodifiableList(
-            Arrays.asList(
-                    Parameters.PlanningAlgorithm.LOCAL_HEFT,
-                    Parameters.PlanningAlgorithm.LOCAL_CPOP,
-                    Parameters.PlanningAlgorithm.RANDOM,
-                    Parameters.PlanningAlgorithm.PSO));
+    static final List<Parameters.PlanningAlgorithm> PLANNERS = Collections.unmodifiableList(Arrays.asList(
+            Parameters.PlanningAlgorithm.LOCAL_HEFT,
+            Parameters.PlanningAlgorithm.LOCAL_CPOP,
+            Parameters.PlanningAlgorithm.RANDOM,
+            Parameters.PlanningAlgorithm.PSO));
 
     /** 三种 V1 数据移动对照；释放和共享规则不同，跨模型单调性仅作诊断。 */
     static final List<DataMovementModel> MODELS = Collections.unmodifiableList(Arrays.asList(
@@ -89,21 +88,15 @@ public final class FatTreeSchedulingCampaignExecutor {
      * 带宽比轴（A4）有效。结构轴的判别力由 4 主机结构块
      * （{@link #structuralVariants()}）提供。</p>
      */
-    static final List<TopologyVariant> SENSITIVITY_VARIANTS =
-            Collections.unmodifiableList(Arrays.asList(
-                    new TopologyVariant("baseline-k4-full",
-                            NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB)),
-                    new TopologyVariant("A1-k4-oversub2x",
-                            NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, 2)),
-                    new TopologyVariant("A2-k8-full",
-                            NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB)),
-                    new TopologyVariant("A3-k8-oversub2x",
-                            NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB, 8)),
-                    new TopologyVariant("A4-k4-full-link10x",
-                            NetworkTopologySpec.fatTree(4, A4_LINK_BANDWIDTH_MB)),
-                    new TopologyVariant("A5-k4-full-same-edge-pair",
-                            NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, null,
-                                    sameEdgePairPlacements()))));
+    static final List<TopologyVariant> SENSITIVITY_VARIANTS = Collections.unmodifiableList(Arrays.asList(
+            new TopologyVariant("baseline-k4-full", NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB)),
+            new TopologyVariant("A1-k4-oversub2x", NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, 2)),
+            new TopologyVariant("A2-k8-full", NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB)),
+            new TopologyVariant("A3-k8-oversub2x", NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB, 8)),
+            new TopologyVariant("A4-k4-full-link10x", NetworkTopologySpec.fatTree(4, A4_LINK_BANDWIDTH_MB)),
+            new TopologyVariant(
+                    "A5-k4-full-same-edge-pair",
+                    NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, null, sameEdgePairPlacements()))));
 
     /**
      * 4 主机结构敏感性变体：与 3 主机轴相同，但 A5 放置覆盖 4 台主机
@@ -117,23 +110,17 @@ public final class FatTreeSchedulingCampaignExecutor {
         pairPlacements.put(Integer.valueOf(2), Integer.valueOf(2));
         pairPlacements.put(Integer.valueOf(3), Integer.valueOf(2));
         return Collections.unmodifiableList(Arrays.asList(
-                new TopologyVariant("baseline-k4-full",
-                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB)),
-                new TopologyVariant("A1-k4-oversub2x",
-                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, 2)),
-                new TopologyVariant("A2-k8-full",
-                        NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB)),
-                new TopologyVariant("A3-k8-oversub2x",
-                        NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB, 8)),
-                new TopologyVariant("A4-k4-full-link10x",
-                        NetworkTopologySpec.fatTree(4, A4_LINK_BANDWIDTH_MB)),
-                new TopologyVariant("A5-k4-full-same-edge-pairs",
-                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, null,
-                                pairPlacements))));
+                new TopologyVariant("baseline-k4-full", NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB)),
+                new TopologyVariant("A1-k4-oversub2x", NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, 2)),
+                new TopologyVariant("A2-k8-full", NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB)),
+                new TopologyVariant("A3-k8-oversub2x", NetworkTopologySpec.fatTree(8, BASELINE_LINK_BANDWIDTH_MB, 8)),
+                new TopologyVariant("A4-k4-full-link10x", NetworkTopologySpec.fatTree(4, A4_LINK_BANDWIDTH_MB)),
+                new TopologyVariant(
+                        "A5-k4-full-same-edge-pairs",
+                        NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB, null, pairPlacements))));
     }
 
-    private FatTreeSchedulingCampaignExecutor() {
-    }
+    private FatTreeSchedulingCampaignExecutor() {}
 
     /**
      * 同 edge 热点放置：host0/host1 显式放 edge 全局索引 0（k=4 时每 edge
@@ -158,11 +145,12 @@ public final class FatTreeSchedulingCampaignExecutor {
         Path datasetsRoot;
         Path outputDir;
         if (args == null || args.length == 0) {
-            Path projectRoot = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+            Path projectRoot =
+                    Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
             datasetsRoot = projectRoot.resolve("datasets");
-            outputDir = projectRoot.resolve("fattree-campaign-output")
-                    .resolve("run-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss")
-                            .format(new java.util.Date()));
+            outputDir = projectRoot
+                    .resolve("fattree-campaign-output")
+                    .resolve("run-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new java.util.Date()));
             System.out.println("[campaign] 未提供参数，使用默认路径：");
             System.out.println("[campaign]   数据集根 = " + datasetsRoot);
             System.out.println("[campaign]   输出目录 = " + outputDir);
@@ -170,8 +158,7 @@ public final class FatTreeSchedulingCampaignExecutor {
             datasetsRoot = Paths.get(args[0]).toAbsolutePath().normalize();
             outputDir = Paths.get(args[1]).toAbsolutePath().normalize();
         } else {
-            throw new IllegalArgumentException(
-                    "Usage: FatTreeSchedulingCampaignExecutor <datasets-root> <output-dir>");
+            throw new IllegalArgumentException("Usage: FatTreeSchedulingCampaignExecutor <datasets-root> <output-dir>");
         }
         Log.disable();
         List<DagScenario> dags = discoverCoreDags(datasetsRoot);
@@ -197,19 +184,19 @@ public final class FatTreeSchedulingCampaignExecutor {
      */
     static List<DagScenario> discoverCoreDags(Path datasetsRoot) throws IOException {
         String[][] families = {
-                {"epigenomics", "n24", "n46", "n100"},
-                {"cybershake", "n30", "n50", "n100"},
-                {"inspiral", "n30", "n50", "n100"}};
+            {"epigenomics", "n24", "n46", "n100"},
+            {"cybershake", "n30", "n50", "n100"},
+            {"inspiral", "n30", "n50", "n100"}
+        };
         List<DagScenario> dags = new ArrayList<DagScenario>();
-        dags.add(new DagScenario("heft-paper-example", "heft", "n10",
-                datasetsRoot.resolve("dax/heft/heft-paper-example.dax")));
+        dags.add(new DagScenario(
+                "heft-paper-example", "heft", "n10", datasetsRoot.resolve("dax/heft/heft-paper-example.dax")));
         for (String[] family : families) {
             for (int scaleIndex = 1; scaleIndex < family.length; scaleIndex++) {
                 String familyName = family[0];
                 String scale = family[scaleIndex];
                 Path dir = datasetsRoot.resolve("dax").resolve(familyName).resolve(scale);
-                dags.add(new DagScenario(familyName + "-" + scale, familyName, scale,
-                        singleDax(dir)));
+                dags.add(new DagScenario(familyName + "-" + scale, familyName, scale, singleDax(dir)));
             }
         }
         return Collections.unmodifiableList(dags);
@@ -241,8 +228,9 @@ public final class FatTreeSchedulingCampaignExecutor {
      * @return 主矩阵 + 敏感性 + 结构敏感性 + 统计 + 排名的完整结果
      * @throws Exception 当任一次运行不健康时
      */
-    static CampaignResults runCampaign(Path datasetsRoot, List<DagScenario> dags,
-            boolean includeSensitivity, boolean includeStructural) throws Exception {
+    static CampaignResults runCampaign(
+            Path datasetsRoot, List<DagScenario> dags, boolean includeSensitivity, boolean includeStructural)
+            throws Exception {
         SimulationRunner runner = new SimulationRunner();
         List<Map<String, Object>> mainMatrix = new ArrayList<Map<String, Object>>();
         long startedAt = System.nanoTime();
@@ -251,8 +239,8 @@ public final class FatTreeSchedulingCampaignExecutor {
                 for (DataMovementModel model : MODELS) {
                     boolean fatTree = model.isFatTreeContentionV1();
                     SimulationConfig config = baseConfig(dag, planner, model, 3);
-                    PlatformProfile platform = platform(3, fatTree
-                            ? NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB) : null);
+                    PlatformProfile platform =
+                            platform(3, fatTree ? NetworkTopologySpec.fatTree(4, BASELINE_LINK_BANDWIDTH_MB) : null);
                     SimulationReport report = runner.run(config, platform);
                     assertHealthy(report, "main:" + dag.id + ":" + planner + ":" + model.getKind());
                     Map<String, Object> record = new LinkedHashMap<String, Object>();
@@ -267,9 +255,8 @@ public final class FatTreeSchedulingCampaignExecutor {
                 }
             }
         }
-        List<Parameters.PlanningAlgorithm> sensitivePlanners = Arrays.asList(
-                Parameters.PlanningAlgorithm.LOCAL_HEFT,
-                Parameters.PlanningAlgorithm.LOCAL_CPOP);
+        List<Parameters.PlanningAlgorithm> sensitivePlanners =
+                Arrays.asList(Parameters.PlanningAlgorithm.LOCAL_HEFT, Parameters.PlanningAlgorithm.LOCAL_CPOP);
         List<Map<String, Object>> sensitivity = new ArrayList<Map<String, Object>>();
         if (includeSensitivity) {
             for (DagScenario dag : dags) {
@@ -277,8 +264,7 @@ public final class FatTreeSchedulingCampaignExecutor {
                     for (TopologyVariant variant : SENSITIVITY_VARIANTS) {
                         SimulationConfig config = baseConfig(dag, planner, MODELS.get(2), 3);
                         SimulationReport report = runner.run(config, platform(3, variant.spec));
-                        assertHealthy(report,
-                                "sens:" + dag.id + ":" + planner + ":" + variant.id);
+                        assertHealthy(report, "sens:" + dag.id + ":" + planner + ":" + variant.id);
                         Map<String, Object> record = new LinkedHashMap<String, Object>();
                         record.put("dax", dag.id);
                         record.put("planner", planner.name());
@@ -296,8 +282,7 @@ public final class FatTreeSchedulingCampaignExecutor {
                     for (TopologyVariant variant : structuralVariants()) {
                         SimulationConfig config = baseConfig(dag, planner, MODELS.get(2), 4);
                         SimulationReport report = runner.run(config, platform(4, variant.spec));
-                        assertHealthy(report,
-                                "struct:" + dag.id + ":" + planner + ":" + variant.id);
+                        assertHealthy(report, "struct:" + dag.id + ":" + planner + ":" + variant.id);
                         Map<String, Object> record = new LinkedHashMap<String, Object>();
                         record.put("dax", dag.id);
                         record.put("planner", planner.name());
@@ -309,15 +294,13 @@ public final class FatTreeSchedulingCampaignExecutor {
             }
         }
         CampaignResults results = new CampaignResults(dags, mainMatrix, sensitivity, structural);
-        System.out.println("[campaign] 运行耗时 "
-                + (System.nanoTime() - startedAt) / 1_000_000_000.0 + " s");
+        System.out.println("[campaign] 运行耗时 " + (System.nanoTime() - startedAt) / 1_000_000_000.0 + " s");
         return results;
     }
 
-    private static SimulationConfig baseConfig(DagScenario dag,
-            Parameters.PlanningAlgorithm planner, DataMovementModel model, int vmCount) {
-        return SimulationConfig
-                .builder(dag.daxPath.toString(), vmCount)
+    private static SimulationConfig baseConfig(
+            DagScenario dag, Parameters.PlanningAlgorithm planner, DataMovementModel model, int vmCount) {
+        return SimulationConfig.builder(dag.daxPath.toString(), vmCount)
                 .planningAlgorithm(planner)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
@@ -331,8 +314,8 @@ public final class FatTreeSchedulingCampaignExecutor {
         PlatformProfile.Builder builder = PlatformProfile.builder("campaign-platform");
         for (int id = 0; id < vmCount; id++) {
             builder.addHost(new PlatformProfile.HostSpec(id, 2, 2.0, 2048, 10_000L, 1_000_000L));
-            builder.addVm(new PlatformProfile.VmSpec(id, 1.0, 1, 512, 1L, 10_000L, "Xen",
-                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id, 1.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
         }
         if (topology != null) {
             builder.networkTopology(topology);
@@ -341,10 +324,9 @@ public final class FatTreeSchedulingCampaignExecutor {
     }
 
     private static void assertHealthy(SimulationReport report, String label) {
-        if (!"COMPLETED_SUCCESSFULLY".equals(
-                report.getMetrics().getLogicalTaskCompletionStatus())) {
-            throw new IllegalStateException(label + ": 逻辑任务完成状态异常 "
-                    + report.getMetrics().getLogicalTaskCompletionStatus());
+        if (!"COMPLETED_SUCCESSFULLY".equals(report.getMetrics().getLogicalTaskCompletionStatus())) {
+            throw new IllegalStateException(
+                    label + ": 逻辑任务完成状态异常 " + report.getMetrics().getLogicalTaskCompletionStatus());
         }
         if (report.getTotalJobs() != report.getSuccessfulJobs()) {
             throw new IllegalStateException(label + ": Job 未全部成功");
@@ -389,8 +371,11 @@ public final class FatTreeSchedulingCampaignExecutor {
         final List<Map<String, Object>> sensitivity;
         final List<Map<String, Object>> structural;
 
-        CampaignResults(List<DagScenario> dags, List<Map<String, Object>> mainMatrix,
-                List<Map<String, Object>> sensitivity, List<Map<String, Object>> structural) {
+        CampaignResults(
+                List<DagScenario> dags,
+                List<Map<String, Object>> mainMatrix,
+                List<Map<String, Object>> sensitivity,
+                List<Map<String, Object>> structural) {
             this.dags = dags;
             this.mainMatrix = mainMatrix;
             this.sensitivity = sensitivity;
@@ -408,13 +393,13 @@ public final class FatTreeSchedulingCampaignExecutor {
 
         double makespan(String dax, String planner, String modelKind) {
             for (Map<String, Object> record : mainMatrix) {
-                if (dax.equals(record.get("dax")) && planner.equals(record.get("planner"))
+                if (dax.equals(record.get("dax"))
+                        && planner.equals(record.get("planner"))
                         && modelKind.equals(record.get("movementModel"))) {
                     return ((Double) record.get("makespanSeconds")).doubleValue();
                 }
             }
-            throw new IllegalStateException("Missing main-matrix record "
-                    + dax + "/" + planner + "/" + modelKind);
+            throw new IllegalStateException("Missing main-matrix record " + dax + "/" + planner + "/" + modelKind);
         }
 
         double sensitivityMakespan(String dax, String planner, String variant) {
@@ -425,16 +410,16 @@ public final class FatTreeSchedulingCampaignExecutor {
             return scanMakespan(structural, dax, planner, variant, "structural");
         }
 
-        private static double scanMakespan(List<Map<String, Object>> records, String dax,
-                String planner, String variant, String block) {
+        private static double scanMakespan(
+                List<Map<String, Object>> records, String dax, String planner, String variant, String block) {
             for (Map<String, Object> record : records) {
-                if (dax.equals(record.get("dax")) && planner.equals(record.get("planner"))
+                if (dax.equals(record.get("dax"))
+                        && planner.equals(record.get("planner"))
                         && variant.equals(record.get("variant"))) {
                     return ((Double) record.get("makespanSeconds")).doubleValue();
                 }
             }
-            throw new IllegalStateException("Missing " + block + " record "
-                    + dax + "/" + planner + "/" + variant);
+            throw new IllegalStateException("Missing " + block + " record " + dax + "/" + planner + "/" + variant);
         }
 
         /**
@@ -448,9 +433,11 @@ public final class FatTreeSchedulingCampaignExecutor {
          */
         List<Map<String, Object>> monotonicityDiagnostics() {
             List<Map<String, Object>> violations = new ArrayList<Map<String, Object>>();
-            String v1 = DataMovementModel.preExecutionTransferDelayV1().getKind().name();
+            String v1 =
+                    DataMovementModel.preExecutionTransferDelayV1().getKind().name();
             String r2 = DataMovementModel.preExecutionTransferDelayWithContentionV1()
-                    .getKind().name();
+                    .getKind()
+                    .name();
             String r6 = DataMovementModel.fatTreeContentionV1().getKind().name();
             for (DagScenario dag : dags) {
                 for (Parameters.PlanningAlgorithm planner : PLANNERS) {
@@ -499,15 +486,15 @@ public final class FatTreeSchedulingCampaignExecutor {
                 List<String> order = new ArrayList<String>();
                 List<Double> means = new ArrayList<Double>();
                 for (Parameters.PlanningAlgorithm planner : PLANNERS) {
-                    List<Double> values = makespans(planner.name(), model.getKind().name());
+                    List<Double> values =
+                            makespans(planner.name(), model.getKind().name());
                     double mean = 0.0;
                     for (Double value : values) {
                         mean += value.doubleValue();
                     }
                     mean /= values.size();
                     int position = 0;
-                    while (position < order.size()
-                            && means.get(position).doubleValue() <= mean) {
+                    while (position < order.size() && means.get(position).doubleValue() <= mean) {
                         position++;
                     }
                     order.add(position, planner.name());
@@ -527,7 +514,8 @@ public final class FatTreeSchedulingCampaignExecutor {
                     String best = null;
                     double bestMakespan = Double.MAX_VALUE;
                     for (Parameters.PlanningAlgorithm planner : PLANNERS) {
-                        double value = makespan(dag.id, planner.name(), model.getKind().name());
+                        double value =
+                                makespan(dag.id, planner.name(), model.getKind().name());
                         if (value < bestMakespan) {
                             bestMakespan = value;
                             best = planner.name();
@@ -543,9 +531,11 @@ public final class FatTreeSchedulingCampaignExecutor {
         /** 同模型内规划器对比（基线 LOCAL_HEFT）+ 跨模型对比（基线 V1），全部 DAG 配对。 */
         List<Map<String, Object>> pairedStatistics() {
             List<Map<String, Object>> statistics = new ArrayList<Map<String, Object>>();
-            String v1 = DataMovementModel.preExecutionTransferDelayV1().getKind().name();
+            String v1 =
+                    DataMovementModel.preExecutionTransferDelayV1().getKind().name();
             String r2 = DataMovementModel.preExecutionTransferDelayWithContentionV1()
-                    .getKind().name();
+                    .getKind()
+                    .name();
             String r6 = DataMovementModel.fatTreeContentionV1().getKind().name();
             String baselinePlanner = Parameters.PlanningAlgorithm.LOCAL_HEFT.name();
             for (DataMovementModel model : MODELS) {
@@ -553,19 +543,33 @@ public final class FatTreeSchedulingCampaignExecutor {
                     if (planner.name().equals(baselinePlanner)) {
                         continue;
                     }
-                    statistics.add(statRecord("planner@" + model.getKind().name(),
-                            baselinePlanner, planner.name(),
+                    statistics.add(statRecord(
+                            "planner@" + model.getKind().name(),
+                            baselinePlanner,
+                            planner.name(),
                             makespans(baselinePlanner, model.getKind().name()),
                             makespans(planner.name(), model.getKind().name())));
                 }
             }
             for (Parameters.PlanningAlgorithm planner : PLANNERS) {
-                statistics.add(statRecord("model-r2-vs-v1@" + planner.name(),
-                        v1, r2, makespans(planner.name(), v1), makespans(planner.name(), r2)));
-                statistics.add(statRecord("model-r6-vs-r2@" + planner.name(),
-                        r2, r6, makespans(planner.name(), r2), makespans(planner.name(), r6)));
-                statistics.add(statRecord("model-r6-vs-v1@" + planner.name(),
-                        v1, r6, makespans(planner.name(), v1), makespans(planner.name(), r6)));
+                statistics.add(statRecord(
+                        "model-r2-vs-v1@" + planner.name(),
+                        v1,
+                        r2,
+                        makespans(planner.name(), v1),
+                        makespans(planner.name(), r2)));
+                statistics.add(statRecord(
+                        "model-r6-vs-r2@" + planner.name(),
+                        r2,
+                        r6,
+                        makespans(planner.name(), r2),
+                        makespans(planner.name(), r6)));
+                statistics.add(statRecord(
+                        "model-r6-vs-v1@" + planner.name(),
+                        v1,
+                        r6,
+                        makespans(planner.name(), v1),
+                        makespans(planner.name(), r6)));
             }
             return statistics;
         }
@@ -580,12 +584,10 @@ public final class FatTreeSchedulingCampaignExecutor {
             return scanStatistics(structuralVariants(), "structural");
         }
 
-        private List<Map<String, Object>> scanStatistics(
-                List<TopologyVariant> variants, String block) {
+        private List<Map<String, Object>> scanStatistics(List<TopologyVariant> variants, String block) {
             List<Map<String, Object>> statistics = new ArrayList<Map<String, Object>>();
-            List<Parameters.PlanningAlgorithm> sensitivePlanners = Arrays.asList(
-                    Parameters.PlanningAlgorithm.LOCAL_HEFT,
-                    Parameters.PlanningAlgorithm.LOCAL_CPOP);
+            List<Parameters.PlanningAlgorithm> sensitivePlanners =
+                    Arrays.asList(Parameters.PlanningAlgorithm.LOCAL_HEFT, Parameters.PlanningAlgorithm.LOCAL_CPOP);
             for (Parameters.PlanningAlgorithm planner : sensitivePlanners) {
                 for (TopologyVariant variant : variants) {
                     if (variant.id.equals("baseline-k4-full")) {
@@ -596,22 +598,31 @@ public final class FatTreeSchedulingCampaignExecutor {
                     for (DagScenario dag : dags) {
                         baseline.add(Double.valueOf(scanMakespan(
                                 "sensitivity".equals(block) ? sensitivity : structural,
-                                dag.id, planner.name(), "baseline-k4-full", block)));
+                                dag.id,
+                                planner.name(),
+                                "baseline-k4-full",
+                                block)));
                         candidate.add(Double.valueOf(scanMakespan(
                                 "sensitivity".equals(block) ? sensitivity : structural,
-                                dag.id, planner.name(), variant.id, block)));
+                                dag.id,
+                                planner.name(),
+                                variant.id,
+                                block)));
                     }
-                    statistics.add(statRecord(block + "@" + planner.name(),
-                            "baseline-k4-full", variant.id, baseline, candidate));
+                    statistics.add(statRecord(
+                            block + "@" + planner.name(), "baseline-k4-full", variant.id, baseline, candidate));
                 }
             }
             return statistics;
         }
 
-        private static Map<String, Object> statRecord(String axis, String baselineLabel,
-                String candidateLabel, List<Double> baseline, List<Double> candidate) {
-            PairedWilcoxonSignificance significance =
-                    PairedWilcoxonSignificance.evaluate(baseline, candidate);
+        private static Map<String, Object> statRecord(
+                String axis,
+                String baselineLabel,
+                String candidateLabel,
+                List<Double> baseline,
+                List<Double> candidate) {
+            PairedWilcoxonSignificance significance = PairedWilcoxonSignificance.evaluate(baseline, candidate);
             Map<String, Object> record = new LinkedHashMap<String, Object>();
             record.put("axis", axis);
             record.put("baseline", baselineLabel);
@@ -621,8 +632,7 @@ public final class FatTreeSchedulingCampaignExecutor {
             record.put("medianDifferenceSeconds", significance.getMedianDifference());
             record.put("status", significance.getStatus());
             record.put("pValue", significance.getPValue());
-            record.put("significantAtAlpha005",
-                    Boolean.valueOf(significance.isSignificantAtDefaultAlpha()));
+            record.put("significantAtAlpha005", Boolean.valueOf(significance.isSignificantAtDefaultAlpha()));
             return record;
         }
 
@@ -632,15 +642,19 @@ public final class FatTreeSchedulingCampaignExecutor {
             json.put("generatedAt", java.time.OffsetDateTime.now().toString());
             json.put("fixedSeed", Long.valueOf(FIXED_SEED));
             json.put("vmCount", Integer.valueOf(3));
-            json.put("planners", Arrays.asList(
-                    Parameters.PlanningAlgorithm.LOCAL_HEFT.name(),
-                    Parameters.PlanningAlgorithm.LOCAL_CPOP.name(),
-                    Parameters.PlanningAlgorithm.RANDOM.name(),
-                    Parameters.PlanningAlgorithm.PSO.name()));
-            json.put("movementModels", Arrays.asList(
-                    MODELS.get(0).getKind().name(),
-                    MODELS.get(1).getKind().name(),
-                    MODELS.get(2).getKind().name()));
+            json.put(
+                    "planners",
+                    Arrays.asList(
+                            Parameters.PlanningAlgorithm.LOCAL_HEFT.name(),
+                            Parameters.PlanningAlgorithm.LOCAL_CPOP.name(),
+                            Parameters.PlanningAlgorithm.RANDOM.name(),
+                            Parameters.PlanningAlgorithm.PSO.name()));
+            json.put(
+                    "movementModels",
+                    Arrays.asList(
+                            MODELS.get(0).getKind().name(),
+                            MODELS.get(1).getKind().name(),
+                            MODELS.get(2).getKind().name()));
             json.put("mainMatrix", mainMatrix);
             json.put("sensitivity", sensitivity);
             json.put("structuralSensitivity", structural);
@@ -660,17 +674,27 @@ public final class FatTreeSchedulingCampaignExecutor {
         String toMarkdown() {
             StringBuilder md = new StringBuilder();
             md.append("# Fat-tree × 调度 campaign 实测结果（自动生成）\n\n");
-            md.append("- seed=").append(FIXED_SEED).append("，3 主机同质平台，")
-                    .append(dags.size()).append(" 个 DAG\n");
-            md.append("- 主矩阵 ").append(mainMatrix.size()).append(" 次运行；3 主机敏感性 ")
-                    .append(sensitivity.size()).append(" 次运行；4 主机结构敏感性 ")
-                    .append(structural.size()).append(" 次运行\n\n");
+            md.append("- seed=")
+                    .append(FIXED_SEED)
+                    .append("，3 主机同质平台，")
+                    .append(dags.size())
+                    .append(" 个 DAG\n");
+            md.append("- 主矩阵 ")
+                    .append(mainMatrix.size())
+                    .append(" 次运行；3 主机敏感性 ")
+                    .append(sensitivity.size())
+                    .append(" 次运行；4 主机结构敏感性 ")
+                    .append(structural.size())
+                    .append(" 次运行\n\n");
             md.append("## 主矩阵 makespan（秒）\n\n");
             md.append("| DAG |");
             for (DataMovementModel model : MODELS) {
                 for (Parameters.PlanningAlgorithm planner : PLANNERS) {
-                    md.append(' ').append(shortPlanner(planner)).append(' ')
-                            .append(shortModel(model)).append(" |");
+                    md.append(' ')
+                            .append(shortPlanner(planner))
+                            .append(' ')
+                            .append(shortModel(model))
+                            .append(" |");
                 }
             }
             md.append('\n').append("| --- |");
@@ -683,8 +707,8 @@ public final class FatTreeSchedulingCampaignExecutor {
                 for (DataMovementModel model : MODELS) {
                     for (Parameters.PlanningAlgorithm planner : PLANNERS) {
                         md.append(' ')
-                                .append(format(makespan(dag.id, planner.name(),
-                                        model.getKind().name())))
+                                .append(format(makespan(
+                                        dag.id, planner.name(), model.getKind().name())))
                                 .append(" |");
                     }
                 }
@@ -695,24 +719,32 @@ public final class FatTreeSchedulingCampaignExecutor {
             if (violations.isEmpty()) {
                 md.append("无违反。\n");
             } else {
-                md.append("存在 ").append(violations.size())
-                        .append(" 处跨模型次序交叉；以下如实报告幅度，原因需逐场景分析。跨模型单调不是一般定理：\n\n");
+                md.append("存在 ").append(violations.size()).append(" 处跨模型次序交叉；以下如实报告幅度，原因需逐场景分析。跨模型单调不是一般定理：\n\n");
                 md.append("| DAG | 规划器 | V1 | R2 | R6 | 最大相对偏差 |\n");
                 md.append("| --- | --- | --- | --- | --- | --- |\n");
                 for (Map<String, Object> record : violations) {
-                    md.append("| ").append(record.get("dax"))
-                            .append(" | ").append(record.get("planner"))
-                            .append(" | ").append(format((Double) record.get("v1MakespanSeconds")))
-                            .append(" | ").append(format((Double) record.get("r2MakespanSeconds")))
-                            .append(" | ").append(format((Double) record.get("r6MakespanSeconds")))
-                            .append(" | ").append(format((Double) record.get("maxRelativeDeviation")))
+                    md.append("| ")
+                            .append(record.get("dax"))
+                            .append(" | ")
+                            .append(record.get("planner"))
+                            .append(" | ")
+                            .append(format((Double) record.get("v1MakespanSeconds")))
+                            .append(" | ")
+                            .append(format((Double) record.get("r2MakespanSeconds")))
+                            .append(" | ")
+                            .append(format((Double) record.get("r6MakespanSeconds")))
+                            .append(" | ")
+                            .append(format((Double) record.get("maxRelativeDeviation")))
                             .append(" |\n");
                 }
             }
             md.append("\n## 平均排名（makespan 升序）\n\n");
             for (Map.Entry<String, List<String>> entry : averageRankings().entrySet()) {
-                md.append("- ").append(entry.getKey()).append(": ")
-                        .append(String.join(" < ", entry.getValue())).append('\n');
+                md.append("- ")
+                        .append(entry.getKey())
+                        .append(": ")
+                        .append(String.join(" < ", entry.getValue()))
+                        .append('\n');
             }
             md.append("\n## 逐 DAG 第一名\n\n| DAG |");
             for (DataMovementModel model : MODELS) {
@@ -723,8 +755,10 @@ public final class FatTreeSchedulingCampaignExecutor {
             for (DagScenario dag : dags) {
                 md.append("| ").append(dag.id).append(" |");
                 for (DataMovementModel model : MODELS) {
-                    md.append(' ').append(shortPlanner(Parameters.PlanningAlgorithm.valueOf(
-                            winners.get(model.getKind().name()).get(dag.id)))).append(" |");
+                    md.append(' ')
+                            .append(shortPlanner(Parameters.PlanningAlgorithm.valueOf(
+                                    winners.get(model.getKind().name()).get(dag.id))))
+                            .append(" |");
                 }
                 md.append('\n');
             }
@@ -751,14 +785,15 @@ public final class FatTreeSchedulingCampaignExecutor {
                 md.append('\n');
                 for (DagScenario dag : dags) {
                     for (Parameters.PlanningAlgorithm planner : Arrays.asList(
-                            Parameters.PlanningAlgorithm.LOCAL_HEFT,
-                            Parameters.PlanningAlgorithm.LOCAL_CPOP)) {
-                        md.append("| ").append(dag.id)
-                                .append(" | ").append(shortPlanner(planner)).append(" |");
+                            Parameters.PlanningAlgorithm.LOCAL_HEFT, Parameters.PlanningAlgorithm.LOCAL_CPOP)) {
+                        md.append("| ")
+                                .append(dag.id)
+                                .append(" | ")
+                                .append(shortPlanner(planner))
+                                .append(" |");
                         for (TopologyVariant variant : structuralVariants()) {
                             md.append(' ')
-                                    .append(format(structuralMakespan(
-                                            dag.id, planner.name(), variant.id)))
+                                    .append(format(structuralMakespan(dag.id, planner.name(), variant.id)))
                                     .append(" |");
                         }
                         md.append('\n');
@@ -774,15 +809,25 @@ public final class FatTreeSchedulingCampaignExecutor {
 
         private static void appendStatRows(StringBuilder md, List<Map<String, Object>> stats) {
             for (Map<String, Object> record : stats) {
-                md.append("| ").append(record.get("axis"))
-                        .append(" | ").append(record.get("baseline"))
-                        .append(" | ").append(record.get("candidate"))
-                        .append(" | ").append(record.get("pairedSampleCount"))
-                        .append('(').append(record.get("effectiveSampleCount")).append(')')
-                        .append(" | ").append(format((Double) record.get("medianDifferenceSeconds")))
-                        .append(" | ").append(record.get("status"))
-                        .append(" | ").append(format((Double) record.get("pValue")))
-                        .append(" | ").append(record.get("significantAtAlpha005"))
+                md.append("| ")
+                        .append(record.get("axis"))
+                        .append(" | ")
+                        .append(record.get("baseline"))
+                        .append(" | ")
+                        .append(record.get("candidate"))
+                        .append(" | ")
+                        .append(record.get("pairedSampleCount"))
+                        .append('(')
+                        .append(record.get("effectiveSampleCount"))
+                        .append(')')
+                        .append(" | ")
+                        .append(format((Double) record.get("medianDifferenceSeconds")))
+                        .append(" | ")
+                        .append(record.get("status"))
+                        .append(" | ")
+                        .append(format((Double) record.get("pValue")))
+                        .append(" | ")
+                        .append(record.get("significantAtAlpha005"))
                         .append(" |\n");
             }
         }
@@ -793,11 +838,16 @@ public final class FatTreeSchedulingCampaignExecutor {
 
         private static String shortPlanner(Parameters.PlanningAlgorithm planner) {
             switch (planner) {
-                case LOCAL_HEFT: return "HEFT";
-                case LOCAL_CPOP: return "CPOP";
-                case RANDOM: return "RAND";
-                case PSO: return "PSO";
-                default: return planner.name();
+                case LOCAL_HEFT:
+                    return "HEFT";
+                case LOCAL_CPOP:
+                    return "CPOP";
+                case RANDOM:
+                    return "RAND";
+                case PSO:
+                    return "PSO";
+                default:
+                    return planner.name();
             }
         }
 

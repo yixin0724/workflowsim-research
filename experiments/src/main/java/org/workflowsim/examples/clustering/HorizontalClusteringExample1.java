@@ -23,14 +23,14 @@ import java.util.Map;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.examples.ExampleCliSupport;
 import org.workflowsim.examples.WorkflowSimBasicExample1;
-import org.workflowsim.utils.DistributionGenerator;
 import org.workflowsim.utils.ClusteringParameters;
+import org.workflowsim.utils.DistributionGenerator;
 import org.workflowsim.utils.OverheadParameters;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
@@ -54,7 +54,7 @@ public class HorizontalClusteringExample1 extends WorkflowSimBasicExample1 {
      */
     public static void main(String[] args) {
 
-       try {
+        try {
             ExampleCliSupport.begin("horizontal-clustering-size");
             // 第一步：配置历史 WorkflowSim 静态参数。
             /**
@@ -66,7 +66,7 @@ public class HorizontalClusteringExample1 extends WorkflowSimBasicExample1 {
              */
             String daxPath = ExampleCliSupport.singleDax(args, ExampleCliSupport.DEFAULT_DAX_PATH);
             File daxFile = new File(daxPath);
-            if(!daxFile.exists()){
+            if (!daxFile.exists()) {
                 Log.printLine("Warning: Please replace daxPath with the physical path in your working environment!");
                 return;
             }
@@ -87,13 +87,14 @@ public class HorizontalClusteringExample1 extends WorkflowSimBasicExample1 {
              * 此 Montage 示例假定最多包含 11 个水平层级。
              */
             int maxLevel = 11;
-            for (int level = 0; level < maxLevel; level++ ){
-                DistributionGenerator cluster_delay = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 1.0);
+            for (int level = 0; level < maxLevel; level++) {
+                DistributionGenerator cluster_delay =
+                        new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL, 10.0, 1.0);
                 clusteringDelay.put(level, cluster_delay); // 为每层安装相同的聚类延迟分布。
             }
             // 将聚类延迟装入开销参数。
             OverheadParameters op = new OverheadParameters(0, null, null, null, clusteringDelay, 0);
-            
+
             /**
              * 选择水平聚类。
              */
@@ -104,19 +105,17 @@ public class HorizontalClusteringExample1 extends WorkflowSimBasicExample1 {
              * 此处指定 {@code clusters.size = 2}，即每个 Job 包含两个任务。
              */
             ClusteringParameters cp = new ClusteringParameters(0, 2, method, null);
-            
+
             /**
              * 初始化历史静态参数与文件副本目录。
              */
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             // 在创建模拟实体前初始化 CloudSim。
-            int num_user = 1;   // 模拟用户数。
+            int num_user = 1; // 模拟用户数。
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录 CloudSim 事件轨迹。
+            boolean trace_flag = false; // 是否记录 CloudSim 事件轨迹。
 
             // 初始化 CloudSim 事件引擎。
             CloudSim.init(num_user, calendar, trace_flag);

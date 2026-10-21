@@ -1,5 +1,7 @@
 package org.workflowsim.experiments.network;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -10,10 +12,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.utils.Parameters;
-import static org.junit.jupiter.api.Assertions.*;
 
 class NetworkStudyTest {
-    @Test void protocolQualifiesInputsAndAvoidsDeterministicPseudoReplication(@TempDir Path output) throws Exception {
+    @Test
+    void protocolQualifiesInputsAndAvoidsDeterministicPseudoReplication(@TempDir Path output) throws Exception {
         NetworkStudyPlan full = NetworkStudyPlan.create("full", datasets(), output.resolve("full"));
         assertEquals(7, full.getWorkflows().size());
         assertEquals(Arrays.asList(4, 16), full.getVmCounts());
@@ -22,27 +24,38 @@ class NetworkStudyTest {
         assertTrue(full.asMap().get("excludedInputs").toString().contains("CONFLICTING_FILE_SIZE"));
         assertEquals(1, full.seeds(Parameters.PlanningAlgorithm.LOCAL_CPOP).size());
         assertEquals(5, full.seeds(Parameters.PlanningAlgorithm.PSO).size());
-        assertEquals(36, NetworkStudyPlan.create("smoke", datasets(), output.resolve("small")).getRunCount());
+        assertEquals(
+                36,
+                NetworkStudyPlan.create("smoke", datasets(), output.resolve("small"))
+                        .getRunCount());
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.create("unknown", datasets(), output));
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.layeredWorkflow(1));
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.movement("unknown"));
     }
 
-    @Test void peftComparisonVariantReusesFrozenMatrixWithThreeDeterministicPlanners(@TempDir Path output) throws Exception {
+    @Test
+    void peftComparisonVariantReusesFrozenMatrixWithThreeDeterministicPlanners(@TempDir Path output) throws Exception {
         NetworkStudyPlan full = NetworkStudyPlan.create("full", true, datasets(), output.resolve("peft-full"));
         assertEquals(NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL, full.getProtocol());
         assertEquals("peft-comparison-r12-v2", full.getProtocol());
         assertEquals(7, full.getWorkflows().size());
         assertEquals(Arrays.asList(4, 16), full.getVmCounts());
         assertEquals(126, full.getRunCount());
-        assertEquals(Arrays.asList(Parameters.PlanningAlgorithm.LOCAL_HEFT, Parameters.PlanningAlgorithm.LOCAL_CPOP,
-                Parameters.PlanningAlgorithm.LOCAL_PEFT), full.getPlanners());
+        assertEquals(
+                Arrays.asList(
+                        Parameters.PlanningAlgorithm.LOCAL_HEFT,
+                        Parameters.PlanningAlgorithm.LOCAL_CPOP,
+                        Parameters.PlanningAlgorithm.LOCAL_PEFT),
+                full.getPlanners());
         assertEquals(1, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).size());
         assertEquals(11L, full.seeds(Parameters.PlanningAlgorithm.LOCAL_PEFT).get(0));
         Map<String, Object> protocol = full.asMap();
         assertEquals("peft-comparison-r12-v2", protocol.get("protocol"));
         assertTrue(protocol.get("inference").toString().contains("HOLM_TWO_PLANNERS"));
-        assertEquals(18, NetworkStudyPlan.create("smoke", true, datasets(), output.resolve("peft-small")).getRunCount());
+        assertEquals(
+                18,
+                NetworkStudyPlan.create("smoke", true, datasets(), output.resolve("peft-small"))
+                        .getRunCount());
         // r10 协议保持冻结：默认变体的常量与运行数不受 S5 影响
         NetworkStudyPlan r10 = NetworkStudyPlan.create("full", datasets(), output.resolve("r10"));
         assertEquals(NetworkStudyPlan.PROTOCOL, r10.getProtocol());
@@ -50,9 +63,10 @@ class NetworkStudyTest {
         assertTrue(r10.asMap().get("inference").toString().contains("HOLM_THREE_PLANNERS"));
     }
 
-    @Test void sensitivityVariantDeclaresResponseSurfaceMatrix(@TempDir Path output) throws Exception {
-        NetworkStudyPlan full = NetworkStudyPlan.create("full", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13,
-                datasets(), output.resolve("r13-full"));
+    @Test
+    void sensitivityVariantDeclaresResponseSurfaceMatrix(@TempDir Path output) throws Exception {
+        NetworkStudyPlan full = NetworkStudyPlan.create(
+                "full", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, datasets(), output.resolve("r13-full"));
         assertEquals("sensitivity-response-r13-v2", full.getProtocol());
         assertEquals(NetworkStudyPlan.SENSITIVITY_PROTOCOL, full.getProtocol());
         assertEquals(7, full.getWorkflows().size());
@@ -70,27 +84,40 @@ class NetworkStudyTest {
         assertEquals(0.5, ((Number) protocol.get("midLinkMbPerSecond")).doubleValue(), 1e-12);
         assertEquals(5.0, ((Number) protocol.get("fastLinkMbPerSecond")).doubleValue(), 1e-12);
         assertEquals(26, ((List<?>) protocol.get("conditions")).size());
-        NetworkStudyPlan smoke = NetworkStudyPlan.create("smoke", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13,
-                datasets(), output.resolve("r13-smoke"));
+        NetworkStudyPlan smoke = NetworkStudyPlan.create(
+                "smoke", NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, datasets(), output.resolve("r13-smoke"));
         assertEquals(5, smoke.getConditions().size());
         assertEquals(30, smoke.getRunCount());
         assertTrue(smoke.asMap().containsKey("conditions"));
         // R13 不影响冻结的 r10/S5 矩阵
-        assertEquals(504, NetworkStudyPlan.create("full", datasets(), output.resolve("r10")).getRunCount());
-        assertEquals(126, NetworkStudyPlan.create("full", true, datasets(), output.resolve("s5")).getRunCount());
-        assertFalse(NetworkStudyPlan.create("full", datasets(), output.resolve("r10b")).asMap().containsKey("conditions"));
-        assertFalse(NetworkStudyPlan.create("full", true, datasets(), output.resolve("s5b")).asMap().containsKey("conditions"));
+        assertEquals(
+                504,
+                NetworkStudyPlan.create("full", datasets(), output.resolve("r10"))
+                        .getRunCount());
+        assertEquals(
+                126,
+                NetworkStudyPlan.create("full", true, datasets(), output.resolve("s5"))
+                        .getRunCount());
+        assertFalse(NetworkStudyPlan.create("full", datasets(), output.resolve("r10b"))
+                .asMap()
+                .containsKey("conditions"));
+        assertFalse(NetworkStudyPlan.create("full", true, datasets(), output.resolve("s5b"))
+                .asMap()
+                .containsKey("conditions"));
         assertEquals(NetworkStudyPlan.StudyVariant.R10, NetworkStudyPlan.variantArgument(null));
-        assertEquals(NetworkStudyPlan.StudyVariant.PEFT_COMPARISON, NetworkStudyPlan.variantArgument("peft-comparison"));
-        assertEquals(NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, NetworkStudyPlan.variantArgument("sensitivity-r13"));
+        assertEquals(
+                NetworkStudyPlan.StudyVariant.PEFT_COMPARISON, NetworkStudyPlan.variantArgument("peft-comparison"));
+        assertEquals(
+                NetworkStudyPlan.StudyVariant.SENSITIVITY_R13, NetworkStudyPlan.variantArgument("sensitivity-r13"));
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.variantArgument("unknown"));
     }
 
-    @Test void registeredNewAndHistoricalMatricesHaveIndependentModeIdentitiesWithoutFileIo() {
+    @Test
+    void registeredNewAndHistoricalMatricesHaveIndependentModeIdentitiesWithoutFileIo() {
         String[][] protocols = {
-                {NetworkStudyPlan.HISTORICAL_PROTOCOL, NetworkStudyPlan.PROTOCOL},
-                {NetworkStudyPlan.HISTORICAL_PEFT_COMPARISON_PROTOCOL, NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL},
-                {NetworkStudyPlan.HISTORICAL_SENSITIVITY_PROTOCOL, NetworkStudyPlan.SENSITIVITY_PROTOCOL}
+            {NetworkStudyPlan.HISTORICAL_PROTOCOL, NetworkStudyPlan.PROTOCOL},
+            {NetworkStudyPlan.HISTORICAL_PEFT_COMPARISON_PROTOCOL, NetworkStudyPlan.PEFT_COMPARISON_PROTOCOL},
+            {NetworkStudyPlan.HISTORICAL_SENSITIVITY_PROTOCOL, NetworkStudyPlan.SENSITIVITY_PROTOCOL}
         };
         int[] fullCounts = {504, 126, 546};
         int[] smokeCounts = {36, 18, 30};
@@ -98,27 +125,35 @@ class NetworkStudyTest {
             for (int revision = 0; revision < 2; revision++) {
                 for (String mode : Arrays.asList("full", "smoke")) {
                     NetworkStudyPlan declared = NetworkStudyPlan.canonical(mode, protocols[variant][revision]);
-                    assertEquals("full".equals(mode) ? fullCounts[variant] : smokeCounts[variant], declared.getRunCount());
-                    assertEquals("full".equals(mode) ? 7 : 2, declared.getWorkflows().size());
+                    assertEquals(
+                            "full".equals(mode) ? fullCounts[variant] : smokeCounts[variant], declared.getRunCount());
+                    assertEquals(
+                            "full".equals(mode) ? 7 : 2, declared.getWorkflows().size());
                     assertEquals(revision == 0, declared.isHistoricalProtocol());
                     assertEquals(revision == 1, declared.asMap().containsKey("executionSemantics"));
                     for (NetworkStudyPlan.WorkflowCase workflow : declared.getWorkflows()) {
-                        assertFalse(workflow.path.isAbsolute(), "canonical declarations use logical paths, not the current machine");
+                        assertFalse(
+                                workflow.path.isAbsolute(),
+                                "canonical declarations use logical paths, not the current machine");
                         assertTrue(workflow.sha256.matches("[0-9a-f]{64}"));
                     }
                 }
             }
         }
         NetworkStudyPlan historical = NetworkStudyPlan.canonical("full", NetworkStudyPlan.HISTORICAL_PROTOCOL);
-        assertEquals("2a7a23bed50abc515523036ea220f292be0a8196a554e8dafeb2e8aba2407ee6",
+        assertEquals(
+                "2a7a23bed50abc515523036ea220f292be0a8196a554e8dafeb2e8aba2407ee6",
                 historical.getWorkflows().get(5).sha256);
-        assertEquals("342347cfb5cb139b52d903a611cb84ff205078250d3bdb754152cfb239af97e2",
+        assertEquals(
+                "342347cfb5cb139b52d903a611cb84ff205078250d3bdb754152cfb239af97e2",
                 historical.getWorkflows().get(6).sha256);
-        assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.canonical("partial", NetworkStudyPlan.PROTOCOL));
+        assertThrows(
+                IllegalArgumentException.class, () -> NetworkStudyPlan.canonical("partial", NetworkStudyPlan.PROTOCOL));
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.canonical("full", "unregistered-protocol"));
     }
 
-    @Test void heterogeneousPlatformsUseDeclaredDeterministicMipsPatterns() {
+    @Test
+    void heterogeneousPlatformsUseDeclaredDeterministicMipsPatterns() {
         assertEquals(1000.0, NetworkStudyPlan.vmMips(3, NetworkStudyPlan.HOMOGENEOUS), 1e-12);
         assertEquals(1000.0, NetworkStudyPlan.vmMips(0, NetworkStudyPlan.HET_MILD), 1e-12);
         assertEquals(500.0, NetworkStudyPlan.vmMips(1, NetworkStudyPlan.HET_MILD), 1e-12);
@@ -129,8 +164,8 @@ class NetworkStudyTest {
         assertEquals(500.0, NetworkStudyPlan.vmMips(1, NetworkStudyPlan.HET_EXTREME), 1e-12);
         assertThrows(IllegalArgumentException.class, () -> NetworkStudyPlan.vmMips(0, "unknown"));
 
-        org.workflowsim.platform.PlatformProfile strong = NetworkStudyPlan.platform(4, "fat-tree-constrained",
-                NetworkStudyPlan.HET_STRONG);
+        org.workflowsim.platform.PlatformProfile strong =
+                NetworkStudyPlan.platform(4, "fat-tree-constrained", NetworkStudyPlan.HET_STRONG);
         assertEquals("network-study-4-fat-tree-constrained-HET_STRONG", strong.getName());
         assertEquals(4, strong.getVms().size());
         assertEquals(2000.0, strong.getVms().get(0).getMips(), 1e-12);
@@ -139,16 +174,18 @@ class NetworkStudyTest {
         assertEquals(2000.0, strong.getVms().get(3).getMips(), 1e-12);
         assertEquals(4, strong.getNetworkTopology().getK());
         assertEquals(0.125, strong.getNetworkTopology().getLinkBandwidthMbPerSecond(), 1e-12);
-        assertEquals(org.workflowsim.platform.PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+        assertEquals(
+                org.workflowsim.platform.PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
                 strong.getVms().get(2).getSchedulerMode());
 
-        org.workflowsim.platform.PlatformProfile large = NetworkStudyPlan.platform(32, "fat-tree-fast",
-                NetworkStudyPlan.HOMOGENEOUS);
+        org.workflowsim.platform.PlatformProfile large =
+                NetworkStudyPlan.platform(32, "fat-tree-fast", NetworkStudyPlan.HOMOGENEOUS);
         assertEquals("network-study-32-fat-tree-fast", large.getName());
         assertEquals(32, large.getVms().size());
         assertEquals(8, large.getNetworkTopology().getK());
         assertEquals(5.0, large.getNetworkTopology().getLinkBandwidthMbPerSecond(), 1e-12);
-        assertNull(NetworkStudyPlan.platform(8, "endpoint", NetworkStudyPlan.HET_MILD).getNetworkTopology());
+        assertNull(NetworkStudyPlan.platform(8, "endpoint", NetworkStudyPlan.HET_MILD)
+                .getNetworkTopology());
 
         assertEquals(0.5, NetworkStudyPlan.fatTreeLinkMbPerSecond("fat-tree-mid"), 1e-12);
         assertEquals(5.0, NetworkStudyPlan.fatTreeLinkMbPerSecond("fat-tree-fast"), 1e-12);
@@ -162,7 +199,8 @@ class NetworkStudyTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Test void heterogeneityStratifiesComparisonsOnlyWhenRunsCarryIt() {
+    @Test
+    void heterogeneityStratifiesComparisonsOnlyWhenRunsCarryIt() {
         List<Map<String, Object>> runs = new ArrayList<Map<String, Object>>();
         runs.add(hetRow("real", "CLASSIC_DAX", NetworkStudyPlan.HOMOGENEOUS, "LOCAL_HEFT", 100));
         runs.add(hetRow("real", "CLASSIC_DAX", NetworkStudyPlan.HOMOGENEOUS, "LOCAL_PEFT", 95));
@@ -183,20 +221,23 @@ class NetworkStudyTest {
         assertFalse(((List<Map<String, Object>>) plain.get("aggregates")).get(0).containsKey("heterogeneity"));
     }
 
-    private static Map<String, Object> hetRow(String dag, String population, String heterogeneity,
-            String planner, double seconds) {
+    private static Map<String, Object> hetRow(
+            String dag, String population, String heterogeneity, String planner, double seconds) {
         Map<String, Object> r = row(dag, population, planner, seconds);
         r.put("heterogeneity", heterogeneity);
         return r;
     }
 
-    @Test void exactSignTestAndHolmRespectTiesAndFamilySize() {
+    @Test
+    void exactSignTestAndHolmRespectTiesAndFamilySize() {
         assertEquals(0.03125, NetworkStudySummary.signTest(6, 0), 1e-12);
         assertEquals(1.0, NetworkStudySummary.signTest(3, 3), 1e-12);
         assertNull(NetworkStudySummary.signTest(0, 0));
         List<Map<String, Object>> family = new ArrayList<Map<String, Object>>();
         for (Double p : Arrays.asList(0.02, 0.01, 0.04)) {
-            Map<String, Object> row = new LinkedHashMap<String, Object>(); row.put("pValue", p); family.add(row);
+            Map<String, Object> row = new LinkedHashMap<String, Object>();
+            row.put("pValue", p);
+            family.add(row);
         }
         NetworkStudySummary.applyHolm(family);
         assertEquals(0.04, (Double) family.get(0).get("holmAdjustedPValue"), 1e-12);
@@ -205,7 +246,8 @@ class NetworkStudyTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Test void repeatsCollapseWithinDagAndSyntheticPopulationIsSeparate() {
+    @Test
+    void repeatsCollapseWithinDagAndSyntheticPopulationIsSeparate() {
         List<Map<String, Object>> runs = new ArrayList<Map<String, Object>>();
         runs.add(row("real", "CLASSIC_DAX", "LOCAL_HEFT", 100));
         runs.add(row("real", "CLASSIC_DAX", "PSO", 70));
@@ -223,7 +265,8 @@ class NetworkStudyTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Test void candidatesAreDerivedFromPresentedPlannersInFirstAppearanceOrder() {
+    @Test
+    void candidatesAreDerivedFromPresentedPlannersInFirstAppearanceOrder() {
         List<Map<String, Object>> runs = new ArrayList<Map<String, Object>>();
         runs.add(row("real", "CLASSIC_DAX", "LOCAL_HEFT", 100));
         runs.add(row("real", "CLASSIC_DAX", "LOCAL_CPOP", 95));
@@ -242,9 +285,18 @@ class NetworkStudyTest {
 
     private static Map<String, Object> row(String dag, String population, String planner, double seconds) {
         Map<String, Object> r = new LinkedHashMap<String, Object>();
-        r.put("workflowId", dag); r.put("family", dag); r.put("population", population);
-        r.put("planner", planner); r.put("vmCount", 4); r.put("network", "endpoint");
-        r.put("status", "COMPLETED_SUCCESSFULLY"); r.put("makespanSeconds", seconds); return r;
+        r.put("workflowId", dag);
+        r.put("family", dag);
+        r.put("population", population);
+        r.put("planner", planner);
+        r.put("vmCount", 4);
+        r.put("network", "endpoint");
+        r.put("status", "COMPLETED_SUCCESSFULLY");
+        r.put("makespanSeconds", seconds);
+        return r;
     }
-    static Path datasets() { return Paths.get(System.getProperty("workflowsim.datasetRoot")); }
+
+    static Path datasets() {
+        return Paths.get(System.getProperty("workflowsim.datasetRoot"));
+    }
 }

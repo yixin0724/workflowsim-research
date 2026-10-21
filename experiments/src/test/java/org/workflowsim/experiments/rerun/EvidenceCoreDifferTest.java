@@ -55,10 +55,8 @@ class EvidenceCoreDifferTest {
         RerunEvidence clean = RerunEvidenceReader.read(fixtureRun);
         JsonObject manifest = readManifest(fixtureRun);
         // 篡改两个核心量：内嵌 metrics 的 makespan 与配置种子。
-        manifest.getAsJsonObject("metrics")
-                .addProperty("makespanSeconds", 9999.5);
-        manifest.getAsJsonObject("configuration")
-                .addProperty("rootSeed", 92L);
+        manifest.getAsJsonObject("metrics").addProperty("makespanSeconds", 9999.5);
+        manifest.getAsJsonObject("configuration").addProperty("rootSeed", 92L);
         RerunEvidence tampered = inMemoryManifest(fixtureRun, manifest);
 
         DiffResult result = EvidenceCoreDiffer.compare(tampered, clean);
@@ -66,7 +64,10 @@ class EvidenceCoreDifferTest {
         List<String> pointers = pointersOf(result.getCoreDivergences());
         assertTrue(pointers.contains("/metrics/makespanSeconds"), pointers.toString());
         assertTrue(pointers.contains("/configuration/rootSeed"), pointers.toString());
-        assertEquals(2, result.getCoreDivergences().size(), result.getCoreDivergences().toString());
+        assertEquals(
+                2,
+                result.getCoreDivergences().size(),
+                result.getCoreDivergences().toString());
         // 分歧记录双侧值。
         Divergence seed = find(result.getCoreDivergences(), "/configuration/rootSeed");
         assertEquals("92", seed.getOriginalValue());
@@ -77,18 +78,18 @@ class EvidenceCoreDifferTest {
     void exemptsVolatileWhitelistFieldsAndNotesThem() throws Exception {
         RerunEvidence clean = RerunEvidenceReader.read(fixtureRun);
         JsonObject manifest = readManifest(fixtureRun);
-        manifest.getAsJsonObject("provenance").getAsJsonObject("core")
-                .addProperty("sourceTreeSha256", "aaaa");
-        manifest.getAsJsonObject("provenance").getAsJsonObject("execution")
+        manifest.getAsJsonObject("provenance").getAsJsonObject("core").addProperty("sourceTreeSha256", "aaaa");
+        manifest.getAsJsonObject("provenance")
+                .getAsJsonObject("execution")
                 .addProperty("workingDirectory", "/elsewhere");
-        manifest.getAsJsonObject("runtime")
-                .addProperty("osName", "Plan9");
-        manifest.getAsJsonArray("artifacts").get(0).getAsJsonObject()
-                .addProperty("sha256", "bbbb");
-        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
+        manifest.getAsJsonObject("runtime").addProperty("osName", "Plan9");
+        manifest.getAsJsonArray("artifacts").get(0).getAsJsonObject().addProperty("sha256", "bbbb");
+        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", "/somewhere/else.dax");
+        manifest.getAsJsonObject("result")
+                .getAsJsonArray("workflowOutcomes")
+                .get(0)
+                .getAsJsonObject()
                 .addProperty("path", "/somewhere/else.dax");
-        manifest.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
-                .get(0).getAsJsonObject().addProperty("path", "/somewhere/else.dax");
         RerunEvidence tampered = inMemoryManifest(fixtureRun, manifest);
 
         DiffResult result = EvidenceCoreDiffer.compare(tampered, clean);
@@ -105,8 +106,7 @@ class EvidenceCoreDifferTest {
     @Test
     void eventWallClockAttributesExemptedButCoreEventFieldsEnforced() throws Exception {
         RerunEvidence clean = RerunEvidenceReader.read(fixtureRun);
-        List<String> lines = Files.readAllLines(fixtureRun.resolve("result.events.jsonl"),
-                StandardCharsets.UTF_8);
+        List<String> lines = Files.readAllLines(fixtureRun.resolve("result.events.jsonl"), StandardCharsets.UTF_8);
         assertFalse(lines.isEmpty());
 
         // 只改墙钟属性：零分歧。
@@ -124,24 +124,22 @@ class EvidenceCoreDifferTest {
         }
         Path clockOnlyPath = tempDir.resolve("events-clock-only.jsonl");
         Files.write(clockOnlyPath, clockOnly, StandardCharsets.UTF_8);
-        DiffResult exempted = EvidenceCoreDiffer.compare(clean,
-                inMemoryEvents(fixtureRun, clockOnlyPath));
+        DiffResult exempted = EvidenceCoreDiffer.compare(clean, inMemoryEvents(fixtureRun, clockOnlyPath));
         assertTrue(exempted.isIdenticalCore(), exempted.getCoreDivergences().toString());
 
         // 同时改 simulationTime：必须检出。
         List<String> tampered = new ArrayList<String>();
         for (int i = 0; i < clockOnly.size(); i++) {
             JsonObject event = JsonParser.parseString(clockOnly.get(i)).getAsJsonObject();
-            event.addProperty("simulationTime",
-                    event.get("simulationTime").getAsDouble() + 0.001);
+            event.addProperty("simulationTime", event.get("simulationTime").getAsDouble() + 0.001);
             tampered.add(event.toString());
         }
         Path tamperedPath = tempDir.resolve("events-tampered.jsonl");
         Files.write(tamperedPath, tampered, StandardCharsets.UTF_8);
-        DiffResult caught = EvidenceCoreDiffer.compare(clean,
-                inMemoryEvents(fixtureRun, tamperedPath));
+        DiffResult caught = EvidenceCoreDiffer.compare(clean, inMemoryEvents(fixtureRun, tamperedPath));
         assertFalse(caught.isIdenticalCore());
-        assertTrue(pointersOf(caught.getCoreDivergences()).contains("/events/0/simulationTime"),
+        assertTrue(
+                pointersOf(caught.getCoreDivergences()).contains("/events/0/simulationTime"),
                 caught.getCoreDivergences().toString());
         assertEquals(lines.size(), caught.getCoreDivergences().size());
     }
@@ -149,16 +147,15 @@ class EvidenceCoreDifferTest {
     @Test
     void detectsEventCountDivergence() throws Exception {
         RerunEvidence clean = RerunEvidenceReader.read(fixtureRun);
-        List<String> lines = Files.readAllLines(fixtureRun.resolve("result.events.jsonl"),
-                StandardCharsets.UTF_8);
+        List<String> lines = Files.readAllLines(fixtureRun.resolve("result.events.jsonl"), StandardCharsets.UTF_8);
         assertTrue(lines.size() > 1);
         Path truncated = tempDir.resolve("events-truncated.jsonl");
         Files.write(truncated, lines.subList(0, lines.size() - 1), StandardCharsets.UTF_8);
 
-        DiffResult result = EvidenceCoreDiffer.compare(clean,
-                inMemoryEvents(fixtureRun, truncated));
+        DiffResult result = EvidenceCoreDiffer.compare(clean, inMemoryEvents(fixtureRun, truncated));
         assertFalse(result.isIdenticalCore());
-        assertTrue(pointersOf(result.getCoreDivergences()).contains("/events/eventCount"),
+        assertTrue(
+                pointersOf(result.getCoreDivergences()).contains("/events/eventCount"),
                 result.getCoreDivergences().toString());
     }
 
@@ -173,7 +170,8 @@ class EvidenceCoreDifferTest {
 
         DiffResult result = EvidenceCoreDiffer.compare(tampered, clean);
         assertFalse(result.isIdenticalCore());
-        assertTrue(pointersOf(result.getCoreDivergences()).contains("/result/tasks"),
+        assertTrue(
+                pointersOf(result.getCoreDivergences()).contains("/result/tasks"),
                 result.getCoreDivergences().toString());
         Divergence length = find(result.getCoreDivergences(), "/result/tasks");
         assertEquals("array length " + (size - 1), length.getOriginalValue());
@@ -185,35 +183,43 @@ class EvidenceCoreDifferTest {
         RerunEvidence original = RerunEvidenceReader.read(fixtureRun);
         JsonObject moved = readManifest(fixtureRun);
         String relocated = tempDir.resolve("relocated/fixture.dax").toString();
-        moved.getAsJsonObject("configuration").getAsJsonArray("workflowPaths")
+        moved.getAsJsonObject("configuration")
+                .getAsJsonArray("workflowPaths")
                 .set(0, new com.google.gson.JsonPrimitive(relocated));
         moved.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", relocated);
-        moved.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
-                .get(0).getAsJsonObject().addProperty("path", relocated);
+        moved.getAsJsonObject("result")
+                .getAsJsonArray("workflowOutcomes")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("path", relocated);
 
         DiffResult unchanged = EvidenceCoreDiffer.compare(original, inMemoryManifest(fixtureRun, moved));
         assertTrue(unchanged.isIdenticalCore(), unchanged.getCoreDivergences().toString());
         assertTrue(pointersOf(unchanged.getVolatileNoted()).contains("/configuration/workflowPaths/0"));
 
-        moved.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("sha256",
-                "0000000000000000000000000000000000000000000000000000000000000000");
+        moved.getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("sha256", "0000000000000000000000000000000000000000000000000000000000000000");
         DiffResult differentInput = EvidenceCoreDiffer.compare(original, inMemoryManifest(fixtureRun, moved));
         assertFalse(differentInput.isIdenticalCore());
         assertTrue(pointersOf(differentInput.getCoreDivergences()).contains("/inputs/0/sha256"));
 
         JsonObject additionalPath = readManifest(fixtureRun);
-        additionalPath.getAsJsonObject("configuration").getAsJsonArray("workflowPaths").add(relocated);
-        DiffResult differentCount = EvidenceCoreDiffer.compare(original,
-                inMemoryManifest(fixtureRun, additionalPath));
+        additionalPath
+                .getAsJsonObject("configuration")
+                .getAsJsonArray("workflowPaths")
+                .add(relocated);
+        DiffResult differentCount = EvidenceCoreDiffer.compare(original, inMemoryManifest(fixtureRun, additionalPath));
         assertTrue(pointersOf(differentCount.getCoreDivergences()).contains("/configuration/workflowPaths"));
     }
 
     @Test
     void adjacentLargeIntegerSeedsRemainDistinctAfterJsonParsing() throws Exception {
         long[][] pairs = {
-                {9007199254740992L, 9007199254740993L},
-                {Long.MAX_VALUE - 1, Long.MAX_VALUE},
-                {Long.MIN_VALUE, Long.MIN_VALUE + 1}
+            {9007199254740992L, 9007199254740993L},
+            {Long.MAX_VALUE - 1, Long.MAX_VALUE},
+            {Long.MIN_VALUE, Long.MIN_VALUE + 1}
         };
         for (long[] pair : pairs) {
             JsonObject first = readManifest(fixtureRun);
@@ -225,8 +231,8 @@ class EvidenceCoreDifferTest {
             first = JsonParser.parseString(first.toString()).getAsJsonObject();
             second = JsonParser.parseString(second.toString()).getAsJsonObject();
 
-            DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                    inMemoryManifest(fixtureRun, second));
+            DiffResult result = EvidenceCoreDiffer.compare(
+                    inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second));
 
             assertFalse(result.isIdenticalCore(), pair[0] + " must differ from " + pair[1]);
             assertEquals(1, result.getCoreDivergences().size());
@@ -242,12 +248,12 @@ class EvidenceCoreDifferTest {
         JsonObject second = readManifest(fixtureRun);
         first.getAsJsonObject("metrics").add("makespanSeconds", JsonParser.parseString("1000.0"));
         second.getAsJsonObject("metrics").add("makespanSeconds", JsonParser.parseString("1e3"));
-        assertTrue(EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                inMemoryManifest(fixtureRun, second)).isIdenticalCore());
+        assertTrue(EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second))
+                .isIdenticalCore());
 
         second.getAsJsonObject("metrics").addProperty("makespanSeconds", Math.nextUp(1000.0));
-        DiffResult changed = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                inMemoryManifest(fixtureRun, second));
+        DiffResult changed =
+                EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second));
         assertFalse(changed.isIdenticalCore());
         assertTrue(pointersOf(changed.getCoreDivergences()).contains("/metrics/makespanSeconds"));
     }
@@ -262,8 +268,8 @@ class EvidenceCoreDifferTest {
             second.addProperty(key, "after");
         }
 
-        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                inMemoryManifest(fixtureRun, second));
+        DiffResult result =
+                EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second));
 
         assertFalse(result.isIdenticalCore(), "literal root member names must not become nested whitelist paths");
         assertEquals(keys.length, result.getCoreDivergences().size());
@@ -271,7 +277,8 @@ class EvidenceCoreDifferTest {
         assertTrue(pointers.contains("/configuration~1algorithmContract"), pointers.toString());
         assertTrue(pointers.contains("/provenance~1extra"), pointers.toString());
         assertTrue(pointers.contains("/configuration~1workflowPaths~10"), pointers.toString());
-        assertTrue(result.getVolatileNoted().isEmpty(), result.getVolatileNoted().toString());
+        assertTrue(
+                result.getVolatileNoted().isEmpty(), result.getVolatileNoted().toString());
     }
 
     @Test
@@ -281,8 +288,8 @@ class EvidenceCoreDifferTest {
         first.addProperty("evidence~1/tag~", 1);
         second.addProperty("evidence~1/tag~", 2);
 
-        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                inMemoryManifest(fixtureRun, second));
+        DiffResult result =
+                EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second));
 
         assertFalse(result.isIdenticalCore());
         assertEquals(1, result.getCoreDivergences().size());
@@ -297,55 +304,69 @@ class EvidenceCoreDifferTest {
         first.getAsJsonObject("provenance").addProperty("extra~/trace", "before");
         second.getAsJsonObject("provenance").addProperty("extra~/trace", "after");
 
-        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                inMemoryManifest(fixtureRun, second));
+        DiffResult result =
+                EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second));
 
         assertTrue(result.isIdenticalCore());
         assertEquals(1, result.getVolatileNoted().size());
-        assertEquals("/provenance/extra~0~1trace", result.getVolatileNoted().get(0).getPointer());
+        assertEquals(
+                "/provenance/extra~0~1trace", result.getVolatileNoted().get(0).getPointer());
     }
 
     @Test
     void actualNestedAlgorithmContractRemainsAnExplicitVolatileIdentity() throws Exception {
         JsonObject first = readManifest(fixtureRun);
         JsonObject second = readManifest(fixtureRun);
-        first.getAsJsonObject("configuration").getAsJsonObject("algorithmContract")
+        first.getAsJsonObject("configuration")
+                .getAsJsonObject("algorithmContract")
                 .addProperty("auditLabel", "before");
-        second.getAsJsonObject("configuration").getAsJsonObject("algorithmContract")
+        second.getAsJsonObject("configuration")
+                .getAsJsonObject("algorithmContract")
                 .addProperty("auditLabel", "after");
 
-        DiffResult result = EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first),
-                inMemoryManifest(fixtureRun, second));
+        DiffResult result =
+                EvidenceCoreDiffer.compare(inMemoryManifest(fixtureRun, first), inMemoryManifest(fixtureRun, second));
 
         assertTrue(result.isIdenticalCore(), result.getCoreDivergences().toString());
         assertEquals(1, result.getVolatileNoted().size());
-        assertEquals("/configuration/algorithmContract", result.getVolatileNoted().get(0).getPointer());
+        assertEquals(
+                "/configuration/algorithmContract",
+                result.getVolatileNoted().get(0).getPointer());
         assertFalse(result.getOriginalAlgorithmContract().equals(result.getRerunAlgorithmContract()));
     }
 
     // ---- helpers ----
 
     private static JsonObject readManifest(Path run) throws Exception {
-        return JsonParser.parseString(new String(
-                Files.readAllBytes(run.resolve("result.manifest.json")),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        return JsonParser.parseString(
+                        new String(Files.readAllBytes(run.resolve("result.manifest.json")), StandardCharsets.UTF_8))
+                .getAsJsonObject();
     }
 
     /** 用内存 manifest 替换磁盘内容构造证据（绕过 reader 的落盘哈希语义）。 */
     private static RerunEvidence inMemoryManifest(Path run, JsonObject manifest) throws Exception {
-        int eventCount = Files.readAllLines(run.resolve("result.events.jsonl"),
-                StandardCharsets.UTF_8).size();
-        return new RerunEvidence(run, run.resolve("result.manifest.json"),
-                run.resolve("result.metrics.json"), run.resolve("result.events.jsonl"),
-                eventCount, manifest);
+        int eventCount = Files.readAllLines(run.resolve("result.events.jsonl"), StandardCharsets.UTF_8)
+                .size();
+        return new RerunEvidence(
+                run,
+                run.resolve("result.manifest.json"),
+                run.resolve("result.metrics.json"),
+                run.resolve("result.events.jsonl"),
+                eventCount,
+                manifest);
     }
 
     /** 用替换后的 events 文件构造证据。 */
     private static RerunEvidence inMemoryEvents(Path run, Path eventsFile) throws Exception {
         JsonObject manifest = readManifest(run);
         int eventCount = Files.readAllLines(eventsFile, StandardCharsets.UTF_8).size();
-        return new RerunEvidence(run, run.resolve("result.manifest.json"),
-                run.resolve("result.metrics.json"), eventsFile, eventCount, manifest);
+        return new RerunEvidence(
+                run,
+                run.resolve("result.manifest.json"),
+                run.resolve("result.metrics.json"),
+                eventsFile,
+                eventCount,
+                manifest);
     }
 
     private static List<String> pointersOf(List<Divergence> divergences) {

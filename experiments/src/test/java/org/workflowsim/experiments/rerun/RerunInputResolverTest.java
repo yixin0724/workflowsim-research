@@ -48,16 +48,20 @@ class RerunInputResolverTest {
         assertEquals(recorded, resolved.getRecordedPath());
         assertEquals(Paths.get(recorded), resolved.getResolvedPath());
         assertEquals(2, resolved.getTier());
-        assertEquals(manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .get("sha256").getAsString(), resolved.getSha256());
+        assertEquals(
+                manifest.getAsJsonArray("inputs")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("sha256")
+                        .getAsString(),
+                resolved.getSha256());
     }
 
     @Test
     void prefersStudyInputsDirectory() throws Exception {
         Path run = studyLayoutRun();
         // 记录路径指向不存在的位置；同名文件放在 <study>/inputs/ 下。
-        Path studyInput = run.getParent().getParent().resolve("inputs")
-                .resolve("reproducibility-workflow.dax");
+        Path studyInput = run.getParent().getParent().resolve("inputs").resolve("reproducibility-workflow.dax");
         Files.createDirectories(studyInput.getParent());
         Files.copy(Paths.get(inputPath(readManifest(run))), studyInput);
         rewriteInputPath(run, "/nonexistent/original-machine/reproducibility-workflow.dax");
@@ -79,8 +83,7 @@ class RerunInputResolverTest {
         String fakeRoot = tempDir.resolve("fake-original-root").toString();
         JsonObject manifest = readManifest(run);
         rewriteInputPathIn(manifest, fakeRoot + "/datasets/fixture.dax");
-        manifest.getAsJsonObject("provenance").getAsJsonObject("execution")
-                .addProperty("workingDirectory", fakeRoot);
+        manifest.getAsJsonObject("provenance").getAsJsonObject("execution").addProperty("workingDirectory", fakeRoot);
         writeManifest(run, manifest);
         RerunEvidence evidence = RerunEvidenceReader.read(run);
         RerunInputs inputs = RerunInputResolver.resolve(evidence.getManifest(), run, rebasingRoot);
@@ -92,15 +95,18 @@ class RerunInputResolverTest {
     void hashMismatchTerminatesWithoutSubstitution() throws Exception {
         Path run = copyFixtureTo("hash-mismatch");
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
+        manifest.getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
                 .addProperty("sha256", "0000000000000000000000000000000000000000000000000000000000000000");
         writeManifest(run, manifest);
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunInputResolver.resolve(evidence.getManifest(), run, tempDir));
+        RerunFailureException failure = assertThrows(
+                RerunFailureException.class, () -> RerunInputResolver.resolve(evidence.getManifest(), run, tempDir));
         assertEquals(RerunVerdict.INPUT_HASH_MISMATCH, failure.getVerdict());
         assertTrue(failure.getMessage().contains("Refusing to substitute"), failure.getMessage());
-        assertTrue(failure.getDetails().stream().anyMatch(d -> d.startsWith("expected sha256=0000")),
+        assertTrue(
+                failure.getDetails().stream().anyMatch(d -> d.startsWith("expected sha256=0000")),
                 failure.getDetails().toString());
     }
 
@@ -109,13 +115,12 @@ class RerunInputResolverTest {
         // study inputs/ 下有同名但内容不同的文件；记录的绝对路径本身完好。
         // 契约：tier 1 命中即校验，不符即终止，不允许静默改用 tier 2。
         Path run = studyLayoutRun();
-        Path studyInput = run.getParent().getParent().resolve("inputs")
-                .resolve("reproducibility-workflow.dax");
+        Path studyInput = run.getParent().getParent().resolve("inputs").resolve("reproducibility-workflow.dax");
         Files.createDirectories(studyInput.getParent());
         Files.write(studyInput, "corrupted content".getBytes(StandardCharsets.UTF_8));
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunInputResolver.resolve(evidence.getManifest(), run, tempDir));
+        RerunFailureException failure = assertThrows(
+                RerunFailureException.class, () -> RerunInputResolver.resolve(evidence.getManifest(), run, tempDir));
         assertEquals(RerunVerdict.INPUT_HASH_MISMATCH, failure.getVerdict());
         assertTrue(failure.getMessage().contains(studyInput.toString()), failure.getMessage());
     }
@@ -126,19 +131,19 @@ class RerunInputResolverTest {
         String fakeRoot = tempDir.resolve("another-fake-root").toString();
         JsonObject manifest = readManifest(run);
         rewriteInputPathIn(manifest, fakeRoot + "/datasets/missing.dax");
-        manifest.getAsJsonObject("provenance").getAsJsonObject("execution")
-                .addProperty("workingDirectory", fakeRoot);
+        manifest.getAsJsonObject("provenance").getAsJsonObject("execution").addProperty("workingDirectory", fakeRoot);
         writeManifest(run, manifest);
         RerunEvidence evidence = RerunEvidenceReader.read(run);
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunInputResolver.resolve(evidence.getManifest(), run, tempDir));
+        RerunFailureException failure = assertThrows(
+                RerunFailureException.class, () -> RerunInputResolver.resolve(evidence.getManifest(), run, tempDir));
         assertEquals(RerunVerdict.INPUT_UNRESOLVED, failure.getVerdict());
         assertEquals(3, failure.getDetails().size(), failure.getDetails().toString());
         assertTrue(failure.getDetails().get(0).startsWith("tier1: "));
         assertTrue(failure.getDetails().get(1).startsWith("tier2: "));
         assertTrue(failure.getDetails().get(2).startsWith("tier3: "));
-        assertTrue(failure.getDetails().get(0).endsWith("inputs" + java.io.File.separator
-                + "missing.dax"), failure.getDetails().get(0));
+        assertTrue(
+                failure.getDetails().get(0).endsWith("inputs" + java.io.File.separator + "missing.dax"),
+                failure.getDetails().get(0));
     }
 
     @Test
@@ -147,8 +152,8 @@ class RerunInputResolverTest {
         // 此用例验证 resolver 自身对缺失字段的防御行为。
         JsonObject manifest = minimalManifest("/no/such/file.dax", null);
         Path run = Files.createDirectories(tempDir.resolve("defensive"));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunInputResolver.resolve(manifest, run, tempDir));
+        RerunFailureException failure =
+                assertThrows(RerunFailureException.class, () -> RerunInputResolver.resolve(manifest, run, tempDir));
         assertEquals(RerunVerdict.INPUT_UNRESOLVED, failure.getVerdict());
         assertEquals(1, failure.getDetails().size());
         assertTrue(failure.getDetails().get(0).startsWith("tier2: "));
@@ -159,8 +164,8 @@ class RerunInputResolverTest {
         JsonObject manifest = minimalManifest("/tmp/whatever.dax", "/tmp");
         manifest.getAsJsonArray("inputs").get(0).getAsJsonObject().remove("sha256");
         Path run = tempDir.resolve("whatever");
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunInputResolver.resolve(manifest, run, tempDir));
+        RerunFailureException failure =
+                assertThrows(RerunFailureException.class, () -> RerunInputResolver.resolve(manifest, run, tempDir));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("sha256"));
     }
@@ -182,20 +187,22 @@ class RerunInputResolverTest {
     }
 
     private static String inputPath(JsonObject manifest) {
-        return manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .get("path").getAsString();
+        return manifest.getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
+                .get("path")
+                .getAsString();
     }
 
     private JsonObject readManifest(Path run) throws Exception {
-        return JsonParser.parseString(new String(
-                Files.readAllBytes(run.resolve("result.manifest.json")),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        return JsonParser.parseString(
+                        new String(Files.readAllBytes(run.resolve("result.manifest.json")), StandardCharsets.UTF_8))
+                .getAsJsonObject();
     }
 
     private void writeManifest(Path run, JsonObject manifest) throws Exception {
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
-        Files.write(run.resolve("result.manifest.json"),
-                gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
+        Files.write(run.resolve("result.manifest.json"), gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
     }
 
     /** 同步改写 inputs/workflowPaths/workflowOutcomes 三处路径（v4 交叉校验要求）。 */
@@ -206,13 +213,14 @@ class RerunInputResolverTest {
     }
 
     private static void rewriteInputPathIn(JsonObject manifest, String newPath) {
-        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .addProperty("path", newPath);
-        JsonArray workflowPaths = manifest.getAsJsonObject("configuration")
-                .getAsJsonArray("workflowPaths");
+        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", newPath);
+        JsonArray workflowPaths = manifest.getAsJsonObject("configuration").getAsJsonArray("workflowPaths");
         workflowPaths.set(0, new com.google.gson.JsonPrimitive(newPath));
-        manifest.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
-                .get(0).getAsJsonObject().addProperty("path", newPath);
+        manifest.getAsJsonObject("result")
+                .getAsJsonArray("workflowOutcomes")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("path", newPath);
     }
 
     private static JsonObject minimalManifest(String path, String workingDirectory) {

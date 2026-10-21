@@ -8,8 +8,7 @@ import java.nio.file.Paths;
 /** P7/reference 运行入口共享的显式数据集根目录契约。 */
 final class ReferenceDatasetRoot {
 
-    private ReferenceDatasetRoot() {
-    }
+    private ReferenceDatasetRoot() {}
 
     /**
      * 校验并规范化一个显式、绝对的数据集目录。
@@ -49,8 +48,7 @@ final class ReferenceDatasetRoot {
         try {
             relative = Paths.get(relativePath);
         } catch (InvalidPathException exception) {
-            throw new IllegalArgumentException("Invalid dataset-relative input path: " + relativePath,
-                    exception);
+            throw new IllegalArgumentException("Invalid dataset-relative input path: " + relativePath, exception);
         }
         if (relative.isAbsolute()) {
             throw new IllegalArgumentException("Dataset input path must be relative: " + relativePath);

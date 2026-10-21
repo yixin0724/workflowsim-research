@@ -26,8 +26,7 @@ public final class ParameterSweep {
     private static final String DEFAULT_CLUSTERING = "DR";
     private static final String SMOKE_COMPLETION_PREFIX = "PARAMETER_SWEEP_SMOKE_COMPLETED";
 
-    private ParameterSweep() {
-    }
+    private ParameterSweep() {}
 
     /**
      * 仅运行显式请求的一格、一重复 smoke。
@@ -40,8 +39,8 @@ public final class ParameterSweep {
                     + "Use --smoke for one bounded compatibility run; implement research scans "
                     + "as a protocol-driven study campaign.");
         }
-        double makespan = execute("150000", 50.0, 10.0, 2.0, 30.0,
-                DEFAULT_CLUSTERING, ExampleCliSupport.LEGACY_DEMO_SEED);
+        double makespan =
+                execute("150000", 50.0, 10.0, 2.0, 30.0, DEFAULT_CLUSTERING, ExampleCliSupport.LEGACY_DEMO_SEED);
         if (!Double.isFinite(makespan) || makespan <= 0.0) {
             throw new IllegalStateException("Parameter sweep smoke produced an invalid makespan");
         }
@@ -54,10 +53,21 @@ public final class ParameterSweep {
      * <p>保留该签名是为了兼容现有教学调用。需要重复运行时应使用带根种子的重载，确保
      * 每个重复有可记录且可重放的随机条件。</p>
      */
-    public static double execute(String failureScale, double queueScale, double queuePriorWeight,
-            double queueShape, double failurePriorWeight, String clustering) {
-        return execute(failureScale, queueScale, queuePriorWeight, queueShape,
-                failurePriorWeight, clustering, ExampleCliSupport.LEGACY_DEMO_SEED);
+    public static double execute(
+            String failureScale,
+            double queueScale,
+            double queuePriorWeight,
+            double queueShape,
+            double failurePriorWeight,
+            String clustering) {
+        return execute(
+                failureScale,
+                queueScale,
+                queuePriorWeight,
+                queueShape,
+                failurePriorWeight,
+                clustering,
+                ExampleCliSupport.LEGACY_DEMO_SEED);
     }
 
     /**
@@ -72,16 +82,32 @@ public final class ParameterSweep {
      * @param rootSeed 本次运行的可重放根种子
      * @return 模型 makespan；失败时抛异常，不使用 sentinel
      */
-    public static double execute(String failureScale, double queueScale, double queuePriorWeight,
-            double queueShape, double failurePriorWeight, String clustering, long rootSeed) {
-        String[] args = {"-d", DEFAULT_DAX,
-            "-q", Double.toString(queueScale),
-            "-w", Double.toString(queuePriorWeight),
-            "-s", Double.toString(queueShape),
-            "-p", failureScale,
-            "-t", Double.toString(failurePriorWeight),
-            "-c", clustering,
-            "-r", Long.toString(rootSeed)};
+    public static double execute(
+            String failureScale,
+            double queueScale,
+            double queuePriorWeight,
+            double queueShape,
+            double failurePriorWeight,
+            String clustering,
+            long rootSeed) {
+        String[] args = {
+            "-d",
+            DEFAULT_DAX,
+            "-q",
+            Double.toString(queueScale),
+            "-w",
+            Double.toString(queuePriorWeight),
+            "-s",
+            Double.toString(queueShape),
+            "-p",
+            failureScale,
+            "-t",
+            Double.toString(failurePriorWeight),
+            "-c",
+            clustering,
+            "-r",
+            Long.toString(rootSeed)
+        };
         return FaultTolerantClusteringExample5.main2(args);
     }
 
@@ -91,26 +117,49 @@ public final class ParameterSweep {
      * <p>同一参数格中的种子序列是固定的；不同参数格只要传入同一 {@code rootSeed} 就能
      * 使用 common random numbers。该方法不输出研究证据，也不包含置信区间或停止规则。</p>
      */
-    public static double execute100(String failureScale, double queueScale, double queuePriorWeight,
-            double queueShape, double failurePriorWeight, String clustering) {
-        return executeReplications(failureScale, queueScale, queuePriorWeight, queueShape,
-                failurePriorWeight, clustering, 100, ExampleCliSupport.LEGACY_DEMO_SEED);
+    public static double execute100(
+            String failureScale,
+            double queueScale,
+            double queuePriorWeight,
+            double queueShape,
+            double failurePriorWeight,
+            String clustering) {
+        return executeReplications(
+                failureScale,
+                queueScale,
+                queuePriorWeight,
+                queueShape,
+                failurePriorWeight,
+                clustering,
+                100,
+                ExampleCliSupport.LEGACY_DEMO_SEED);
     }
 
     /** 执行给定数量的确定性重复，并返回算术平均 makespan。 */
-    public static double executeReplications(String failureScale, double queueScale,
-            double queuePriorWeight, double queueShape, double failurePriorWeight,
-            String clustering, int replications, long rootSeed) {
+    public static double executeReplications(
+            String failureScale,
+            double queueScale,
+            double queuePriorWeight,
+            double queueShape,
+            double failurePriorWeight,
+            String clustering,
+            int replications,
+            long rootSeed) {
         if (replications <= 0) {
             throw new IllegalArgumentException("replications must be greater than zero");
         }
         double sum = 0.0;
         for (int replication = 0; replication < replications; replication++) {
-            double makespan = execute(failureScale, queueScale, queuePriorWeight, queueShape,
-                    failurePriorWeight, clustering, rootSeed + replication);
+            double makespan = execute(
+                    failureScale,
+                    queueScale,
+                    queuePriorWeight,
+                    queueShape,
+                    failurePriorWeight,
+                    clustering,
+                    rootSeed + replication);
             if (!Double.isFinite(makespan) || makespan <= 0.0) {
-                throw new IllegalStateException("Replication " + replication
-                        + " produced an invalid makespan");
+                throw new IllegalStateException("Replication " + replication + " produced an invalid makespan");
             }
             sum += makespan;
             if (!Double.isFinite(sum)) {

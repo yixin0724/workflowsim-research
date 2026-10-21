@@ -27,10 +27,10 @@ import org.workflowsim.examples.wfcommons.WfCommonsSimulationExample1;
  */
 class WfCommonsCliSmokeIntegrationTest {
 
-    private static final InputCase WFFORMAT_INPUT = new InputCase("wfformat-montage-100",
-            "wfformat/montage/n100/montage-100-000.json");
-    private static final InputCase WFINSTANCES_INPUT = new InputCase("wfinstances-makeflow-blast-small",
-            "wfinstances/v1.5/makeflow/blast/blast-chameleon-small-001.json");
+    private static final InputCase WFFORMAT_INPUT =
+            new InputCase("wfformat-montage-100", "wfformat/montage/n100/montage-100-000.json");
+    private static final InputCase WFINSTANCES_INPUT = new InputCase(
+            "wfinstances-makeflow-blast-small", "wfinstances/v1.5/makeflow/blast/blast-chameleon-small-001.json");
     private static final List<InputCase> INPUTS = Arrays.asList(WFFORMAT_INPUT, WFINSTANCES_INPUT);
 
     @TempDir
@@ -38,30 +38,28 @@ class WfCommonsCliSmokeIntegrationTest {
 
     @TestFactory
     Stream<DynamicTest> simulationCliRunsBothSupportedJsonProvenances() {
-        return INPUTS.stream().map(input -> DynamicTest.dynamicTest("simulate " + input.id,
-                () -> {
+        return INPUTS.stream()
+                .map(input -> DynamicTest.dynamicTest("simulate " + input.id, () -> {
                     Path json = input.resolve(datasetRoot());
-                    CliProcessTestSupport.ProcessResult result = run(
-                            WfCommonsSimulationExample1.class.getName(), json.toString());
+                    CliProcessTestSupport.ProcessResult result =
+                            run(WfCommonsSimulationExample1.class.getName(), json.toString());
                     assertFalse(result.isTimedOut(), result.diagnostic());
                     assertEquals(0, result.getExitCode(), result.diagnostic());
-                    assertTrue(result.getOutput().contains("WFJSON_SUMMARY input="),
-                            result.diagnostic());
+                    assertTrue(result.getOutput().contains("WFJSON_SUMMARY input="), result.diagnostic());
                     assertTrue(result.getOutput().contains("failed=0"), result.diagnostic());
                 }));
     }
 
     @TestFactory
     Stream<DynamicTest> parserValidationCliAcceptsEachJsonFileDirectly() {
-        return INPUTS.stream().map(input -> DynamicTest.dynamicTest("validate " + input.id,
-                () -> {
+        return INPUTS.stream()
+                .map(input -> DynamicTest.dynamicTest("validate " + input.id, () -> {
                     Path json = input.resolve(datasetRoot());
-                    CliProcessTestSupport.ProcessResult result = run(
-                            WfCommonsJsonParserValidationExample.class.getName(), json.toString());
+                    CliProcessTestSupport.ProcessResult result =
+                            run(WfCommonsJsonParserValidationExample.class.getName(), json.toString());
                     assertFalse(result.isTimedOut(), result.diagnostic());
                     assertEquals(0, result.getExitCode(), result.diagnostic());
-                    assertTrue(result.getOutput().contains("WFJSON_VALIDATION PASSED files=1"),
-                            result.diagnostic());
+                    assertTrue(result.getOutput().contains("WFJSON_VALIDATION PASSED files=1"), result.diagnostic());
                 }));
     }
 
@@ -70,22 +68,20 @@ class WfCommonsCliSmokeIntegrationTest {
         Path first = WFFORMAT_INPUT.resolve(datasetRoot());
         Path second = WFINSTANCES_INPUT.resolve(datasetRoot());
 
-        CliProcessTestSupport.ProcessResult simulation = run(
-                WfCommonsSimulationExample1.class.getName(), first.toString(), second.toString());
+        CliProcessTestSupport.ProcessResult simulation =
+                run(WfCommonsSimulationExample1.class.getName(), first.toString(), second.toString());
         assertFalse(simulation.isTimedOut(), simulation.diagnostic());
         assertNotEquals(0, simulation.getExitCode(), simulation.diagnostic());
         assertFalse(simulation.getOutput().contains("WFJSON_SUMMARY"), simulation.diagnostic());
 
-        CliProcessTestSupport.ProcessResult validation = run(
-                WfCommonsJsonParserValidationExample.class.getName(), first.toString(), second.toString());
+        CliProcessTestSupport.ProcessResult validation =
+                run(WfCommonsJsonParserValidationExample.class.getName(), first.toString(), second.toString());
         assertFalse(validation.isTimedOut(), validation.diagnostic());
         assertNotEquals(0, validation.getExitCode(), validation.diagnostic());
-        assertFalse(validation.getOutput().contains("WFJSON_VALIDATION PASSED"),
-                validation.diagnostic());
+        assertFalse(validation.getOutput().contains("WFJSON_VALIDATION PASSED"), validation.diagnostic());
     }
 
-    private CliProcessTestSupport.ProcessResult run(String mainClass, String... arguments)
-            throws Exception {
+    private CliProcessTestSupport.ProcessResult run(String mainClass, String... arguments) throws Exception {
         return CliProcessTestSupport.runMain(workspaceRoot(), temporaryDirectory, mainClass, arguments);
     }
 
@@ -128,8 +124,7 @@ class WfCommonsCliSmokeIntegrationTest {
             // blast-chameleon-small-001.json 103 KB）已入库（见 .gitignore 反选），
             // 本测试在标准构建中必须执行，缺失即失败而非跳过。
             if (!Files.isRegularFile(result)) {
-                throw new IllegalStateException(
-                        "Resident JSON corpus must be present at " + result);
+                throw new IllegalStateException("Resident JSON corpus must be present at " + result);
             }
             return result;
         }

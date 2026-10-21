@@ -33,8 +33,7 @@ public final class RerunInputResolver {
     private static final String RUNS_DIRECTORY_NAME = "runs";
     private static final String STUDY_INPUTS_DIRECTORY_NAME = "inputs";
 
-    private RerunInputResolver() {
-    }
+    private RerunInputResolver() {}
 
     /**
      * 以当前工作目录为重定位根，解析证据包中记录的全部输入。
@@ -44,9 +43,10 @@ public final class RerunInputResolver {
      *         时为 {@code EVIDENCE_INVALID}
      * @throws IOException 文件系统读取失败
      */
-    public static RerunInputs resolve(RerunEvidence evidence)
-            throws RerunFailureException, IOException {
-        return resolve(evidence.getManifest(), evidence.getRunDirectory(),
+    public static RerunInputs resolve(RerunEvidence evidence) throws RerunFailureException, IOException {
+        return resolve(
+                evidence.getManifest(),
+                evidence.getRunDirectory(),
                 Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize());
     }
 
@@ -54,24 +54,27 @@ public final class RerunInputResolver {
     static RerunInputs resolve(JsonObject manifest, Path runDirectory, Path rebasingRoot)
             throws RerunFailureException, IOException {
         List<RerunInputs.ResolvedInput> resolved = new ArrayList<RerunInputs.ResolvedInput>();
-        String recordedWorkingDirectory = stringAt(manifest, "provenance", "execution",
-                "workingDirectory");
+        String recordedWorkingDirectory = stringAt(manifest, "provenance", "execution", "workingDirectory");
         for (JsonElement element : manifest.getAsJsonArray("inputs")) {
             JsonObject input = element.getAsJsonObject();
             String recordedPath = requireString(input, "path");
             String expectedSha256 = requireString(input, "sha256");
             long expectedSize = requireLong(input, "sizeBytes");
-            resolved.add(resolveOne(recordedPath, expectedSha256, expectedSize,
-                    recordedWorkingDirectory, runDirectory, rebasingRoot));
+            resolved.add(resolveOne(
+                    recordedPath, expectedSha256, expectedSize, recordedWorkingDirectory, runDirectory, rebasingRoot));
         }
         return new RerunInputs(resolved);
     }
 
-    private static RerunInputs.ResolvedInput resolveOne(String recordedPath, String expectedSha256,
-            long expectedSize, String recordedWorkingDirectory, Path runDirectory,
-            Path rebasingRoot) throws RerunFailureException, IOException {
-        List<Path> candidates = candidatePaths(recordedPath, recordedWorkingDirectory,
-                runDirectory, rebasingRoot);
+    private static RerunInputs.ResolvedInput resolveOne(
+            String recordedPath,
+            String expectedSha256,
+            long expectedSize,
+            String recordedWorkingDirectory,
+            Path runDirectory,
+            Path rebasingRoot)
+            throws RerunFailureException, IOException {
+        List<Path> candidates = candidatePaths(recordedPath, recordedWorkingDirectory, runDirectory, rebasingRoot);
         List<String> tried = new ArrayList<String>();
         for (int tier = 0; tier < candidates.size(); tier++) {
             Path candidate = candidates.get(tier);
@@ -88,24 +91,24 @@ public final class RerunInputResolver {
                 List<String> details = new ArrayList<String>(tried);
                 details.add("expected sha256=" + expectedSha256 + " sizeBytes=" + expectedSize);
                 details.add("actual   sha256=" + actualSha256 + " sizeBytes=" + actualSize);
-                throw new RerunFailureException(RerunVerdict.INPUT_HASH_MISMATCH,
+                throw new RerunFailureException(
+                        RerunVerdict.INPUT_HASH_MISMATCH,
                         "Input located but sha256/sizeBytes mismatch: " + candidate
                                 + " (recorded as " + recordedPath + "). Refusing to substitute"
                                 + " a different file.",
                         details);
             }
-            return new RerunInputs.ResolvedInput(recordedPath, candidate, actualSha256,
-                    actualSize, tier + 1);
+            return new RerunInputs.ResolvedInput(recordedPath, candidate, actualSha256, actualSize, tier + 1);
         }
-        throw new RerunFailureException(RerunVerdict.INPUT_UNRESOLVED,
-                "Input could not be located: " + recordedPath, tried);
+        throw new RerunFailureException(
+                RerunVerdict.INPUT_UNRESOLVED, "Input could not be located: " + recordedPath, tried);
     }
 
     /**
      * 按契约顺序生成三级候选；某级不可用时该位置为 null（保持 tier 编号稳定）。
      */
-    private static List<Path> candidatePaths(String recordedPath, String recordedWorkingDirectory,
-            Path runDirectory, Path rebasingRoot) {
+    private static List<Path> candidatePaths(
+            String recordedPath, String recordedWorkingDirectory, Path runDirectory, Path rebasingRoot) {
         List<Path> candidates = new ArrayList<Path>();
         candidates.add(studyInputsCandidate(recordedPath, runDirectory));
         candidates.add(Paths.get(recordedPath));
@@ -126,14 +129,12 @@ public final class RerunInputResolver {
         return studyRoot.resolve(STUDY_INPUTS_DIRECTORY_NAME).resolve(fileName);
     }
 
-    private static Path rebasedCandidate(String recordedPath, String recordedWorkingDirectory,
-            Path rebasingRoot) {
+    private static Path rebasedCandidate(String recordedPath, String recordedWorkingDirectory, Path rebasingRoot) {
         if (recordedWorkingDirectory == null || recordedWorkingDirectory.isEmpty()) {
             return null;
         }
-        String prefix = recordedWorkingDirectory.endsWith("/")
-                ? recordedWorkingDirectory
-                : recordedWorkingDirectory + "/";
+        String prefix =
+                recordedWorkingDirectory.endsWith("/") ? recordedWorkingDirectory : recordedWorkingDirectory + "/";
         if (!recordedPath.startsWith(prefix) || recordedPath.length() == prefix.length()) {
             return null;
         }
@@ -157,7 +158,9 @@ public final class RerunInputResolver {
     private static String stringAt(JsonObject root, String... path) {
         JsonObject current = root;
         for (int i = 0; i < path.length - 1; i++) {
-            if (current == null || !current.has(path[i]) || !current.get(path[i]).isJsonObject()) {
+            if (current == null
+                    || !current.has(path[i])
+                    || !current.get(path[i]).isJsonObject()) {
                 return null;
             }
             current = current.getAsJsonObject(path[i]);
@@ -169,19 +172,18 @@ public final class RerunInputResolver {
         return element.isJsonNull() ? null : element.getAsString();
     }
 
-    private static String requireString(JsonObject input, String field)
-            throws RerunFailureException {
+    private static String requireString(JsonObject input, String field) throws RerunFailureException {
         if (!input.has(field) || !input.get(field).isJsonPrimitive()) {
-            throw new RerunFailureException(RerunVerdict.EVIDENCE_INVALID,
-                    "inputs[] entry is missing required field: " + field);
+            throw new RerunFailureException(
+                    RerunVerdict.EVIDENCE_INVALID, "inputs[] entry is missing required field: " + field);
         }
         return input.get(field).getAsString();
     }
 
     private static long requireLong(JsonObject input, String field) throws RerunFailureException {
         if (!input.has(field) || !input.get(field).isJsonPrimitive()) {
-            throw new RerunFailureException(RerunVerdict.EVIDENCE_INVALID,
-                    "inputs[] entry is missing required field: " + field);
+            throw new RerunFailureException(
+                    RerunVerdict.EVIDENCE_INVALID, "inputs[] entry is missing required field: " + field);
         }
         return input.get(field).getAsLong();
     }

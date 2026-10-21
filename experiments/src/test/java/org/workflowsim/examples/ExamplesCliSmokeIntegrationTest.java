@@ -24,35 +24,36 @@ import org.workflowsim.examples.failure.clustering.ParameterSweep;
  */
 class ExamplesCliSmokeIntegrationTest {
 
-    private static final String MISSING_DAX_PATH =
-            "datasets/dax/__cli-smoke-missing__/missing-workflow.dax";
+    private static final String MISSING_DAX_PATH = "datasets/dax/__cli-smoke-missing__/missing-workflow.dax";
 
     @TempDir
     Path temporaryDirectory;
 
     @TestFactory
     Stream<DynamicTest> catalogDefaultsCompleteInIsolatedJvm() {
-        return ExampleCatalog.legacyExamples().stream().map(descriptor -> DynamicTest.dynamicTest(
-                "default " + descriptor.getId(), () -> {
+        return ExampleCatalog.legacyExamples().stream()
+                .map(descriptor -> DynamicTest.dynamicTest("default " + descriptor.getId(), () -> {
                     CliProcessTestSupport.ProcessResult result = run(descriptor.getMainClass());
                     assertFalse(result.isTimedOut(), result.diagnostic());
                     assertEquals(0, result.getExitCode(), result.diagnostic());
-                    assertTrue(result.getOutput().contains(ExampleCliSupport.COMPLETION_PREFIX
-                                    + " id=" + descriptor.getId() + " "),
+                    assertTrue(
+                            result.getOutput()
+                                    .contains(ExampleCliSupport.COMPLETION_PREFIX + " id=" + descriptor.getId() + " "),
                             result.diagnostic());
                 }));
     }
 
     @TestFactory
     Stream<DynamicTest> catalogInvalidInputsFailWithNonzeroExitStatus() {
-        return ExampleCatalog.legacyExamples().stream().map(descriptor -> DynamicTest.dynamicTest(
-                "invalid input " + descriptor.getId(), () -> {
-                    CliProcessTestSupport.ProcessResult result = run(descriptor.getMainClass(),
-                            invalidArguments(descriptor));
+        return ExampleCatalog.legacyExamples().stream()
+                .map(descriptor -> DynamicTest.dynamicTest("invalid input " + descriptor.getId(), () -> {
+                    CliProcessTestSupport.ProcessResult result =
+                            run(descriptor.getMainClass(), invalidArguments(descriptor));
                     assertFalse(result.isTimedOut(), result.diagnostic());
                     assertNotEquals(0, result.getExitCode(), result.diagnostic());
-                    assertFalse(result.getOutput().contains(ExampleCliSupport.COMPLETION_PREFIX
-                                    + " id=" + descriptor.getId() + " "),
+                    assertFalse(
+                            result.getOutput()
+                                    .contains(ExampleCliSupport.COMPLETION_PREFIX + " id=" + descriptor.getId() + " "),
                             result.diagnostic());
                     assertTrue(!result.getOutput().trim().isEmpty(), result.diagnostic());
                 }));
@@ -63,32 +64,29 @@ class ExamplesCliSmokeIntegrationTest {
         CliProcessTestSupport.ProcessResult success = run(ParameterSweep.class.getName(), "--smoke");
         assertFalse(success.isTimedOut(), success.diagnostic());
         assertEquals(0, success.getExitCode(), success.diagnostic());
-        assertTrue(success.getOutput().contains("PARAMETER_SWEEP_SMOKE_COMPLETED replications=1"),
-                success.diagnostic());
+        assertTrue(
+                success.getOutput().contains("PARAMETER_SWEEP_SMOKE_COMPLETED replications=1"), success.diagnostic());
 
         CliProcessTestSupport.ProcessResult missingMode = run(ParameterSweep.class.getName());
         assertFalse(missingMode.isTimedOut(), missingMode.diagnostic());
         assertNotEquals(0, missingMode.getExitCode(), missingMode.diagnostic());
-        assertFalse(missingMode.getOutput().contains("PARAMETER_SWEEP_SMOKE_COMPLETED"),
-                missingMode.diagnostic());
+        assertFalse(missingMode.getOutput().contains("PARAMETER_SWEEP_SMOKE_COMPLETED"), missingMode.diagnostic());
     }
 
     @Test
     void suiteListExposesEveryCatalogDescriptorWithoutExecutingThem() throws Exception {
-        CliProcessTestSupport.ProcessResult result = run(WorkflowSimAllExamplesTester.class.getName(),
-                "--list");
+        CliProcessTestSupport.ProcessResult result = run(WorkflowSimAllExamplesTester.class.getName(), "--list");
         assertFalse(result.isTimedOut(), result.diagnostic());
         assertEquals(0, result.getExitCode(), result.diagnostic());
         for (ExampleCatalog.Descriptor descriptor : ExampleCatalog.legacyExamples()) {
-            assertTrue(result.getOutput().contains(descriptor.getId() + " "
-                            + descriptor.getMainClass()),
+            assertTrue(
+                    result.getOutput().contains(descriptor.getId() + " " + descriptor.getMainClass()),
                     result.diagnostic());
         }
         assertFalse(result.getOutput().contains("EXAMPLE_SUITE_COMPLETED"), result.diagnostic());
     }
 
-    private CliProcessTestSupport.ProcessResult run(String mainClass, String... arguments)
-            throws Exception {
+    private CliProcessTestSupport.ProcessResult run(String mainClass, String... arguments) throws Exception {
         return CliProcessTestSupport.runMain(workspaceRoot(), temporaryDirectory, mainClass, arguments);
     }
 
@@ -118,8 +116,7 @@ class ExamplesCliSmokeIntegrationTest {
         }
         Path workspaceRoot = datasetRoot.getParent();
         if (workspaceRoot == null || !Files.isDirectory(workspaceRoot)) {
-            throw new IllegalStateException("Dataset root must have an existing project parent: "
-                    + datasetRoot);
+            throw new IllegalStateException("Dataset root must have an existing project parent: " + datasetRoot);
         }
         return workspaceRoot;
     }

@@ -49,8 +49,7 @@ public final class P7BaselineExecutor {
     static final String SELECTION_INDEX_KIND = "PARTIAL_SELECTION_NOT_P7_BASELINE";
     static final String PROTOCOL_REFERENCE = P7ReferenceIdentity.PROTOCOL_FILE_NAME;
 
-    private P7BaselineExecutor() {
-    }
+    private P7BaselineExecutor() {}
 
     /**
      * 命令行入口。
@@ -67,19 +66,20 @@ public final class P7BaselineExecutor {
     public static void main(String[] args) throws Exception {
         if (args == null || args.length == 0) {
             // IDE 直接运行支持：默认从项目根目录推导数据集与输出目录。
-            Path projectRoot = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+            Path projectRoot =
+                    Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
             Path defaultDatasets = projectRoot.resolve("datasets");
-            Path defaultOutput = projectRoot.resolve("p7-output")
-                    .resolve("run-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss")
-                            .format(new java.util.Date()));
-            args = new String[]{defaultDatasets.toString(), defaultOutput.toString()};
+            Path defaultOutput = projectRoot
+                    .resolve("p7-output")
+                    .resolve("run-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new java.util.Date()));
+            args = new String[] {defaultDatasets.toString(), defaultOutput.toString()};
             System.out.println("[P7] 未提供参数，使用默认路径：");
             System.out.println("[P7]   数据集根目录 = " + args[0]);
             System.out.println("[P7]   输出目录     = " + args[1]);
         }
         if (args.length != 2) {
-            throw new IllegalArgumentException("Usage: P7BaselineExecutor "
-                    + "<absolute-dataset-root> <absolute-empty-output-directory>");
+            throw new IllegalArgumentException(
+                    "Usage: P7BaselineExecutor " + "<absolute-dataset-root> <absolute-empty-output-directory>");
         }
         Path datasetRoot = ReferenceDatasetRoot.require(Paths.get(args[0]));
         Path outputDirectory = Paths.get(args[1]);
@@ -106,12 +106,16 @@ public final class P7BaselineExecutor {
      * @return 含相对工件路径和关键结果的不可变运行记录列表
      * @throws Exception 当目录条件、场景输入、仿真或工件校验不满足要求时
      */
-    public static List<RunRecord> executeBaseline(Path datasetRoot, Path outputDirectory)
-            throws Exception {
+    public static List<RunRecord> executeBaseline(Path datasetRoot, Path outputDirectory) throws Exception {
         Path normalizedDatasetRoot = ReferenceDatasetRoot.require(datasetRoot);
-        return executeInternal(normalizedDatasetRoot, outputDirectory,
-                P7BaselineMatrix.scenarios(normalizedDatasetRoot), P7BaselineMatrix.schedulingAlgorithms(),
-                BASELINE_INDEX_FILE_NAME, BASELINE_INDEX_SCHEMA, BASELINE_INDEX_KIND);
+        return executeInternal(
+                normalizedDatasetRoot,
+                outputDirectory,
+                P7BaselineMatrix.scenarios(normalizedDatasetRoot),
+                P7BaselineMatrix.schedulingAlgorithms(),
+                BASELINE_INDEX_FILE_NAME,
+                BASELINE_INDEX_SCHEMA,
+                BASELINE_INDEX_KIND);
     }
 
     /**
@@ -129,11 +133,20 @@ public final class P7BaselineExecutor {
      * @return 含相对工件路径和关键结果的不可变运行记录列表
      * @throws Exception 当目录条件、场景输入、仿真或工件校验不满足要求时
      */
-    public static List<RunRecord> executeSelection(Path datasetRoot, Path outputDirectory,
+    public static List<RunRecord> executeSelection(
+            Path datasetRoot,
+            Path outputDirectory,
             List<P7BaselineMatrix.Scenario> scenarios,
-            List<Parameters.SchedulingAlgorithm> algorithms) throws Exception {
-        return executeInternal(datasetRoot, outputDirectory, scenarios, algorithms,
-                SELECTION_INDEX_FILE_NAME, SELECTION_INDEX_SCHEMA, SELECTION_INDEX_KIND);
+            List<Parameters.SchedulingAlgorithm> algorithms)
+            throws Exception {
+        return executeInternal(
+                datasetRoot,
+                outputDirectory,
+                scenarios,
+                algorithms,
+                SELECTION_INDEX_FILE_NAME,
+                SELECTION_INDEX_SCHEMA,
+                SELECTION_INDEX_KIND);
     }
 
     /**
@@ -143,19 +156,32 @@ public final class P7BaselineExecutor {
      *     {@link #executeSelection(Path, Path, List, List)} 明确生成非基线的选择运行。
      */
     @Deprecated
-    public static List<RunRecord> execute(Path datasetRoot, Path outputDirectory,
+    public static List<RunRecord> execute(
+            Path datasetRoot,
+            Path outputDirectory,
             List<P7BaselineMatrix.Scenario> scenarios,
-            List<Parameters.SchedulingAlgorithm> algorithms) throws Exception {
+            List<Parameters.SchedulingAlgorithm> algorithms)
+            throws Exception {
         return executeSelection(datasetRoot, outputDirectory, scenarios, algorithms);
     }
 
-    private static List<RunRecord> executeInternal(Path datasetRoot, Path outputDirectory,
+    private static List<RunRecord> executeInternal(
+            Path datasetRoot,
+            Path outputDirectory,
             List<P7BaselineMatrix.Scenario> scenarios,
-            List<Parameters.SchedulingAlgorithm> algorithms, String indexFileName,
-            String indexSchema, String indexKind) throws Exception {
-        if (datasetRoot == null || outputDirectory == null || scenarios == null || algorithms == null
-                || scenarios.isEmpty() || algorithms.isEmpty()) {
-            throw new IllegalArgumentException("Dataset root, output directory, scenarios, and algorithms are required");
+            List<Parameters.SchedulingAlgorithm> algorithms,
+            String indexFileName,
+            String indexSchema,
+            String indexKind)
+            throws Exception {
+        if (datasetRoot == null
+                || outputDirectory == null
+                || scenarios == null
+                || algorithms == null
+                || scenarios.isEmpty()
+                || algorithms.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Dataset root, output directory, scenarios, and algorithms are required");
         }
         Path normalizedDatasetRoot = ReferenceDatasetRoot.require(datasetRoot);
         validateSelection(scenarios, algorithms);
@@ -166,19 +192,21 @@ public final class P7BaselineExecutor {
         for (P7BaselineMatrix.Scenario scenario : scenarios) {
             PlatformProfile platform = P7BaselineMatrix.baselinePlatform(scenario);
             for (Parameters.SchedulingAlgorithm algorithm : algorithms) {
-                SimulationConfig config = P7BaselineMatrix.baselineConfig(
-                        scenario, algorithm, normalizedDatasetRoot);
+                SimulationConfig config = P7BaselineMatrix.baselineConfig(scenario, algorithm, normalizedDatasetRoot);
                 SimulationReport report = runner.run(config, platform);
                 verifyReport(scenario, report);
                 Path scenarioDirectory = normalizedOutput.resolve(scenario.getId());
                 String runId = algorithm.name().toLowerCase(Locale.ROOT);
-                ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
-                        report, scenarioDirectory, runId, evidenceContext);
+                ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                        ExperimentArtifactWriter.write(report, scenarioDirectory, runId, evidenceContext);
                 ExperimentArtifactValidator.validate(artifacts.getManifest());
-                records.add(RunRecord.from(scenario, algorithm,
+                records.add(RunRecord.from(
+                        scenario,
+                        algorithm,
                         normalizedOutput.relativize(artifacts.getManifest()),
                         normalizedOutput.relativize(artifacts.getMetrics()),
-                        normalizedOutput.relativize(artifacts.getEvents()), report));
+                        normalizedOutput.relativize(artifacts.getEvents()),
+                        report));
             }
         }
         Path index = normalizedOutput.resolve(indexFileName);
@@ -187,8 +215,8 @@ public final class P7BaselineExecutor {
         return Collections.unmodifiableList(new ArrayList<RunRecord>(records));
     }
 
-    private static void validateSelection(List<P7BaselineMatrix.Scenario> scenarios,
-            List<Parameters.SchedulingAlgorithm> algorithms) {
+    private static void validateSelection(
+            List<P7BaselineMatrix.Scenario> scenarios, List<Parameters.SchedulingAlgorithm> algorithms) {
         Set<String> selectedCells = new HashSet<String>();
         for (P7BaselineMatrix.Scenario scenario : scenarios) {
             if (scenario == null || !P7BaselineMatrix.isBaselineScenarioId(scenario.getId())) {
@@ -200,8 +228,8 @@ public final class P7BaselineExecutor {
                 }
                 String cell = P7BaselineMatrix.cellKey(scenario.getId(), algorithm.name());
                 if (!selectedCells.add(cell)) {
-                    throw new IllegalArgumentException("P7 selection contains duplicate cell: "
-                            + scenario.getId() + "/" + algorithm.name());
+                    throw new IllegalArgumentException(
+                            "P7 selection contains duplicate cell: " + scenario.getId() + "/" + algorithm.name());
                 }
             }
         }
@@ -231,20 +259,25 @@ public final class P7BaselineExecutor {
         if (report.getInputs().size() != 1 || report.getInputReports().size() != 1) {
             throw new IllegalStateException("P7 baseline scenarios require one parsed input");
         }
-        if (!scenario.getExpectedWorkflowSha256().equals(report.getInputs().get(0).getSha256())) {
+        if (!scenario.getExpectedWorkflowSha256()
+                .equals(report.getInputs().get(0).getSha256())) {
             throw new IllegalStateException("P7 workflow hash mismatch for " + scenario.getId());
         }
         if (scenario.getExpectedTaskCount() != report.getInputReports().get(0).getTaskCount()) {
             throw new IllegalStateException("P7 task-count mismatch for " + scenario.getId());
         }
         if (report.getFailedJobs() != 0 || report.getSuccessfulJobs() != report.getTotalJobs()) {
-            throw new IllegalStateException("P7 failure-disabled run did not complete every job: "
-                    + scenario.getId());
+            throw new IllegalStateException("P7 failure-disabled run did not complete every job: " + scenario.getId());
         }
     }
 
-    private static void writeIndex(Path indexFile, List<RunRecord> records,
-            ExperimentEvidenceContext evidenceContext, String schema, String kind) throws IOException {
+    private static void writeIndex(
+            Path indexFile,
+            List<RunRecord> records,
+            ExperimentEvidenceContext evidenceContext,
+            String schema,
+            String kind)
+            throws IOException {
         Map<String, Object> index = new LinkedHashMap<String, Object>();
         index.put("schema", schema);
         index.put("kind", kind);
@@ -253,8 +286,7 @@ public final class P7BaselineExecutor {
         index.put("rootSeed", P7BaselineMatrix.ROOT_SEED);
         index.put("runtimeReferenceMips", P7BaselineMatrix.RUNTIME_REFERENCE_MIPS);
         index.put("runtimeScale", P7BaselineMatrix.RUNTIME_SCALE);
-        index.put("cloudSimMinEventIntervalSeconds",
-                P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS);
+        index.put("cloudSimMinEventIntervalSeconds", P7BaselineMatrix.CLOUDSIM_MIN_EVENT_INTERVAL_SECONDS);
         index.put("runCount", records.size());
         index.put("runs", records);
         ExperimentArtifactWriter.writeJson(indexFile, index);
@@ -277,9 +309,19 @@ public final class P7BaselineExecutor {
         private final int successfulJobs;
         private final int failedJobs;
 
-        private RunRecord(String scenarioId, String workflowFamily, int expectedTaskCount,
-                String platformVariant, String schedulingAlgorithm, String workflowSha256,
-                String manifest, String metrics, String events, double makespan, int totalJobs, int successfulJobs,
+        private RunRecord(
+                String scenarioId,
+                String workflowFamily,
+                int expectedTaskCount,
+                String platformVariant,
+                String schedulingAlgorithm,
+                String workflowSha256,
+                String manifest,
+                String metrics,
+                String events,
+                double makespan,
+                int totalJobs,
+                int successfulJobs,
                 int failedJobs) {
             this.scenarioId = scenarioId;
             this.workflowFamily = workflowFamily;
@@ -296,29 +338,79 @@ public final class P7BaselineExecutor {
             this.failedJobs = failedJobs;
         }
 
-        private static RunRecord from(P7BaselineMatrix.Scenario scenario,
-                Parameters.SchedulingAlgorithm algorithm, Path manifest, Path metrics, Path events,
+        private static RunRecord from(
+                P7BaselineMatrix.Scenario scenario,
+                Parameters.SchedulingAlgorithm algorithm,
+                Path manifest,
+                Path metrics,
+                Path events,
                 SimulationReport report) {
-            return new RunRecord(scenario.getId(), scenario.getWorkflowFamily(),
-                    scenario.getExpectedTaskCount(), scenario.getPlatformVariant().name(),
-                    algorithm.name(), report.getInputs().get(0).getSha256(), manifest.toString(),
-                    metrics.toString(), events.toString(),
-                    report.getMakespan(), report.getTotalJobs(), report.getSuccessfulJobs(),
+            return new RunRecord(
+                    scenario.getId(),
+                    scenario.getWorkflowFamily(),
+                    scenario.getExpectedTaskCount(),
+                    scenario.getPlatformVariant().name(),
+                    algorithm.name(),
+                    report.getInputs().get(0).getSha256(),
+                    manifest.toString(),
+                    metrics.toString(),
+                    events.toString(),
+                    report.getMakespan(),
+                    report.getTotalJobs(),
+                    report.getSuccessfulJobs(),
                     report.getFailedJobs());
         }
 
-        public String getScenarioId() { return scenarioId; }
-        public String getWorkflowFamily() { return workflowFamily; }
-        public int getExpectedTaskCount() { return expectedTaskCount; }
-        public String getPlatformVariant() { return platformVariant; }
-        public String getSchedulingAlgorithm() { return schedulingAlgorithm; }
-        public String getWorkflowSha256() { return workflowSha256; }
-        public String getManifest() { return manifest; }
-        public String getMetrics() { return metrics; }
-        public String getEvents() { return events; }
-        public double getMakespan() { return makespan; }
-        public int getTotalJobs() { return totalJobs; }
-        public int getSuccessfulJobs() { return successfulJobs; }
-        public int getFailedJobs() { return failedJobs; }
+        public String getScenarioId() {
+            return scenarioId;
+        }
+
+        public String getWorkflowFamily() {
+            return workflowFamily;
+        }
+
+        public int getExpectedTaskCount() {
+            return expectedTaskCount;
+        }
+
+        public String getPlatformVariant() {
+            return platformVariant;
+        }
+
+        public String getSchedulingAlgorithm() {
+            return schedulingAlgorithm;
+        }
+
+        public String getWorkflowSha256() {
+            return workflowSha256;
+        }
+
+        public String getManifest() {
+            return manifest;
+        }
+
+        public String getMetrics() {
+            return metrics;
+        }
+
+        public String getEvents() {
+            return events;
+        }
+
+        public double getMakespan() {
+            return makespan;
+        }
+
+        public int getTotalJobs() {
+            return totalJobs;
+        }
+
+        public int getSuccessfulJobs() {
+            return successfulJobs;
+        }
+
+        public int getFailedJobs() {
+            return failedJobs;
+        }
     }
 }

@@ -23,8 +23,7 @@ final class CliProcessTestSupport {
     static final long DEFAULT_TIMEOUT_SECONDS = 90L;
     private static final int DIAGNOSTIC_OUTPUT_LIMIT = 12_000;
 
-    private CliProcessTestSupport() {
-    }
+    private CliProcessTestSupport() {}
 
     /**
      * 从项目根目录启动一个主类，并将 stdout/stderr 合并写入临时日志。
@@ -36,11 +35,10 @@ final class CliProcessTestSupport {
      * @return 子进程的退出、超时和输出信息
      * @throws IOException 当子进程或日志文件无法创建时
      */
-    static ProcessResult runMain(Path workspaceRoot, Path logDirectory, String mainClass,
-            String... arguments) throws IOException {
+    static ProcessResult runMain(Path workspaceRoot, Path logDirectory, String mainClass, String... arguments)
+            throws IOException {
         if (workspaceRoot == null || !Files.isDirectory(workspaceRoot)) {
-            throw new IllegalArgumentException("Workspace root must be an existing directory: "
-                    + workspaceRoot);
+            throw new IllegalArgumentException("Workspace root must be an existing directory: " + workspaceRoot);
         }
         if (logDirectory == null) {
             throw new IllegalArgumentException("Log directory cannot be null");
@@ -81,14 +79,12 @@ final class CliProcessTestSupport {
                 process.waitFor(10L, TimeUnit.SECONDS);
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while stopping timed out process "
-                        + mainClass, exception);
+                throw new IllegalStateException("Interrupted while stopping timed out process " + mainClass, exception);
             }
         }
 
         String contents = new String(Files.readAllBytes(output), StandardCharsets.UTF_8);
-        return new ProcessResult(mainClass, output, finished,
-                finished ? process.exitValue() : -1, contents);
+        return new ProcessResult(mainClass, output, finished, finished ? process.exitValue() : -1, contents);
     }
 
     private static String javaExecutable() {
@@ -103,8 +99,7 @@ final class CliProcessTestSupport {
         private final int exitCode;
         private final String output;
 
-        ProcessResult(String mainClass, Path outputPath, boolean finished, int exitCode,
-                String output) {
+        ProcessResult(String mainClass, Path outputPath, boolean finished, int exitCode, String output) {
             this.mainClass = mainClass;
             this.outputPath = outputPath;
             this.finished = finished;
@@ -131,8 +126,8 @@ final class CliProcessTestSupport {
                 tail = "[output truncated; final " + DIAGNOSTIC_OUTPUT_LIMIT + " characters follow]\n"
                         + tail.substring(tail.length() - DIAGNOSTIC_OUTPUT_LIMIT);
             }
-            return "mainClass=" + mainClass + " exitCode=" + exitCode
-                    + " timedOut=" + isTimedOut() + " log=" + outputPath + "\n" + tail;
+            return "mainClass=" + mainClass + " exitCode=" + exitCode + " timedOut=" + isTimedOut() + " log="
+                    + outputPath + "\n" + tail;
         }
     }
 }

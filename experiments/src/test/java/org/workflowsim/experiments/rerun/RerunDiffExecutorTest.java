@@ -56,18 +56,18 @@ class RerunDiffExecutorTest {
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
                 .generatorMode(FailureParameters.FTCFailure.FAILURE_ALL)
-                .generatorSpecs(new DistributionSpec[][]{{DistributionSpec.of(
-                        DistributionFamily.WEIBULL, 5000.0, 1.0)}})
+                .generatorSpecs(
+                        new DistributionSpec[][] {{DistributionSpec.of(DistributionFamily.WEIBULL, 5000.0, 1.0)}})
                 .maxTotalRetryJobs(16)
                 .build();
         SimulationConfig config = SimulationConfig.builder(
-                RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax"), 3)
+                        RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax"), 3)
                 .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
                 .randomSeed(91L)
                 .failureModel(failure)
                 .build();
-        RerunTestSupport.generateEvidence(failureFixtureRun, config,
-                PlatformProfiles.homogeneousLocal("rerun-failure-fixture", 3));
+        RerunTestSupport.generateEvidence(
+                failureFixtureRun, config, PlatformProfiles.homogeneousLocal("rerun-failure-fixture", 3));
     }
 
     @Test
@@ -99,7 +99,8 @@ class RerunDiffExecutorTest {
         JsonObject entry = inputs.get(0).getAsJsonObject();
         assertTrue(entry.get("verified").getAsBoolean());
         assertEquals(2, entry.get("tier").getAsInt());
-        assertEquals(entry.get("recordedPath").getAsString(),
+        assertEquals(
+                entry.get("recordedPath").getAsString(),
                 entry.get("resolvedPath").getAsString());
 
         // 代码身份：同一源码树复跑，两侧哈希相同且非空。
@@ -122,8 +123,12 @@ class RerunDiffExecutorTest {
         Path study = tempDir.resolve("relocated-study");
         Path run = Files.createDirectories(study.resolve("runs/fixture"));
         RerunTestSupport.copyEvidenceFiles(fixtureRun, run);
-        Path recordedInput = Paths.get(readManifest(run).getAsJsonArray("inputs")
-                .get(0).getAsJsonObject().get("path").getAsString());
+        Path recordedInput = Paths.get(readManifest(run)
+                .getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
+                .get("path")
+                .getAsString());
         Path relocatedInput = study.resolve("inputs").resolve(recordedInput.getFileName());
         Files.createDirectories(relocatedInput.getParent());
         Files.copy(recordedInput, relocatedInput);
@@ -134,7 +139,8 @@ class RerunDiffExecutorTest {
         assertEquals(0, report.getExitCode());
         assertEquals(1, report.getInputResolution().size());
         assertEquals(1, report.getInputResolution().get(0).getTier());
-        assertEquals(relocatedInput.toString(), report.getInputResolution().get(0).getResolvedPath());
+        assertEquals(
+                relocatedInput.toString(), report.getInputResolution().get(0).getResolvedPath());
         assertTrue(report.getInputResolution().get(0).isVerified());
         assertTrue(report.getVolatileFieldsNoted().stream()
                 .anyMatch(change -> "/configuration/workflowPaths/0".equals(change.getPointer())));
@@ -143,8 +149,10 @@ class RerunDiffExecutorTest {
     @Test
     void tamperedManifestMakespanReportsDivergedWithExactPointer() throws Exception {
         Path run = copyFixtureTo("tampered");
-        double original = readManifest(run).getAsJsonObject("metrics")
-                .get("makespanSeconds").getAsDouble();
+        double original = readManifest(run)
+                .getAsJsonObject("metrics")
+                .get("makespanSeconds")
+                .getAsDouble();
         tamperMakespanConsistently(run, original + 1.0);
 
         RerunReport report = RerunDiffExecutor.execute(run, tempDir.resolve("tampered-out"));
@@ -154,11 +162,12 @@ class RerunDiffExecutorTest {
         // 分歧不妨碍复跑本身：rerun 三件套仍然落盘。
         assertTrue(Files.exists(tempDir.resolve("tampered-out/rerun/result.manifest.json")));
         assertEquals(1, report.getCoreDivergences().size());
-        assertEquals("/metrics/makespanSeconds",
-                report.getCoreDivergences().get(0).getPointer());
+        assertEquals(
+                "/metrics/makespanSeconds", report.getCoreDivergences().get(0).getPointer());
 
-        JsonObject json = JsonParser.parseString(read(tempDir.resolve("tampered-out")
-                .resolve(RerunDiffExecutor.REPORT_JSON_NAME))).getAsJsonObject();
+        JsonObject json = JsonParser.parseString(
+                        read(tempDir.resolve("tampered-out").resolve(RerunDiffExecutor.REPORT_JSON_NAME)))
+                .getAsJsonObject();
         assertEquals("DIVERGED", json.get("verdict").getAsString());
         JsonArray divergences = json.getAsJsonArray("coreDivergences");
         assertEquals(1, divergences.size());
@@ -171,22 +180,20 @@ class RerunDiffExecutorTest {
     @Test
     void corruptedInputFileReportsHashMismatch() throws Exception {
         Path run = copyFixtureTo("hash-mismatch");
-        Path corrupted = Files.createDirectories(tempDir.resolve("corrupted-inputs"))
-                .resolve("reproducibility-workflow.dax");
-        byte[] bytes = Files.readAllBytes(Paths.get(
-                RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax")));
+        Path corrupted =
+                Files.createDirectories(tempDir.resolve("corrupted-inputs")).resolve("reproducibility-workflow.dax");
+        byte[] bytes =
+                Files.readAllBytes(Paths.get(RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax")));
         bytes[bytes.length - 1] ^= 0x01;
         Files.write(corrupted, bytes);
         rewriteInputPath(run, corrupted.toString());
 
-        RerunReport report = RerunDiffExecutor.execute(run,
-                tempDir.resolve("hash-mismatch-out"));
+        RerunReport report = RerunDiffExecutor.execute(run, tempDir.resolve("hash-mismatch-out"));
 
         assertEquals(RerunVerdict.INPUT_HASH_MISMATCH, report.getVerdict());
         assertEquals(3, report.getExitCode());
         assertFalse(Files.exists(tempDir.resolve("hash-mismatch-out/rerun")));
-        assertTrue(Files.exists(tempDir.resolve("hash-mismatch-out")
-                .resolve(RerunDiffExecutor.REPORT_JSON_NAME)));
+        assertTrue(Files.exists(tempDir.resolve("hash-mismatch-out").resolve(RerunDiffExecutor.REPORT_JSON_NAME)));
         assertTrue(report.getFailureReason().contains("sha256"));
         assertFalse(report.getFailureDetails().isEmpty());
     }
@@ -196,8 +203,7 @@ class RerunDiffExecutorTest {
         Path run = copyFixtureTo("unresolved");
         rewriteInputPath(run, "/nonexistent-root/datasets/missing.dax");
 
-        RerunReport report = RerunDiffExecutor.execute(run,
-                tempDir.resolve("unresolved-out"));
+        RerunReport report = RerunDiffExecutor.execute(run, tempDir.resolve("unresolved-out"));
 
         assertEquals(RerunVerdict.INPUT_UNRESOLVED, report.getVerdict());
         assertEquals(2, report.getExitCode());
@@ -212,16 +218,14 @@ class RerunDiffExecutorTest {
         }
         assertTrue(listsTier2Candidate, details.toString());
         assertFalse(Files.exists(tempDir.resolve("unresolved-out/rerun")));
-        assertTrue(Files.exists(tempDir.resolve("unresolved-out")
-                .resolve(RerunDiffExecutor.REPORT_MARKDOWN_NAME)));
+        assertTrue(Files.exists(tempDir.resolve("unresolved-out").resolve(RerunDiffExecutor.REPORT_MARKDOWN_NAME)));
     }
 
     @Test
     void unknownAlgorithmLabelReportsReconstructionRejected() throws Exception {
         Path run = copyFixtureTo("bad-enum");
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonObject("configuration")
-                .addProperty("schedulingAlgorithm", "NOT_AN_ALGORITHM");
+        manifest.getAsJsonObject("configuration").addProperty("schedulingAlgorithm", "NOT_AN_ALGORITHM");
         writeManifest(run, manifest);
 
         RerunReport report = RerunDiffExecutor.execute(run, tempDir.resolve("bad-enum-out"));
@@ -250,8 +254,7 @@ class RerunDiffExecutorTest {
         assertEquals(5, report.getExitCode());
         assertNotNull(report.getFailureReason());
         assertFalse(Files.exists(tempDir.resolve("v3-out/rerun")));
-        assertTrue(Files.exists(tempDir.resolve("v3-out")
-                .resolve(RerunDiffExecutor.REPORT_JSON_NAME)));
+        assertTrue(Files.exists(tempDir.resolve("v3-out").resolve(RerunDiffExecutor.REPORT_JSON_NAME)));
     }
 
     @Test
@@ -260,8 +263,7 @@ class RerunDiffExecutorTest {
         Path out = Files.createDirectories(tempDir.resolve("nonempty-out"));
         Files.write(out.resolve("stray.txt"), "keep".getBytes(StandardCharsets.UTF_8));
 
-        IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> RerunDiffExecutor.execute(run, out));
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> RerunDiffExecutor.execute(run, out));
 
         assertTrue(e.getMessage().contains("must be empty"), e.getMessage());
         List<Path> remaining = new ArrayList<Path>();
@@ -280,16 +282,13 @@ class RerunDiffExecutorTest {
         RerunTestSupport.copyEvidenceFiles(failureFixtureRun, run);
         JsonObject manifest = readManifest(run);
         // WEIBULL scale 5000.0 → 0.1：重建仍能通过，但复跑必然耗尽重试预算。
-        rewriteDistributionScale(manifest.getAsJsonObject("configuration")
-                .getAsJsonObject("failureModel"), 0.1);
+        rewriteDistributionScale(manifest.getAsJsonObject("configuration").getAsJsonObject("failureModel"), 0.1);
         writeManifest(run, manifest);
 
-        RerunReport report = RerunDiffExecutor.execute(run,
-                tempDir.resolve("sim-failure-out"));
+        RerunReport report = RerunDiffExecutor.execute(run, tempDir.resolve("sim-failure-out"));
 
         assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, report.getVerdict());
-        assertTrue(report.getFailureReason().contains("模拟执行阶段"),
-                report.getFailureReason());
+        assertTrue(report.getFailureReason().contains("模拟执行阶段"), report.getFailureReason());
         assertFalse(Files.exists(tempDir.resolve("sim-failure-out/rerun")));
     }
 
@@ -306,8 +305,7 @@ class RerunDiffExecutorTest {
      * artifacts 哈希/大小。阶段 1 读取器的跨文件校验因此仍然通过，篡改才会到达
      * 差异比对环节——只改 manifest 会被 EVIDENCE_INVALID 提前拦截。
      */
-    private static void tamperMakespanConsistently(Path run, double newMakespan)
-            throws Exception {
+    private static void tamperMakespanConsistently(Path run, double newMakespan) throws Exception {
         JsonObject manifest = readManifest(run);
         manifest.getAsJsonObject("metrics").addProperty("makespanSeconds", newMakespan);
 
@@ -330,8 +328,7 @@ class RerunDiffExecutorTest {
     }
 
     private static String sha256Hex(byte[] bytes) throws Exception {
-        java.security.MessageDigest digest =
-                java.security.MessageDigest.getInstance("SHA-256");
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(bytes);
         StringBuilder hex = new StringBuilder();
         for (byte b : hash) {
@@ -361,26 +358,25 @@ class RerunDiffExecutorTest {
     }
 
     private static JsonObject readManifest(Path run) throws Exception {
-        return JsonParser.parseString(read(run.resolve("result.manifest.json")))
-                .getAsJsonObject();
+        return JsonParser.parseString(read(run.resolve("result.manifest.json"))).getAsJsonObject();
     }
 
     private static void writeManifest(Path run, JsonObject manifest) throws Exception {
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
-        Files.write(run.resolve("result.manifest.json"),
-                gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
+        Files.write(run.resolve("result.manifest.json"), gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
     }
 
     /** 同步改写 inputs/workflowPaths/workflowOutcomes 三处路径（v4 交叉校验要求）。 */
     private static void rewriteInputPath(Path run, String newPath) throws Exception {
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .addProperty("path", newPath);
-        JsonArray workflowPaths = manifest.getAsJsonObject("configuration")
-                .getAsJsonArray("workflowPaths");
+        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", newPath);
+        JsonArray workflowPaths = manifest.getAsJsonObject("configuration").getAsJsonArray("workflowPaths");
         workflowPaths.set(0, new JsonPrimitive(newPath));
-        manifest.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
-                .get(0).getAsJsonObject().addProperty("path", newPath);
+        manifest.getAsJsonObject("result")
+                .getAsJsonArray("workflowOutcomes")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("path", newPath);
         writeManifest(run, manifest);
     }
 }

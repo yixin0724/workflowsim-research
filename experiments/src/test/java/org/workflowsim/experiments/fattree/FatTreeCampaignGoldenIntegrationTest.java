@@ -30,8 +30,9 @@ class FatTreeCampaignGoldenIntegrationTest {
 
     private static final String V1 =
             DataMovementModel.preExecutionTransferDelayV1().getKind().name();
-    private static final String R2 =
-            DataMovementModel.preExecutionTransferDelayWithContentionV1().getKind().name();
+    private static final String R2 = DataMovementModel.preExecutionTransferDelayWithContentionV1()
+            .getKind()
+            .name();
     private static final String R6 =
             DataMovementModel.fatTreeContentionV1().getKind().name();
     private static final String HEFT = Parameters.PlanningAlgorithm.LOCAL_HEFT.name();
@@ -79,13 +80,11 @@ class FatTreeCampaignGoldenIntegrationTest {
         assertEquals(HEFT, winners.get(V1).get(CYBERSHAKE_N100));
         assertMakespan(results, CYBERSHAKE_N100, HEFT, V1, 1111837.479876);
         assertMakespan(results, CYBERSHAKE_N100, PSO, V1, 1112378.121047);
-        assertTrue(results.makespan(CYBERSHAKE_N100, HEFT, V1)
-                < results.makespan(CYBERSHAKE_N100, PSO, V1));
+        assertTrue(results.makespan(CYBERSHAKE_N100, HEFT, V1) < results.makespan(CYBERSHAKE_N100, PSO, V1));
         assertEquals(PSO, winners.get(R2).get(CYBERSHAKE_N100));
         assertEquals(PSO, winners.get(R6).get(CYBERSHAKE_N100));
         for (String model : new String[] {V1, R2, R6}) {
-            assertEquals(HEFT, winners.get(model).get(HEFT_EXAMPLE),
-                    model + ": 论文例第一名应始终为 LOCAL_HEFT");
+            assertEquals(HEFT, winners.get(model).get(HEFT_EXAMPLE), model + ": 论文例第一名应始终为 LOCAL_HEFT");
         }
         // 黄金 makespan（翻转的直接数值证据，秒）。再标定后 N50 PSO 的 R6 恢复
         // 束缚链路的小幅减速（587921.6099 &lt; R2 587924.0247，噪声级交叉已入
@@ -107,13 +106,11 @@ class FatTreeCampaignGoldenIntegrationTest {
             double a = results.makespan(HEFT_EXAMPLE, planner, V1);
             double b = results.makespan(HEFT_EXAMPLE, planner, R2);
             double c = results.makespan(HEFT_EXAMPLE, planner, R6);
-            assertTrue(b >= a && c >= b,
-                    planner + ": 论文例上必须严格弱单调 " + a + "/" + b + "/" + c);
+            assertTrue(b >= a && c >= b, planner + ": 论文例上必须严格弱单调 " + a + "/" + b + "/" + c);
         }
         for (Map<String, Object> violation : results.monotonicityDiagnostics()) {
             double deviation = ((Double) violation.get("maxRelativeDeviation")).doubleValue();
-            assertTrue(deviation <= 1.0e-4,
-                    "子集内弱单调性交叉必须为噪声级（≤1e-4 相对偏差）: " + violation);
+            assertTrue(deviation <= 1.0e-4, "子集内弱单调性交叉必须为噪声级（≤1e-4 相对偏差）: " + violation);
         }
     }
 
@@ -137,20 +134,23 @@ class FatTreeCampaignGoldenIntegrationTest {
         Log.disable();
         FatTreeSchedulingCampaignExecutor.CampaignResults results = runSubset(true, false);
         assertEquals(36, results.mainMatrix.size(), "主矩阵记录数 = 3 DAG × 12 组合");
-        assertEquals(12, results.sensitivity.size(),
-                "敏感性记录数 = 2 规划器 × 6 拓扑变体（仅论文例）");
+        assertEquals(12, results.sensitivity.size(), "敏感性记录数 = 2 规划器 × 6 拓扑变体（仅论文例）");
         for (String planner : new String[] {HEFT, CPOP}) {
             double baseline = results.sensitivityMakespan(HEFT_EXAMPLE, planner, BASELINE);
-            assertEquals(results.makespan(HEFT_EXAMPLE, planner, R6), baseline, 1.0e-9,
-                    planner + ": 敏感性基线拓扑必须与主矩阵 R6 运行恒等");
-            for (String variant : new String[] {"A1-k4-oversub2x", "A2-k8-full",
-                    "A3-k8-oversub2x", "A5-k4-full-same-edge-pair"}) {
-                assertEquals(baseline,
-                        results.sensitivityMakespan(HEFT_EXAMPLE, planner, variant), 1.0e-9,
+            assertEquals(
+                    results.makespan(HEFT_EXAMPLE, planner, R6), baseline, 1.0e-9, planner + ": 敏感性基线拓扑必须与主矩阵 R6 运行恒等");
+            for (String variant :
+                    new String[] {"A1-k4-oversub2x", "A2-k8-full", "A3-k8-oversub2x", "A5-k4-full-same-edge-pair"}) {
+                assertEquals(
+                        baseline,
+                        results.sensitivityMakespan(HEFT_EXAMPLE, planner, variant),
+                        1.0e-9,
                         planner + " × " + variant + ": 3 主机下结构轴应退化恒等");
             }
-            assertEquals(results.makespan(HEFT_EXAMPLE, planner, R2),
-                    results.sensitivityMakespan(HEFT_EXAMPLE, planner, A4), 1.0e-9,
+            assertEquals(
+                    results.makespan(HEFT_EXAMPLE, planner, R2),
+                    results.sensitivityMakespan(HEFT_EXAMPLE, planner, A4),
+                    1.0e-9,
                     planner + ": A4（链路 10×）应精确收敛回主矩阵 R2 值");
         }
     }
@@ -165,17 +165,19 @@ class FatTreeCampaignGoldenIntegrationTest {
     void structuralBlockLocksFourHostDegeneracyAndBandwidthEffect() throws Exception {
         Log.disable();
         FatTreeSchedulingCampaignExecutor.CampaignResults results = runSubset(false, true);
-        assertEquals(12, results.structural.size(),
-                "结构敏感性记录数 = 2 规划器 × 6 拓扑变体（仅论文例）");
+        assertEquals(12, results.structural.size(), "结构敏感性记录数 = 2 规划器 × 6 拓扑变体（仅论文例）");
         for (String planner : new String[] {HEFT, CPOP}) {
             double baseline = results.structuralMakespan(HEFT_EXAMPLE, planner, BASELINE);
-            for (String variant : new String[] {"A1-k4-oversub2x", "A2-k8-full",
-                    "A3-k8-oversub2x", "A5-k4-full-same-edge-pairs"}) {
-                assertEquals(baseline,
-                        results.structuralMakespan(HEFT_EXAMPLE, planner, variant), 1.0e-9,
+            for (String variant :
+                    new String[] {"A1-k4-oversub2x", "A2-k8-full", "A3-k8-oversub2x", "A5-k4-full-same-edge-pairs"}) {
+                assertEquals(
+                        baseline,
+                        results.structuralMakespan(HEFT_EXAMPLE, planner, variant),
+                        1.0e-9,
                         planner + " × " + variant + ": 4 主机下结构轴仍恒等");
             }
-            assertTrue(results.structuralMakespan(HEFT_EXAMPLE, planner, A4) < baseline,
+            assertTrue(
+                    results.structuralMakespan(HEFT_EXAMPLE, planner, A4) < baseline,
                     planner + ": A4（链路 1.25 MB/s 非束缚）应严格降低 makespan");
         }
         assertEquals(5718.1, results.structuralMakespan(HEFT_EXAMPLE, HEFT, BASELINE), 1.0e-6);
@@ -187,14 +189,13 @@ class FatTreeCampaignGoldenIntegrationTest {
     /** 敏感性/结构块仅跑论文例（其余 DAG 由全量 campaign 覆盖），主矩阵跑子集。 */
     private static FatTreeSchedulingCampaignExecutor.CampaignResults runSubset(
             boolean includeSensitivity, boolean includeStructural) throws Exception {
-        Set<String> wanted = new HashSet<String>(Arrays.asList(
-                HEFT_EXAMPLE, CYBERSHAKE_N50, CYBERSHAKE_N100));
+        Set<String> wanted = new HashSet<String>(Arrays.asList(HEFT_EXAMPLE, CYBERSHAKE_N50, CYBERSHAKE_N100));
         List<FatTreeSchedulingCampaignExecutor.DagScenario> subset =
                 new ArrayList<FatTreeSchedulingCampaignExecutor.DagScenario>();
         List<FatTreeSchedulingCampaignExecutor.DagScenario> sensitivitySubset =
                 new ArrayList<FatTreeSchedulingCampaignExecutor.DagScenario>();
-        for (FatTreeSchedulingCampaignExecutor.DagScenario dag
-                : FatTreeSchedulingCampaignExecutor.discoverCoreDags(datasetsRoot())) {
+        for (FatTreeSchedulingCampaignExecutor.DagScenario dag :
+                FatTreeSchedulingCampaignExecutor.discoverCoreDags(datasetsRoot())) {
             if (wanted.contains(dag.id)) {
                 subset.add(dag);
             }
@@ -205,19 +206,16 @@ class FatTreeCampaignGoldenIntegrationTest {
         assertEquals(3, subset.size(), "子集必须包含论文例 + cybershake-n50/n100");
         assertEquals(1, sensitivitySubset.size(), "核心 DAG 集必须包含 HEFT 论文例");
         FatTreeSchedulingCampaignExecutor.CampaignResults main =
-                FatTreeSchedulingCampaignExecutor.runCampaign(
-                        datasetsRoot(), subset, false, false);
+                FatTreeSchedulingCampaignExecutor.runCampaign(datasetsRoot(), subset, false, false);
         if (includeSensitivity) {
             FatTreeSchedulingCampaignExecutor.CampaignResults withSensitivity =
-                    FatTreeSchedulingCampaignExecutor.runCampaign(
-                            datasetsRoot(), sensitivitySubset, true, false);
+                    FatTreeSchedulingCampaignExecutor.runCampaign(datasetsRoot(), sensitivitySubset, true, false);
             main.sensitivity.clear();
             main.sensitivity.addAll(withSensitivity.sensitivity);
         }
         if (includeStructural) {
             FatTreeSchedulingCampaignExecutor.CampaignResults withStructural =
-                    FatTreeSchedulingCampaignExecutor.runCampaign(
-                            datasetsRoot(), sensitivitySubset, false, true);
+                    FatTreeSchedulingCampaignExecutor.runCampaign(datasetsRoot(), sensitivitySubset, false, true);
             main.structural.clear();
             main.structural.addAll(withStructural.structural);
         }
@@ -226,8 +224,13 @@ class FatTreeCampaignGoldenIntegrationTest {
 
     private static void assertMakespan(
             FatTreeSchedulingCampaignExecutor.CampaignResults results,
-            String dax, String planner, String modelKind, double expected) {
-        assertEquals(expected, results.makespan(dax, planner, modelKind),
+            String dax,
+            String planner,
+            String modelKind,
+            double expected) {
+        assertEquals(
+                expected,
+                results.makespan(dax, planner, modelKind),
                 expected > 1000.0 ? 1.0e-3 : 1.0e-6,
                 dax + " × " + planner + " × " + modelKind + " 黄金 makespan");
     }

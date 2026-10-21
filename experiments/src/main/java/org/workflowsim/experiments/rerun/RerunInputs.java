@@ -44,8 +44,7 @@ public final class RerunInputs {
         private final long sizeBytes;
         private final int tier;
 
-        ResolvedInput(String recordedPath, Path resolvedPath, String sha256, long sizeBytes,
-                int tier) {
+        ResolvedInput(String recordedPath, Path resolvedPath, String sha256, long sizeBytes, int tier) {
             if (recordedPath == null || resolvedPath == null || sha256 == null) {
                 throw new IllegalArgumentException("All resolved input fields are required");
             }

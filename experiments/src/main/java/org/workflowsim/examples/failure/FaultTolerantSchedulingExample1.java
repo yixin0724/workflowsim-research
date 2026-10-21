@@ -21,8 +21,8 @@ import java.util.List;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;
-import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.Job;
+import org.workflowsim.WorkflowDatacenter;
 import org.workflowsim.WorkflowEngine;
 import org.workflowsim.WorkflowPlanner;
 import org.workflowsim.examples.ExampleCliSupport;
@@ -74,11 +74,17 @@ public class FaultTolerantSchedulingExample1 extends WorkflowSimBasicExample1 {
             /**
              * 该示例关闭容错聚类；失败后沿用 NOOP 的逐任务重试兼容路径。
              */
-            FailureParameters.FTCluteringAlgorithm ftc_method = FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP;
+            FailureParameters.FTCluteringAlgorithm ftc_method =
+                    FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP;
             /** 单一抽象失效到达分布；其参数是示例假设，不是平台校准结果。 */
             DistributionGenerator[][] failureGenerators = new DistributionGenerator[1][1];
-            failureGenerators[0][0] = new DistributionGenerator(DistributionGenerator.DistributionFamily.WEIBULL,
-                    ExampleCliSupport.LEGACY_DEMO_FAILURE_INTERVAL_SCALE, 1.0, 30, 300, 0.78);
+            failureGenerators[0][0] = new DistributionGenerator(
+                    DistributionGenerator.DistributionFamily.WEIBULL,
+                    ExampleCliSupport.LEGACY_DEMO_FAILURE_INTERVAL_SCALE,
+                    1.0,
+                    30,
+                    300,
+                    0.78);
 
             /** 该场景由 MINMIN 调度器决定映射，因此禁用规划器。 */
             Parameters.SchedulingAlgorithm sch_method = Parameters.SchedulingAlgorithm.MINMIN;
@@ -94,18 +100,16 @@ public class FaultTolerantSchedulingExample1 extends WorkflowSimBasicExample1 {
 
             /** 初始化旧版故障状态、静态参数与文件目录。 */
             FailureParameters.init(ftc_method, ftc_monitor, ftc_failure, failureGenerators);
-            Parameters.init(vmNum, daxPath, null,
-                    null, op, cp, sch_method, pln_method,
-                    null, 0);
+            Parameters.init(vmNum, daxPath, null, null, op, cp, sch_method, pln_method, null, 0);
             ReplicaCatalog.init(file_system);
 
             FailureMonitor.init();
             FailureGenerator.init();
 
             // 在创建模拟实体前初始化 CloudSim。
-            int num_user = 1;   // 模拟用户数。
+            int num_user = 1; // 模拟用户数。
             Calendar calendar = Calendar.getInstance();
-            boolean trace_flag = false;  // 是否记录 CloudSim 事件轨迹。
+            boolean trace_flag = false; // 是否记录 CloudSim 事件轨迹。
 
             // 初始化 CloudSim 事件引擎。
             CloudSim.init(num_user, calendar, trace_flag);

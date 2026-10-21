@@ -20,8 +20,7 @@ final class RerunTestSupport {
 
     static final String FIXTURE_RUN_ID = "result";
 
-    private RerunTestSupport() {
-    }
+    private RerunTestSupport() {}
 
     /** 在 {@code directory} 中生成一套完整的 v4 证据（runId 为 result）。 */
     static Path generateEvidence(Path directory) throws Exception {
@@ -30,13 +29,11 @@ final class RerunTestSupport {
                 .schedulingAlgorithm(SchedulingAlgorithm.FCFS)
                 .randomSeed(91L)
                 .build();
-        return generateEvidence(directory, config,
-                PlatformProfiles.homogeneousLocal("rerun-fixture", 3));
+        return generateEvidence(directory, config, PlatformProfiles.homogeneousLocal("rerun-fixture", 3));
     }
 
     /** 用指定配置与平台跑一次真实仿真，写出完整 v4 证据（runId 为 result）。 */
-    static Path generateEvidence(Path directory, SimulationConfig config,
-            PlatformProfile platform) throws Exception {
+    static Path generateEvidence(Path directory, SimulationConfig config, PlatformProfile platform) throws Exception {
         Log.disable();
         SimulationReport report = new SimulationRunner().run(config, platform);
         if (!report.getMetrics().isAllLogicalTasksCompletedSuccessfully()) {

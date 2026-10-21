@@ -43,11 +43,14 @@ class RerunExecutorTest {
         RerunExecution execution = RerunExecutor.execute(fixtureRun, output);
 
         Path rerunDir = output.resolve("rerun");
-        assertEquals(rerunDir.resolve("result.manifest.json"),
+        assertEquals(
+                rerunDir.resolve("result.manifest.json"),
                 execution.getArtifacts().getManifest());
-        assertEquals(rerunDir.resolve("result.metrics.json"),
+        assertEquals(
+                rerunDir.resolve("result.metrics.json"),
                 execution.getArtifacts().getMetrics());
-        assertEquals(rerunDir.resolve("result.events.jsonl"),
+        assertEquals(
+                rerunDir.resolve("result.events.jsonl"),
                 execution.getArtifacts().getEvents());
         assertTrue(Files.exists(execution.getArtifacts().getManifest()));
         assertTrue(Files.exists(execution.getArtifacts().getMetrics()));
@@ -58,23 +61,28 @@ class RerunExecutorTest {
         assertTrue(rerunEvidence.getEventCount() > 0);
 
         // rerun manifest 的 inputs 记录的是阶段 2 定位后的路径。
-        String rerunInputPath = rerunEvidence.getManifest().getAsJsonArray("inputs")
-                .get(0).getAsJsonObject().get("path").getAsString();
-        assertEquals(execution.getInputs().get(0).getResolvedPath().toString(),
-                rerunInputPath);
+        String rerunInputPath = rerunEvidence
+                .getManifest()
+                .getAsJsonArray("inputs")
+                .get(0)
+                .getAsJsonObject()
+                .get("path")
+                .getAsString();
+        assertEquals(execution.getInputs().get(0).getResolvedPath().toString(), rerunInputPath);
 
         // 核心量抽查：同种子、同机器下 makespan 必须逐位一致。
-        assertEquals(metricsMakespan(fixtureRun.resolve("result.metrics.json")),
+        assertEquals(
+                metricsMakespan(fixtureRun.resolve("result.metrics.json")),
                 metricsMakespan(execution.getArtifacts().getMetrics()));
     }
 
     @Test
     void refusesNonEmptyOutputDirectory() throws Exception {
         Path output = Files.createDirectories(tempDir.resolve("occupied"));
-        Files.write(output.resolve("stranger.txt"), new byte[]{1});
+        Files.write(output.resolve("stranger.txt"), new byte[] {1});
 
-        IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> RerunExecutor.execute(fixtureRun, output));
+        IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> RerunExecutor.execute(fixtureRun, output));
         assertTrue(failure.getMessage().contains("must be empty"), failure.getMessage());
         assertFalse(Files.exists(output.resolve("rerun")));
     }
@@ -85,8 +93,8 @@ class RerunExecutorTest {
         rewriteInputPath(run, "/nonexistent-root/datasets/missing.dax");
         Path output = tempDir.resolve("unresolved-out");
 
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunExecutor.execute(run, output));
+        RerunFailureException failure =
+                assertThrows(RerunFailureException.class, () -> RerunExecutor.execute(run, output));
         assertEquals(RerunVerdict.INPUT_UNRESOLVED, failure.getVerdict());
         assertFalse(Files.exists(output.resolve("rerun")));
     }
@@ -94,8 +102,9 @@ class RerunExecutorTest {
     // ---- helpers ----
 
     private static double metricsMakespan(Path metricsPath) throws Exception {
-        JsonObject document = JsonParser.parseString(new String(
-                Files.readAllBytes(metricsPath), StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject document = JsonParser.parseString(
+                        new String(Files.readAllBytes(metricsPath), StandardCharsets.UTF_8))
+                .getAsJsonObject();
         return document.getAsJsonObject("metrics").get("makespanSeconds").getAsDouble();
     }
 
@@ -106,27 +115,27 @@ class RerunExecutorTest {
     }
 
     private static JsonObject readManifest(Path run) throws Exception {
-        return JsonParser.parseString(new String(
-                Files.readAllBytes(run.resolve("result.manifest.json")),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        return JsonParser.parseString(
+                        new String(Files.readAllBytes(run.resolve("result.manifest.json")), StandardCharsets.UTF_8))
+                .getAsJsonObject();
     }
 
     private static void writeManifest(Path run, JsonObject manifest) throws Exception {
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
-        Files.write(run.resolve("result.manifest.json"),
-                gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
+        Files.write(run.resolve("result.manifest.json"), gson.toJson(manifest).getBytes(StandardCharsets.UTF_8));
     }
 
     /** 同步改写 inputs/workflowPaths/workflowOutcomes 三处路径（v4 交叉校验要求）。 */
     private static void rewriteInputPath(Path run, String newPath) throws Exception {
         JsonObject manifest = readManifest(run);
-        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject()
-                .addProperty("path", newPath);
-        JsonArray workflowPaths = manifest.getAsJsonObject("configuration")
-                .getAsJsonArray("workflowPaths");
+        manifest.getAsJsonArray("inputs").get(0).getAsJsonObject().addProperty("path", newPath);
+        JsonArray workflowPaths = manifest.getAsJsonObject("configuration").getAsJsonArray("workflowPaths");
         workflowPaths.set(0, new JsonPrimitive(newPath));
-        manifest.getAsJsonObject("result").getAsJsonArray("workflowOutcomes")
-                .get(0).getAsJsonObject().addProperty("path", newPath);
+        manifest.getAsJsonObject("result")
+                .getAsJsonArray("workflowOutcomes")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("path", newPath);
         writeManifest(run, manifest);
     }
 }

@@ -25,25 +25,82 @@ public final class RerunEvidence {
     private final Path storageLifecyclePath;
     private final org.workflowsim.data.v2.FileLifecycleEvidence.Status storageLifecycleCaptureStatus;
 
-    RerunEvidence(Path runDirectory, Path manifestPath, Path metricsPath, Path eventsPath,
-            int eventCount, JsonObject manifest) {
-        this(runDirectory,manifestPath,metricsPath,eventsPath,eventCount,manifest,null,null);
+    RerunEvidence(
+            Path runDirectory,
+            Path manifestPath,
+            Path metricsPath,
+            Path eventsPath,
+            int eventCount,
+            JsonObject manifest) {
+        this(runDirectory, manifestPath, metricsPath, eventsPath, eventCount, manifest, null, null);
     }
 
-    RerunEvidence(Path runDirectory, Path manifestPath, Path metricsPath, Path eventsPath,
-            int eventCount, JsonObject manifest, Path networkLedgerPath,
+    RerunEvidence(
+            Path runDirectory,
+            Path manifestPath,
+            Path metricsPath,
+            Path eventsPath,
+            int eventCount,
+            JsonObject manifest,
+            Path networkLedgerPath,
             org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus) {
-        this(runDirectory,manifestPath,metricsPath,eventsPath,eventCount,manifest,networkLedgerPath,networkCaptureStatus,null,null);
+        this(
+                runDirectory,
+                manifestPath,
+                metricsPath,
+                eventsPath,
+                eventCount,
+                manifest,
+                networkLedgerPath,
+                networkCaptureStatus,
+                null,
+                null);
     }
 
-    RerunEvidence(Path runDirectory,Path manifestPath,Path metricsPath,Path eventsPath,int eventCount,JsonObject manifest,Path networkLedgerPath,
-            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,Path fileLifecyclePath,org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus){
-        this(runDirectory,manifestPath,metricsPath,eventsPath,eventCount,manifest,networkLedgerPath,networkCaptureStatus,fileLifecyclePath,fileLifecycleCaptureStatus,null,null);
+    RerunEvidence(
+            Path runDirectory,
+            Path manifestPath,
+            Path metricsPath,
+            Path eventsPath,
+            int eventCount,
+            JsonObject manifest,
+            Path networkLedgerPath,
+            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
+            Path fileLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus) {
+        this(
+                runDirectory,
+                manifestPath,
+                metricsPath,
+                eventsPath,
+                eventCount,
+                manifest,
+                networkLedgerPath,
+                networkCaptureStatus,
+                fileLifecyclePath,
+                fileLifecycleCaptureStatus,
+                null,
+                null);
     }
-    RerunEvidence(Path runDirectory,Path manifestPath,Path metricsPath,Path eventsPath,int eventCount,JsonObject manifest,Path networkLedgerPath,
-            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,Path fileLifecyclePath,org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus,Path storageLifecyclePath,org.workflowsim.data.v2.FileLifecycleEvidence.Status storageLifecycleCaptureStatus){
-        if (runDirectory == null || manifestPath == null || metricsPath == null
-                || eventsPath == null || manifest == null) {
+
+    RerunEvidence(
+            Path runDirectory,
+            Path manifestPath,
+            Path metricsPath,
+            Path eventsPath,
+            int eventCount,
+            JsonObject manifest,
+            Path networkLedgerPath,
+            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
+            Path fileLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus,
+            Path storageLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status storageLifecycleCaptureStatus) {
+        if (runDirectory == null
+                || manifestPath == null
+                || metricsPath == null
+                || eventsPath == null
+                || manifest == null) {
             throw new IllegalArgumentException("All evidence components are required");
         }
         this.runDirectory = runDirectory;
@@ -51,16 +108,37 @@ public final class RerunEvidence {
         this.metricsPath = metricsPath;
         this.eventsPath = eventsPath;
         this.eventCount = eventCount;
-        org.workflowsim.data.NetworkEvidenceConfig option=org.workflowsim.data.NetworkEvidenceConfig.off();
-        if(manifest.has("configuration")&&manifest.get("configuration").isJsonObject()&&manifest.getAsJsonObject("configuration").has("networkEvidence"))option=org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(manifest.getAsJsonObject("configuration").get("networkEvidence"));
-        boolean group=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,file=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,storage=option.getMode()==org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;
-        if(group!=(networkLedgerPath!=null)||(networkLedgerPath==null)!=(networkCaptureStatus==null)||networkCaptureStatus==org.workflowsim.data.TransferTraceSnapshot.Status.DISABLED
-                ||file!=(fileLifecyclePath!=null)||(fileLifecyclePath==null)!=(fileLifecycleCaptureStatus==null)||(fileLifecycleCaptureStatus!=null&&fileLifecycleCaptureStatus!=org.workflowsim.data.v2.FileLifecycleEvidence.Status.COMPLETE)
-                ||storage!=(storageLifecyclePath!=null)||(storageLifecyclePath==null)!=(storageLifecycleCaptureStatus==null)||(storageLifecycleCaptureStatus!=null&&storageLifecycleCaptureStatus!=org.workflowsim.data.v2.FileLifecycleEvidence.Status.COMPLETE)){
-            throw new IllegalArgumentException("Declared network evidence requires its version-specific validated path and capture status");
+        org.workflowsim.data.NetworkEvidenceConfig option = org.workflowsim.data.NetworkEvidenceConfig.off();
+        if (manifest.has("configuration")
+                && manifest.get("configuration").isJsonObject()
+                && manifest.getAsJsonObject("configuration").has("networkEvidence"))
+            option = org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(
+                    manifest.getAsJsonObject("configuration").get("networkEvidence"));
+        boolean group = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,
+                file = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,
+                storage = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;
+        if (group != (networkLedgerPath != null)
+                || (networkLedgerPath == null) != (networkCaptureStatus == null)
+                || networkCaptureStatus == org.workflowsim.data.TransferTraceSnapshot.Status.DISABLED
+                || file != (fileLifecyclePath != null)
+                || (fileLifecyclePath == null) != (fileLifecycleCaptureStatus == null)
+                || (fileLifecycleCaptureStatus != null
+                        && fileLifecycleCaptureStatus != org.workflowsim.data.v2.FileLifecycleEvidence.Status.COMPLETE)
+                || storage != (storageLifecyclePath != null)
+                || (storageLifecyclePath == null) != (storageLifecycleCaptureStatus == null)
+                || (storageLifecycleCaptureStatus != null
+                        && storageLifecycleCaptureStatus
+                                != org.workflowsim.data.v2.FileLifecycleEvidence.Status.COMPLETE)) {
+            throw new IllegalArgumentException(
+                    "Declared network evidence requires its version-specific validated path and capture status");
         }
         this.manifest = manifest;
-        this.networkLedgerPath=networkLedgerPath;this.networkCaptureStatus=networkCaptureStatus;this.fileLifecyclePath=fileLifecyclePath;this.fileLifecycleCaptureStatus=fileLifecycleCaptureStatus;this.storageLifecyclePath=storageLifecyclePath;this.storageLifecycleCaptureStatus=storageLifecycleCaptureStatus;
+        this.networkLedgerPath = networkLedgerPath;
+        this.networkCaptureStatus = networkCaptureStatus;
+        this.fileLifecyclePath = fileLifecyclePath;
+        this.fileLifecycleCaptureStatus = fileLifecycleCaptureStatus;
+        this.storageLifecyclePath = storageLifecyclePath;
+        this.storageLifecycleCaptureStatus = storageLifecycleCaptureStatus;
     }
 
     public Path getRunDirectory() {
@@ -80,15 +158,31 @@ public final class RerunEvidence {
     }
 
     /** @return validated optional network ledger path, or null when OFF */
-    public Path getNetworkLedgerPath() { return networkLedgerPath; }
+    public Path getNetworkLedgerPath() {
+        return networkLedgerPath;
+    }
 
     /** @return validated optional capture status, or null when OFF */
-    public org.workflowsim.data.TransferTraceSnapshot.Status getNetworkCaptureStatus() { return networkCaptureStatus; }
-    /** @return validated V2 sidecar, null for OFF/V1 */ public Path getFileLifecyclePath(){return fileLifecyclePath;}
-    /** @return validated complete V2 capture, null for OFF/V1 */ public org.workflowsim.data.v2.FileLifecycleEvidence.Status getFileLifecycleCaptureStatus(){return fileLifecycleCaptureStatus;}
+    public org.workflowsim.data.TransferTraceSnapshot.Status getNetworkCaptureStatus() {
+        return networkCaptureStatus;
+    }
+    /** @return validated V2 sidecar, null for OFF/V1 */
+    public Path getFileLifecyclePath() {
+        return fileLifecyclePath;
+    }
+    /** @return validated complete V2 capture, null for OFF/V1 */
+    public org.workflowsim.data.v2.FileLifecycleEvidence.Status getFileLifecycleCaptureStatus() {
+        return fileLifecycleCaptureStatus;
+    }
 
-    /** @return validated storage V3 sidecar, null for OFF/V1/V2 */ public Path getStorageLifecyclePath(){return storageLifecyclePath;}
-    /** @return validated complete storage capture, null for OFF/V1/V2 */ public org.workflowsim.data.v2.FileLifecycleEvidence.Status getStorageLifecycleCaptureStatus(){return storageLifecycleCaptureStatus;}
+    /** @return validated storage V3 sidecar, null for OFF/V1/V2 */
+    public Path getStorageLifecyclePath() {
+        return storageLifecyclePath;
+    }
+    /** @return validated complete storage capture, null for OFF/V1/V2 */
+    public org.workflowsim.data.v2.FileLifecycleEvidence.Status getStorageLifecycleCaptureStatus() {
+        return storageLifecycleCaptureStatus;
+    }
 
     /** manifest 声明且 JSONL 实测一致的事件条数。 */
     public int getEventCount() {

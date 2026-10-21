@@ -72,52 +72,51 @@ public class FaultTolerantClusteringExample7 extends FaultTolerantClusteringExam
      */
     public static void main(String[] args) {
         try {
-            Map<String, String> options = ExampleCliSupport.parseValueOptions(args,
-                    "-c", "-d", "-b", "-w", "-q", "-s", "-p", "-t", "-e", "-n",
-                    "-h", "-l", "-r");
-            long rootSeed = ExampleCliSupport.longValue("-r",
-                    ExampleCliSupport.optionOrDefault(options, "-r",
-                            Long.toString(ExampleCliSupport.LEGACY_DEMO_SEED)));
+            Map<String, String> options = ExampleCliSupport.parseValueOptions(
+                    args, "-c", "-d", "-b", "-w", "-q", "-s", "-p", "-t", "-e", "-n", "-h", "-l", "-r");
+            long rootSeed = ExampleCliSupport.longValue(
+                    "-r",
+                    ExampleCliSupport.optionOrDefault(
+                            options, "-r", Long.toString(ExampleCliSupport.LEGACY_DEMO_SEED)));
             ExampleCliSupport.begin(EXAMPLE_ID, rootSeed);
 
             int vmNum = 20;
-            String daxPath = ExampleCliSupport.requireDax(ExampleCliSupport.optionOrDefault(
-                    options, "-d", ExampleCliSupport.DEFAULT_DAX_PATH));
-            String clustering = ExampleCliSupport.allowedValue("-c",
-                    ExampleCliSupport.optionOrDefault(options, "-c", "DR"),
-                    "SR", "DR", "NOOP", "DC", "VR");
-            double runtimeScaleTenths = ExampleCliSupport.positiveFinite("-b",
-                    ExampleCliSupport.optionOrDefault(options, "-b", "10"));
-            double queuePriorWeight = ExampleCliSupport.positiveFinite("-w",
-                    ExampleCliSupport.optionOrDefault(options, "-w", "3"));
-            double queueScale = ExampleCliSupport.positiveFinite("-q",
-                    ExampleCliSupport.optionOrDefault(options, "-q", "50"));
-            double queueShape = ExampleCliSupport.positiveFinite("-s",
-                    ExampleCliSupport.optionOrDefault(options, "-s", "3"));
-            double failureScale = ExampleCliSupport.positiveFinite("-p",
-                    ExampleCliSupport.optionOrDefault(options, "-p",
-                            Double.toString(
-                                    DEFAULT_FAILURE_INTERVAL_SCALE)));
-            double failurePriorWeight = ExampleCliSupport.positiveFinite("-t",
-                    ExampleCliSupport.optionOrDefault(options, "-t", "30"));
-            double period = ExampleCliSupport.positiveFinite("-e",
-                    ExampleCliSupport.optionOrDefault(options, "-e", "40000"));
-            double highFailurePortion = ExampleCliSupport.openUnitInterval("-n",
-                    ExampleCliSupport.optionOrDefault(options, "-n", "0.1"));
-            double highFailureIntervalScale = ExampleCliSupport.positiveFinite("-h",
-                    ExampleCliSupport.optionOrDefault(options, "-h",
-                            Double.toString(DEFAULT_HIGH_FAILURE_INTERVAL_SCALE)));
-            double lowFailureIntervalScale = ExampleCliSupport.positiveFinite("-l",
-                    ExampleCliSupport.optionOrDefault(options, "-l",
-                            Double.toString(DEFAULT_LOW_FAILURE_INTERVAL_SCALE)));
+            String daxPath = ExampleCliSupport.requireDax(
+                    ExampleCliSupport.optionOrDefault(options, "-d", ExampleCliSupport.DEFAULT_DAX_PATH));
+            String clustering = ExampleCliSupport.allowedValue(
+                    "-c", ExampleCliSupport.optionOrDefault(options, "-c", "DR"), "SR", "DR", "NOOP", "DC", "VR");
+            double runtimeScaleTenths =
+                    ExampleCliSupport.positiveFinite("-b", ExampleCliSupport.optionOrDefault(options, "-b", "10"));
+            double queuePriorWeight =
+                    ExampleCliSupport.positiveFinite("-w", ExampleCliSupport.optionOrDefault(options, "-w", "3"));
+            double queueScale =
+                    ExampleCliSupport.positiveFinite("-q", ExampleCliSupport.optionOrDefault(options, "-q", "50"));
+            double queueShape =
+                    ExampleCliSupport.positiveFinite("-s", ExampleCliSupport.optionOrDefault(options, "-s", "3"));
+            double failureScale = ExampleCliSupport.positiveFinite(
+                    "-p",
+                    ExampleCliSupport.optionOrDefault(options, "-p", Double.toString(DEFAULT_FAILURE_INTERVAL_SCALE)));
+            double failurePriorWeight =
+                    ExampleCliSupport.positiveFinite("-t", ExampleCliSupport.optionOrDefault(options, "-t", "30"));
+            double period =
+                    ExampleCliSupport.positiveFinite("-e", ExampleCliSupport.optionOrDefault(options, "-e", "40000"));
+            double highFailurePortion =
+                    ExampleCliSupport.openUnitInterval("-n", ExampleCliSupport.optionOrDefault(options, "-n", "0.1"));
+            double highFailureIntervalScale = ExampleCliSupport.positiveFinite(
+                    "-h",
+                    ExampleCliSupport.optionOrDefault(
+                            options, "-h", Double.toString(DEFAULT_HIGH_FAILURE_INTERVAL_SCALE)));
+            double lowFailureIntervalScale = ExampleCliSupport.positiveFinite(
+                    "-l",
+                    ExampleCliSupport.optionOrDefault(
+                            options, "-l", Double.toString(DEFAULT_LOW_FAILURE_INTERVAL_SCALE)));
             if (highFailureIntervalScale >= lowFailureIntervalScale) {
-                throw new IllegalArgumentException("-h must be smaller than -l so the high-failure phase "
-                        + "has a shorter interval scale");
+                throw new IllegalArgumentException(
+                        "-h must be smaller than -l so the high-failure phase " + "has a shorter interval scale");
             }
-            double queuePriorScale = ExampleCliSupport.positiveFiniteProduct("-w * -q",
-                    queuePriorWeight, queueScale);
-            double failurePriorScale = ExampleCliSupport.positiveFiniteProduct("-t * -p",
-                    failurePriorWeight, failureScale);
+            double queuePriorScale = ExampleCliSupport.positiveFiniteProduct("-w * -q", queuePriorWeight, queueScale);
+            double failurePriorScale =
+                    ExampleCliSupport.positiveFiniteProduct("-t * -p", failurePriorWeight, failureScale);
 
             ClusteringParameters.ClusteringMethod clusteringMethod = "VR".equals(clustering)
                     ? ClusteringParameters.ClusteringMethod.VERTICAL
@@ -125,15 +124,20 @@ public class FaultTolerantClusteringExample7 extends FaultTolerantClusteringExam
             FailureParameters.FTCluteringAlgorithm strategy = strategyFor(clustering);
             int maxLevel = 11;
             // 为保留清晰语义，upper 为长间隔低故障阶段，lower 为短间隔高故障阶段。
-            PeriodicalSignal signal = new PeriodicalSignal(period, lowFailureIntervalScale,
-                    highFailureIntervalScale, highFailurePortion, false);
+            PeriodicalSignal signal = new PeriodicalSignal(
+                    period, lowFailureIntervalScale, highFailureIntervalScale, highFailurePortion, false);
 
             DistributionGenerator[][] failureGenerators = new DistributionGenerator[vmNum][maxLevel];
             // 历史 E7 使用一个共享全局故障时钟；它不是 VM-深度独立故障模型。
             DistributionGenerator failureGenerator = new PeriodicalDistributionGenerator(
                     DistributionGenerator.DistributionFamily.WEIBULL,
-                    failureScale, 0.78, failurePriorWeight, failurePriorScale, 0.78,
-                    signal, "example.fault-clustering-periodic.legacy-shared-clock");
+                    failureScale,
+                    0.78,
+                    failurePriorWeight,
+                    failurePriorScale,
+                    0.78,
+                    signal,
+                    "example.fault-clustering-periodic.legacy-shared-clock");
             for (int level = 0; level < maxLevel; level++) {
                 for (int vmId = 0; vmId < vmNum; vmId++) {
                     failureGenerators[vmId][level] = failureGenerator;
@@ -142,25 +146,42 @@ public class FaultTolerantClusteringExample7 extends FaultTolerantClusteringExam
 
             Map<Integer, DistributionGenerator> queueDelay = new HashMap<Integer, DistributionGenerator>();
             DistributionGenerator queueGenerator = new DistributionGenerator(
-                    DistributionGenerator.DistributionFamily.GAMMA, queueScale, queueShape,
-                    queuePriorWeight, queuePriorScale, queueShape,
+                    DistributionGenerator.DistributionFamily.GAMMA,
+                    queueScale,
+                    queueShape,
+                    queuePriorWeight,
+                    queuePriorScale,
+                    queueShape,
                     "example.fault-clustering-periodic.queue");
             for (int level = 0; level < maxLevel; level++) {
                 queueDelay.put(level, queueGenerator);
             }
 
-            OverheadParameters overhead = new OverheadParameters(0,
-                    new HashMap<Integer, DistributionGenerator>(), queueDelay,
+            OverheadParameters overhead = new OverheadParameters(
+                    0,
                     new HashMap<Integer, DistributionGenerator>(),
-                    new HashMap<Integer, DistributionGenerator>(), 0);
-            ClusteringParameters clusteringParameters = new ClusteringParameters(vmNum, 0,
-                    clusteringMethod, null);
+                    queueDelay,
+                    new HashMap<Integer, DistributionGenerator>(),
+                    new HashMap<Integer, DistributionGenerator>(),
+                    0);
+            ClusteringParameters clusteringParameters = new ClusteringParameters(vmNum, 0, clusteringMethod, null);
 
-            FailureParameters.init(strategy, FailureParameters.FTCMonitor.MONITOR_VM_JOB,
-                    FailureParameters.FTCFailure.FAILURE_VM_JOB, failureGenerators);
-            Parameters.init(vmNum, daxPath, null, null, overhead, clusteringParameters,
-                    Parameters.SchedulingAlgorithm.MINMIN, Parameters.PlanningAlgorithm.INVALID,
-                    null, 0);
+            FailureParameters.init(
+                    strategy,
+                    FailureParameters.FTCMonitor.MONITOR_VM_JOB,
+                    FailureParameters.FTCFailure.FAILURE_VM_JOB,
+                    failureGenerators);
+            Parameters.init(
+                    vmNum,
+                    daxPath,
+                    null,
+                    null,
+                    overhead,
+                    clusteringParameters,
+                    Parameters.SchedulingAlgorithm.MINMIN,
+                    Parameters.PlanningAlgorithm.INVALID,
+                    null,
+                    0);
             Parameters.setRuntimeScale(runtimeScaleTenths / 10.0);
             ReplicaCatalog.init(ReplicaCatalog.FileSystem.SHARED);
             FailureMonitor.init();

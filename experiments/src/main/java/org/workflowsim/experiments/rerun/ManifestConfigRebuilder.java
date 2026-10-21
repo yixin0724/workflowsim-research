@@ -40,8 +40,7 @@ import org.workflowsim.utils.TaskCostMatrix;
  */
 public final class ManifestConfigRebuilder {
 
-    private ManifestConfigRebuilder() {
-    }
+    private ManifestConfigRebuilder() {}
 
     /** 重建产物：可执行配置 + 平台描述。 */
     public static final class RebuiltConfiguration {
@@ -80,12 +79,22 @@ public final class ManifestConfigRebuilder {
             PlatformProfile platform = rebuildPlatform(platformSection);
             SimulationConfig config = rebuildConfiguration(configSection, inputs);
             verifyPreflightAssignments(platformSection, platform);
-            if(config.getDataMovementModel().isCoherentStorageDataflowV3()!=(platform.getSourceStorage()!=null))throw new IllegalArgumentException("sourceStorage does not match reconstructed model");
-            if(config.getDataMovementModel().usesCoherentDataflowRuntime()&&platform.getNetworkTopology()!=null){int k=platform.getNetworkTopology().getK();double capacity=platform.getNetworkTopology().getLinkBandwidthMbPerSecond()*1_000_000.0;if(k>32||!Double.isFinite(capacity)||capacity<Double.MIN_NORMAL)throw new IllegalArgumentException("Unsupported V2 topology or converted capacity");}
+            if (config.getDataMovementModel().isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null))
+                throw new IllegalArgumentException("sourceStorage does not match reconstructed model");
+            if (config.getDataMovementModel().usesCoherentDataflowRuntime() && platform.getNetworkTopology() != null) {
+                int k = platform.getNetworkTopology().getK();
+                double capacity = platform.getNetworkTopology().getLinkBandwidthMbPerSecond() * 1_000_000.0;
+                if (k > 32 || !Double.isFinite(capacity) || capacity < Double.MIN_NORMAL)
+                    throw new IllegalArgumentException("Unsupported V2 topology or converted capacity");
+            }
             return new RebuiltConfiguration(config, platform);
-        } catch (IllegalArgumentException | IllegalStateException | ClassCastException
-                | UnsupportedOperationException | SimulationConfigurationException e) {
-            throw new RerunFailureException(RerunVerdict.RECONSTRUCTION_REJECTED,
+        } catch (IllegalArgumentException
+                | IllegalStateException
+                | ClassCastException
+                | UnsupportedOperationException
+                | SimulationConfigurationException e) {
+            throw new RerunFailureException(
+                    RerunVerdict.RECONSTRUCTION_REJECTED,
                     "Manifest cannot be rebuilt into a runnable configuration: " + e.getMessage(),
                     e);
         }
@@ -94,8 +103,7 @@ public final class ManifestConfigRebuilder {
     // ---- platform ----
 
     private static PlatformProfile rebuildPlatform(JsonObject platform) {
-        PlatformProfile.Builder builder =
-                PlatformProfile.builder(requireString(platform, "name", "platform.name"));
+        PlatformProfile.Builder builder = PlatformProfile.builder(requireString(platform, "name", "platform.name"));
         JsonArray hosts = requireArray(platform, "hosts", "platform.hosts");
         if (hosts.size() == 0) {
             throw new IllegalArgumentException("platform.hosts is empty");
@@ -139,11 +147,21 @@ public final class ManifestConfigRebuilder {
         JsonObject storage = requireObject(platform, "storage", "platform.storage");
         builder.storage(new PlatformProfile.StorageSpec(
                 requireLong(storage, "capacityMb", "platform.storage.capacityMb"),
-                requireInt(storage, "maxTransferRateMbPerSecond",
-                        "platform.storage.maxTransferRateMbPerSecond")));
-        builder.costs(costSpec(requireObject(platform, "costs", "platform.costs"),
-                "platform.costs"));
-        if(platform.has("sourceStorage")){JsonObject source=requireObject(platform,"sourceStorage","platform.sourceStorage");builder.sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec.of(requireInt(source,"attachmentHostId","platform.sourceStorage.attachmentHostId"),requireDouble(source,"readBandwidthMbPerSecond","platform.sourceStorage.readBandwidthMbPerSecond"),requireDouble(source,"writeBandwidthMbPerSecond","platform.sourceStorage.writeBandwidthMbPerSecond"),requireDouble(source,"networkBandwidthMbPerSecond","platform.sourceStorage.networkBandwidthMbPerSecond")));}
+                requireInt(storage, "maxTransferRateMbPerSecond", "platform.storage.maxTransferRateMbPerSecond")));
+        builder.costs(costSpec(requireObject(platform, "costs", "platform.costs"), "platform.costs"));
+        if (platform.has("sourceStorage")) {
+            JsonObject source = requireObject(platform, "sourceStorage", "platform.sourceStorage");
+            builder.sourceStorage(org.workflowsim.data.v2.DataflowStorageSpec.of(
+                    requireInt(source, "attachmentHostId", "platform.sourceStorage.attachmentHostId"),
+                    requireDouble(
+                            source, "readBandwidthMbPerSecond", "platform.sourceStorage.readBandwidthMbPerSecond"),
+                    requireDouble(
+                            source, "writeBandwidthMbPerSecond", "platform.sourceStorage.writeBandwidthMbPerSecond"),
+                    requireDouble(
+                            source,
+                            "networkBandwidthMbPerSecond",
+                            "platform.sourceStorage.networkBandwidthMbPerSecond")));
+        }
         JsonElement topology = platform.get("networkTopology");
         if (topology != null && !topology.isJsonNull()) {
             builder.networkTopology(rebuildTopology(topology.getAsJsonObject()));
@@ -154,23 +172,24 @@ public final class ManifestConfigRebuilder {
     private static NetworkTopologySpec rebuildTopology(JsonObject topology) {
         String kind = requireString(topology, "kind", "platform.networkTopology.kind");
         if (!NetworkTopologySpec.Kind.FAT_TREE.name().equals(kind)) {
-            throw new IllegalArgumentException(
-                    "Unsupported platform.networkTopology.kind: " + kind);
+            throw new IllegalArgumentException("Unsupported platform.networkTopology.kind: " + kind);
         }
         Integer coreSwitchCount = optionalInt(topology.get("coreSwitchCount"));
         Map<Integer, Integer> placements = null;
         JsonElement element = topology.get("hostEdgePlacements");
         if (element != null && !element.isJsonNull()) {
             placements = new LinkedHashMap<Integer, Integer>();
-            for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
-                placements.put(Integer.valueOf(Integer.parseInt(entry.getKey())),
+            for (Map.Entry<String, JsonElement> entry :
+                    element.getAsJsonObject().entrySet()) {
+                placements.put(
+                        Integer.valueOf(Integer.parseInt(entry.getKey())),
                         Integer.valueOf(entry.getValue().getAsInt()));
             }
         }
         return NetworkTopologySpec.fatTree(
                 requireInt(topology, "k", "platform.networkTopology.k"),
-                requireDouble(topology, "linkBandwidthMbPerSecond",
-                        "platform.networkTopology.linkBandwidthMbPerSecond"),
+                requireDouble(
+                        topology, "linkBandwidthMbPerSecond", "platform.networkTopology.linkBandwidthMbPerSecond"),
                 coreSwitchCount,
                 placements);
     }
@@ -179,8 +198,7 @@ public final class ManifestConfigRebuilder {
      * 重建后的确定性 VM-Host 预检放置必须与 manifest 记录一致；不一致说明当前
      * 代码的放置逻辑与产出证据的版本不同，重跑不再可信，按拒绝处理。
      */
-    private static void verifyPreflightAssignments(JsonObject platformSection,
-            PlatformProfile platform) {
+    private static void verifyPreflightAssignments(JsonObject platformSection, PlatformProfile platform) {
         Map<Integer, Integer> assignments = platform.getVmHostAssignments();
         for (JsonElement element : requireArray(platformSection, "vms", "platform.vms")) {
             JsonObject vm = element.getAsJsonObject();
@@ -198,8 +216,7 @@ public final class ManifestConfigRebuilder {
     // ---- configuration ----
 
     private static SimulationConfig rebuildConfiguration(JsonObject config, RerunInputs inputs) {
-        JsonArray recordedPaths = requireArray(config, "workflowPaths",
-                "configuration.workflowPaths");
+        JsonArray recordedPaths = requireArray(config, "workflowPaths", "configuration.workflowPaths");
         if (recordedPaths.size() != inputs.size()) {
             throw new IllegalArgumentException("configuration.workflowPaths has "
                     + recordedPaths.size() + " entries but " + inputs.size()
@@ -209,46 +226,49 @@ public final class ManifestConfigRebuilder {
         for (int i = 0; i < inputs.size(); i++) {
             workflowPaths.add(inputs.get(i).getResolvedPath().toString());
         }
-        SimulationConfig.Builder builder = SimulationConfig
-                .builder(workflowPaths, requireInt(config, "vmCount", "configuration.vmCount"))
-                .workflowArrivalSeconds(doubleList(requireArray(config, "workflowArrivalSeconds",
-                        "configuration.workflowArrivalSeconds")))
-                .schedulingAlgorithm(enumValue(SchedulingAlgorithm.class,
-                        requireString(config, "schedulingAlgorithm",
-                                "configuration.schedulingAlgorithm"),
+        SimulationConfig.Builder builder = SimulationConfig.builder(
+                        workflowPaths, requireInt(config, "vmCount", "configuration.vmCount"))
+                .workflowArrivalSeconds(doubleList(
+                        requireArray(config, "workflowArrivalSeconds", "configuration.workflowArrivalSeconds")))
+                .schedulingAlgorithm(enumValue(
+                        SchedulingAlgorithm.class,
+                        requireString(config, "schedulingAlgorithm", "configuration.schedulingAlgorithm"),
                         "configuration.schedulingAlgorithm"))
-                .planningAlgorithm(enumValue(PlanningAlgorithm.class,
-                        requireString(config, "planningAlgorithm",
-                                "configuration.planningAlgorithm"),
+                .planningAlgorithm(enumValue(
+                        PlanningAlgorithm.class,
+                        requireString(config, "planningAlgorithm", "configuration.planningAlgorithm"),
                         "configuration.planningAlgorithm"))
                 .reduceMethod(optionalString(config.get("reduceMethod")))
                 .deadline(requireLong(config, "deadline", "configuration.deadline"))
-                .fileSystem(enumValue(ReplicaCatalog.FileSystem.class,
+                .fileSystem(enumValue(
+                        ReplicaCatalog.FileSystem.class,
                         requireString(config, "fileSystem", "configuration.fileSystem"),
                         "configuration.fileSystem"))
                 .randomSeed(requireLong(config, "rootSeed", "configuration.rootSeed"))
                 .runtimeScale(requireDouble(config, "runtimeScale", "configuration.runtimeScale"))
-                .runtimeReferenceMips(requireDouble(config, "runtimeReferenceMips",
-                        "configuration.runtimeReferenceMips"))
-                .cloudSimMinEventIntervalSeconds(requireDouble(config,
-                        "cloudSimMinEventIntervalSeconds",
-                        "configuration.cloudSimMinEventIntervalSeconds"))
-                .costModel(enumValue(CostModel.class,
+                .runtimeReferenceMips(
+                        requireDouble(config, "runtimeReferenceMips", "configuration.runtimeReferenceMips"))
+                .cloudSimMinEventIntervalSeconds(requireDouble(
+                        config, "cloudSimMinEventIntervalSeconds", "configuration.cloudSimMinEventIntervalSeconds"))
+                .costModel(enumValue(
+                        CostModel.class,
                         requireString(config, "costModel", "configuration.costModel"),
                         "configuration.costModel"))
-                .overheadModel(rebuildOverheadModel(requireObject(config, "overheadModel",
-                        "configuration.overheadModel")))
-                .clusteringParameters(rebuildClustering(requireObject(config, "clustering",
-                        "configuration.clustering")))
-                .failureModel(rebuildFailureModel(requireObject(config, "failureModel",
-                        "configuration.failureModel")))
-                .dataMovementModel(rebuildDataMovementModel(requireObject(config,
-                        "dataMovementModel", "configuration.dataMovementModel")));
+                .overheadModel(
+                        rebuildOverheadModel(requireObject(config, "overheadModel", "configuration.overheadModel")))
+                .clusteringParameters(
+                        rebuildClustering(requireObject(config, "clustering", "configuration.clustering")))
+                .failureModel(rebuildFailureModel(requireObject(config, "failureModel", "configuration.failureModel")))
+                .dataMovementModel(rebuildDataMovementModel(
+                        requireObject(config, "dataMovementModel", "configuration.dataMovementModel")));
         // Historical v4 absence is explicitly OFF; a present extension must never be ignored.
-        if(config.has("networkEvidence")){
-            builder.networkEvidence(org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
+        if (config.has("networkEvidence")) {
+            builder.networkEvidence(
+                    org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
         }
-        if(config.has("dataflowAssignment"))builder.dataflowAssignment(org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(config.get("dataflowAssignment")));
+        if (config.has("dataflowAssignment"))
+            builder.dataflowAssignment(
+                    org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(config.get("dataflowAssignment")));
         JsonElement taskCostMatrix = config.get("taskCostMatrix");
         if (taskCostMatrix != null && !taskCostMatrix.isJsonNull()) {
             builder.taskCostMatrix(rebuildTaskCostMatrix(taskCostMatrix.getAsJsonObject()));
@@ -256,21 +276,19 @@ public final class ManifestConfigRebuilder {
         return builder.build();
     }
 
-    private static org.workflowsim.utils.OverheadModelConfig rebuildOverheadModel(
-            JsonObject overhead) {
+    private static org.workflowsim.utils.OverheadModelConfig rebuildOverheadModel(JsonObject overhead) {
         return org.workflowsim.utils.OverheadModelConfig.builder()
-                .workflowEngineDelayInterval(requireInt(overhead, "workflowEngineDelayInterval",
+                .workflowEngineDelayInterval(requireInt(
+                        overhead,
+                        "workflowEngineDelayInterval",
                         "configuration.overheadModel.workflowEngineDelayInterval"))
-                .bandwidth(requireDouble(overhead, "bandwidth",
-                        "configuration.overheadModel.bandwidth"))
-                .workflowEngineDelays(delayMap(overhead.get("workflowEngineDelays"),
-                        "configuration.overheadModel.workflowEngineDelays"))
-                .queueDelays(delayMap(overhead.get("queueDelays"),
-                        "configuration.overheadModel.queueDelays"))
-                .postDelays(delayMap(overhead.get("postDelays"),
-                        "configuration.overheadModel.postDelays"))
-                .clusteringDelays(delayMap(overhead.get("clusteringDelays"),
-                        "configuration.overheadModel.clusteringDelays"))
+                .bandwidth(requireDouble(overhead, "bandwidth", "configuration.overheadModel.bandwidth"))
+                .workflowEngineDelays(delayMap(
+                        overhead.get("workflowEngineDelays"), "configuration.overheadModel.workflowEngineDelays"))
+                .queueDelays(delayMap(overhead.get("queueDelays"), "configuration.overheadModel.queueDelays"))
+                .postDelays(delayMap(overhead.get("postDelays"), "configuration.overheadModel.postDelays"))
+                .clusteringDelays(
+                        delayMap(overhead.get("clusteringDelays"), "configuration.overheadModel.clusteringDelays"))
                 .build();
     }
 
@@ -280,9 +298,9 @@ public final class ManifestConfigRebuilder {
             return result;
         }
         for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
-            result.put(Integer.valueOf(Integer.parseInt(entry.getKey())),
-                    distributionSpec(entry.getValue().getAsJsonObject(),
-                            path + "[" + entry.getKey() + "]"));
+            result.put(
+                    Integer.valueOf(Integer.parseInt(entry.getKey())),
+                    distributionSpec(entry.getValue().getAsJsonObject(), path + "[" + entry.getKey() + "]"));
         }
         return result;
     }
@@ -291,7 +309,8 @@ public final class ManifestConfigRebuilder {
         return new ClusteringParameters(
                 requireInt(clustering, "clustersNum", "configuration.clustering.clustersNum"),
                 requireInt(clustering, "clustersSize", "configuration.clustering.clustersSize"),
-                enumValue(ClusteringParameters.ClusteringMethod.class,
+                enumValue(
+                        ClusteringParameters.ClusteringMethod.class,
                         requireString(clustering, "method", "configuration.clustering.method"),
                         "configuration.clustering.method"),
                 optionalString(clustering.get("code")));
@@ -299,43 +318,41 @@ public final class ManifestConfigRebuilder {
 
     private static FailureModelConfig rebuildFailureModel(JsonObject failure) {
         FailureModelConfig.Builder builder = FailureModelConfig.builder()
-                .clusteringAlgorithm(enumValue(FailureParameters.FTCluteringAlgorithm.class,
-                        requireString(failure, "clusteringAlgorithm",
-                                "configuration.failureModel.clusteringAlgorithm"),
+                .clusteringAlgorithm(enumValue(
+                        FailureParameters.FTCluteringAlgorithm.class,
+                        requireString(failure, "clusteringAlgorithm", "configuration.failureModel.clusteringAlgorithm"),
                         "configuration.failureModel.clusteringAlgorithm"))
-                .monitorMode(enumValue(FailureParameters.FTCMonitor.class,
-                        requireString(failure, "monitorMode",
-                                "configuration.failureModel.monitorMode"),
+                .monitorMode(enumValue(
+                        FailureParameters.FTCMonitor.class,
+                        requireString(failure, "monitorMode", "configuration.failureModel.monitorMode"),
                         "configuration.failureModel.monitorMode"))
-                .generatorMode(enumValue(FailureParameters.FTCFailure.class,
-                        requireString(failure, "generatorMode",
-                                "configuration.failureModel.generatorMode"),
+                .generatorMode(enumValue(
+                        FailureParameters.FTCFailure.class,
+                        requireString(failure, "generatorMode", "configuration.failureModel.generatorMode"),
                         "configuration.failureModel.generatorMode"))
-                .distributionFamily(enumValue(DistributionFamily.class,
-                        requireString(failure, "distributionFamily",
-                                "configuration.failureModel.distributionFamily"),
+                .distributionFamily(enumValue(
+                        DistributionFamily.class,
+                        requireString(failure, "distributionFamily", "configuration.failureModel.distributionFamily"),
                         "configuration.failureModel.distributionFamily"))
-                .maxTotalRetryJobs(requireInt(failure, "maxTotalRetryJobs",
-                        "configuration.failureModel.maxTotalRetryJobs"));
-        JsonArray matrix = requireArray(failure, "generators",
-                "configuration.failureModel.generators");
+                .maxTotalRetryJobs(
+                        requireInt(failure, "maxTotalRetryJobs", "configuration.failureModel.maxTotalRetryJobs"));
+        JsonArray matrix = requireArray(failure, "generators", "configuration.failureModel.generators");
         if (matrix.size() > 0) {
             DistributionSpec[][] specs = new DistributionSpec[matrix.size()][];
             for (int row = 0; row < matrix.size(); row++) {
-                specs[row] = specRow(matrix.get(row),
-                        "configuration.failureModel.generators[" + row + "]");
+                specs[row] = specRow(matrix.get(row), "configuration.failureModel.generators[" + row + "]");
             }
             builder.generatorSpecs(specs);
         }
-        JsonObject keyed = requireObject(failure, "generatorsByVmId",
-                "configuration.failureModel.generatorsByVmId");
+        JsonObject keyed = requireObject(failure, "generatorsByVmId", "configuration.failureModel.generatorsByVmId");
         if (keyed.entrySet().size() > 0) {
             Map<Integer, DistributionSpec[]> rows = new LinkedHashMap<Integer, DistributionSpec[]>();
             for (Map.Entry<String, JsonElement> entry : keyed.entrySet()) {
-                rows.put(Integer.valueOf(Integer.parseInt(entry.getKey())),
-                        specRow(entry.getValue(),
-                                "configuration.failureModel.generatorsByVmId["
-                                        + entry.getKey() + "]"));
+                rows.put(
+                        Integer.valueOf(Integer.parseInt(entry.getKey())),
+                        specRow(
+                                entry.getValue(),
+                                "configuration.failureModel.generatorsByVmId[" + entry.getKey() + "]"));
             }
             builder.generatorSpecsByVmId(rows);
         }
@@ -352,8 +369,8 @@ public final class ManifestConfigRebuilder {
     }
 
     private static DistributionSpec distributionSpec(JsonObject item, String path) {
-        DistributionFamily family = enumValue(DistributionFamily.class,
-                requireString(item, "family", path + ".family"), path + ".family");
+        DistributionFamily family =
+                enumValue(DistributionFamily.class, requireString(item, "family", path + ".family"), path + ".family");
         double scale = requireDouble(item, "scale", path + ".scale");
         double shape = requireDouble(item, "shape", path + ".shape");
         Double priorShape = optionalDouble(item.get("priorShape"));
@@ -365,19 +382,28 @@ public final class ManifestConfigRebuilder {
         if (priorShape == null || priorScale == null || likelihoodPrior == null) {
             throw new IllegalArgumentException(path + " has partially specified priors");
         }
-        return DistributionSpec.withPriors(family, scale, shape, priorShape.doubleValue(),
-                priorScale.doubleValue(), likelihoodPrior.doubleValue());
+        return DistributionSpec.withPriors(
+                family,
+                scale,
+                shape,
+                priorShape.doubleValue(),
+                priorScale.doubleValue(),
+                likelihoodPrior.doubleValue());
     }
 
     private static DataMovementModel rebuildDataMovementModel(JsonObject movement) {
         String kindName = requireString(movement, "kind", "configuration.dataMovementModel.kind");
-        DataMovementModel.Kind kind = enumValue(DataMovementModel.Kind.class, kindName,
-                "configuration.dataMovementModel.kind");
-        double access = requireDouble(movement, "accessLinkBandwidthMbPerSecond",
+        DataMovementModel.Kind kind =
+                enumValue(DataMovementModel.Kind.class, kindName, "configuration.dataMovementModel.kind");
+        double access = requireDouble(
+                movement,
+                "accessLinkBandwidthMbPerSecond",
                 "configuration.dataMovementModel.accessLinkBandwidthMbPerSecond");
-        double latency = requireDouble(movement, "accessLinkLatencySeconds",
-                "configuration.dataMovementModel.accessLinkLatencySeconds");
-        double source = requireDouble(movement, "sourceEndpointBandwidthMbPerSecond",
+        double latency = requireDouble(
+                movement, "accessLinkLatencySeconds", "configuration.dataMovementModel.accessLinkLatencySeconds");
+        double source = requireDouble(
+                movement,
+                "sourceEndpointBandwidthMbPerSecond",
                 "configuration.dataMovementModel.sourceEndpointBandwidthMbPerSecond");
         DataMovementModel model;
         switch (kind) {
@@ -396,13 +422,20 @@ public final class ManifestConfigRebuilder {
             case PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1:
                 model = DataMovementModel.fatTreeContentionV1();
                 break;
-            case COHERENT_FILE_DATAFLOW_V2:model=DataMovementModel.coherentFileDataflowV2();break;
-            case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:model=DataMovementModel.coherentFileDataflowNoContentionV2();break;
-            case COHERENT_STORAGE_DATAFLOW_V3:model=DataMovementModel.coherentStorageDataflowV3();break;
-            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:model=DataMovementModel.coherentStorageDataflowNoContentionV3();break;
+            case COHERENT_FILE_DATAFLOW_V2:
+                model = DataMovementModel.coherentFileDataflowV2();
+                break;
+            case COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2:
+                model = DataMovementModel.coherentFileDataflowNoContentionV2();
+                break;
+            case COHERENT_STORAGE_DATAFLOW_V3:
+                model = DataMovementModel.coherentStorageDataflowV3();
+                break;
+            case COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3:
+                model = DataMovementModel.coherentStorageDataflowNoContentionV3();
+                break;
             default:
-                throw new IllegalArgumentException(
-                        "Unsupported configuration.dataMovementModel.kind: " + kindName);
+                throw new IllegalArgumentException("Unsupported configuration.dataMovementModel.kind: " + kindName);
         }
         // 共享工厂实例的端点参数是模型语义的一部分；记录值与之不符说明 manifest
         // 来自不兼容的模型版本，拒绝而非静默采用工厂默认。
@@ -426,8 +459,8 @@ public final class ManifestConfigRebuilder {
             builder.put(
                     requireInt(entry, "taskId", "configuration.taskCostMatrix.entries[].taskId"),
                     requireInt(entry, "vmId", "configuration.taskCostMatrix.entries[].vmId"),
-                    requireDouble(entry, "executionSeconds",
-                            "configuration.taskCostMatrix.entries[].executionSeconds"));
+                    requireDouble(
+                            entry, "executionSeconds", "configuration.taskCostMatrix.entries[].executionSeconds"));
         }
         return builder.build();
     }
@@ -514,12 +547,10 @@ public final class ManifestConfigRebuilder {
     }
 
     private static Integer optionalInt(JsonElement element) {
-        return element == null || element.isJsonNull() ? null
-                : Integer.valueOf(element.getAsInt());
+        return element == null || element.isJsonNull() ? null : Integer.valueOf(element.getAsInt());
     }
 
     private static Double optionalDouble(JsonElement element) {
-        return element == null || element.isJsonNull() ? null
-                : Double.valueOf(element.getAsDouble());
+        return element == null || element.isJsonNull() ? null : Double.valueOf(element.getAsDouble());
     }
 }

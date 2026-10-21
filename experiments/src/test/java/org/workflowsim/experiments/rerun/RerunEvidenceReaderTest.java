@@ -41,9 +41,14 @@ class RerunEvidenceReaderTest {
         assertEquals(run.resolve("result.manifest.json"), evidence.getManifestPath());
         assertEquals(run.resolve("result.metrics.json"), evidence.getMetricsPath());
         assertEquals(run.resolve("result.events.jsonl"), evidence.getEventsPath());
-        assertEquals("workflowsim-experiment-manifest-v4",
+        assertEquals(
+                "workflowsim-experiment-manifest-v4",
                 evidence.getManifest().get("schema").getAsString());
-        assertEquals(evidence.getManifest().getAsJsonObject("events").get("eventCount").getAsInt(),
+        assertEquals(
+                evidence.getManifest()
+                        .getAsJsonObject("events")
+                        .get("eventCount")
+                        .getAsInt(),
                 evidence.getEventCount());
         assertTrue(evidence.getEventCount() > 0);
         assertTrue(Files.isRegularFile(evidence.getMetricsPath()));
@@ -54,20 +59,17 @@ class RerunEvidenceReaderTest {
     void rejectsV3SchemaWithExplicitReason() throws Exception {
         Path run = copyFixture();
         rewriteSchema(run.resolve("result.manifest.json"), "workflowsim-experiment-manifest-v3");
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("v4"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("workflowsim-experiment-manifest-v3"),
-                failure.getMessage());
+        assertTrue(failure.getMessage().contains("workflowsim-experiment-manifest-v3"), failure.getMessage());
     }
 
     @Test
     void rejectsV2Schema() throws Exception {
         Path run = copyFixture();
         rewriteSchema(run.resolve("result.manifest.json"), "workflowsim-experiment-manifest-v2");
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
     }
 
@@ -75,8 +77,7 @@ class RerunEvidenceReaderTest {
     void rejectsUnknownSchema() throws Exception {
         Path run = copyFixture();
         rewriteSchema(run.resolve("result.manifest.json"), "something-else-v9");
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("something-else-v9"));
     }
@@ -84,8 +85,8 @@ class RerunEvidenceReaderTest {
     @Test
     void rejectsDirectoryWithoutManifest() throws Exception {
         Path empty = Files.createDirectories(tempDir.resolve("empty"));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(empty));
+        RerunFailureException failure =
+                assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(empty));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("No manifest"));
     }
@@ -94,11 +95,9 @@ class RerunEvidenceReaderTest {
     void rejectsMissingEventsSidecar() throws Exception {
         Path run = copyFixture();
         Files.delete(run.resolve("result.events.jsonl"));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
-        assertTrue(failure.getMessage().contains("Evidence structure validation failed"),
-                failure.getMessage());
+        assertTrue(failure.getMessage().contains("Evidence structure validation failed"), failure.getMessage());
     }
 
     @Test
@@ -109,8 +108,7 @@ class RerunEvidenceReaderTest {
         // 只改文件不改 manifest：应先命中 artifacts 记录的 SHA-256 校验。
         String firstLine = content.split("\n", 2)[0];
         Files.write(events, (content + firstLine + "\n").getBytes(StandardCharsets.UTF_8));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("SHA-256 mismatch"), failure.getMessage());
     }
@@ -130,8 +128,8 @@ class RerunEvidenceReaderTest {
         }
         byte[] tampered = truncated.toString().getBytes(StandardCharsets.UTF_8);
         Files.write(events, tampered);
-        JsonObject root = JsonParser.parseString(
-                new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject root = JsonParser.parseString(new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8))
+                .getAsJsonObject();
         root.getAsJsonObject("events").addProperty("eventCount", lines.length);
         root.getAsJsonArray("artifacts").forEach(element -> {
             JsonObject artifact = element.getAsJsonObject();
@@ -142,8 +140,7 @@ class RerunEvidenceReaderTest {
         });
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
         Files.write(manifest, gson.toJson(root).getBytes(StandardCharsets.UTF_8));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("Event count mismatch"), failure.getMessage());
     }
@@ -158,8 +155,8 @@ class RerunEvidenceReaderTest {
         String firstLine = content.split("\n", 2)[0];
         byte[] tampered = (content + firstLine + "\n").getBytes(StandardCharsets.UTF_8);
         Files.write(events, tampered);
-        JsonObject root = JsonParser.parseString(
-                new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject root = JsonParser.parseString(new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8))
+                .getAsJsonObject();
         root.getAsJsonArray("artifacts").forEach(element -> {
             JsonObject artifact = element.getAsJsonObject();
             if ("events".equals(artifact.get("role").getAsString())) {
@@ -169,8 +166,7 @@ class RerunEvidenceReaderTest {
         });
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
         Files.write(manifest, gson.toJson(root).getBytes(StandardCharsets.UTF_8));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("sequence mismatch"), failure.getMessage());
     }
@@ -180,8 +176,7 @@ class RerunEvidenceReaderTest {
         Path run = copyFixture();
         Files.move(run.resolve("result.manifest.json"), run.resolve("first.manifest.json"));
         Files.copy(run.resolve("first.manifest.json"), run.resolve("second.manifest.json"));
-        RerunFailureException failure = assertThrows(RerunFailureException.class,
-                () -> RerunEvidenceReader.read(run));
+        RerunFailureException failure = assertThrows(RerunFailureException.class, () -> RerunEvidenceReader.read(run));
         assertEquals(RerunVerdict.EVIDENCE_INVALID, failure.getVerdict());
         assertTrue(failure.getMessage().contains("Ambiguous"));
         assertEquals(2, failure.getDetails().size());
@@ -211,8 +206,8 @@ class RerunEvidenceReaderTest {
     }
 
     private static void rewriteSchema(Path manifest, String schema) throws Exception {
-        JsonObject root = JsonParser.parseString(
-                new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject root = JsonParser.parseString(new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8))
+                .getAsJsonObject();
         root.addProperty("schema", schema);
         Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
         Files.write(manifest, gson.toJson(root).getBytes(StandardCharsets.UTF_8));

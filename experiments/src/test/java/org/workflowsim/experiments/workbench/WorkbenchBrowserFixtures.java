@@ -16,30 +16,42 @@ import org.workflowsim.experiment.ExperimentArtifactWriter;
 
 /** Generate small, self-contained browser fixtures using the real public Workbench entry points. */
 public final class WorkbenchBrowserFixtures {
-    private WorkbenchBrowserFixtures() { }
+    private WorkbenchBrowserFixtures() {}
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) { throw new IllegalArgumentException("Usage: WorkbenchBrowserFixtures <checkout> <new-output>"); }
+        if (args.length != 2) {
+            throw new IllegalArgumentException("Usage: WorkbenchBrowserFixtures <checkout> <new-output>");
+        }
         Path checkout = Paths.get(args[0]).toAbsolutePath().normalize();
         Path output = Paths.get(args[1]).toAbsolutePath().normalize();
-        if (Files.exists(output)) { throw new IllegalArgumentException("Refusing existing browser-fixture output: " + output); }
+        if (Files.exists(output)) {
+            throw new IllegalArgumentException("Refusing existing browser-fixture output: " + output);
+        }
         Files.createDirectories(output);
         List<Map<String, Object>> reports = new ArrayList<>();
 
-        Path online = Workbench.run(checkout.resolve("experiments/configs/online-comparison.json"), output.resolve("online"));
+        Path online =
+                Workbench.run(checkout.resolve("experiments/configs/online-comparison.json"), output.resolve("online"));
         reports.add(describe("online", online));
-        Path network = Workbench.run(checkout.resolve("experiments/configs/network-comparison.json"), output.resolve("network"));
+        Path network = Workbench.run(
+                checkout.resolve("experiments/configs/network-comparison.json"), output.resolve("network"));
         reports.add(describe("network", network));
 
         Path standalone = output.resolve("standalone-fcfs.html");
-        Workbench.main(new String[] {"report", online.resolve("runs/fcfs-s42/result.manifest.json").toString(), standalone.toString()});
+        Workbench.main(new String[] {
+            "report", online.resolve("runs/fcfs-s42/result.manifest.json").toString(), standalone.toString()
+        });
         Map<String, Object> standaloneSpec = new LinkedHashMap<>();
-        standaloneSpec.put("name", "standalone-fcfs"); standaloneSpec.put("path", standalone.toString());
-        standaloneSpec.put("candidates", Arrays.asList("FCFS")); standaloneSpec.put("seeds", Arrays.asList("42"));
-        standaloneSpec.put("statuses", Arrays.asList("COMPLETED_SUCCESSFULLY")); reports.add(standaloneSpec);
+        standaloneSpec.put("name", "standalone-fcfs");
+        standaloneSpec.put("path", standalone.toString());
+        standaloneSpec.put("candidates", Arrays.asList("FCFS"));
+        standaloneSpec.put("seeds", Arrays.asList("42"));
+        standaloneSpec.put("statuses", Arrays.asList("COMPLETED_SUCCESSFULLY"));
+        reports.add(standaloneSpec);
 
         Path input = output.resolve("single.dax");
-        Files.write(input, "<adag version=\"3.3\"><job id=\"one\" runtime=\"1\"/></adag>".getBytes(StandardCharsets.UTF_8));
+        Files.write(
+                input, "<adag version=\"3.3\"><job id=\"one\" runtime=\"1\"/></adag>".getBytes(StandardCharsets.UTF_8));
         JsonObject exact = configuration(input, 1, "FCFS", false);
         exact.addProperty("name", "精确种子 </script><img src=x onerror=alert(1)>");
         JsonArray exactSeeds = new JsonArray();
@@ -64,7 +76,9 @@ public final class WorkbenchBrowserFixtures {
         JsonObject mixed = configuration(input, 2, "RANDOM", true);
         mixed.add("simulation", matrix(2));
         JsonArray seeds = new JsonArray();
-        for (int seed = 0; seed < 16; seed++) { seeds.add(seed); }
+        for (int seed = 0; seed < 16; seed++) {
+            seeds.add(seed);
+        }
         mixed.add("seeds", seeds);
         Path mixedConfig = output.resolve("mixed.json");
         ExperimentArtifactWriter.writeJson(mixedConfig, mixed);
@@ -75,54 +89,81 @@ public final class WorkbenchBrowserFixtures {
         }
         reports.add(mixedSpec);
 
-        JsonObject large = configuration(checkout.resolve("datasets/dax/montage/n1000/Montage_1000.dax"), 4, "FCFS", false);
+        JsonObject large =
+                configuration(checkout.resolve("datasets/dax/montage/n1000/Montage_1000.dax"), 4, "FCFS", false);
         Path largeConfig = output.resolve("large.json");
         ExperimentArtifactWriter.writeJson(largeConfig, large);
         reports.add(describe("large-dag", Workbench.run(largeConfig, output.resolve("large"))));
 
-        NetworkBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
-        FileLifecycleBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
-        StorageLifecycleBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
-        DataflowAssignmentBrowserFixtures.append(output,reports,online.resolve("runs/fcfs-s42/result.manifest.json"));
+        NetworkBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
+        FileLifecycleBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
+        StorageLifecycleBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
+        DataflowAssignmentBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
 
         Map<String, Object> index = new LinkedHashMap<>();
-        index.put("schema", "workflowsim-browser-fixtures-v1"); index.put("reports", reports);
+        index.put("schema", "workflowsim-browser-fixtures-v1");
+        index.put("reports", reports);
         ExperimentArtifactWriter.writeJson(output.resolve("browser-fixtures.json"), index);
         System.out.println("BROWSER_FIXTURES " + output.resolve("browser-fixtures.json"));
     }
 
     private static JsonObject configuration(Path input, int count, String algorithm, boolean planner) {
-        JsonObject config = new JsonObject(); config.addProperty("schema", "workflowsim-workbench-v1");
+        JsonObject config = new JsonObject();
+        config.addProperty("schema", "workflowsim-workbench-v1");
         config.addProperty("name", "Browser regression fixture");
-        JsonArray inputs = new JsonArray(); inputs.add(input.toString()); config.add("workflowPaths", inputs);
-        JsonObject platform = new JsonObject(); JsonArray mips = new JsonArray();
-        for (int i = 0; i < count; i++) { mips.add(1000); }
-        platform.add("vmMips", mips); config.add("platform", platform);
-        JsonObject selected = new JsonObject(); selected.addProperty("id", "candidate");
+        JsonArray inputs = new JsonArray();
+        inputs.add(input.toString());
+        config.add("workflowPaths", inputs);
+        JsonObject platform = new JsonObject();
+        JsonArray mips = new JsonArray();
+        for (int i = 0; i < count; i++) {
+            mips.add(1000);
+        }
+        platform.add("vmMips", mips);
+        config.add("platform", platform);
+        JsonObject selected = new JsonObject();
+        selected.addProperty("id", "candidate");
         selected.addProperty(planner ? "planner" : "scheduler", algorithm);
-        JsonArray candidates = new JsonArray(); candidates.add(selected); config.add("algorithms", candidates);
-        JsonArray seeds = new JsonArray(); seeds.add(42); config.add("seeds", seeds); return config;
+        JsonArray candidates = new JsonArray();
+        candidates.add(selected);
+        config.add("algorithms", candidates);
+        JsonArray seeds = new JsonArray();
+        seeds.add(42);
+        config.add("seeds", seeds);
+        return config;
     }
 
     private static JsonObject matrix(int vmCount) {
-        JsonObject simulation = new JsonObject(); JsonArray entries = new JsonArray();
+        JsonObject simulation = new JsonObject();
+        JsonArray entries = new JsonArray();
         for (int id = 0; id < vmCount; id++) {
-            JsonObject entry = new JsonObject(); entry.addProperty("taskId", 1); entry.addProperty("vmId", id);
-            entry.addProperty("executionSeconds", id == 0 ? 0.0001 : 1.0); entries.add(entry);
+            JsonObject entry = new JsonObject();
+            entry.addProperty("taskId", 1);
+            entry.addProperty("vmId", id);
+            entry.addProperty("executionSeconds", id == 0 ? 0.0001 : 1.0);
+            entries.add(entry);
         }
-        simulation.add("taskCostMatrix", entries); return simulation;
+        simulation.add("taskCostMatrix", entries);
+        return simulation;
     }
 
     private static Map<String, Object> describe(String name, Path experiment) throws Exception {
-        JsonObject record = JsonParser.parseString(new String(Files.readAllBytes(experiment.resolve("experiment.json")),
-                StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject record = JsonParser.parseString(
+                        new String(Files.readAllBytes(experiment.resolve("experiment.json")), StandardCharsets.UTF_8))
+                .getAsJsonObject();
         List<String> candidates = new ArrayList<>(), seeds = new ArrayList<>(), statuses = new ArrayList<>();
         for (com.google.gson.JsonElement element : record.getAsJsonArray("runs")) {
-            JsonObject row = element.getAsJsonObject(); candidates.add(row.get("candidate").getAsString());
-            seeds.add(row.get("seed").getAsString()); statuses.add(row.get("status").getAsString());
+            JsonObject row = element.getAsJsonObject();
+            candidates.add(row.get("candidate").getAsString());
+            seeds.add(row.get("seed").getAsString());
+            statuses.add(row.get("status").getAsString());
         }
-        Map<String, Object> spec = new LinkedHashMap<>(); spec.put("name", name);
-        spec.put("path", experiment.resolve("report.html").toString()); spec.put("candidates", candidates);
-        spec.put("seeds", seeds); spec.put("statuses", statuses); return spec;
+        Map<String, Object> spec = new LinkedHashMap<>();
+        spec.put("name", name);
+        spec.put("path", experiment.resolve("report.html").toString());
+        spec.put("candidates", candidates);
+        spec.put("seeds", seeds);
+        spec.put("statuses", statuses);
+        return spec;
     }
 }
