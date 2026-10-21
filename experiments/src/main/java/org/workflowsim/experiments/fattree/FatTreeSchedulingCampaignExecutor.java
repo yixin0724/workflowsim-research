@@ -673,6 +673,18 @@ public final class FatTreeSchedulingCampaignExecutor {
 
         String toMarkdown() {
             StringBuilder md = new StringBuilder();
+            appendHeader(md);
+            appendMainMatrix(md);
+            appendMonotonicityDiagnostics(md);
+            appendAverageRankings(md);
+            appendPerDagWinners(md);
+            appendPairedStatistics(md);
+            appendStructuralSensitivity(md);
+            return md.toString();
+        }
+
+        /** 报告头汇总（逐字搬运转写自 toMarkdown()）。 */
+        private void appendHeader(StringBuilder md) {
             md.append("# Fat-tree × 调度 campaign 实测结果（自动生成）\n\n");
             md.append("- seed=")
                     .append(FIXED_SEED)
@@ -686,6 +698,10 @@ public final class FatTreeSchedulingCampaignExecutor {
                     .append(" 次运行；4 主机结构敏感性 ")
                     .append(structural.size())
                     .append(" 次运行\n\n");
+        }
+
+        /** 主矩阵 makespan 表（逐字搬运转写）。 */
+        private void appendMainMatrix(StringBuilder md) {
             md.append("## 主矩阵 makespan（秒）\n\n");
             md.append("| DAG |");
             for (DataMovementModel model : MODELS) {
@@ -714,6 +730,10 @@ public final class FatTreeSchedulingCampaignExecutor {
                 }
                 md.append('\n');
             }
+        }
+
+        /** 弱单调性诊断表（逐字搬运转写）。 */
+        private void appendMonotonicityDiagnostics(StringBuilder md) {
             md.append("\n## 弱单调性诊断（V1 ≤ R2 ≤ R6）\n\n");
             List<Map<String, Object>> violations = monotonicityDiagnostics();
             if (violations.isEmpty()) {
@@ -738,6 +758,10 @@ public final class FatTreeSchedulingCampaignExecutor {
                             .append(" |\n");
                 }
             }
+        }
+
+        /** 平均排名段（逐字搬运转写）。 */
+        private void appendAverageRankings(StringBuilder md) {
             md.append("\n## 平均排名（makespan 升序）\n\n");
             for (Map.Entry<String, List<String>> entry : averageRankings().entrySet()) {
                 md.append("- ")
@@ -746,6 +770,10 @@ public final class FatTreeSchedulingCampaignExecutor {
                         .append(String.join(" < ", entry.getValue()))
                         .append('\n');
             }
+        }
+
+        /** 逐 DAG 第一名表（逐字搬运转写）。 */
+        private void appendPerDagWinners(StringBuilder md) {
             md.append("\n## 逐 DAG 第一名\n\n| DAG |");
             for (DataMovementModel model : MODELS) {
                 md.append(' ').append(shortModel(model)).append(" |");
@@ -762,6 +790,10 @@ public final class FatTreeSchedulingCampaignExecutor {
                 }
                 md.append('\n');
             }
+        }
+
+        /** 配对统计段（含敏感性条件分支，逐字搬运转写）。 */
+        private void appendPairedStatistics(StringBuilder md) {
             md.append("\n## 配对 Wilcoxon（跨 DAG）\n\n");
             md.append("| 轴 | 基线 | 候选 | n(有效) | 中位差(s) | 状态 | p | 显著 |\n");
             md.append("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
@@ -772,6 +804,10 @@ public final class FatTreeSchedulingCampaignExecutor {
                 md.append("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
                 appendStatRows(md, sensitivityStatistics());
             }
+        }
+
+        /** 4 主机结构敏感性段（含条件分支，逐字搬运转写）。 */
+        private void appendStructuralSensitivity(StringBuilder md) {
             if (!structural.isEmpty()) {
                 md.append("\n## 4 主机结构敏感性 makespan（秒，R6 模型）\n\n");
                 md.append("| DAG | 规划器 |");
@@ -804,7 +840,6 @@ public final class FatTreeSchedulingCampaignExecutor {
                 md.append("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
                 appendStatRows(md, structuralStatistics());
             }
-            return md.toString();
         }
 
         private static void appendStatRows(StringBuilder md, List<Map<String, Object>> stats) {
