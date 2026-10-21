@@ -75,62 +75,16 @@ public final class NetworkStudyExecutor {
                     String network = condition.network;
                     for (Parameters.PlanningAlgorithm planner : plan.getPlanners()) {
                         for (long seed : plan.seeds(planner)) {
-                            String runId = workflow.id + "-v" + vmCount + "-" + network
-                                    + (heterogeneityAxis ? "-" + condition.heterogeneity : "")
-                                    + "-" + planner + "-s" + seed;
-                            Map<String, Object> record = new LinkedHashMap<String, Object>();
-                            record.put("runId", runId);
-                            record.put("workflowId", workflow.id);
-                            record.put("family", workflow.family);
-                            record.put("population", workflow.population);
-                            record.put("vmCount", vmCount);
-                            record.put("network", network);
-                            if (heterogeneityAxis) {
-                                record.put("heterogeneity", condition.heterogeneity);
-                            }
-                            record.put("planner", planner.name());
-                            record.put("seed", seed);
-                            try {
-                                SimulationConfig config = NetworkStudyPlan.configuration(
-                                        workflow.path.toString(), vmCount, network, planner, seed);
-                                SimulationReport report = new SimulationRunner()
-                                        .run(
-                                                config,
-                                                NetworkStudyPlan.platform(vmCount, network, condition.heterogeneity));
-                                if (!report.isWorkflowCompletedSuccessfully()) {
-                                    throw new IllegalStateException("Incomplete workflow");
-                                }
-                                if (!workflow.sha256.equals(
-                                        report.getInputs().get(0).getSha256())) {
-                                    throw new IllegalStateException("Study input changed after protocol was frozen");
-                                }
-                                ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
-                                        report, root.resolve("runs").resolve(runId), "result", context);
-                                ExperimentArtifactValidator.validate(artifacts.getManifest());
-                                record.put("status", "COMPLETED_SUCCESSFULLY");
-                                record.put(
-                                        "manifest",
-                                        root.relativize(artifacts.getManifest())
-                                                .toString()
-                                                .replace('\\', '/'));
-                                record.put(
-                                        "inputSha256", report.getInputs().get(0).getSha256());
-                                record.put(
-                                        "taskCount", report.getWorkflowProfile().getTaskCount());
-                                record.put("makespanSeconds", report.getMakespan());
-                                record.put("logicalCompletionSeconds", report.getLogicalTaskCompletionSeconds());
-                                record.put(
-                                        "meanWaitingSeconds",
-                                        report.getMetrics().getMeanComputeTotalWaitingTimeSeconds());
-                                record.put(
-                                        "p95WaitingSeconds",
-                                        report.getMetrics().getP95ComputeTotalWaitingTimeSeconds());
-                                record.put(
-                                        "meanVmUtilization", report.getMetrics().getMeanVmModeledIntervalUtilization());
-                            } catch (Exception failure) {
-                                record.put("status", "FAILED");
-                                record.put("error", failure.getClass().getSimpleName() + ": " + failure.getMessage());
-                            }
+                            Map<String, Object> record = runStudyCell(
+                                    workflow,
+                                    condition,
+                                    vmCount,
+                                    network,
+                                    planner,
+                                    seed,
+                                    heterogeneityAxis,
+                                    root,
+                                    context);
                             records.add(record);
                         }
                     }
@@ -144,6 +98,64 @@ public final class NetworkStudyExecutor {
         }
         NetworkStudyValidator.validate(root.resolve(INDEX));
         return root.resolve(INDEX);
+    }
+
+    /** 单个研究单元的执行与证据写入（逐字搬运转写）。 */
+    private static Map<String, Object> runStudyCell(
+            NetworkStudyPlan.WorkflowCase workflow,
+            NetworkStudyPlan.Condition condition,
+            int vmCount,
+            String network,
+            Parameters.PlanningAlgorithm planner,
+            long seed,
+            boolean heterogeneityAxis,
+            Path root,
+            ExperimentEvidenceContext context) {
+        String runId = workflow.id + "-v" + vmCount + "-" + network
+                + (heterogeneityAxis ? "-" + condition.heterogeneity : "")
+                + "-" + planner + "-s" + seed;
+        Map<String, Object> record = new LinkedHashMap<String, Object>();
+        record.put("runId", runId);
+        record.put("workflowId", workflow.id);
+        record.put("family", workflow.family);
+        record.put("population", workflow.population);
+        record.put("vmCount", vmCount);
+        record.put("network", network);
+        if (heterogeneityAxis) {
+            record.put("heterogeneity", condition.heterogeneity);
+        }
+        record.put("planner", planner.name());
+        record.put("seed", seed);
+        try {
+            SimulationConfig config =
+                    NetworkStudyPlan.configuration(workflow.path.toString(), vmCount, network, planner, seed);
+            SimulationReport report = new SimulationRunner()
+                    .run(config, NetworkStudyPlan.platform(vmCount, network, condition.heterogeneity));
+            if (!report.isWorkflowCompletedSuccessfully()) {
+                throw new IllegalStateException("Incomplete workflow");
+            }
+            if (!workflow.sha256.equals(report.getInputs().get(0).getSha256())) {
+                throw new IllegalStateException("Study input changed after protocol was frozen");
+            }
+            ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                    ExperimentArtifactWriter.write(report, root.resolve("runs").resolve(runId), "result", context);
+            ExperimentArtifactValidator.validate(artifacts.getManifest());
+            record.put("status", "COMPLETED_SUCCESSFULLY");
+            record.put(
+                    "manifest",
+                    root.relativize(artifacts.getManifest()).toString().replace('\\', '/'));
+            record.put("inputSha256", report.getInputs().get(0).getSha256());
+            record.put("taskCount", report.getWorkflowProfile().getTaskCount());
+            record.put("makespanSeconds", report.getMakespan());
+            record.put("logicalCompletionSeconds", report.getLogicalTaskCompletionSeconds());
+            record.put("meanWaitingSeconds", report.getMetrics().getMeanComputeTotalWaitingTimeSeconds());
+            record.put("p95WaitingSeconds", report.getMetrics().getP95ComputeTotalWaitingTimeSeconds());
+            record.put("meanVmUtilization", report.getMetrics().getMeanVmModeledIntervalUtilization());
+        } catch (Exception failure) {
+            record.put("status", "FAILED");
+            record.put("error", failure.getClass().getSimpleName() + ": " + failure.getMessage());
+        }
+        return record;
     }
 
     private static void writeIndex(Path root, NetworkStudyPlan plan, List<Map<String, Object>> records)

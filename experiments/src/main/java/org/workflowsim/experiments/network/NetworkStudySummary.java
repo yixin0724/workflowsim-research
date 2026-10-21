@@ -12,6 +12,24 @@ public final class NetworkStudySummary {
     private NetworkStudySummary() {}
 
     public static Map<String, Object> summarize(List<Map<String, Object>> runs) {
+        boolean heterogeneityAxis = detectHeterogeneityAxis(runs);
+        GroupedRuns grouped = groupCompletedRuns(runs, heterogeneityAxis);
+        List<Map<String, Object>> aggregates = aggregateGroups(grouped.groups, heterogeneityAxis);
+        List<Map<String, Object>> comparisons = buildComparisons(aggregates, heterogeneityAxis, grouped.failures);
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("runCount", runs.size());
+        result.put("failedRunCount", grouped.failures);
+        result.put("aggregates", aggregates);
+        result.put("comparisons", comparisons);
+        result.put("status", grouped.failures == 0 ? "COMPLETE" : "INCOMPLETE_NO_INFERENCE");
+        result.put(
+                "seedInterpretation",
+                "DETERMINISTIC_PLANNERS_ONCE;RANDOMIZED_PLANNERS_SEED_REPEATS;NOT_EVENT_KEYED_CRN");
+        return result;
+    }
+
+    /** 到达域参轴检测（逐字搬运转写自 summarize()）。 */
+    private static boolean detectHeterogeneityAxis(List<Map<String, Object>> runs) {
         // Heterogeneity enters the stratification only when runs carry it; frozen protocols stay byte-identical.
         boolean heterogeneityAxis = false;
         for (Map<String, Object> run : runs) {
@@ -20,6 +38,11 @@ public final class NetworkStudySummary {
                 break;
             }
         }
+        return heterogeneityAxis;
+    }
+
+    /** 完成运行分组与失败计数（逐字搬运转写）。 */
+    private static GroupedRuns groupCompletedRuns(List<Map<String, Object>> runs, boolean heterogeneityAxis) {
         Map<String, List<Map<String, Object>>> groups = new LinkedHashMap<String, List<Map<String, Object>>>();
         int failures = 0;
         for (Map<String, Object> run : runs) {
@@ -34,6 +57,12 @@ public final class NetworkStudySummary {
             }
             groups.get(key).add(run);
         }
+        return new GroupedRuns(groups, failures);
+    }
+
+    /** 按分组聚合的指标（逐字搬运转写）。 */
+    private static List<Map<String, Object>> aggregateGroups(
+            Map<String, List<Map<String, Object>>> groups, boolean heterogeneityAxis) {
         List<Map<String, Object>> aggregates = new ArrayList<Map<String, Object>>();
         List<String> aggregateFields = new ArrayList<String>(
                 java.util.Arrays.asList("workflowId", "family", "population", "vmCount", "network"));
@@ -63,6 +92,12 @@ public final class NetworkStudySummary {
             aggregate.put("maximumSeconds", values.get(values.size() - 1));
             aggregates.add(aggregate);
         }
+        return aggregates;
+    }
+
+    /** 基准对比与 Holm 多重校正（逐字搬运转写）。 */
+    private static List<Map<String, Object>> buildComparisons(
+            List<Map<String, Object>> aggregates, boolean heterogeneityAxis, int failures) {
         List<Map<String, Object>> comparisons = new ArrayList<Map<String, Object>>();
         if (failures == 0) {
             Map<String, List<Map<String, Object>>> strata = new LinkedHashMap<String, List<Map<String, Object>>>();
@@ -134,16 +169,18 @@ public final class NetworkStudySummary {
                 comparisons.addAll(family);
             }
         }
-        Map<String, Object> result = new LinkedHashMap<String, Object>();
-        result.put("runCount", runs.size());
-        result.put("failedRunCount", failures);
-        result.put("aggregates", aggregates);
-        result.put("comparisons", comparisons);
-        result.put("status", failures == 0 ? "COMPLETE" : "INCOMPLETE_NO_INFERENCE");
-        result.put(
-                "seedInterpretation",
-                "DETERMINISTIC_PLANNERS_ONCE;RANDOMIZED_PLANNERS_SEED_REPEATS;NOT_EVENT_KEYED_CRN");
-        return result;
+        return comparisons;
+    }
+
+    /** summarize() 分组阶段的私有搬运转写结构。 */
+    private static final class GroupedRuns {
+        final Map<String, List<Map<String, Object>>> groups;
+        final int failures;
+
+        GroupedRuns(Map<String, List<Map<String, Object>>> groups, int failures) {
+            this.groups = groups;
+            this.failures = failures;
+        }
     }
 
     static Double signTest(int wins, int losses) {
