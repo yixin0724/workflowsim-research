@@ -10,17 +10,16 @@ package org.cloudbus.cloudsim.distributions;
 
 /**
  * Interface to be implemented by a random number generator.
- * 
+ *
  * @author Marcos Dias de Assuncao
  * @since CloudSim Toolkit 1.0
  */
 public interface ContinuousDistribution {
 
-	/**
-	 * Sample the random number generator.
-	 * 
-	 * @return The sample
-	 */
-	double sample();
-
+    /**
+     * Sample the random number generator.
+     *
+     * @return The sample
+     */
+    double sample();
 }
