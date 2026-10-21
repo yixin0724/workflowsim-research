@@ -228,6 +228,23 @@ final class FileLifecycleContextValidator {
                 obj(result, "actualVmHostAssignments"),
                 decoded.getEvidence().getFabric(),
                 decoded.storage);
+        initRootScopes(root, config, decoded);
+        initJobOutcomes(root, result, decoded);
+        if (!taskOutcomes.keySet().equals(jobs.keySet())
+                || decoded.getRequestedJobCount() != jobs.size()
+                || decoded.getCompletedJobCount() != jobs.size())
+            throw fail("V2 lifecycle does not cover every compute attempt");
+        if (!decoded.getSuccessfullyCompletedTaskIds().equals(taskScopes.keySet()))
+            throw fail("V2 lifecycle lacks logical Task success");
+        initFinalLifecycleFromEvents(decoded);
+        if (!requested.keySet().equals(jobs.keySet())
+                || !cpu.keySet().equals(jobs.keySet())
+                || !finished.keySet().equals(jobs.keySet())
+                || !readyTime.keySet().equals(jobs.keySet())) throw fail("Incomplete V2 final lifecycle Job coverage");
+    }
+
+    /** 构造器阶段一：dataflowPlan 根作用域/文件字节/V3 计划引用总量 + 到达序列（逐字搬运转写）。 */
+    private void initRootScopes(JsonObject root, JsonObject config, Checked decoded) throws IOException {
         for (JsonElement row : arr(obj(root, "dataflowPlan"), "tasks")) {
             JsonObject task = object(row);
             taskScopes.put(integer(need(task, "taskId")), integer(need(task, "workflowInputIndex")));
@@ -262,6 +279,10 @@ final class FileLifecycleContextValidator {
             }
         for (int i = 0; i < arr(config, "workflowArrivalSeconds").size(); i++)
             arrivals.put(i, number(arr(config, "workflowArrivalSeconds").get(i)));
+    }
+
+    /** 构造器阶段二：Job/Task 结果集校验（逐字搬运转写）。 */
+    private void initJobOutcomes(JsonObject root, JsonObject result, Checked decoded) throws IOException {
         Set<Integer> allJobs = new HashSet<>();
         for (JsonElement row : arr(result, "jobs")) {
             JsonObject value = object(row);
@@ -302,98 +323,109 @@ final class FileLifecycleContextValidator {
                     && bool(need(task, "exactJobTiming")) != (taskStart == job.start && taskFinish == job.finish))
                 throw fail("Task exactJobTiming claim differs from its actual bounds");
         }
-        if (!taskOutcomes.keySet().equals(jobs.keySet())
-                || decoded.getRequestedJobCount() != jobs.size()
-                || decoded.getCompletedJobCount() != jobs.size())
-            throw fail("V2 lifecycle does not cover every compute attempt");
-        if (!decoded.getSuccessfullyCompletedTaskIds().equals(taskScopes.keySet()))
-            throw fail("V2 lifecycle lacks logical Task success");
+    }
+
+    /** 构造器阶段三：V2 事件流终态初始化（请求/解析/就绪/CPU/终结事件，逐字搬运转写）。 */
+    private void initFinalLifecycleFromEvents(Checked decoded) throws IOException {
         for (FileLifecycleEvent event : decoded.getEvidence().getEvents()) {
             JsonObject p = event.getPayload();
             switch (event.getType()) {
-                case JOB_INPUT_REQUESTED: {
-                    int id = integer(need(p, "jobId"));
-                    Job job = requireJob(id);
-                    if (integer(need(p, "destinationVmId")) != job.vm
-                            || !listIds(arr(p, "taskIds")).equals(Arrays.asList(job.task)))
-                        throw fail("V2 request membership/VM differs");
-                    put(requested, id, p);
-                    ReferenceTotals totals = new ReferenceTotals();
-                    if (decoded.storage) {
-                        totals.references = plannedReferenceTotals.get(job.task).references;
-                        totals.bytes = plannedReferenceTotals.get(job.task).bytes;
-                    }
-                    referenceTotals.put(id, totals);
-                    requestTime.put(id, event.getObservedTime());
-                    if (event.getObservedTime() < arrivals.get(taskScopes.get(job.task)))
-                        throw fail("Input request precedes workflow arrival");
+                case JOB_INPUT_REQUESTED:
+                    applyJobInputRequested(event, p, decoded);
                     break;
-                }
                 case COPY_ADMITTED:
-                    copySeconds.put(whole(need(p, "copyOrdinal")), number(need(p, "isolatedSeconds")));
+                    applyCopyAdmitted(p);
                     break;
-                case INPUT_RESOLVED: {
-                    int id = integer(need(p, "jobId"));
-                    ReferenceTotals totals = referenceTotals.get(id);
-                    if (totals == null) throw fail("Input resolution precedes request");
-                    long count = whole(need(p, "referenceCount"));
-                    Double bytes = fileBytes.get(fileKey(obj(p, "fileId")));
-                    if (bytes == null) throw fail("Input resolution has unknown file");
-                    if (!decoded.storage) {
-                        try {
-                            totals.references = Math.addExact(totals.references, count);
-                        } catch (ArithmeticException overflow) {
-                            throw new IOException("Reference counter overflow", overflow);
-                        }
-                        totals.bytes += new BigDecimal(bytes)
-                                .multiply(BigDecimal.valueOf(count))
-                                .doubleValue();
-                    }
-                    String resolution = text(p, "resolution");
-                    if (resolution.equals("NEW_COPY") || resolution.equals("JOIN_EXISTING")) {
-                        Double seconds = copySeconds.get(whole(need(p, "copyOrdinal")));
-                        if (seconds == null) throw fail("Resolution references unknown copy estimate");
-                        totals.seconds += seconds;
-                        if (resolution.equals("NEW_COPY")) totals.created++;
-                        else totals.joined++;
-                    }
-                    if (!Double.isFinite(totals.bytes) || !Double.isFinite(totals.seconds))
-                        throw fail("Unrepresentable V2 input aggregate");
+                case INPUT_RESOLVED:
+                    applyInputResolved(p, decoded.storage);
                     break;
-                }
                 case JOB_DATA_READY:
-                    readyTime.put(integer(need(p, "jobId")), event.getObservedTime());
+                    applyJobDataReady(event, p);
                     break;
-                case JOB_CPU_STARTED: {
-                    int id = integer(need(p, "jobId"));
-                    Job job = requireJob(id);
-                    if (integer(need(p, "vmId")) != job.vm || event.getObservedTime() != job.start)
-                        throw fail("V2 CPU start differs from Job outcome");
-                    put(cpu, id, p);
-                    cpuTime.put(id, event.getObservedTime());
+                case JOB_CPU_STARTED:
+                    applyJobCpuStarted(event, p);
                     break;
-                }
-                case TASK_FINISHED: {
-                    int id = integer(need(p, "jobId"));
-                    Job job = requireJob(id);
-                    if (integer(need(p, "taskId")) != job.task
-                            || integer(need(p, "vmId")) != job.vm
-                            || bool(need(p, "success"))
-                                    != (integer(need(taskOutcomes.get(id), "taskStatus")) == Cloudlet.SUCCESS)
-                            || event.getObservedTime() < job.finish)
-                        throw fail("V2 terminal Task publication differs from result");
-                    put(finished, id, p);
-                    finishTime.put(id, event.getObservedTime());
+                case TASK_FINISHED:
+                    applyTaskFinished(event, p);
                     break;
-                }
                 default:
                     break;
             }
         }
-        if (!requested.keySet().equals(jobs.keySet())
-                || !cpu.keySet().equals(jobs.keySet())
-                || !finished.keySet().equals(jobs.keySet())
-                || !readyTime.keySet().equals(jobs.keySet())) throw fail("Incomplete V2 final lifecycle Job coverage");
+    }
+
+    private void applyTaskFinished(FileLifecycleEvent event, JsonObject p) throws IOException {
+        int id = integer(need(p, "jobId"));
+        Job job = requireJob(id);
+        if (integer(need(p, "taskId")) != job.task
+                || integer(need(p, "vmId")) != job.vm
+                || bool(need(p, "success")) != (integer(need(taskOutcomes.get(id), "taskStatus")) == Cloudlet.SUCCESS)
+                || event.getObservedTime() < job.finish) throw fail("V2 terminal Task publication differs from result");
+        put(finished, id, p);
+        finishTime.put(id, event.getObservedTime());
+    }
+
+    private void applyJobCpuStarted(FileLifecycleEvent event, JsonObject p) throws IOException {
+        int id = integer(need(p, "jobId"));
+        Job job = requireJob(id);
+        if (integer(need(p, "vmId")) != job.vm || event.getObservedTime() != job.start)
+            throw fail("V2 CPU start differs from Job outcome");
+        put(cpu, id, p);
+        cpuTime.put(id, event.getObservedTime());
+    }
+
+    private void applyJobDataReady(FileLifecycleEvent event, JsonObject p) throws IOException {
+        readyTime.put(integer(need(p, "jobId")), event.getObservedTime());
+    }
+
+    private void applyCopyAdmitted(JsonObject p) throws IOException {
+        copySeconds.put(whole(need(p, "copyOrdinal")), number(need(p, "isolatedSeconds")));
+    }
+
+    private void applyJobInputRequested(FileLifecycleEvent event, JsonObject p, Checked decoded) throws IOException {
+        int id = integer(need(p, "jobId"));
+        Job job = requireJob(id);
+        if (integer(need(p, "destinationVmId")) != job.vm
+                || !listIds(arr(p, "taskIds")).equals(Arrays.asList(job.task)))
+            throw fail("V2 request membership/VM differs");
+        put(requested, id, p);
+        ReferenceTotals totals = new ReferenceTotals();
+        if (decoded.storage) {
+            totals.references = plannedReferenceTotals.get(job.task).references;
+            totals.bytes = plannedReferenceTotals.get(job.task).bytes;
+        }
+        referenceTotals.put(id, totals);
+        requestTime.put(id, event.getObservedTime());
+        if (event.getObservedTime() < arrivals.get(taskScopes.get(job.task)))
+            throw fail("Input request precedes workflow arrival");
+    }
+
+    private void applyInputResolved(JsonObject p, boolean storage) throws IOException {
+        int id = integer(need(p, "jobId"));
+        ReferenceTotals totals = referenceTotals.get(id);
+        if (totals == null) throw fail("Input resolution precedes request");
+        long count = whole(need(p, "referenceCount"));
+        Double bytes = fileBytes.get(fileKey(obj(p, "fileId")));
+        if (bytes == null) throw fail("Input resolution has unknown file");
+        if (!storage) {
+            try {
+                totals.references = Math.addExact(totals.references, count);
+            } catch (ArithmeticException overflow) {
+                throw new IOException("Reference counter overflow", overflow);
+            }
+            totals.bytes +=
+                    new BigDecimal(bytes).multiply(BigDecimal.valueOf(count)).doubleValue();
+        }
+        String resolution = text(p, "resolution");
+        if (resolution.equals("NEW_COPY") || resolution.equals("JOIN_EXISTING")) {
+            Double seconds = copySeconds.get(whole(need(p, "copyOrdinal")));
+            if (seconds == null) throw fail("Resolution references unknown copy estimate");
+            totals.seconds += seconds;
+            if (resolution.equals("NEW_COPY")) totals.created++;
+            else totals.joined++;
+        }
+        if (!Double.isFinite(totals.bytes) || !Double.isFinite(totals.seconds))
+            throw fail("Unrepresentable V2 input aggregate");
     }
 
     void acceptEvent(JsonObject event) throws IOException {
@@ -451,95 +483,10 @@ final class FileLifecycleContextValidator {
         Set<Integer> initialTasks = new HashSet<>(), retriedFailures = new HashSet<>(retries.values());
         if (retriedFailures.size() != retries.size()) throw fail("V2 NOOP failure produced multiple retries");
         for (Map.Entry<Integer, Job> entry : jobs.entrySet()) {
-            int id = entry.getKey();
-            Job job = entry.getValue();
-            JsonObject ready = main("JOB_READY", id),
-                    stage = main("DATA_STAGE_IN_MODELED", id),
-                    execution = main("TASK_EXECUTION_MODELED", id),
-                    returned = main("JOB_RETURNED", id),
-                    decision = main("SCHEDULING_DECISION", id),
-                    dispatch = main("JOB_DISPATCHED", id);
-            if (number(need(ready, "simulationTime")) != requestTime.get(id)
-                    || number(need(stage, "simulationTime"))
-                            != (decoded.storage ? readyTime.get(id) : requestTime.get(id))
-                    || number(need(execution, "simulationTime")) != cpuTime.get(id)
-                    || number(need(returned, "simulationTime")) != finishTime.get(id))
-                throw fail("V2 lifecycle observations differ from main event anchors");
-            double decided = number(need(decision, "simulationTime"));
-            if (decided < readyTime.get(id)
-                    || decided > job.start
-                    || number(need(dispatch, "simulationTime")) != decided)
-                throw fail("Dispatch precedes V2 data-ready or differs from scheduling decision");
-            requireText(obj(decision, "attributes"), "schedulingAlgorithm", "STATIC");
-            if (number(need(obj(decision, "attributes"), "queueDelaySeconds")) != 0
-                    || number(need(obj(dispatch, "attributes"), "queueDelaySeconds")) != 0
-                    || number(need(obj(returned, "attributes"), "postDelaySeconds")) != 0)
-                throw fail("Unsupported V2 dispatch/post overhead");
-            JsonObject attrs = obj(execution, "attributes");
-            if (integer(need(attrs, "taskId")) != job.task
-                    || number(need(attrs, "taskStartTime")) != job.start
-                    || number(need(attrs, "taskFinishTime")) != number(need(taskOutcomes.get(id), "finishTime"))
-                    || number(need(attrs, "modeledStageInSecondsBeforeTask")) != 0
-                    || number(need(attrs, "requestedDataStageInSecondsForJob")) != 0)
-                throw fail("V2 CPU envelope contains input transfer or mismatched Task timing");
-            if (assignmentAudit != null) {
-                JsonObject outcome = taskOutcomes.get(id);
-                if (whole(need(attrs, "taskLengthMi")) != whole(need(outcome, "lengthMi"))
-                        || whole(need(attrs, "effectiveExecutionLengthMi"))
-                                != whole(need(outcome, "effectiveExecutionLengthMi")))
-                    throw fail("Online execution MI differs from its certified Task/action request");
-                requireText(attrs, "taskTimingScope", "MODEL_DERIVED_COMPUTE_WINDOW");
-            }
-            JsonObject stageAttrs = obj(stage, "attributes");
-            requireText(stageAttrs, "transferUnit", decoded.storage ? "LOGICAL_FILE_STORAGE_V3" : "LOGICAL_FILE_V2");
-            if (decoded.storage
-                    && number(need(stageAttrs, "observedInputPreparationSeconds"))
-                            != readyTime.get(id) - requestTime.get(id))
-                throw fail("V3 observed preparation latency differs");
-            requireText(stageAttrs, "dataMovementModel", text(decoded.getDocument(), "modelKind"));
-            ReferenceTotals totals = referenceTotals.get(id);
-            if (totals == null
-                    || whole(need(stageAttrs, "modeledTransferFileCount")) != totals.references
-                    || number(need(stageAttrs, "requiredFileBytes")) != totals.bytes
-                    || number(need(stageAttrs, "modeledTransferSeconds")) != totals.seconds
-                    || integer(need(stageAttrs, "newFileCopies")) != totals.created
-                    || integer(need(stageAttrs, "joinedFileCopies")) != totals.joined
-                    || stageAttrs.has("contentionTransferGroupCount"))
-                throw fail("V2 stage-in main quantities disagree with file lifecycle references");
-            JsonObject readyAttrs = obj(ready, "attributes");
-            if (retries.containsKey(id)) {
-                if (integer(need(readyAttrs, "retryOfFailedJobId")) != retries.get(id))
-                    throw fail("V2 readiness retry origin differs");
-            } else if (readyAttrs.has("retryOfFailedJobId"))
-                throw fail("Initial V2 request falsely claims retry origin");
-            if (integer(need(obj(returned, "attributes"), "jobStatus")) != job.status)
-                throw fail("V2 main return status differs");
-            List<Integer> statuses = listIds(arr(obj(returned, "attributes"), "taskStatuses"));
-            if (!statuses.equals(Arrays.asList(job.status)))
-                throw fail("V2 returned Task statuses differ from singleton attempt");
-            if (job.status == Cloudlet.FAILED) {
-                main("JOB_FAILED", id);
-                if (!retriedFailures.contains(id)) throw fail("V2 final run contains unrecovered failed attempt");
-            } else if (main.containsKey("JOB_FAILED") && main.get("JOB_FAILED").containsKey(id))
-                throw fail("Success Job has failed event");
-            if (!retries.containsKey(id) && !initialTasks.add(job.task))
-                throw fail("Multiple initial Job attempts for one logical Task");
+            verifyJobLifecycleAnchors(entry, initialTasks, retriedFailures);
         }
         for (Map.Entry<Integer, Integer> retry : retries.entrySet()) {
-            JsonObject created = retryEvents.get(retry.getKey()),
-                    returned = main("JOB_RETURNED", retry.getValue()),
-                    failed = main("JOB_FAILED", retry.getValue()),
-                    ready = main("JOB_READY", retry.getKey());
-            long creation = whole(need(created, "sequence"));
-            double time = number(need(created, "simulationTime"));
-            if (whole(need(returned, "sequence")) >= whole(need(failed, "sequence"))
-                    || whole(need(returned, "sequence")) >= creation
-                    || whole(need(failed, "sequence")) >= creation
-                    || creation >= whole(need(ready, "sequence"))
-                    || number(need(returned, "simulationTime")) > time
-                    || number(need(failed, "simulationTime")) > time
-                    || time > number(need(ready, "simulationTime")))
-                throw fail("Retry creation must follow failed return and precede retry readiness");
+            verifyRetrySequencing(retry);
         }
         if (!initialTasks.equals(taskScopes.keySet())) throw fail("V2 initial attempts do not cover logical Tasks");
         if (assignmentAudit != null)
@@ -548,6 +495,98 @@ final class FileLifecycleContextValidator {
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Online assignment and lifecycle context disagree", invalid);
             }
+    }
+
+    /** finish() 的逐 Job 生命周期锚点校验（主事件时点/派发/CPU 包络/重试来源，逐字搬运转写）。 */
+    private void verifyJobLifecycleAnchors(
+            Map.Entry<Integer, Job> entry, Set<Integer> initialTasks, Set<Integer> retriedFailures) throws IOException {
+        int id = entry.getKey();
+        Job job = entry.getValue();
+        JsonObject ready = main("JOB_READY", id),
+                stage = main("DATA_STAGE_IN_MODELED", id),
+                execution = main("TASK_EXECUTION_MODELED", id),
+                returned = main("JOB_RETURNED", id),
+                decision = main("SCHEDULING_DECISION", id),
+                dispatch = main("JOB_DISPATCHED", id);
+        if (number(need(ready, "simulationTime")) != requestTime.get(id)
+                || number(need(stage, "simulationTime")) != (decoded.storage ? readyTime.get(id) : requestTime.get(id))
+                || number(need(execution, "simulationTime")) != cpuTime.get(id)
+                || number(need(returned, "simulationTime")) != finishTime.get(id))
+            throw fail("V2 lifecycle observations differ from main event anchors");
+        double decided = number(need(decision, "simulationTime"));
+        if (decided < readyTime.get(id) || decided > job.start || number(need(dispatch, "simulationTime")) != decided)
+            throw fail("Dispatch precedes V2 data-ready or differs from scheduling decision");
+        requireText(obj(decision, "attributes"), "schedulingAlgorithm", "STATIC");
+        if (number(need(obj(decision, "attributes"), "queueDelaySeconds")) != 0
+                || number(need(obj(dispatch, "attributes"), "queueDelaySeconds")) != 0
+                || number(need(obj(returned, "attributes"), "postDelaySeconds")) != 0)
+            throw fail("Unsupported V2 dispatch/post overhead");
+        JsonObject attrs = obj(execution, "attributes");
+        if (integer(need(attrs, "taskId")) != job.task
+                || number(need(attrs, "taskStartTime")) != job.start
+                || number(need(attrs, "taskFinishTime")) != number(need(taskOutcomes.get(id), "finishTime"))
+                || number(need(attrs, "modeledStageInSecondsBeforeTask")) != 0
+                || number(need(attrs, "requestedDataStageInSecondsForJob")) != 0)
+            throw fail("V2 CPU envelope contains input transfer or mismatched Task timing");
+        if (assignmentAudit != null) {
+            JsonObject outcome = taskOutcomes.get(id);
+            if (whole(need(attrs, "taskLengthMi")) != whole(need(outcome, "lengthMi"))
+                    || whole(need(attrs, "effectiveExecutionLengthMi"))
+                            != whole(need(outcome, "effectiveExecutionLengthMi")))
+                throw fail("Online execution MI differs from its certified Task/action request");
+            requireText(attrs, "taskTimingScope", "MODEL_DERIVED_COMPUTE_WINDOW");
+        }
+        JsonObject stageAttrs = obj(stage, "attributes");
+        requireText(stageAttrs, "transferUnit", decoded.storage ? "LOGICAL_FILE_STORAGE_V3" : "LOGICAL_FILE_V2");
+        if (decoded.storage
+                && number(need(stageAttrs, "observedInputPreparationSeconds"))
+                        != readyTime.get(id) - requestTime.get(id))
+            throw fail("V3 observed preparation latency differs");
+        requireText(stageAttrs, "dataMovementModel", text(decoded.getDocument(), "modelKind"));
+        ReferenceTotals totals = referenceTotals.get(id);
+        if (totals == null
+                || whole(need(stageAttrs, "modeledTransferFileCount")) != totals.references
+                || number(need(stageAttrs, "requiredFileBytes")) != totals.bytes
+                || number(need(stageAttrs, "modeledTransferSeconds")) != totals.seconds
+                || integer(need(stageAttrs, "newFileCopies")) != totals.created
+                || integer(need(stageAttrs, "joinedFileCopies")) != totals.joined
+                || stageAttrs.has("contentionTransferGroupCount"))
+            throw fail("V2 stage-in main quantities disagree with file lifecycle references");
+        JsonObject readyAttrs = obj(ready, "attributes");
+        if (retries.containsKey(id)) {
+            if (integer(need(readyAttrs, "retryOfFailedJobId")) != retries.get(id))
+                throw fail("V2 readiness retry origin differs");
+        } else if (readyAttrs.has("retryOfFailedJobId")) throw fail("Initial V2 request falsely claims retry origin");
+        if (integer(need(obj(returned, "attributes"), "jobStatus")) != job.status)
+            throw fail("V2 main return status differs");
+        List<Integer> statuses = listIds(arr(obj(returned, "attributes"), "taskStatuses"));
+        if (!statuses.equals(Arrays.asList(job.status)))
+            throw fail("V2 returned Task statuses differ from singleton attempt");
+        if (job.status == Cloudlet.FAILED) {
+            main("JOB_FAILED", id);
+            if (!retriedFailures.contains(id)) throw fail("V2 final run contains unrecovered failed attempt");
+        } else if (main.containsKey("JOB_FAILED") && main.get("JOB_FAILED").containsKey(id))
+            throw fail("Success Job has failed event");
+        if (!retries.containsKey(id) && !initialTasks.add(job.task))
+            throw fail("Multiple initial Job attempts for one logical Task");
+    }
+
+    /** finish() 的重试次序校验（失败返回→重试创建→就绪，逐字搬运转写）。 */
+    private void verifyRetrySequencing(Map.Entry<Integer, Integer> retry) throws IOException {
+        JsonObject created = retryEvents.get(retry.getKey()),
+                returned = main("JOB_RETURNED", retry.getValue()),
+                failed = main("JOB_FAILED", retry.getValue()),
+                ready = main("JOB_READY", retry.getKey());
+        long creation = whole(need(created, "sequence"));
+        double time = number(need(created, "simulationTime"));
+        if (whole(need(returned, "sequence")) >= whole(need(failed, "sequence"))
+                || whole(need(returned, "sequence")) >= creation
+                || whole(need(failed, "sequence")) >= creation
+                || creation >= whole(need(ready, "sequence"))
+                || number(need(returned, "simulationTime")) > time
+                || number(need(failed, "simulationTime")) > time
+                || time > number(need(ready, "simulationTime")))
+            throw fail("Retry creation must follow failed return and precede retry readiness");
     }
 
     private static void validateFabric(JsonObject platform, JsonObject actual, JsonObject fabric, boolean storage)
@@ -650,65 +689,7 @@ final class FileLifecycleContextValidator {
             if (budget != 0 || dense.size() != 0 || byVm)
                 throw fail("Disabled V3 failure model must have zero budget and no generators");
         } else {
-            if (budget == 0
-                    || (dense.size() != 0) == byVm
-                    || family.equals("NORMAL")
-                    || (byVm && !mode.equals("FAILURE_VM") && !mode.equals("FAILURE_VM_JOB")))
-                throw fail("Invalid enabled V3 failure layout or budget");
-            Map<Integer, JsonArray> generatorRows = new HashMap<>();
-            if (byVm) {
-                for (Map.Entry<String, JsonElement> entry : keyed.entrySet()) {
-                    int id;
-                    try {
-                        id = Integer.parseInt(entry.getKey());
-                    } catch (NumberFormatException invalid) {
-                        throw new IOException("Invalid failure VM row key", invalid);
-                    }
-                    if (id < 0
-                            || !Integer.toString(id).equals(entry.getKey())
-                            || !entry.getValue().isJsonArray()) throw fail("Invalid failure VM row");
-                    generatorRows.put(id, entry.getValue().getAsJsonArray());
-                }
-            } else
-                for (int i = 0; i < dense.size(); i++) {
-                    if (!dense.get(i).isJsonArray()) throw fail("Invalid dense failure row");
-                    generatorRows.put(i, dense.get(i).getAsJsonArray());
-                }
-            for (JsonArray row : generatorRows.values()) {
-                if (row.size() == 0) throw fail("Failure generator row is empty");
-                for (JsonElement item : row) {
-                    JsonObject spec = object(item);
-                    if (!spec.keySet()
-                            .equals(new HashSet<>(Arrays.asList(
-                                    "family", "scale", "shape", "priorShape", "priorScale", "likelihoodPrior"))))
-                        throw fail("Invalid failure distribution fields");
-                    requireText(spec, "family", family);
-                    if (number(need(spec, "scale")) <= 0 || number(need(spec, "shape")) <= 0)
-                        throw fail("Failure scale/shape must be positive");
-                    int nulls = 0;
-                    for (String key : Arrays.asList("priorShape", "priorScale", "likelihoodPrior")) {
-                        JsonElement prior = need(spec, key);
-                        if (prior.isJsonNull()) nulls++;
-                        else signedFinite(prior);
-                    }
-                    if (nulls != 0 && nulls != 3) throw fail("Failure priors must be all null or all finite");
-                }
-            }
-            int maxDepth = 0;
-            for (JsonElement item : arr(root, "workflowGraph")) {
-                int depth = integer(need(object(item), "depth"));
-                if (depth < 1) throw fail("Failure coverage needs positive DAG depth");
-                maxDepth = Math.max(maxDepth, depth);
-            }
-            boolean vmMode = mode.equals("FAILURE_VM") || mode.equals("FAILURE_VM_JOB");
-            int requiredDepth = mode.equals("FAILURE_JOB") || mode.equals("FAILURE_VM_JOB") ? maxDepth : 0;
-            Set<Integer> vmIds =
-                    vmMode ? rows(arr(obj(root, "platform"), "vms"), "id").keySet() : new HashSet<>(Arrays.asList(0));
-            for (int vm : vmIds) {
-                JsonArray row = generatorRows.get(vm);
-                if (row == null || row.size() <= requiredDepth)
-                    throw fail("V3 failure generators do not cover declared VM/depth scope");
-            }
+            validateEnabledFailureLayout(root, mode, family, dense, keyed, byVm, budget);
         }
         Map<Integer, Integer> taskVms = new HashMap<>();
         Set<Integer> attempts = new HashSet<>();
@@ -729,6 +710,71 @@ final class FileLifecycleContextValidator {
         }
         if (compute - taskVms.size() > budget)
             throw fail("V3 compute-attempt history exceeds the declared retry budget");
+    }
+
+    /** validateStorageFailure 的启用态生成器拓扑校验（逐字搬运转写）。 */
+    private static void validateEnabledFailureLayout(
+            JsonObject root, String mode, String family, JsonArray dense, JsonObject keyed, boolean byVm, int budget)
+            throws IOException {
+        if (budget == 0
+                || (dense.size() != 0) == byVm
+                || family.equals("NORMAL")
+                || (byVm && !mode.equals("FAILURE_VM") && !mode.equals("FAILURE_VM_JOB")))
+            throw fail("Invalid enabled V3 failure layout or budget");
+        Map<Integer, JsonArray> generatorRows = new HashMap<>();
+        if (byVm) {
+            for (Map.Entry<String, JsonElement> entry : keyed.entrySet()) {
+                int id;
+                try {
+                    id = Integer.parseInt(entry.getKey());
+                } catch (NumberFormatException invalid) {
+                    throw new IOException("Invalid failure VM row key", invalid);
+                }
+                if (id < 0
+                        || !Integer.toString(id).equals(entry.getKey())
+                        || !entry.getValue().isJsonArray()) throw fail("Invalid failure VM row");
+                generatorRows.put(id, entry.getValue().getAsJsonArray());
+            }
+        } else
+            for (int i = 0; i < dense.size(); i++) {
+                if (!dense.get(i).isJsonArray()) throw fail("Invalid dense failure row");
+                generatorRows.put(i, dense.get(i).getAsJsonArray());
+            }
+        for (JsonArray row : generatorRows.values()) {
+            if (row.size() == 0) throw fail("Failure generator row is empty");
+            for (JsonElement item : row) {
+                JsonObject spec = object(item);
+                if (!spec.keySet()
+                        .equals(new HashSet<>(Arrays.asList(
+                                "family", "scale", "shape", "priorShape", "priorScale", "likelihoodPrior"))))
+                    throw fail("Invalid failure distribution fields");
+                requireText(spec, "family", family);
+                if (number(need(spec, "scale")) <= 0 || number(need(spec, "shape")) <= 0)
+                    throw fail("Failure scale/shape must be positive");
+                int nulls = 0;
+                for (String key : Arrays.asList("priorShape", "priorScale", "likelihoodPrior")) {
+                    JsonElement prior = need(spec, key);
+                    if (prior.isJsonNull()) nulls++;
+                    else signedFinite(prior);
+                }
+                if (nulls != 0 && nulls != 3) throw fail("Failure priors must be all null or all finite");
+            }
+        }
+        int maxDepth = 0;
+        for (JsonElement item : arr(root, "workflowGraph")) {
+            int depth = integer(need(object(item), "depth"));
+            if (depth < 1) throw fail("Failure coverage needs positive DAG depth");
+            maxDepth = Math.max(maxDepth, depth);
+        }
+        boolean vmMode = mode.equals("FAILURE_VM") || mode.equals("FAILURE_VM_JOB");
+        int requiredDepth = mode.equals("FAILURE_JOB") || mode.equals("FAILURE_VM_JOB") ? maxDepth : 0;
+        Set<Integer> vmIds =
+                vmMode ? rows(arr(obj(root, "platform"), "vms"), "id").keySet() : new HashSet<>(Arrays.asList(0));
+        for (int vm : vmIds) {
+            JsonArray row = generatorRows.get(vm);
+            if (row == null || row.size() <= requiredDepth)
+                throw fail("V3 failure generators do not cover declared VM/depth scope");
+        }
     }
 
     private static double signedFinite(JsonElement value) throws IOException {
