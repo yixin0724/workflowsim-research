@@ -118,61 +118,91 @@ public final class Workbench {
                     .build();
             for (WorkbenchConfig.Candidate candidate : config.getCandidates()) {
                 for (long seed : config.getSeeds()) {
-                    String runId = candidate.id + "-s" + seed;
-                    Map<String, Object> row = new LinkedHashMap<String, Object>();
-                    row.put("candidate", candidate.id);
-                    row.put("seed", seed);
-                    Map<String, Object> reportRow = new LinkedHashMap<String, Object>(row);
-                    try {
-                        SimulationReport report =
-                                new SimulationRunner().run(candidate.config.withRandomSeed(seed), config.getPlatform());
-                        ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
-                                report, directory.resolve("runs").resolve(runId), "result", context);
-                        HtmlReports.ValidatedReport evidence = HtmlReports.validatedReport(artifacts.getManifest());
-                        String status =
-                                report.isWorkflowCompletedSuccessfully() ? "COMPLETED_SUCCESSFULLY" : "INCOMPLETE";
-                        row.put("status", status);
-                        row.put(
-                                "manifest",
-                                directory
-                                        .relativize(artifacts.getManifest())
-                                        .toString()
-                                        .replace('\\', '/'));
-                        row.put("makespanSeconds", report.getMakespan());
-                        reportRow.put("status", status);
-                        evidence.attachTo(reportRow);
-                    } catch (Exception failure) {
-                        String message = message(failure);
-                        row.put("status", "FAILED");
-                        row.put("error", message);
-                        reportRow.put("status", "FAILED");
-                        reportRow.put("error", message);
-                    }
-                    rows.add(row);
-                    display.add(reportRow);
+                    RunOutcome outcome = executeCandidateRun(candidate, seed, config, directory, context);
+                    rows.add(outcome.row);
+                    display.add(outcome.reportRow);
                     ExperimentArtifactWriter.writeJson(directory.resolve("experiment.json"), experiment);
                 }
             }
         } finally {
             Log.setDisabled(disabled);
-            int successful = 0;
-            for (Map<String, Object> row : rows) {
-                if ("COMPLETED_SUCCESSFULLY".equals(row.get("status"))) {
-                    successful++;
-                }
-            }
-            experiment.put("successfulRuns", successful);
-            experiment.put(
-                    "status",
-                    rows.size() == config.getRunCount() && successful == rows.size()
-                            ? "COMPLETED_SUCCESSFULLY"
-                            : "FAILED_OR_INCOMPLETE");
-            experiment.put("finishedAt", Instant.now().toString());
-            ExperimentArtifactWriter.writeJson(directory.resolve("experiment.json"), experiment);
-            HtmlReports.experiment(config.getName(), display, directory.resolve("report.html"));
-            history(root);
+            finalizeExperiment(config, rows, display, experiment, directory, root);
         }
         return directory;
+    }
+
+    /** 单个候选×种子运行与证据写入（逐字搬运转写自 run() 的内层循环体）。 */
+    private static RunOutcome executeCandidateRun(
+            WorkbenchConfig.Candidate candidate,
+            long seed,
+            WorkbenchConfig config,
+            Path directory,
+            ExperimentEvidenceContext context)
+            throws Exception {
+        String runId = candidate.id + "-s" + seed;
+        Map<String, Object> row = new LinkedHashMap<String, Object>();
+        row.put("candidate", candidate.id);
+        row.put("seed", seed);
+        Map<String, Object> reportRow = new LinkedHashMap<String, Object>(row);
+        try {
+            SimulationReport report =
+                    new SimulationRunner().run(candidate.config.withRandomSeed(seed), config.getPlatform());
+            ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
+                    report, directory.resolve("runs").resolve(runId), "result", context);
+            HtmlReports.ValidatedReport evidence = HtmlReports.validatedReport(artifacts.getManifest());
+            String status = report.isWorkflowCompletedSuccessfully() ? "COMPLETED_SUCCESSFULLY" : "INCOMPLETE";
+            row.put("status", status);
+            row.put(
+                    "manifest",
+                    directory.relativize(artifacts.getManifest()).toString().replace('\\', '/'));
+            row.put("makespanSeconds", report.getMakespan());
+            reportRow.put("status", status);
+            evidence.attachTo(reportRow);
+        } catch (Exception failure) {
+            String message = message(failure);
+            row.put("status", "FAILED");
+            row.put("error", message);
+            reportRow.put("status", "FAILED");
+            reportRow.put("error", message);
+        }
+        return new RunOutcome(row, reportRow);
+    }
+
+    /** 收尾索引与 HTML 报告（逐字搬运转写自 run() 的 finally 体）。 */
+    private static void finalizeExperiment(
+            WorkbenchConfig config,
+            List<Map<String, Object>> rows,
+            List<Map<String, Object>> display,
+            Map<String, Object> experiment,
+            Path directory,
+            Path root)
+            throws IOException {
+        int successful = 0;
+        for (Map<String, Object> row : rows) {
+            if ("COMPLETED_SUCCESSFULLY".equals(row.get("status"))) {
+                successful++;
+            }
+        }
+        experiment.put("successfulRuns", successful);
+        experiment.put(
+                "status",
+                rows.size() == config.getRunCount() && successful == rows.size()
+                        ? "COMPLETED_SUCCESSFULLY"
+                        : "FAILED_OR_INCOMPLETE");
+        experiment.put("finishedAt", Instant.now().toString());
+        ExperimentArtifactWriter.writeJson(directory.resolve("experiment.json"), experiment);
+        HtmlReports.experiment(config.getName(), display, directory.resolve("report.html"));
+        history(root);
+    }
+
+    /** executeCandidateRun 结果的私有搬运转写结构。 */
+    private static final class RunOutcome {
+        final Map<String, Object> row, reportRow;
+
+        RunOutcome(Map<String, Object> row, Map<String, Object> reportRow) {
+            this.row = row;
+            this.reportRow = reportRow;
+        }
     }
 
     public static Path history(Path rootPath) throws IOException {
