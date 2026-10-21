@@ -201,9 +201,9 @@ public class Parameters {
      */
     private static String datasizePath;
     /** 工具包版本号。 */
-    private static final String version = "1.1.0";
+    private static final String VERSION = "1.1.0";
     /** 历史版本说明。 */
-    private static final String note = " supports planning algorithm at Nov 9, 2013";
+    private static final String NOTE = " supports planning algorithm at Nov 9, 2013";
     /** 当前会话的旧式开销参数。 */
     private static OverheadParameters oParams;
     /** 当前会话的聚类参数。 */
@@ -394,12 +394,12 @@ public class Parameters {
     }
     /** @return 工具包版本号 */
     public static String getVersion() {
-        return version;
+        return VERSION;
     }
 
     public static void printVersion() {
-        Log.printLine("WorkflowSim Version: " + version);
-        Log.printLine("Change Note: " + note);
+        Log.printLine("WorkflowSim Version: " + VERSION);
+        Log.printLine("Change Note: " + NOTE);
     }
     /** @return 当前工作流截止时间；0 表示未请求 */
     public static long getDeadline() {

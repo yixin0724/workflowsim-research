@@ -16,7 +16,7 @@ import org.workflowsim.exception.SimulationConfigurationException;
 public final class RlPolicyRegistry {
 
     private static RlPolicy currentPolicy;
-    private static final List<RlDecision> decisions = new ArrayList<RlDecision>();
+    private static final List<RlDecision> DECISIONS = new ArrayList<RlDecision>();
     private static int stepCount;
 
     private RlPolicyRegistry() {}
@@ -32,7 +32,7 @@ public final class RlPolicyRegistry {
             throw new SimulationConfigurationException("RL policy is required");
         }
         currentPolicy = policy;
-        decisions.clear();
+        DECISIONS.clear();
         stepCount = 0;
     }
 
@@ -57,7 +57,7 @@ public final class RlPolicyRegistry {
      * 不得写入轨迹。</p>
      */
     public static void recordDecision(double time, int jobId, int vmId) {
-        decisions.add(new RlDecision(time, jobId, vmId));
+        DECISIONS.add(new RlDecision(time, jobId, vmId));
     }
 
     /**
@@ -71,7 +71,7 @@ public final class RlPolicyRegistry {
 
     /** @return 本 episode 的决策轨迹（不可变，插入序） */
     public static List<RlDecision> decisions() {
-        return Collections.unmodifiableList(new ArrayList<RlDecision>(decisions));
+        return Collections.unmodifiableList(new ArrayList<RlDecision>(DECISIONS));
     }
 
     /** @return 本 episode 的策略查询次数（每次 ready-batch 更新计一步） */
@@ -82,7 +82,7 @@ public final class RlPolicyRegistry {
     /** 释放 episode 状态；测试必须在每个用例后调用。 */
     public static void reset() {
         currentPolicy = null;
-        decisions.clear();
+        DECISIONS.clear();
         stepCount = 0;
     }
 }

@@ -30,7 +30,7 @@ import org.apache.commons.math3.random.Well19937c;
  */
 public final class SimulationRandom {
 
-    private static final Map<String, Random> seedStreams = new HashMap<>();
+    private static final Map<String, Random> SEED_STREAMS = new HashMap<>();
     private static long rootSeed = 0L;
 
     private SimulationRandom() {}
@@ -42,7 +42,7 @@ public final class SimulationRandom {
      */
     public static synchronized void reset(long seed) {
         rootSeed = seed;
-        seedStreams.clear();
+        SEED_STREAMS.clear();
         DistributionGenerator.resetStreamAllocation();
     }
 
@@ -70,10 +70,10 @@ public final class SimulationRandom {
         if (component == null || component.isEmpty()) {
             throw new IllegalArgumentException("Random component name must not be empty");
         }
-        Random stream = seedStreams.get(component);
+        Random stream = SEED_STREAMS.get(component);
         if (stream == null) {
             stream = new Random(mix64(rootSeed ^ stableHash(component)));
-            seedStreams.put(component, stream);
+            SEED_STREAMS.put(component, stream);
         }
         return stream.nextLong();
     }

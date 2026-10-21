@@ -820,14 +820,14 @@ public class WorkflowDatacenter extends Datacenter {
     private void updateTaskExecTime(Job job, Vm vm, double effectiveStageInSeconds, double requestedStageInSeconds) {
         // CloudSim 将 fileTransferTime 转化为追加的整数 MI；任务时间窗从该生效时长后开始，
         // 而原始请求值作为数据移动模型观测另行保留。
-        double start_time = job.getExecStartTime() + effectiveStageInSeconds;
+        double startTime = job.getExecStartTime() + effectiveStageInSeconds;
         boolean firstTask = true;
         for (Task task : job.getTaskList()) {
-            task.setExecStartTime(start_time);
-            double task_runtime = task.getEffectiveExecutionLengthMi() / vm.getMips();
-            start_time += task_runtime;
+            task.setExecStartTime(startTime);
+            double taskRuntime = task.getEffectiveExecutionLengthMi() / vm.getMips();
+            startTime += taskRuntime;
             // CloudSim 不支持在这里直接重写 Job 的结束时间，只记录 Task 级模型结束时刻。
-            task.setTaskFinishTime(start_time);
+            task.setTaskFinishTime(startTime);
             eventRecorder.record(
                     SimulationEventType.TASK_EXECUTION_MODELED,
                     CloudSim.clock(),
