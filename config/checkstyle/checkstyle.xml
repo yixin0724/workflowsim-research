@@ -129,7 +129,11 @@
         <module name="RightCurly">
             <property name="severity" value="error"/>
         </module>
-        <module name="NeedBraces"/>
+        <!-- Tier-A promote（2026-10-22，二期 NB1-NB4 批）：1,718 处（三模块主+测试树）
+             全量括号化清零，palantir 输出兼容；新裸体控制流即拦 -->
+        <module name="NeedBraces">
+            <property name="severity" value="error"/>
+        </module>
 
         <!-- 命名（174 条基线，重命名批处理，与 format-only 分离提交） -->
         <module name="MethodName"/>
