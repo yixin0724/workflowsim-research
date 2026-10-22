@@ -49,7 +49,9 @@ public final class PackageCompiler {
         for (int g = 0; g < groups.length; g++) {
             groups[g] = buildGroup(s, partition, g, owner);
         }
-        for (int g : owner) Scenario.require(g >= 0, "partition omits a task");
+        for (int g : owner) {
+            Scenario.require(g >= 0, "partition omits a task");
+        }
         List<Set<Integer>> parents = new ArrayList<>(), children = new ArrayList<>();
         List<List<Integer>> inputs = new ArrayList<>(), outputs = new ArrayList<>();
         for (int g = 0; g < groups.length; g++) {
@@ -87,10 +89,14 @@ public final class PackageCompiler {
             tasks[k] = t;
             Scenario.Task task = s.tasks[t];
             Scenario.require(domain.equals(task.domain), "incompatible package domains");
-            if (k > 0) Scenario.require(s.descendants[tasks[k - 1]].get(t), "group contains incomparable tasks");
+            if (k > 0) {
+                Scenario.require(s.descendants[tasks[k - 1]].get(t), "group contains incomparable tasks");
+            }
             cores = Math.max(cores, task.cores);
             memory = Math.max(memory, task.memory);
-            for (int h = 0; h < compatible.length; h++) compatible[h] &= Double.isFinite(task.duration[h]);
+            for (int h = 0; h < compatible.length; h++) {
+                compatible[h] &= Double.isFinite(task.duration[h]);
+            }
         }
         if (tasks.length > 1) {
             BitSet between = (BitSet) s.descendants[tasks[0]].clone();
@@ -109,12 +115,14 @@ public final class PackageCompiler {
     /** Cross-group dependency edges. */
     private static void buildGroupEdges(
             Scenario s, int[] owner, List<Set<Integer>> parents, List<Set<Integer>> children) {
-        for (int t = 0; t < s.tasks.length; t++)
-            for (int p : s.tasks[t].parents)
+        for (int t = 0; t < s.tasks.length; t++) {
+            for (int p : s.tasks[t].parents) {
                 if (owner[t] != owner[p]) {
                     parents.get(owner[t]).add(owner[p]);
                     children.get(owner[p]).add(owner[t]);
                 }
+            }
+        }
     }
 
     /** File membership and byte accounting per group. */
@@ -124,14 +132,17 @@ public final class PackageCompiler {
             Scenario.DataFile file = s.files[f];
             int producing = file.producer < 0 ? -1 : owner[file.producer];
             Set<Integer> consuming = new TreeSet<>();
-            for (int t : file.consumers) consuming.add(owner[t]);
+            for (int t : file.consumers) {
+                consuming.add(owner[t]);
+            }
             boolean external = false;
-            for (int g : consuming)
+            for (int g : consuming) {
                 if (g != producing) {
                     inputs.get(g).add(f);
                     groups[g].inputBytes += file.bytes;
                     external = true;
                 }
+            }
             if (producing >= 0 && (external || file.retain)) {
                 outputs.get(producing).add(f);
                 groups[producing].outputBytes += file.bytes;
@@ -157,13 +168,19 @@ public final class PackageCompiler {
             Scenario.finiteNonnegative(group.inputBytes, "total input bytes");
             Scenario.finiteNonnegative(group.outputBytes, "total output bytes");
             degrees[g] = group.parents.length;
-            if (degrees[g] == 0) ready.add(g);
+            if (degrees[g] == 0) {
+                ready.add(g);
+            }
         }
         int count = 0;
         while (!ready.isEmpty()) {
             int g = ready.remove();
             topo[count++] = g;
-            for (int c : groups[g].children) if (--degrees[c] == 0) ready.add(c);
+            for (int c : groups[g].children) {
+                if (--degrees[c] == 0) {
+                    ready.add(c);
+                }
+            }
         }
         Scenario.require(count == groups.length, "contracted graph contains a cycle");
         return topo;
@@ -176,7 +193,9 @@ public final class PackageCompiler {
         boolean[] seen = new boolean[c.groups.length];
         for (int g : plan.order) {
             Scenario.require(g >= 0 && g < c.groups.length && !seen[g], "priority is not a permutation");
-            for (int p : c.groups[g].parents) Scenario.require(seen[p], "priority violates group dependencies");
+            for (int p : c.groups[g].parents) {
+                Scenario.require(seen[p], "priority violates group dependencies");
+            }
             int h = plan.host[g];
             Scenario.require(h >= 0 && h < s.hosts.length && c.groups[g].compatible[h], "infeasible assignment");
             seen[g] = true;

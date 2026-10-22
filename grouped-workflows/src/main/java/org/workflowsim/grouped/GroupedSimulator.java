@@ -65,8 +65,9 @@ public final class GroupedSimulator {
                     actualMemory += e.scenario.tasks[t].memory * duration;
                 }
             }
-            for (double value : new double[] {input, output, cpu, memory, actualCpu, actualMemory})
+            for (double value : new double[] {input, output, cpu, memory, actualCpu, actualMemory}) {
                 Scenario.finiteNonnegative(value, "result aggregate");
+            }
             inputBytes = input;
             outputBytes = output;
             reservedCoreSeconds = cpu;
@@ -104,10 +105,18 @@ public final class GroupedSimulator {
                     j.addProperty("input_bytes", g.inputBytes);
                     j.addProperty("output_bytes", g.outputBytes);
                     JsonArray ins = new JsonArray(), outs = new JsonArray(), bs = new JsonArray(), ps = new JsonArray();
-                    for (int f : g.inputFiles) ins.add(s.files[f].id);
-                    for (int f : g.outputFiles) outs.add(s.files[f].id);
-                    for (int b : blockers[id]) bs.add("g" + b);
-                    for (int p : g.parents) ps.add("g" + p);
+                    for (int f : g.inputFiles) {
+                        ins.add(s.files[f].id);
+                    }
+                    for (int f : g.outputFiles) {
+                        outs.add(s.files[f].id);
+                    }
+                    for (int b : blockers[id]) {
+                        bs.add("g" + b);
+                    }
+                    for (int p : g.parents) {
+                        ps.add("g" + p);
+                    }
                     j.add("input_files", ins);
                     j.add("output_files", outs);
                     j.add("observed_blockers", bs);
@@ -125,7 +134,9 @@ public final class GroupedSimulator {
                 r.add("groups", groups);
                 r.add("tasks", tasks);
                 JsonArray spans = new JsonArray();
-                for (JsonObject span : services) spans.add(span);
+                for (JsonObject span : services) {
+                    spans.add(span);
+                }
                 r.add("service_intervals", spans);
             }
             return r;
@@ -141,7 +152,9 @@ public final class GroupedSimulator {
         CloudSim.init(0, epoch, false, 1e-12);
         Engine engine = new Engine(scenario, plan, compiled, fullTrace);
         CloudSim.startSimulation();
-        if (engine.completed != compiled.groups.length) throw new IllegalStateException("incomplete simulation");
+        if (engine.completed != compiled.groups.length) {
+            throw new IllegalStateException("incomplete simulation");
+        }
         return new Result(engine);
     }
 
@@ -158,8 +171,12 @@ public final class GroupedSimulator {
 
         public int compareTo(Timer other) {
             int c = Double.compare(time, other.time);
-            if (c == 0) c = Integer.compare(group, other.group);
-            if (c == 0) c = Integer.compare(type, other.type);
+            if (c == 0) {
+                c = Integer.compare(group, other.group);
+            }
+            if (c == 0) {
+                c = Integer.compare(type, other.type);
+            }
             return c;
         }
     }
@@ -221,7 +238,9 @@ public final class GroupedSimulator {
             Arrays.fill(start, Double.NaN);
             Arrays.fill(finish, Double.NaN);
             Arrays.fill(taskFinish, Double.NaN);
-            for (int i = 0; i < q; i++) priority[p.order[i]] = i;
+            for (int i = 0; i < q; i++) {
+                priority[p.order[i]] = i;
+            }
             readyOnHost = (TreeSet<Integer>[]) new TreeSet<?>[m];
             runningOnHost = (Set<Integer>[]) new Set<?>[m];
             blockers = (Set<Integer>[]) new Set<?>[q];
@@ -235,7 +254,9 @@ public final class GroupedSimulator {
                 remainingParents[g.id] = g.parents.length;
                 minimumCores[h] = Math.min(minimumCores[h], g.cores);
                 minimumMemory[h] = Math.min(minimumMemory[h], g.memory);
-                if (g.parents.length == 0) readyOnHost[h].add(g.id);
+                if (g.parents.length == 0) {
+                    readyOnHost[h].add(g.id);
+                }
             }
         }
 
@@ -250,8 +271,9 @@ public final class GroupedSimulator {
         private double after(double delay) {
             Scenario.finiteNonnegative(delay, "stage duration");
             double result = now + delay;
-            if (!Double.isFinite(result) || (delay > 0 && !(result > now)))
+            if (!Double.isFinite(result) || (delay > 0 && !(result > now))) {
                 throw new IllegalArgumentException("stage duration cannot advance the represented clock");
+            }
             return result;
         }
 
@@ -267,8 +289,9 @@ public final class GroupedSimulator {
             phase[g] = COMPUTE;
             double computeStart = after(task.bootstrap);
             double finishTime = computeStart + task.duration[plan.host[g]];
-            if (!Double.isFinite(finishTime) || (task.duration[plan.host[g]] > 0 && !(finishTime > computeStart)))
+            if (!Double.isFinite(finishTime) || (task.duration[plan.host[g]] > 0 && !(finishTime > computeStart))) {
                 throw new IllegalArgumentException("compute duration cannot advance clock");
+            }
             taskStart[t] = computeStart;
             timers.add(new Timer(finishTime, g, TASK_DONE, position));
         }
@@ -279,8 +302,12 @@ public final class GroupedSimulator {
                 if (kind == READ) {
                     inputEnd[g] = now;
                     beginTask(g, 0);
-                } else complete(g);
-            } else flows.put(g, new Flow(g, plan.host[g], kind, bytes));
+                } else {
+                    complete(g);
+                }
+            } else {
+                flows.put(g, new Flow(g, plan.host[g], kind, bytes));
+            }
         }
 
         private void complete(int g) {
@@ -292,16 +319,22 @@ public final class GroupedSimulator {
             usedCores[h] -= group.cores;
             usedMemory[h] -= group.memory;
             runningOnHost[h].remove(g);
-            if (usedCores[h] < 0 || usedMemory[h] < 0) throw new IllegalStateException("negative resource balance");
+            if (usedCores[h] < 0 || usedMemory[h] < 0) {
+                throw new IllegalStateException("negative resource balance");
+            }
             for (int child : group.children) {
                 ready[child] = Math.max(ready[child], now);
-                if (--remainingParents[child] == 0) readyOnHost[plan.host[child]].add(child);
+                if (--remainingParents[child] == 0) {
+                    readyOnHost[plan.host[child]].add(child);
+                }
             }
         }
 
         private void settleServices() {
             double elapsed = now - last;
-            if (elapsed < 0) throw new IllegalStateException("clock reversal");
+            if (elapsed < 0) {
+                throw new IllegalStateException("clock reversal");
+            }
             JsonObject span = full && elapsed > 0 && !flows.isEmpty() ? new JsonObject() : null;
             JsonArray records = span == null ? null : new JsonArray();
             List<Integer> done = new ArrayList<>();
@@ -312,8 +345,9 @@ public final class GroupedSimulator {
                 double clockError = 4 * flow.rate * (Math.ulp(now) + Math.ulp(last));
                 double tolerance = Math.max(
                         clockError, Math.max(1e-8, Math.max(Math.ulp(flow.total) * 32, Math.ulp(delivered) * 32)));
-                if (!Double.isFinite(delivered) || delivered > previous + tolerance)
+                if (!Double.isFinite(delivered) || delivered > previous + tolerance) {
                     throw new IllegalStateException("flow over-service beyond numerical tolerance");
+                }
                 flow.remaining = Math.max(0, previous - delivered);
                 if (span != null) {
                     JsonObject r = new JsonObject();
@@ -324,8 +358,9 @@ public final class GroupedSimulator {
                     records.add(r);
                 }
                 if (flow.end <= now || (flow.end <= Math.nextUp(now) && flow.remaining <= tolerance)) {
-                    if (flow.remaining > tolerance)
+                    if (flow.remaining > tolerance) {
                         throw new IllegalStateException("scheduled flow has unexplained residual bytes");
+                    }
                     done.add(flow.group);
                 }
             }
@@ -340,7 +375,9 @@ public final class GroupedSimulator {
                 if (flow.kind == READ) {
                     inputEnd[g] = now;
                     beginTask(g, 0);
-                } else complete(g);
+                } else {
+                    complete(g);
+                }
             }
         }
 
@@ -368,12 +405,15 @@ public final class GroupedSimulator {
                         changed = true;
                     } else if (blockers[g].size() < 32) {
                         for (int running : runningOnHost[h]) {
-                            if (blockers[g].size() >= 32) break;
+                            if (blockers[g].size() >= 32) {
+                                break;
+                            }
                             blockers[g].add(running);
                         }
                     }
-                    if (host.cores - usedCores[h] < minimumCores[h] || host.memory - usedMemory[h] < minimumMemory[h])
+                    if (host.cores - usedCores[h] < minimumCores[h] || host.memory - usedMemory[h] < minimumMemory[h]) {
                         break;
+                    }
                 }
                 observeBlocked(h);
             }
@@ -384,12 +424,18 @@ public final class GroupedSimulator {
         private void observeBlocked(int h) {
             int inspected = 0;
             for (int g : readyOnHost[h]) {
-                if (inspected++ == 32) break;
+                if (inspected++ == 32) {
+                    break;
+                }
                 PackageCompiler.Group group = compiled.groups[g];
                 Scenario.Host host = scenario.hosts[h];
-                if (group.cores <= host.cores - usedCores[h] && group.memory <= host.memory - usedMemory[h]) continue;
+                if (group.cores <= host.cores - usedCores[h] && group.memory <= host.memory - usedMemory[h]) {
+                    continue;
+                }
                 for (int running : runningOnHost[h]) {
-                    if (blockers[g].size() >= 32) break;
+                    if (blockers[g].size() >= 32) {
+                        break;
+                    }
                     blockers[g].add(running);
                 }
             }
@@ -399,79 +445,111 @@ public final class GroupedSimulator {
             while (true) {
                 while (!timers.isEmpty() && timers.peek().time <= now) {
                     Timer t = timers.remove();
-                    if (t.type == SETUP_DONE) beginFlow(t.group, READ, compiled.groups[t.group].inputBytes);
-                    else {
+                    if (t.type == SETUP_DONE) {
+                        beginFlow(t.group, READ, compiled.groups[t.group].inputBytes);
+                    } else {
                         int task = compiled.groups[t.group].tasks[t.taskPosition];
                         taskFinish[task] = now;
                         beginTask(t.group, t.taskPosition + 1);
                     }
                 }
                 boolean admitted = admit();
-                if (!admitted || timers.isEmpty() || timers.peek().time > now) break;
+                if (!admitted || timers.isEmpty() || timers.peek().time > now) {
+                    break;
+                }
             }
         }
 
         private void rates() {
-            if (flows.isEmpty()) return;
+            if (flows.isEmpty()) {
+                return;
+            }
             if (!scenario.sharedIo) {
-                for (Flow f : flows.values())
+                for (Flow f : flows.values()) {
                     f.rate = Math.min(scenario.storageBandwidth, scenario.hosts[f.host].bandwidth);
+                }
             } else {
                 List<Flow> active = new ArrayList<>(flows.values());
                 double store = scenario.storageBandwidth;
                 double[] remaining = new double[scenario.hosts.length];
-                for (int h = 0; h < remaining.length; h++) remaining[h] = scenario.hosts[h].bandwidth;
-                for (Flow f : active) f.rate = 0;
+                for (int h = 0; h < remaining.length; h++) {
+                    remaining[h] = scenario.hosts[h].bandwidth;
+                }
+                for (Flow f : active) {
+                    f.rate = 0;
+                }
                 while (!active.isEmpty()) {
                     int[] count = new int[remaining.length];
-                    for (Flow f : active) count[f.host]++;
+                    for (Flow f : active) {
+                        count[f.host]++;
+                    }
                     double storeStep = store / active.size(), step = storeStep;
                     double[] hostStep = new double[count.length];
                     for (int h = 0; h < count.length; h++) {
                         hostStep[h] = count[h] == 0 ? Double.POSITIVE_INFINITY : remaining[h] / count[h];
                         step = Math.min(step, hostStep[h]);
                     }
-                    if (!(step >= 0) || !Double.isFinite(step))
+                    if (!(step >= 0) || !Double.isFinite(step)) {
                         throw new IllegalStateException("invalid bandwidth allocation");
-                    for (Flow f : active) f.rate += step;
+                    }
+                    for (Flow f : active) {
+                        f.rate += step;
+                    }
                     store = Math.max(0, store - step * active.size());
-                    for (int h = 0; h < count.length; h++) remaining[h] = Math.max(0, remaining[h] - step * count[h]);
+                    for (int h = 0; h < count.length; h++) {
+                        remaining[h] = Math.max(0, remaining[h] - step * count[h]);
+                    }
                     boolean storeFull = step == storeStep;
                     int before = active.size();
                     Iterator<Flow> it = active.iterator();
                     while (it.hasNext()) {
                         Flow f = it.next();
-                        if (storeFull || hostStep[f.host] == step) it.remove();
+                        if (storeFull || hostStep[f.host] == step) {
+                            it.remove();
+                        }
                     }
-                    if (active.size() == before) throw new IllegalStateException("water filling did not progress");
+                    if (active.size() == before) {
+                        throw new IllegalStateException("water filling did not progress");
+                    }
                 }
             }
             for (Flow f : flows.values()) {
-                if (!(f.rate > 0) || !Double.isFinite(f.rate))
+                if (!(f.rate > 0) || !Double.isFinite(f.rate)) {
                     throw new IllegalStateException("nonpositive flow service");
+                }
                 f.end = after(f.remaining / f.rate);
             }
         }
 
         @Override
         public void processEvent(SimEvent event) {
-            if (event.getTag() != TICK) throw new IllegalArgumentException("unknown grouped event");
+            if (event.getTag() != TICK) {
+                throw new IllegalArgumentException("unknown grouped event");
+            }
             now = CloudSim.clock();
             settleServices();
             last = now;
             settleInstant();
             if (completed == compiled.groups.length) {
-                if (!flows.isEmpty() || !timers.isEmpty())
+                if (!flows.isEmpty() || !timers.isEmpty()) {
                     throw new IllegalStateException("unfinished obligations at termination");
-                for (int h = 0; h < usedCores.length; h++)
-                    if (usedCores[h] != 0 || usedMemory[h] != 0) throw new IllegalStateException("leaked reservation");
+                }
+                for (int h = 0; h < usedCores.length; h++) {
+                    if (usedCores[h] != 0 || usedMemory[h] != 0) {
+                        throw new IllegalStateException("leaked reservation");
+                    }
+                }
                 CloudSim.terminateSimulation();
                 return;
             }
             rates();
             double next = timers.isEmpty() ? Double.POSITIVE_INFINITY : timers.peek().time;
-            for (Flow flow : flows.values()) next = Math.min(next, flow.end);
-            if (!Double.isFinite(next) || !(next > now)) throw new IllegalStateException("stalled event model");
+            for (Flow flow : flows.values()) {
+                next = Math.min(next, flow.end);
+            }
+            if (!Double.isFinite(next) || !(next > now)) {
+                throw new IllegalStateException("stalled event model");
+            }
             schedule(getId(), next - now, TICK);
         }
     }

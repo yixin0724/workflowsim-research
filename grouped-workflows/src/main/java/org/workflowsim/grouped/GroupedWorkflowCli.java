@@ -51,34 +51,51 @@ public final class GroupedWorkflowCli {
         }
         if (args.length != 3
                 || !Arrays.asList("evaluate", "construct", "optimize", "enumerate")
-                        .contains(args[0]))
+                        .contains(args[0])) {
             throw new IllegalArgumentException(
                     "Usage: evaluate|construct|optimize|enumerate <request.json> <result.json>");
+        }
         JsonElement input =
                 JsonParser.parseString(new String(Files.readAllBytes(Paths.get(args[1])), StandardCharsets.UTF_8));
         JsonElement output;
         if (input.isJsonArray()) {
             JsonArray results = new JsonArray();
-            for (JsonElement e : input.getAsJsonArray()) results.add(run(args[0], e.getAsJsonObject()));
+            for (JsonElement e : input.getAsJsonArray()) {
+                results.add(run(args[0], e.getAsJsonObject()));
+            }
             output = results;
-        } else output = run(args[0], input.getAsJsonObject());
+        } else {
+            output = run(args[0], input.getAsJsonObject());
+        }
         Path path = Paths.get(args[2]);
-        if (path.toAbsolutePath().getParent() != null)
+        if (path.toAbsolutePath().getParent() != null) {
             Files.createDirectories(path.toAbsolutePath().getParent());
+        }
         Files.write(path, (GSON.toJson(output) + "\n").getBytes(StandardCharsets.UTF_8));
     }
 
     static JsonObject run(String command, JsonObject request) {
-        if (command.equals("optimize")) return SearchEngine.solve(request);
-        if (command.equals("enumerate")) return ExactSolver.solve(request);
-        if (command.equals("evaluate")) return evaluate(request);
+        if (command.equals("optimize")) {
+            return SearchEngine.solve(request);
+        }
+        if (command.equals("enumerate")) {
+            return ExactSolver.solve(request);
+        }
+        if (command.equals("evaluate")) {
+            return evaluate(request);
+        }
         Scenario s = new Scenario(request.getAsJsonObject("scenario"));
         String mode = request.has("partition") ? request.get("partition").getAsString() : "singleton";
         int[][] partition;
-        if (mode.equals("singleton")) partition = InitialPlans.singleton(s);
-        else if (mode.equals("maximal")) partition = InitialPlans.maximalChains(s);
-        else if (mode.equals("dp")) partition = InitialPlans.pathDp(s, 64);
-        else throw new IllegalArgumentException("Unknown partition constructor: " + mode);
+        if (mode.equals("singleton")) {
+            partition = InitialPlans.singleton(s);
+        } else if (mode.equals("maximal")) {
+            partition = InitialPlans.maximalChains(s);
+        } else if (mode.equals("dp")) {
+            partition = InitialPlans.pathDp(s, 64);
+        } else {
+            throw new IllegalArgumentException("Unknown partition constructor: " + mode);
+        }
         String priority =
                 request.has("priority_mode") ? request.get("priority_mode").getAsString() : "rank";
         PackagePlan plan = InitialPlans.construct(s, partition, priority, new Random(0));

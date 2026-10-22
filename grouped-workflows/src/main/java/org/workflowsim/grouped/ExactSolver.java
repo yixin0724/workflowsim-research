@@ -42,7 +42,9 @@ public final class ExactSolver {
     private void partitions(int t, List<List<Integer>> groups) {
         if (t == s.tasks.length) {
             int[][] partition = new int[groups.size()][];
-            for (int i = 0; i < partition.length; i++) partition[i] = Scenario.ints(groups.get(i));
+            for (int i = 0; i < partition.length; i++) {
+                partition[i] = Scenario.ints(groups.get(i));
+            }
             PackageCompiler.Compiled c;
             try {
                 c = PackageCompiler.compile(s, partition);
@@ -72,11 +74,12 @@ public final class ExactSolver {
             orders(partition, c, hosts, 0, new int[partition.length], new boolean[partition.length]);
             return;
         }
-        for (int h = 0; h < s.hosts.length; h++)
+        for (int h = 0; h < s.hosts.length; h++) {
             if (c.groups[g].compatible[h]) {
                 hosts[g] = h;
                 assign(partition, c, g + 1, hosts);
             }
+        }
     }
 
     private void orders(
@@ -91,15 +94,20 @@ public final class ExactSolver {
             }
             return;
         }
-        for (PackageCompiler.Group g : c.groups)
+        for (PackageCompiler.Group g : c.groups) {
             if (!used[g.id]) {
                 boolean ready = true;
-                for (int parent : g.parents) ready &= used[parent];
-                if (!ready) continue;
+                for (int parent : g.parents) {
+                    ready &= used[parent];
+                }
+                if (!ready) {
+                    continue;
+                }
                 used[g.id] = true;
                 order[pos] = g.id;
                 orders(partition, c, hosts, pos + 1, order, used);
                 used[g.id] = false;
             }
+        }
     }
 }

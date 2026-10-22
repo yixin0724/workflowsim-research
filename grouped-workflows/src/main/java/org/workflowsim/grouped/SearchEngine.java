@@ -88,13 +88,16 @@ public final class SearchEngine {
 
     private static int compare(Value a, Value b) {
         int c = Double.compare(a.result.makespan, b.result.makespan);
-        if (c == 0)
+        if (c == 0) {
             c = Double.compare(a.result.inputBytes + a.result.outputBytes, b.result.inputBytes + b.result.outputBytes);
+        }
         return c == 0 ? a.key.compareTo(b.key) : c;
     }
 
     private Value evaluate(PackagePlan p) {
-        if (!available()) return null;
+        if (!available()) {
+            return null;
+        }
         requests++;
         String key = p.canonical();
         Value value = cache.get(key);
@@ -119,8 +122,9 @@ public final class SearchEngine {
         value = new Value(p, result, key);
         if (cfg.cacheEntries > 0) {
             cache.put(key, value);
-            while (cache.size() > cfg.cacheEntries)
+            while (cache.size() > cfg.cacheEntries) {
                 cache.remove(cache.keySet().iterator().next());
+            }
         }
         if (best == null || compare(value, best) < 0) {
             best = value;
@@ -139,7 +143,9 @@ public final class SearchEngine {
         requireKnownAlgorithm();
         seedInitialSolutions();
         initialSeconds = seconds();
-        if (best == null) throw new IllegalStateException("budget insufficient for a feasible initial solution");
+        if (best == null) {
+            throw new IllegalStateException("budget insufficient for a feasible initial solution");
+        }
         double initialMakespan = best.result.makespan;
         runSearchPhases();
         GroupedSimulator.Result verified = finalReplay();
@@ -173,24 +179,39 @@ public final class SearchEngine {
                     ? InitialPlans.singleton(s)
                     : k == 1 ? InitialPlans.maximalChains(s) : InitialPlans.pathDp(s, cfg.maxSegment);
             boolean fresh = true;
-            for (int[][] previous : partitions)
-                if (partitionKey(previous).equals(partitionKey(partition))) fresh = false;
-            if (fresh) partitions.add(partition);
-            if (cfg.algorithm.equals("PATH") && k == 0) continue;
-            for (String mode : new String[] {"rank", "downstream"}) {
-                if (!available()) break;
-                Value v = evaluate(InitialPlans.construct(s, partition, mode, random));
-                if (v != null) seeds.add(v);
+            for (int[][] previous : partitions) {
+                if (partitionKey(previous).equals(partitionKey(partition))) {
+                    fresh = false;
+                }
             }
-            if (cfg.algorithm.equals("SINGLE")) break;
+            if (fresh) {
+                partitions.add(partition);
+            }
+            if (cfg.algorithm.equals("PATH") && k == 0) {
+                continue;
+            }
+            for (String mode : new String[] {"rank", "downstream"}) {
+                if (!available()) {
+                    break;
+                }
+                Value v = evaluate(InitialPlans.construct(s, partition, mode, random));
+                if (v != null) {
+                    seeds.add(v);
+                }
+            }
+            if (cfg.algorithm.equals("SINGLE")) {
+                break;
+            }
         }
     }
 
     /** Dispatch the configured search phases. */
     private void runSearchPhases() {
-        if (cfg.algorithm.equals("STAGED-HGA")) genetic();
-        else if (cfg.algorithm.endsWith("HGA")) jointGenetic();
-        else if (!cfg.algorithm.equals("SINGLE") && !cfg.algorithm.equals("PATH")) {
+        if (cfg.algorithm.equals("STAGED-HGA")) {
+            genetic();
+        } else if (cfg.algorithm.endsWith("HGA")) {
+            jointGenetic();
+        } else if (!cfg.algorithm.equals("SINGLE") && !cfg.algorithm.equals("PATH")) {
             Value current = descend(best);
             int stale = 0;
             while (available() && !cfg.algorithm.equals("JG")) {
@@ -200,15 +221,21 @@ public final class SearchEngine {
                     trial = randomStart();
                     stale = 0;
                     restarts++;
-                } else trial = perturb(current);
-                if (trial == null) break;
+                } else {
+                    trial = perturb(current);
+                }
+                if (trial == null) {
+                    break;
+                }
                 trial = descend(trial);
                 if (improves(trial, current)) {
                     current = trial;
                     stale = 0;
                 } else {
                     stale++;
-                    if (cfg.algorithm.equals("MS-DESCENT")) current = trial;
+                    if (cfg.algorithm.equals("MS-DESCENT")) {
+                        current = trial;
+                    }
                 }
             }
         }
@@ -223,8 +250,9 @@ public final class SearchEngine {
         replaySeconds += (System.nanoTime() - begin) * 1e-9;
         evaluations++;
         byOperator.put(operator, 1);
-        if (Double.compare(verified.makespan, best.result.makespan) != 0)
+        if (Double.compare(verified.makespan, best.result.makespan) != 0) {
             throw new IllegalStateException("final replay is inconsistent");
+        }
         return verified;
     }
 
@@ -265,17 +293,23 @@ public final class SearchEngine {
                                                         ? "constructor_finished"
                                                         : "wall_reserve_or_no_trial");
         JsonObject ops = new JsonObject();
-        for (Map.Entry<String, Integer> e : byOperator.entrySet()) ops.addProperty(e.getKey(), e.getValue());
+        for (Map.Entry<String, Integer> e : byOperator.entrySet()) {
+            ops.addProperty(e.getKey(), e.getValue());
+        }
         stats.add("replays_by_operator", ops);
         out.add("search", stats);
         JsonArray hs = new JsonArray();
-        for (JsonObject h : history) hs.add(h);
+        for (JsonObject h : history) {
+            hs.add(h);
+        }
         out.add("anytime", hs);
         return out;
     }
 
     private Value descend(Value current) {
-        if (current == null) return null;
+        if (current == null) {
+            return null;
+        }
         int failed = 0, kind = 0;
         int types = cfg.algorithm.equals("PLACE-ILS")
                 ? 1
@@ -295,7 +329,9 @@ public final class SearchEngine {
                 current = candidate;
                 accepted++;
                 failed = 0;
-            } else failed++;
+            } else {
+                failed++;
+            }
             // Rotate after every bounded visit. This prevents an enormous placement
             // neighborhood from starving package changes under a finite replay budget.
             kind = (kind + 1) % types;
@@ -305,7 +341,9 @@ public final class SearchEngine {
 
     private int anchor(Value v) {
         int q = v.plan.members.length;
-        if (uniform || random.nextDouble() < 0.25) return random.nextInt(q);
+        if (uniform || random.nextDouble() < 0.25) {
+            return random.nextInt(q);
+        }
         Integer[] cpu = new Integer[q], memory = new Integer[q], lag = new Integer[q];
         double[] cr = new double[q], mr = new double[q], lr = new double[q];
         for (int g = 0; g < q; g++) {
@@ -318,8 +356,14 @@ public final class SearchEngine {
                 cr[g] -= s.tasks[t].cores * d;
                 mr[g] -= s.tasks[t].memory * d;
                 boolean outside = false;
-                for (int child : s.children[t]) if (v.result.compiled.owner[child] != g) outside = true;
-                if (outside) lr[g] = Math.max(lr[g], v.result.finish[g] - v.result.taskFinish[t]);
+                for (int child : s.children[t]) {
+                    if (v.result.compiled.owner[child] != g) {
+                        outside = true;
+                    }
+                }
+                if (outside) {
+                    lr[g] = Math.max(lr[g], v.result.finish[g] - v.result.taskFinish[t]);
+                }
             }
         }
         Arrays.sort(cpu, descending(cr));
@@ -352,35 +396,59 @@ public final class SearchEngine {
         while (groups.size() < cfg.windowGroups) {
             Set<Integer> choices = new TreeSet<>();
             for (int g : groups) {
-                for (int p : v.result.compiled.groups[g].parents) if (!groups.contains(p)) choices.add(p);
-                for (int c : v.result.compiled.groups[g].children) if (!groups.contains(c)) choices.add(c);
+                for (int p : v.result.compiled.groups[g].parents) {
+                    if (!groups.contains(p)) {
+                        choices.add(p);
+                    }
+                }
+                for (int c : v.result.compiled.groups[g].children) {
+                    if (!groups.contains(c)) {
+                        choices.add(c);
+                    }
+                }
             }
             List<Integer> valid = new ArrayList<>();
             for (int g : choices) {
                 List<Integer> all = new ArrayList<>(groups);
                 all.add(g);
-                if (legalPath(tasksOf(v, all))) valid.add(g);
+                if (legalPath(tasksOf(v, all))) {
+                    valid.add(g);
+                }
             }
-            if (valid.isEmpty()) break;
+            if (valid.isEmpty()) {
+                break;
+            }
             groups.add(valid.get(random.nextInt(valid.size())));
-            if (random.nextDouble() < 0.2) break;
+            if (random.nextDouble() < 0.2) {
+                break;
+            }
         }
         return tasksOf(v, groups);
     }
 
     private int[] tasksOf(Value v, Collection<Integer> groups) {
         List<Integer> tasks = new ArrayList<>();
-        for (int g : groups) for (int t : v.result.compiled.groups[g].tasks) tasks.add(t);
+        for (int g : groups) {
+            for (int t : v.result.compiled.groups[g].tasks) {
+                tasks.add(t);
+            }
+        }
         tasks.sort((a, b) -> Integer.compare(s.topoPosition[a], s.topoPosition[b]));
         return Scenario.ints(tasks);
     }
 
     private boolean legalPath(int[] tasks) {
-        for (int i = 1; i < tasks.length; i++) if (!s.descendants[tasks[i - 1]].get(tasks[i])) return false;
+        for (int i = 1; i < tasks.length; i++) {
+            if (!s.descendants[tasks[i - 1]].get(tasks[i])) {
+                return false;
+            }
+        }
         if (tasks.length > 1) {
             BitSet between = (BitSet) s.descendants[tasks[0]].clone();
             between.and(s.ancestors[tasks[tasks.length - 1]]);
-            if (between.cardinality() != tasks.length - 2) return false;
+            if (between.cardinality() != tasks.length - 2) {
+                return false;
+            }
         }
         return Double.isFinite(InitialPlans.isolatedCost(s, tasks));
     }
@@ -389,11 +457,15 @@ public final class SearchEngine {
         LinkedHashSet<Integer> selected = new LinkedHashSet<>();
         List<Integer> other = new ArrayList<>();
         for (int i = 1; i < window.length; i++) {
-            if (v.result.compiled.owner[window[i - 1]] != v.result.compiled.owner[window[i]]) selected.add(i);
-            else other.add(i);
+            if (v.result.compiled.owner[window[i - 1]] != v.result.compiled.owner[window[i]]) {
+                selected.add(i);
+            } else {
+                other.add(i);
+            }
         }
-        if (uniform) Collections.shuffle(other, random);
-        else {
+        if (uniform) {
+            Collections.shuffle(other, random);
+        } else {
             double[] resource = new double[window.length],
                     handoff = new double[window.length],
                     release = new double[window.length];
@@ -401,8 +473,14 @@ public final class SearchEngine {
                 Scenario.Task a = s.tasks[window[i - 1]], b = s.tasks[window[i]];
                 resource[i] = Math.abs(Math.log((double) a.cores / b.cores))
                         + Math.abs(Math.log((a.memory + 1.0) / (b.memory + 1.0)));
-                for (int f : s.outputsOfTask[window[i - 1]]) handoff[i] -= s.files[f].bytes;
-                for (int c : s.children[window[i - 1]]) if (c != window[i]) release[i]++;
+                for (int f : s.outputsOfTask[window[i - 1]]) {
+                    handoff[i] -= s.files[f].bytes;
+                }
+                for (int c : s.children[window[i - 1]]) {
+                    if (c != window[i]) {
+                        release[i]++;
+                    }
+                }
             }
             List<Integer> r = new ArrayList<>(other),
                     h = new ArrayList<>(other),
@@ -415,13 +493,17 @@ public final class SearchEngine {
             LinkedHashSet<Integer> mixed = new LinkedHashSet<>();
             int offset = random.nextInt(4);
             List<List<Integer>> lists = Arrays.asList(r, h, l, u);
-            for (int i = 0; i < other.size(); i++)
-                for (int k = 0; k < 4; k++)
+            for (int i = 0; i < other.size(); i++) {
+                for (int k = 0; k < 4; k++) {
                     mixed.add(lists.get((k + offset) % 4).get(i));
+                }
+            }
             other = new ArrayList<>(mixed);
         }
         for (int c : other) {
-            if (selected.size() >= cfg.boundaryLimit) break;
+            if (selected.size() >= cfg.boundaryLimit) {
+                break;
+            }
             selected.add(c);
         }
         List<Integer> result = new ArrayList<>(selected);
@@ -431,62 +513,104 @@ public final class SearchEngine {
 
     private Value path(Value current, boolean withRelated, boolean fixedPlacement, int limit, int requestLimit) {
         int[] w = window(current, anchor(current));
-        if (w.length < 2) return current;
+        if (w.length < 2) {
+            return current;
+        }
         List<Integer> candidates = cuts(current, w);
         int all = (1 << candidates.size()) - 1, currentMask = 0;
-        for (int i = 0; i < candidates.size(); i++)
+        for (int i = 0; i < candidates.size(); i++) {
             if (current.result.compiled.owner[w[candidates.get(i) - 1]]
-                    != current.result.compiled.owner[w[candidates.get(i)]]) currentMask |= 1 << i;
+                    != current.result.compiled.owner[w[candidates.get(i)]]) {
+                currentMask |= 1 << i;
+            }
+        }
         List<Integer> masks = new ArrayList<>();
-        for (int mask = 0; mask <= all; mask++) masks.add(mask);
+        for (int mask = 0; mask <= all; mask++) {
+            masks.add(mask);
+        }
         Collections.shuffle(masks, random);
         LinkedHashSet<Integer> selected = new LinkedHashSet<>();
         selected.add(all);
         selected.add(0);
         selected.add(currentMask);
-        for (int mask : masks) if (selected.size() < cfg.partitionSamples) selected.add(mask);
+        for (int mask : masks) {
+            if (selected.size() < cfg.partitionSamples) {
+                selected.add(mask);
+            }
+        }
         masks = new ArrayList<>(selected);
         Collections.shuffle(masks, random);
-        if (masks.size() > cfg.partitionSamples) masks = new ArrayList<>(masks.subList(0, cfg.partitionSamples));
+        if (masks.size() > cfg.partitionSamples) {
+            masks = new ArrayList<>(masks.subList(0, cfg.partitionSamples));
+        }
         List<Integer> related = withRelated ? related(current, w) : Collections.emptyList();
         Value result = current;
         for (int i = 0; i < masks.size() && within(limit, requestLimit); i++) {
             int mask = masks.get(i);
             List<int[]> pieces = new ArrayList<>();
             int begin = 0;
-            for (int k = 0; k < candidates.size(); k++)
+            for (int k = 0; k < candidates.size(); k++) {
                 if ((mask & (1 << k)) != 0) {
                     int end = candidates.get(k);
                     pieces.add(Arrays.copyOfRange(w, begin, end));
                     begin = end;
                 }
+            }
             pieces.add(Arrays.copyOfRange(w, begin, w.length));
             int remaining = masks.size() - i;
             int partLimit = Math.min(limit, evaluations + Math.max(1, (limit - evaluations) / remaining));
             int partRequests = Math.min(requestLimit, requests + Math.max(8, (requestLimit - requests) / remaining));
             Repartition rp = repartition(
                     current, w, pieces, related.isEmpty() ? -1 : related.get(i % related.size()), fixedPlacement);
-            if (rp == null) continue;
+            if (rp == null) {
+                continue;
+            }
             Value seed = evaluate(rp.plan);
-            if (seed == null) break;
+            if (seed == null) {
+                break;
+            }
             Value found = fixedPlacement ? seed : improveMovable(seed, rp.movable, partLimit, partRequests);
-            if (compare(found, result) < 0) result = found;
+            if (compare(found, result) < 0) {
+                result = found;
+            }
         }
         return result;
     }
 
     private List<Integer> related(Value v, int[] window) {
-        if (cfg.relatedLimit == 0) return Collections.emptyList();
+        if (cfg.relatedLimit == 0) {
+            return Collections.emptyList();
+        }
         Set<Integer> own = new HashSet<>();
-        for (int t : window) own.add(v.result.compiled.owner[t]);
+        for (int t : window) {
+            own.add(v.result.compiled.owner[t]);
+        }
         LinkedHashSet<Integer> choices = new LinkedHashSet<>();
-        for (int g : own)
-            for (int child : v.result.compiled.groups[g].children) if (!own.contains(child)) choices.add(child);
-        for (int g = 0; g < v.plan.members.length; g++)
-            if (!own.contains(g)) for (int blocker : v.result.blockers[g]) if (own.contains(blocker)) choices.add(g);
+        for (int g : own) {
+            for (int child : v.result.compiled.groups[g].children) {
+                if (!own.contains(child)) {
+                    choices.add(child);
+                }
+            }
+        }
+        for (int g = 0; g < v.plan.members.length; g++) {
+            if (!own.contains(g)) {
+                for (int blocker : v.result.blockers[g]) {
+                    if (own.contains(blocker)) {
+                        choices.add(g);
+                    }
+                }
+            }
+        }
         List<Integer> outside = new ArrayList<>();
-        for (int g = 0; g < v.plan.members.length; g++) if (!own.contains(g)) outside.add(g);
-        if (outside.isEmpty()) return Collections.emptyList();
+        for (int g = 0; g < v.plan.members.length; g++) {
+            if (!own.contains(g)) {
+                outside.add(g);
+            }
+        }
+        if (outside.isEmpty()) {
+            return Collections.emptyList();
+        }
         if (uniform || random.nextDouble() < 0.25) {
             Collections.shuffle(outside, random);
             return outside.subList(0, Math.min(cfg.relatedLimit, outside.size()));
@@ -496,7 +620,9 @@ public final class SearchEngine {
             int c = Double.compare(v.result.start[b] - v.result.ready[b], v.result.start[a] - v.result.ready[a]);
             return c == 0 ? Integer.compare(a, b) : c;
         });
-        if (result.isEmpty()) result.add(outside.get(random.nextInt(outside.size())));
+        if (result.isEmpty()) {
+            result.add(outside.get(random.nextInt(outside.size())));
+        }
         return result.subList(0, Math.min(cfg.relatedLimit, result.size()));
     }
 
@@ -512,22 +638,31 @@ public final class SearchEngine {
 
     private Repartition repartition(Value v, int[] window, List<int[]> pieces, int related, boolean fixedPlacement) {
         Set<Integer> touched = new HashSet<>();
-        for (int t : window) touched.add(v.result.compiled.owner[t]);
+        for (int t : window) {
+            touched.add(v.result.compiled.owner[t]);
+        }
         List<int[]> partition = new ArrayList<>();
         List<Integer> fixedOrder = new ArrayList<>(), movable = new ArrayList<>();
         int[] oldToNew = new int[v.plan.members.length];
         Arrays.fill(oldToNew, -1);
-        for (int g = 0; g < v.plan.members.length; g++)
+        for (int g = 0; g < v.plan.members.length; g++) {
             if (!touched.contains(g)) {
                 oldToNew[g] = partition.size();
                 partition.add(v.plan.members[g]);
             }
+        }
         for (int[] piece : pieces) {
             movable.add(partition.size());
             partition.add(piece);
         }
-        for (int g : v.plan.order) if (oldToNew[g] >= 0 && g != related) fixedOrder.add(oldToNew[g]);
-        if (related >= 0) movable.add(oldToNew[related]);
+        for (int g : v.plan.order) {
+            if (oldToNew[g] >= 0 && g != related) {
+                fixedOrder.add(oldToNew[g]);
+            }
+        }
+        if (related >= 0) {
+            movable.add(oldToNew[related]);
+        }
         int[][] members = partition.toArray(new int[0][]);
         PackageCompiler.Compiled compiled;
         try {
@@ -538,7 +673,9 @@ public final class SearchEngine {
         int[] hosts = new int[members.length],
                 oldPosition = new int[v.plan.members.length],
                 rank = new int[members.length];
-        for (int i = 0; i < v.plan.order.length; i++) oldPosition[v.plan.order[i]] = i;
+        for (int i = 0; i < v.plan.order.length; i++) {
+            oldPosition[v.plan.order[i]] = i;
+        }
         for (PackageCompiler.Group g : compiled.groups) {
             int old = v.result.compiled.owner[g.tasks[0]], h = v.plan.host[old];
             boolean same = true;
@@ -547,12 +684,16 @@ public final class SearchEngine {
                 same &= v.plan.host[v.result.compiled.owner[t]] == h;
                 rank[g.id] = Math.min(rank[g.id], oldPosition[v.result.compiled.owner[t]]);
             }
-            if (fixedPlacement && !same) return null;
+            if (fixedPlacement && !same) {
+                return null;
+            }
             if (!same || !g.compatible[h]) {
-                if (fixedPlacement) return null;
+                if (fixedPlacement) {
+                    return null;
+                }
                 h = -1;
                 double time = Double.POSITIVE_INFINITY;
-                for (int k = 0; k < s.hosts.length; k++)
+                for (int k = 0; k < s.hosts.length; k++) {
                     if (g.compatible[k]) {
                         double d = InitialPlans.nominal(s, g, k);
                         if (d < time) {
@@ -560,11 +701,14 @@ public final class SearchEngine {
                             time = d;
                         }
                     }
+                }
             }
             hosts[g.id] = h;
         }
         int[] order = stableOrder(compiled, fixedOrder, rank);
-        if (order == null) return null;
+        if (order == null) {
+            return null;
+        }
         return new Repartition(new PackagePlan(members, hosts, order), movable);
     }
 
@@ -573,20 +717,36 @@ public final class SearchEngine {
         int[] degree = new int[c.groups.length];
         for (PackageCompiler.Group g : c.groups) {
             Set<Integer> set = new TreeSet<>();
-            for (int child : g.children) set.add(child);
+            for (int child : g.children) {
+                set.add(child);
+            }
             children.add(set);
         }
-        for (int i = 1; i < fixed.size(); i++) children.get(fixed.get(i - 1)).add(fixed.get(i));
-        for (Set<Integer> cs : children) for (int child : cs) degree[child]++;
+        for (int i = 1; i < fixed.size(); i++) {
+            children.get(fixed.get(i - 1)).add(fixed.get(i));
+        }
+        for (Set<Integer> cs : children) {
+            for (int child : cs) {
+                degree[child]++;
+            }
+        }
         PriorityQueue<Integer> ready = new PriorityQueue<>(
                 (a, b) -> rank[a] == rank[b] ? Integer.compare(a, b) : Integer.compare(rank[a], rank[b]));
-        for (int g = 0; g < degree.length; g++) if (degree[g] == 0) ready.add(g);
+        for (int g = 0; g < degree.length; g++) {
+            if (degree[g] == 0) {
+                ready.add(g);
+            }
+        }
         int[] order = new int[degree.length];
         int n = 0;
         while (!ready.isEmpty()) {
             int g = ready.remove();
             order[n++] = g;
-            for (int child : children.get(g)) if (--degree[child] == 0) ready.add(child);
+            for (int child : children.get(g)) {
+                if (--degree[child] == 0) {
+                    ready.add(child);
+                }
+            }
         }
         return n == degree.length ? order : null;
     }
@@ -605,23 +765,32 @@ public final class SearchEngine {
                 List<PackagePlan> moves = moves(parent, g);
                 Collections.shuffle(moves, random);
                 for (PackagePlan p : moves) {
-                    if (!within(groupLimit, groupRequests)) break;
+                    if (!within(groupLimit, groupRequests)) {
+                        break;
+                    }
                     Value child = evaluate(p);
                     if (child != null) {
                         expanded.add(child);
-                        if (compare(child, result) < 0) result = child;
+                        if (compare(child, result) < 0) {
+                            result = child;
+                        }
                     }
                 }
-                if (!within(groupLimit, groupRequests)) break;
+                if (!within(groupLimit, groupRequests)) {
+                    break;
+                }
             }
             expanded.sort(SearchEngine::compare);
             beam = new ArrayList<>();
             Set<String> seen = new HashSet<>();
-            for (Value v : expanded)
+            for (Value v : expanded) {
                 if (seen.add(v.key)) {
                     beam.add(v);
-                    if (beam.size() == cfg.beamWidth) break;
+                    if (beam.size() == cfg.beamWidth) {
+                        break;
+                    }
                 }
+            }
         }
         return result;
     }
@@ -629,54 +798,76 @@ public final class SearchEngine {
     private List<PackagePlan> moves(Value v, int g) {
         List<Integer> positions = positions(v.result.compiled, v.plan.order, g, cfg.prioritySamples);
         List<PackagePlan> moves = new ArrayList<>();
-        for (int h = 0; h < s.hosts.length; h++)
-            if (v.result.compiled.groups[g].compatible[h])
+        for (int h = 0; h < s.hosts.length; h++) {
+            if (v.result.compiled.groups[g].compatible[h]) {
                 for (int pos : positions) {
                     int[] hosts = v.plan.host.clone();
                     hosts[g] = h;
                     moves.add(new PackagePlan(v.plan.members, hosts, insert(v.plan.order, g, pos)));
                 }
+            }
+        }
         return moves;
     }
 
     private List<Integer> positions(PackageCompiler.Compiled c, int[] order, int g, int samples) {
         int[] other = new int[order.length - 1], location = new int[order.length];
         int n = 0, original = 0;
-        for (int i = 0; i < order.length; i++)
+        for (int i = 0; i < order.length; i++) {
             if (order[i] != g) {
                 other[n] = order[i];
                 location[order[i]] = n++;
-            } else original = i;
+            } else {
+                original = i;
+            }
+        }
         int lo = 0, hi = other.length;
-        for (int p : c.groups[g].parents) lo = Math.max(lo, location[p] + 1);
-        for (int child : c.groups[g].children) hi = Math.min(hi, location[child]);
+        for (int p : c.groups[g].parents) {
+            lo = Math.max(lo, location[p] + 1);
+        }
+        for (int child : c.groups[g].children) {
+            hi = Math.min(hi, location[child]);
+        }
         if (samples >= hi - lo + 1) {
             List<Integer> all = new ArrayList<>();
-            for (int i = lo; i <= hi; i++) all.add(i);
+            for (int i = lo; i <= hi; i++) {
+                all.add(i);
+            }
             return all;
         }
         LinkedHashSet<Integer> selected = new LinkedHashSet<>();
         selected.add(original);
-        if (samples > 1) selected.add(random.nextBoolean() ? lo : hi);
+        if (samples > 1) {
+            selected.add(random.nextBoolean() ? lo : hi);
+        }
         int wanted = Math.min(samples, hi - lo + 1);
-        while (selected.size() < wanted) selected.add(lo + random.nextInt(hi - lo + 1));
+        while (selected.size() < wanted) {
+            selected.add(lo + random.nextInt(hi - lo + 1));
+        }
         return new ArrayList<>(selected);
     }
 
     private static int[] insert(int[] order, int g, int pos) {
         int[] result = new int[order.length];
         int i = 0;
-        for (int x : order)
+        for (int x : order) {
             if (x != g) {
-                if (i == pos) result[i++] = g;
+                if (i == pos) {
+                    result[i++] = g;
+                }
                 result[i++] = x;
             }
-        if (i == pos) result[i] = g;
+        }
+        if (i == pos) {
+            result[i] = g;
+        }
         return result;
     }
 
     private Value randomStart() {
-        if (!available()) return null;
+        if (!available()) {
+            return null;
+        }
         operator = "restart";
         int[][] base = partitions.get(random.nextInt(partitions.size()));
         return evaluate(InitialPlans.construct(s, base, "random", random));
@@ -689,25 +880,34 @@ public final class SearchEngine {
             List<Integer> cs = cuts(current, w);
             List<int[]> pieces = new ArrayList<>();
             int begin = 0;
-            for (int c : cs)
+            for (int c : cs) {
                 if (random.nextBoolean()) {
                     pieces.add(Arrays.copyOfRange(w, begin, c));
                     begin = c;
                 }
+            }
             pieces.add(Arrays.copyOfRange(w, begin, w.length));
             Repartition rp = repartition(current, w, pieces, -1, cfg.algorithm.equals("ALT"));
-            if (rp == null) continue;
+            if (rp == null) {
+                continue;
+            }
             PackagePlan p = cfg.algorithm.equals("PLACE-ILS") ? current.plan : rp.plan;
             PackageCompiler.Compiled c = PackageCompiler.validate(s, p);
             int g = random.nextInt(p.members.length);
             List<Integer> hosts = new ArrayList<>();
-            for (int h = 0; h < s.hosts.length; h++) if (c.groups[g].compatible[h]) hosts.add(h);
+            for (int h = 0; h < s.hosts.length; h++) {
+                if (c.groups[g].compatible[h]) {
+                    hosts.add(h);
+                }
+            }
             int[] assignment = p.host.clone();
             assignment[g] = hosts.get(random.nextInt(hosts.size()));
             List<Integer> positions = positions(c, p.order, g, cfg.prioritySamples);
             p = new PackagePlan(
                     p.members, assignment, insert(p.order, g, positions.get(random.nextInt(positions.size()))));
-            if (p.canonical().equals(current.key)) continue;
+            if (p.canonical().equals(current.key)) {
+                continue;
+            }
             return evaluate(p);
         }
         return randomStart();
@@ -719,25 +919,35 @@ public final class SearchEngine {
         for (int[][] partition : partitions) {
             List<Value> pop = new ArrayList<>();
             PackageCompiler.Compiled c = PackageCompiler.compile(s, partition);
-            for (String mode : new String[] {"rank", "downstream"})
+            for (String mode : new String[] {"rank", "downstream"}) {
                 if (available()) {
                     Value v = evaluate(InitialPlans.assign(s, partition, c, InitialPlans.priority(s, c, mode, random)));
-                    if (v != null) pop.add(v);
+                    if (v != null) {
+                        pop.add(v);
+                    }
                 }
+            }
             populations.add(pop);
         }
-        for (int i = 2; i < cfg.population && available(); i++)
+        for (int i = 2; i < cfg.population && available(); i++) {
             for (int k = 0; k < populations.size() && available(); k++) {
                 Value v = evaluate(InitialPlans.construct(s, partitions.get(k), "random", random));
-                if (v != null) populations.get(k).add(v);
+                if (v != null) {
+                    populations.get(k).add(v);
+                }
             }
+        }
         int generation = 0;
         while (available()) {
             int k = generation++ % populations.size();
             List<Value> pop = populations.get(k);
-            if (pop.size() < 2) break;
+            if (pop.size() < 2) {
+                break;
+            }
             int ia = tournament(pop), ib = tournament(pop);
-            if (ia == ib) ib = (ib + 1) % pop.size();
+            if (ia == ib) {
+                ib = (ib + 1) % pop.size();
+            }
             Value a = pop.get(ia), b = pop.get(ib);
             List<Value> family = new ArrayList<>(Arrays.asList(a, b));
             for (int direction = 0; direction < 2 && available(); direction++) {
@@ -749,7 +959,9 @@ public final class SearchEngine {
                     order = insert(order, g, ps.get(random.nextInt(ps.size())));
                 }
                 Value child = evaluate(InitialPlans.assign(s, a.plan.members, a.result.compiled, order));
-                if (child != null) family.add(child);
+                if (child != null) {
+                    family.add(child);
+                }
             }
             family.sort(SearchEngine::compare);
             pop.set(ia, family.get(0));
@@ -765,18 +977,28 @@ public final class SearchEngine {
         operator = "pooled_initialization";
         List<Value> population = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for (Value seed : seeds) if (seen.add(seed.key)) population.add(seed);
+        for (Value seed : seeds) {
+            if (seen.add(seed.key)) {
+                population.add(seed);
+            }
+        }
         while (population.size() < cfg.population && available()) {
             int[][] partition = partitions.get(random.nextInt(partitions.size()));
             Value value = evaluate(InitialPlans.construct(s, partition, "random", random));
-            if (value == null) break;
+            if (value == null) {
+                break;
+            }
             population.add(value);
         }
-        if (population.size() < 2) return;
+        if (population.size() < 2) {
+            return;
+        }
         while (available()) {
             operator = "order_evolution";
             int ia = tournament(population), ib = tournament(population);
-            if (ia == ib) ib = (ib + 1) % population.size();
+            if (ia == ib) {
+                ib = (ib + 1) % population.size();
+            }
             Value a = population.get(ia), b = population.get(ib);
             List<Value> family = new ArrayList<>(Arrays.asList(a, b));
             for (int direction = 0; direction < 2 && available(); direction++) {
@@ -798,28 +1020,34 @@ public final class SearchEngine {
                         List<int[]> pieces = new ArrayList<>();
                         int start = 0;
                         int all = (1 << choices.size()) - 1, mask = random.nextInt(all + 1);
-                        for (int i = 0; i < choices.size(); i++)
+                        for (int i = 0; i < choices.size(); i++) {
                             if ((mask & (1 << i)) != 0) {
                                 int end = choices.get(i);
                                 pieces.add(Arrays.copyOfRange(window, start, end));
                                 start = end;
                             }
+                        }
                         pieces.add(Arrays.copyOfRange(window, start, window.length));
                         Repartition changed = repartition(parent, window, pieces, -1, false);
                         if (changed != null) {
                             partition = changed.plan.members;
                             c = PackageCompiler.compile(s, partition);
-                            if (!partitionKey(partition).equals(partitionKey(parent.plan.members)))
+                            if (!partitionKey(partition).equals(partitionKey(parent.plan.members))) {
                                 packageMutationChanges++;
+                            }
                             // Preserve the evolved precedence information at original-task level.
                             PackagePlan evolved = new PackagePlan(parent.plan.members, parent.plan.host, order);
                             Value ordering = new Value(evolved, parent.result, evolved.canonical());
                             order = transport(ordering, c);
-                        } else packageMutationRejected++;
+                        } else {
+                            packageMutationRejected++;
+                        }
                     }
                 }
                 Value child = evaluate(InitialPlans.assign(s, partition, c, order));
-                if (child == null) break;
+                if (child == null) {
+                    break;
+                }
                 if (!cfg.algorithm.equals("POOLED-HGA")
                         && cfg.refinementProbability > 0
                         && random.nextDouble() < cfg.refinementProbability
@@ -828,7 +1056,9 @@ public final class SearchEngine {
                     operator = "offspring_refinement";
                     int limit = Math.min(cfg.maxEvaluations - 1, evaluations + cfg.refinementEvaluations);
                     Value refined = path(child, true, false, limit, requests + cfg.refinementEvaluations * 12);
-                    if (compare(refined, child) < 0) child = refined;
+                    if (compare(refined, child) < 0) {
+                        child = refined;
+                    }
                 }
                 family.add(child);
                 operator = "order_evolution";
@@ -843,11 +1073,17 @@ public final class SearchEngine {
     private int[] transport(Value from, PackageCompiler.Compiled to) {
         int[] taskPosition = new int[s.tasks.length];
         int position = 0;
-        for (int g : from.plan.order) for (int t : from.result.compiled.groups[g].tasks) taskPosition[t] = position++;
+        for (int g : from.plan.order) {
+            for (int t : from.result.compiled.groups[g].tasks) {
+                taskPosition[t] = position++;
+            }
+        }
         int[] rank = new int[to.groups.length];
         for (PackageCompiler.Group g : to.groups) {
             rank[g.id] = Integer.MAX_VALUE;
-            for (int t : g.tasks) rank[g.id] = Math.min(rank[g.id], taskPosition[t]);
+            for (int t : g.tasks) {
+                rank[g.id] = Math.min(rank[g.id], taskPosition[t]);
+            }
         }
         return stableOrder(to, Collections.emptyList(), rank);
     }
@@ -876,7 +1112,11 @@ public final class SearchEngine {
             child[i] = a[i];
             used[a[i]] = true;
         }
-        for (int g : b) if (!used[g]) child[n++] = g;
+        for (int g : b) {
+            if (!used[g]) {
+                child[n++] = g;
+            }
+        }
         return child;
     }
 }

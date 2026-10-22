@@ -137,7 +137,9 @@ public final class Scenario {
     /** Empty child adjacency lists. */
     private List<List<Integer>> newChildLists() {
         List<List<Integer>> childLists = new ArrayList<>();
-        for (int i = 0; i < tasks.length; i++) childLists.add(new ArrayList<Integer>());
+        for (int i = 0; i < tasks.length; i++) {
+            childLists.add(new ArrayList<Integer>());
+        }
         return childLists;
     }
 
@@ -164,7 +166,9 @@ public final class Scenario {
                 double d = entry.getValue().getAsDouble();
                 finiteNonnegative(d, "duration");
                 durations[h] = d;
-                if (cores <= hosts[h].cores && memory <= hosts[h].memory) feasible = true;
+                if (cores <= hosts[h].cores && memory <= hosts[h].memory) {
+                    feasible = true;
+                }
             }
             require(feasible, "task cannot fit any compatible host: " + name);
             String domain = t.has("package_domain") ? string(t, "package_domain") : "default";
@@ -176,7 +180,9 @@ public final class Scenario {
     /** Compact child adjacency. */
     private int[][] childrenOf(List<List<Integer>> childLists) {
         int[][] children = new int[tasks.length][];
-        for (int i = 0; i < tasks.length; i++) children[i] = ints(childLists.get(i));
+        for (int i = 0; i < tasks.length; i++) {
+            children[i] = ints(childLists.get(i));
+        }
         return children;
     }
 
@@ -186,7 +192,9 @@ public final class Scenario {
         PriorityQueue<Integer> ready = new PriorityQueue<>((a, b) -> tasks[a].id.compareTo(tasks[b].id));
         for (int i = 0; i < tasks.length; i++) {
             degrees[i] = tasks[i].parents.length;
-            if (degrees[i] == 0) ready.add(i);
+            if (degrees[i] == 0) {
+                ready.add(i);
+            }
         }
         int[] topo = new int[tasks.length];
         int[] topoPosition = new int[tasks.length];
@@ -195,7 +203,11 @@ public final class Scenario {
             int t = ready.remove();
             topoPosition[t] = done;
             topo[done++] = t;
-            for (int c : children[t]) if (--degrees[c] == 0) ready.add(c);
+            for (int c : children[t]) {
+                if (--degrees[c] == 0) {
+                    ready.add(c);
+                }
+            }
         }
         require(done == tasks.length, "task dependency cycle");
         return new TopologicalOrder(topo, topoPosition);
@@ -214,11 +226,12 @@ public final class Scenario {
                 descendants[t].or(descendants[c]);
             }
         }
-        for (int t : topo)
+        for (int t : topo) {
             for (int p : tasks[t].parents) {
                 ancestors[t].set(p);
                 ancestors[t].or(ancestors[p]);
             }
+        }
     }
 
     /** Parse and validate files; returns per-task input/output file index lists. */
@@ -242,12 +255,18 @@ public final class Scenario {
             int[] consumers = references(array(f, "consumers"), taskIndex, "consumer");
             double bytes = nonnegative(f, "size_bytes");
             boolean retain = f.has("retain") && f.get("retain").getAsBoolean();
-            for (int c : consumers)
-                if (producer >= 0)
+            for (int c : consumers) {
+                if (producer >= 0) {
                     require(descendants[producer].get(c), "file producer must precede consumer: " + name);
+                }
+            }
             files[i] = new DataFile(name, producer, consumers, bytes, retain);
-            if (producer >= 0) taskOutputs.get(producer).add(i);
-            for (int c : consumers) taskInputs.get(c).add(i);
+            if (producer >= 0) {
+                taskOutputs.get(producer).add(i);
+            }
+            for (int c : consumers) {
+                taskInputs.get(c).add(i);
+            }
         }
         return new FileIndexing(taskInputs, taskOutputs);
     }
@@ -314,7 +333,9 @@ public final class Scenario {
     }
 
     static void require(boolean condition, String message) {
-        if (!condition) throw new IllegalArgumentException(message);
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 
     static double finiteNonnegative(double n, String label) {
@@ -363,7 +384,9 @@ public final class Scenario {
     static int[] ints(Collection<Integer> values) {
         int[] a = new int[values.size()];
         int k = 0;
-        for (int n : values) a[k++] = n;
+        for (int n : values) {
+            a[k++] = n;
+        }
         return a;
     }
 }

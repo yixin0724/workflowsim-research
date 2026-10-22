@@ -14,7 +14,9 @@ public final class PackagePlan {
 
     public PackagePlan(int[][] members, int[] host, int[] order) {
         this.members = new int[members.length][];
-        for (int i = 0; i < members.length; i++) this.members[i] = members[i].clone();
+        for (int i = 0; i < members.length; i++) {
+            this.members[i] = members[i].clone();
+        }
         this.host = host.clone();
         this.order = order.clone();
     }
@@ -45,11 +47,15 @@ public final class PackagePlan {
             g.addProperty("id", "g" + i);
             g.addProperty("host", s.hosts[host[i]].id);
             JsonArray ts = new JsonArray();
-            for (int t : members[i]) ts.add(s.tasks[t].id);
+            for (int t : members[i]) {
+                ts.add(s.tasks[t].id);
+            }
             g.add("tasks", ts);
             gs.add(g);
         }
-        for (int g : order) priority.add("g" + g);
+        for (int g : order) {
+            priority.add("g" + g);
+        }
         result.add("groups", gs);
         result.add("priority", priority);
         return result;
@@ -63,7 +69,9 @@ public final class PackagePlan {
             groups[i] = Arrays.toString(ts) + "@" + host[i];
         }
         StringBuilder key = new StringBuilder();
-        for (int g : order) key.append(groups[g]).append(';');
+        for (int g : order) {
+            key.append(groups[g]).append(';');
+        }
         return key.toString();
     }
 }
