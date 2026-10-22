@@ -22,7 +22,9 @@ public final class DataLocation implements Comparable<DataLocation> {
      * @return immutable VM location
      */
     public static DataLocation vm(int vmId) {
-        if (vmId < 0) throw new IllegalArgumentException("VM location ID must be nonnegative");
+        if (vmId < 0) {
+            throw new IllegalArgumentException("VM location ID must be nonnegative");
+        }
         return new DataLocation(Kind.VM, vmId, null);
     }
     /**
@@ -30,8 +32,9 @@ public final class DataLocation implements Comparable<DataLocation> {
      * @return immutable source location
      */
     public static DataLocation source(String sourceId) {
-        if (sourceId == null || sourceId.isEmpty())
+        if (sourceId == null || sourceId.isEmpty()) {
             throw new IllegalArgumentException("SOURCE location needs a nonempty ID");
+        }
         return new DataLocation(Kind.SOURCE, -1, sourceId);
     }
     /** @return typed category */
@@ -40,25 +43,35 @@ public final class DataLocation implements Comparable<DataLocation> {
     }
     /** @return VM ID; rejects a SOURCE location */
     public int getVmId() {
-        if (kind != Kind.VM) throw new IllegalStateException("Not a VM location");
+        if (kind != Kind.VM) {
+            throw new IllegalStateException("Not a VM location");
+        }
         return vmId;
     }
     /** @return exact SOURCE identifier; rejects a VM location */
     public String getSourceId() {
-        if (kind != Kind.SOURCE) throw new IllegalStateException("Not a SOURCE location");
+        if (kind != Kind.SOURCE) {
+            throw new IllegalStateException("Not a SOURCE location");
+        }
         return sourceId;
     }
 
     @Override
     public int compareTo(DataLocation other) {
-        if (kind != other.kind) return kind == Kind.VM ? -1 : 1;
+        if (kind != other.kind) {
+            return kind == Kind.VM ? -1 : 1;
+        }
         return kind == Kind.VM ? Integer.compare(vmId, other.vmId) : sourceId.compareTo(other.sourceId);
     }
 
     @Override
     public boolean equals(Object other) {
-        if (this == other) return true;
-        if (!(other instanceof DataLocation)) return false;
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof DataLocation)) {
+            return false;
+        }
         DataLocation location = (DataLocation) other;
         return kind == location.kind && (kind == Kind.VM ? vmId == location.vmId : sourceId.equals(location.sourceId));
     }

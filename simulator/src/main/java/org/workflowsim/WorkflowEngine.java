@@ -122,8 +122,9 @@ public final class WorkflowEngine extends SimEntity {
     private org.workflowsim.data.v2.DataflowVmAssigner dataflowVmAssigner;
     /** @param value explicit run-owned destination binding contract, independent of CPU dispatch */
     public void setDataflowAssignmentConfig(org.workflowsim.data.v2.DataflowAssignmentConfig value) {
-        if (value == null || dataflowVmAssigner != null)
+        if (value == null || dataflowVmAssigner != null) {
             throw new IllegalArgumentException("Assignment configuration must precede binding");
+        }
         dataflowAssignment = value;
     }
 
@@ -134,24 +135,33 @@ public final class WorkflowEngine extends SimEntity {
 
     /** @param value run-owned V2 coordinator shared with planner and datacenter */
     public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value) {
-        if (value == null || coherentDataflow != null || getSchedulers().size() != 1)
+        if (value == null || coherentDataflow != null || getSchedulers().size() != 1) {
             throw new IllegalArgumentException("Coherent V2 requires one run-owned coordinator and scheduler");
+        }
         coherentDataflow = value;
     }
 
     private org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation prepareCoherentInput(Job job) {
-        if (job.getClassType() != ClassType.COMPUTE.value || boundDatacenterId < 0) return null;
+        if (job.getClassType() != ClassType.COMPUTE.value || boundDatacenterId < 0) {
+            return null;
+        }
         SimEntity entity = CloudSim.getEntity(boundDatacenterId);
-        if (!(entity instanceof WorkflowDatacenter)) return null;
+        if (!(entity instanceof WorkflowDatacenter)) {
+            return null;
+        }
         WorkflowDatacenter datacenter = (WorkflowDatacenter) entity;
-        if (!datacenter.getDataMovementModel().usesCoherentDataflowRuntime()) return null;
-        if (coherentDataflow == null)
+        if (!datacenter.getDataMovementModel().usesCoherentDataflowRuntime()) {
+            return null;
+        }
+        if (coherentDataflow == null) {
             throw new IllegalStateException("Coherent V2 has no dedicated workflow run context");
+        }
         datacenter.initializeCoherentFabric();
         if (dataflowAssignment.isEnabled()) {
-            if (dataflowVmAssigner == null)
+            if (dataflowVmAssigner == null) {
                 dataflowVmAssigner = new org.workflowsim.data.v2.DataflowVmAssigner(
                         coherentDataflow, datacenter.actualDataflowVmOptions());
+            }
             org.workflowsim.data.v2.DataflowVmAssigner.Prepared prepared =
                     dataflowVmAssigner.prepare(job, CloudSim.clock());
             eventRecorder.record(
@@ -162,16 +172,24 @@ public final class WorkflowEngine extends SimEntity {
             return prepared.getPreparation();
         }
         List<Integer> tasks = new ArrayList<Integer>();
-        for (Task task : job.getTaskList()) tasks.add(task.getCloudletId());
+        for (Task task : job.getTaskList()) {
+            tasks.add(task.getCloudletId());
+        }
         return coherentDataflow.requestJob(job.getCloudletId(), tasks, job.getVmId(), CloudSim.clock());
     }
 
     private void appendCoherentReady(Map<Integer, List> allocation) {
-        if (coherentDataflow == null) return;
+        if (coherentDataflow == null) {
+            return;
+        }
         for (Integer id : coherentDataflow.drainReadyJobIds()) {
             Job ready = coherentPendingJobs.remove(id);
-            if (ready == null) throw new IllegalStateException("Data-ready V2 Job has no engine waiter: " + id);
-            if (coherentDataflow.isStorageVersion()) recordStorageInputPreparation(ready);
+            if (ready == null) {
+                throw new IllegalStateException("Data-ready V2 Job has no engine waiter: " + id);
+            }
+            if (coherentDataflow.isStorageVersion()) {
+                recordStorageInputPreparation(ready);
+            }
             allocation.get(ready.getUserId()).add(ready);
         }
     }
@@ -206,15 +224,22 @@ public final class WorkflowEngine extends SimEntity {
     }
 
     private void scheduleCoherentCheck() {
-        if (coherentDataflow == null || !coherentDataflow.isFabricBound()) return;
+        if (coherentDataflow == null || !coherentDataflow.isFabricBound()) {
+            return;
+        }
         Double next = coherentDataflow.getNextCompletionTime();
-        if (next == null) return;
+        if (next == null) {
+            return;
+        }
         double now = CloudSim.clock(),
                 delay = Math.max(next - now, CloudSim.getMinTimeBetweenEvents()),
                 due = now + delay;
-        if (!Double.isFinite(due) || due <= now)
+        if (!Double.isFinite(due) || due <= now) {
             throw new IllegalStateException("V2 completion observation cannot advance Kernel clock");
-        if (coherentCheckTime != null && coherentCheckTime <= due) return;
+        }
+        if (coherentCheckTime != null && coherentCheckTime <= due) {
+            return;
+        }
         long generation = Math.addExact(coherentCheckGeneration, 1);
         schedule(getId(), delay, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, Long.valueOf(generation));
         coherentCheckGeneration = generation;
@@ -222,17 +247,24 @@ public final class WorkflowEngine extends SimEntity {
     }
 
     private void processCoherentDataflowCheck(SimEvent event) {
-        if (coherentDataflow == null || !coherentDataflow.isFabricBound())
+        if (coherentDataflow == null || !coherentDataflow.isFabricBound()) {
             throw new IllegalStateException("V2 check has no initialized run context");
+        }
         if (event.getData() instanceof Long) {
-            if (((Long) event.getData()).longValue() != coherentCheckGeneration) return;
+            if (((Long) event.getData()).longValue() != coherentCheckGeneration) {
+                return;
+            }
             coherentCheckTime = null;
         }
         coherentDataflow.advance(CloudSim.clock());
         Map<Integer, List> allocation = new LinkedHashMap<Integer, List>();
-        for (int scheduler : getSchedulerIds()) allocation.put(scheduler, new ArrayList<Job>());
+        for (int scheduler : getSchedulerIds()) {
+            allocation.put(scheduler, new ArrayList<Job>());
+        }
         appendCoherentReady(allocation);
-        for (int scheduler : getSchedulerIds()) dispatchReadyBatch(scheduler, allocation.get(scheduler));
+        for (int scheduler : getSchedulerIds()) {
+            dispatchReadyBatch(scheduler, allocation.get(scheduler));
+        }
         scheduleCoherentCheck();
         finishCoherentIfIdle();
     }
@@ -242,9 +274,13 @@ public final class WorkflowEngine extends SimEntity {
                 || coherentEndRequested
                 || !getJobsList().isEmpty()
                 || jobsSubmitted != 0
-                || !coherentDataflow.isQuiescent()) return;
+                || !coherentDataflow.isQuiescent()) {
+            return;
+        }
         coherentEndRequested = true;
-        for (int scheduler : getSchedulerIds()) sendNow(scheduler, CloudSimTags.END_OF_SIMULATION, null);
+        for (int scheduler : getSchedulerIds()) {
+            sendNow(scheduler, CloudSimTags.END_OF_SIMULATION, null);
+        }
     }
 
     /** R5 动态到达：每个工作流输入的提交时刻（模拟秒）；null 表示未配置（全部 t=0）。 */
@@ -1394,7 +1430,7 @@ public final class WorkflowEngine extends SimEntity {
     private void recordDataStageInModeled(
             Job job, org.workflowsim.data.v2.CoherentDataflowRuntime.Preparation coherentPreparation) {
         coherentPendingJobs.put(job.getCloudletId(), job);
-        if (!coherentDataflow.isStorageVersion())
+        if (!coherentDataflow.isStorageVersion()) {
             eventRecorder.record(
                     SimulationEventType.DATA_STAGE_IN_MODELED,
                     CloudSim.clock(),
@@ -1417,6 +1453,7 @@ public final class WorkflowEngine extends SimEntity {
                             coherentPreparation.getJoinedCopies(),
                             "transferUnit",
                             "LOGICAL_FILE_V2"));
+        }
     }
 
     /**

@@ -119,24 +119,34 @@ public final class ReplicaTransferSelector {
             DataTransferFabric fabric,
             DataflowFilePlan.FileId fileId,
             DataLocation destination) {
-        if (snapshot == null || fabric == null) throw bad("Visibility snapshot and fabric are required");
+        if (snapshot == null || fabric == null) {
+            throw bad("Visibility snapshot and fabric are required");
+        }
         fabric.requireLocation(destination);
-        if (destination.getKind() != DataLocation.Kind.VM) throw bad("NF003 input destination must be a VM");
+        if (destination.getKind() != DataLocation.Kind.VM) {
+            throw bad("NF003 input destination must be a VM");
+        }
         DataflowFilePlan.FileDefinition file = snapshot.getFile(fileId);
         double now = snapshot.getObservedThrough();
         DataReplicaState.Replica local = snapshot.getReplica(fileId, destination);
-        if (local != null) return new Decision(file, destination, now, Outcome.LOCAL_PRESENT, local, null, 0.0, now);
+        if (local != null) {
+            return new Decision(file, destination, now, Outcome.LOCAL_PRESENT, local, null, 0.0, now);
+        }
         List<DataReplicaState.Replica> candidates = snapshot.getReplicas(fileId);
-        if (candidates.isEmpty())
+        if (candidates.isEmpty()) {
             return new Decision(file, destination, now, Outcome.WAITING_FOR_SOURCE, null, null, null, null);
+        }
         DataReplicaState.Replica selected = null;
         DataTransferFabric.Route selectedRoute = null;
         for (DataReplicaState.Replica candidate : candidates) {
             fabric.requireLocation(candidate.getLocation());
-            if (candidate.getVisibleAt() > now) throw bad("Snapshot contains a future replica");
+            if (candidate.getVisibleAt() > now) {
+                throw bad("Snapshot contains a future replica");
+            }
             if (file.getBytes() == 0) {
-                if (selected == null || candidate.getLocation().compareTo(selected.getLocation()) < 0)
+                if (selected == null || candidate.getLocation().compareTo(selected.getLocation()) < 0) {
                     selected = candidate;
+                }
                 continue;
             }
             DataTransferFabric.Route route = fabric.route(candidate.getLocation(), destination);
@@ -148,13 +158,15 @@ public final class ReplicaTransferSelector {
                 selectedRoute = route;
             }
         }
-        if (file.getBytes() == 0)
+        if (file.getBytes() == 0) {
             return new Decision(file, destination, now, Outcome.ZERO_BYTE_REFERENCE, selected, null, 0.0, now);
+        }
         double seconds = file.getBytes() / selectedRoute.getStandaloneRateBytesPerSecond();
         double finish = now + seconds;
-        if (!Double.isFinite(seconds) || seconds <= 0 || !Double.isFinite(finish) || finish <= now)
+        if (!Double.isFinite(seconds) || seconds <= 0 || !Double.isFinite(finish) || finish <= now) {
             throw bad("Selected positive transfer duration/absolute finish is not representable in the supported"
                     + "binary64 domain");
+        }
         return new Decision(file, destination, now, Outcome.NETWORK_COPY, selected, selectedRoute, seconds, finish);
     }
     /**
@@ -170,19 +182,24 @@ public final class ReplicaTransferSelector {
             DataTransferFabric fabric,
             DataflowFilePlan.FileId fileId,
             DataLocation destination) {
-        if (snapshot == null || fabric == null || fabric.getSourceStorage() == null)
+        if (snapshot == null || fabric == null || fabric.getSourceStorage() == null) {
             throw bad("Store-backed selection needs bounded storage");
+        }
         fabric.requireLocation(destination);
-        if (destination.getKind() != DataLocation.Kind.VM) throw bad("Input destination must be VM");
+        if (destination.getKind() != DataLocation.Kind.VM) {
+            throw bad("Input destination must be VM");
+        }
         DataflowFilePlan.FileDefinition file = snapshot.getFile(fileId);
         double now = snapshot.getObservedThrough();
         DataReplicaState.Replica store = snapshot.getReplica(fileId, CoherentDataflowRuntime.SOURCE);
         String policy = "COMMITTED_STORE_THEN_VM_READ_CACHE_V3";
-        if (store == null)
+        if (store == null) {
             return new Decision(file, destination, now, Outcome.WAITING_FOR_SOURCE, null, null, null, null, policy);
+        }
         DataReplicaState.Replica local = snapshot.getReplica(fileId, destination);
-        if (local != null)
+        if (local != null) {
             return new Decision(file, destination, now, Outcome.LOCAL_PRESENT, local, null, 0.0, now, policy);
+        }
         return fixedSource(store, fabric, destination, now, policy);
     }
     /** @param source actual successful output copy @param fabric bounded store fabric @param now observation
@@ -192,8 +209,9 @@ public final class ReplicaTransferSelector {
                 || source.getFile().isExternal()
                 || source.getLocation().getKind() != DataLocation.Kind.VM
                 || fabric == null
-                || fabric.getSourceStorage() == null)
+                || fabric.getSourceStorage() == null) {
             throw bad("Output materialization needs a produced VM replica and bounded store");
+        }
         return fixedSource(source, fabric, CoherentDataflowRuntime.SOURCE, now, "SUCCESSFUL_OUTPUT_MATERIALIZATION_V3");
     }
 
@@ -205,15 +223,18 @@ public final class ReplicaTransferSelector {
             String policy) {
         fabric.requireLocation(source.getLocation());
         fabric.requireLocation(destination);
-        if (!Double.isFinite(now) || now < source.getVisibleAt())
+        if (!Double.isFinite(now) || now < source.getVisibleAt()) {
             throw bad("Source is not visible at the requested observation");
+        }
         DataflowFilePlan.FileDefinition file = source.getFile();
-        if (file.getBytes() == 0)
+        if (file.getBytes() == 0) {
             return new Decision(file, destination, now, Outcome.ZERO_BYTE_REFERENCE, source, null, 0.0, now, policy);
+        }
         DataTransferFabric.Route route = fabric.route(source.getLocation(), destination);
         double seconds = file.getBytes() / route.getStandaloneRateBytesPerSecond(), finish = now + seconds;
-        if (!Double.isFinite(seconds) || seconds <= 0 || !Double.isFinite(finish) || finish <= now)
+        if (!Double.isFinite(seconds) || seconds <= 0 || !Double.isFinite(finish) || finish <= now) {
             throw bad("Unrepresentable storage transfer time");
+        }
         return new Decision(file, destination, now, Outcome.NETWORK_COPY, source, route, seconds, finish, policy);
     }
 

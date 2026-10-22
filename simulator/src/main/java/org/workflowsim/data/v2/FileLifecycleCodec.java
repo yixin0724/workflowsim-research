@@ -94,9 +94,12 @@ public final class FileLifecycleCodec {
 
     /** Shared explicit encoding only; callers supply a closed contract, never a wire-selected grammar. */
     static JsonObject document(FileLifecycleEvidence evidence, LifecycleContract contract, boolean storeBackedInputs) {
-        if (evidence == null) throw new IllegalArgumentException("File lifecycle evidence is required");
-        if (contract == null || (!contract.storage && storeBackedInputs))
+        if (evidence == null) {
+            throw new IllegalArgumentException("File lifecycle evidence is required");
+        }
+        if (contract == null || (!contract.storage && storeBackedInputs)) {
             throw new IllegalArgumentException("Invalid lifecycle contract");
+        }
         JsonObject root = new JsonObject();
         root.addProperty("schema", contract.schema);
         root.addProperty("modelKind", evidence.isShared() ? contract.sharedKind : contract.isolatedKind);
@@ -177,7 +180,9 @@ public final class FileLifecycleCodec {
      * @throws IllegalArgumentException for malformed, unsupported or unverifiable input
      */
     public static Decoded decodeDocument(JsonObject document) {
-        if (document == null) throw new IllegalArgumentException("File lifecycle document is required");
+        if (document == null) {
+            throw new IllegalArgumentException("File lifecycle document is required");
+        }
         return new Decoded(FileLifecycleValidator.validate(document), document);
     }
 }

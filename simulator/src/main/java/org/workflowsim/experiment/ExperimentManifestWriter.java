@@ -30,31 +30,41 @@ public final class ExperimentManifestWriter {
     static void requireNetworkLedgerReference(SimulationReport report, List<Map<String, Object>> artifacts) {
         if (report.getConfig().getDataflowAssignmentConfig().isEnabled()
                 && (!report.getConfig().getNetworkEvidenceConfig().isEnabled()
-                        || report.getDataflowComputeRequests() == null))
+                        || report.getDataflowComputeRequests() == null)) {
             throw new UnsupportedOperationException(
                     "Online assignment certification requires complete lifecycle capture and frozen compute"
                             + "requests; use an enabled lifecycle mode");
+        }
         org.workflowsim.data.DataMovementModel model = report.getConfig().getDataMovementModel();
-        if (model.isCoherentStorageDataflowV3() != (report.getPlatform().getSourceStorage() != null))
+        if (model.isCoherentStorageDataflowV3() != (report.getPlatform().getSourceStorage() != null)) {
             throw new IllegalArgumentException("sourceStorage presence differs from its declared model");
+        }
         org.workflowsim.data.NetworkEvidenceConfig option = report.getConfig().getNetworkEvidenceConfig();
         org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(model, option);
         String expected = org.workflowsim.data.NetworkEvidenceConfigCodec.artifactRole(option);
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (String role : new String[] {"network-ledger", "file-lifecycle", "storage-lifecycle"}) counts.put(role, 0);
+        for (String role : new String[] {"network-ledger", "file-lifecycle", "storage-lifecycle"}) {
+            counts.put(role, 0);
+        }
         for (Map<String, Object> artifact : artifacts) {
             Object role = artifact.get("role");
-            if (counts.containsKey(role)) counts.put((String) role, counts.get(role) + 1);
+            if (counts.containsKey(role)) {
+                counts.put((String) role, counts.get(role) + 1);
+            }
         }
-        if (expected != null && counts.get(expected) == 0)
+        if (expected != null && counts.get(expected) == 0) {
             throw new UnsupportedOperationException(
                     "Network evidence export requires a complete artifact bundle; use ExperimentArtifactWriter");
-        for (Map.Entry<String, Integer> count : counts.entrySet())
-            if (count.getValue() > 1 || (count.getValue() > 0 && !count.getKey().equals(expected)))
+        }
+        for (Map.Entry<String, Integer> count : counts.entrySet()) {
+            if (count.getValue() > 1 || (count.getValue() > 0 && !count.getKey().equals(expected))) {
                 throw new IllegalArgumentException(
                         "Network evidence artifact roles disagree with recording configuration");
-        if (model.usesCoherentDataflowRuntime() != (report.getDataflowPlan() != null))
+            }
+        }
+        if (model.usesCoherentDataflowRuntime() != (report.getDataflowPlan() != null)) {
             throw new IllegalArgumentException("Coherent core file plan presence disagrees with model");
+        }
     }
 
     /** Minimal no-I/O context for the same preflight checks used by artifact readers. */
@@ -77,8 +87,9 @@ public final class ExperimentManifestWriter {
         root.put("platform", platform(report.getPlatform()));
         root.put("workflowGraph", report.getWorkflowGraph());
         root.put("dataflowPlan", report.getDataflowPlan());
-        if (report.getConfig().getDataflowAssignmentConfig().isEnabled())
+        if (report.getConfig().getDataflowAssignmentConfig().isEnabled()) {
             root.put("dataflowComputeRequests", report.getDataflowComputeRequests());
+        }
         root.put("result", result(report));
         return root;
     }
@@ -152,10 +163,12 @@ public final class ExperimentManifestWriter {
         manifest.put("inputs", inputs(report));
         manifest.put("workflowProfile", report.getWorkflowProfile());
         manifest.put("workflowGraph", report.getWorkflowGraph());
-        if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())
+        if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime()) {
             manifest.put("dataflowPlan", report.getDataflowPlan());
-        if (report.getConfig().getDataflowAssignmentConfig().isEnabled())
+        }
+        if (report.getConfig().getDataflowAssignmentConfig().isEnabled()) {
             manifest.put("dataflowComputeRequests", report.getDataflowComputeRequests());
+        }
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
         manifest.put("events", eventSummary(report));
@@ -291,10 +304,12 @@ public final class ExperimentManifestWriter {
     }
 
     static String transferStartSemantics(DataMovementModel model) {
-        if (model.isCoherentStorageDataflowV3())
+        if (model.isCoherentStorageDataflowV3()) {
             return "CONTROL_READY_REQUEST;STORE_COMMIT_GATE_IF_SHARED;ASYNC_ALL_SUCCESSFUL_OUTPUTS_V3";
-        if (model.isCoherentFileDataflowV2())
+        }
+        if (model.isCoherentFileDataflowV2()) {
             return "DEPENDENCY_READY_AT_OBSERVATION_V2;PER_FILE_SETTLEMENT_OBSERVATION_V2;COALESCED_FILE_DESTINATION";
+        }
         if (model.isPreExecutionTransferDelayV1()) {
             return "PARENT_FINISH_BASED_ARRIVAL_ESTIMATE;EXTERNAL_AT_JOB_READY";
         }

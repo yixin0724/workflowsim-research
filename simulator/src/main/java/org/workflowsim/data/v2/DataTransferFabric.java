@@ -43,14 +43,19 @@ public final class DataTransferFabric {
             resources = Collections.unmodifiableList(new ArrayList<>(path));
             Map<String, Integer> multiplicities = new LinkedHashMap<>();
             for (String key : resources) {
-                if (!capacities.containsKey(key)) throw bad("Unknown physical resource on selected route: " + key);
+                if (!capacities.containsKey(key)) {
+                    throw bad("Unknown physical resource on selected route: " + key);
+                }
                 Integer old = multiplicities.get(key);
                 multiplicities.put(key, old == null ? 1 : Math.addExact(old, 1));
             }
-            if (resources.isEmpty()) throw bad("A positive remote input route must constrain its destination");
+            if (resources.isEmpty()) {
+                throw bad("A positive remote input route must constrain its destination");
+            }
             double bottleneck = Double.MAX_VALUE;
-            for (Map.Entry<String, Integer> entry : multiplicities.entrySet())
+            for (Map.Entry<String, Integer> entry : multiplicities.entrySet()) {
                 bottleneck = Math.min(bottleneck, capacities.get(entry.getKey()) / entry.getValue());
+            }
             requireCapacity(bottleneck);
             rate = bottleneck;
         }
@@ -90,35 +95,47 @@ public final class DataTransferFabric {
             Map<Integer, Integer> actualHosts,
             FatTreeTopology topology,
             Collection<String> sources) {
-        if (endpointBytes == null || sources == null)
+        if (endpointBytes == null || sources == null) {
             throw bad("VM capacities and explicit SOURCE locations are required");
+        }
         Set<DataLocation> known = new TreeSet<>();
         Map<String, Double> values = new TreeMap<>();
         for (Map.Entry<Integer, Double> entry : endpointBytes.entrySet()) {
-            if (entry.getKey() == null || entry.getValue() == null)
+            if (entry.getKey() == null || entry.getValue() == null) {
                 throw bad("VM endpoint capacity entries cannot be null");
+            }
             DataLocation vm = DataLocation.vm(entry.getKey());
             requireCapacity(entry.getValue());
             known.add(vm);
             values.put(vm.toString(), entry.getValue());
         }
-        for (String id : sources) if (!known.add(DataLocation.source(id))) throw bad("Duplicate SOURCE location");
+        for (String id : sources) {
+            if (!known.add(DataLocation.source(id))) {
+                throw bad("Duplicate SOURCE location");
+            }
+        }
         Map<Integer, Integer> placement = new TreeMap<>();
         if (topology != null) {
-            if (actualHosts == null || !actualHosts.keySet().equals(endpointBytes.keySet()))
+            if (actualHosts == null || !actualHosts.keySet().equals(endpointBytes.keySet())) {
                 throw bad("Actual host mapping must cover exactly every VM endpoint");
+            }
             Set<Integer> placed = topology.getHostPlacements().keySet();
             requireCapacity(topology.getLinkBandwidthBytesPerSecond());
             for (Map.Entry<Integer, Integer> entry : actualHosts.entrySet()) {
                 Integer host = entry.getValue();
-                if (host == null || host < 0 || !placed.contains(host))
+                if (host == null || host < 0 || !placed.contains(host)) {
                     throw bad("VM is not assigned to a known physical host");
+                }
                 placement.put(entry.getKey(), host);
             }
-            for (String link : topology.getLinkIds())
-                if (values.put(link, topology.getLinkBandwidthBytesPerSecond()) != null)
+            for (String link : topology.getLinkIds()) {
+                if (values.put(link, topology.getLinkBandwidthBytesPerSecond()) != null) {
                     throw bad("Physical resource keys collide");
-        } else if (actualHosts != null) throw bad("Host mapping without a topology is unsupported");
+                }
+            }
+        } else if (actualHosts != null) {
+            throw bad("Host mapping without a topology is unsupported");
+        }
         locations = Collections.unmodifiableSet(known);
         capacities = Collections.unmodifiableMap(values);
         hosts = Collections.unmodifiableMap(placement);
@@ -147,24 +164,36 @@ public final class DataTransferFabric {
             Map<Integer, Integer> actualVmHosts,
             FatTreeTopology topology,
             Collection<String> unboundedSources) {
-        if (topology == null) throw bad("Fat-tree view is required");
+        if (topology == null) {
+            throw bad("Fat-tree view is required");
+        }
         return new DataTransferFabric(vmCapacityBytesPerSecond, actualVmHosts, topology, unboundedSources);
     }
 
     private DataTransferFabric(
             DataTransferFabric base, Map<Integer, Integer> actualHosts, DataflowStorageSpec storage) {
-        if (storage == null || actualHosts == null) throw bad("Bounded store and actual VM hosts are required");
+        if (storage == null || actualHosts == null) {
+            throw bad("Bounded store and actual VM hosts are required");
+        }
         Set<Integer> vmIds = new TreeSet<>();
-        for (DataLocation location : base.locations)
-            if (location.getKind() == DataLocation.Kind.VM) vmIds.add(location.getVmId());
-        if (!vmIds.equals(actualHosts.keySet())) throw bad("Storage fabric needs every actual VM host");
+        for (DataLocation location : base.locations) {
+            if (location.getKind() == DataLocation.Kind.VM) {
+                vmIds.add(location.getVmId());
+            }
+        }
+        if (!vmIds.equals(actualHosts.keySet())) {
+            throw bad("Storage fabric needs every actual VM host");
+        }
         Map<Integer, Integer> placement = new TreeMap<>();
         for (Map.Entry<Integer, Integer> entry : actualHosts.entrySet()) {
-            if (entry.getValue() == null || entry.getValue() < 0) throw bad("Invalid actual VM host");
+            if (entry.getValue() == null || entry.getValue() < 0) {
+                throw bad("Invalid actual VM host");
+            }
             placement.put(entry.getKey(), entry.getValue());
         }
-        if (base.topology != null && !base.topology.getHostPlacements().containsKey(storage.getAttachmentHostId()))
+        if (base.topology != null && !base.topology.getHostPlacements().containsKey(storage.getAttachmentHostId())) {
             throw bad("Store attachment host is not placed in topology");
+        }
         Map<String, Double> resources = new TreeMap<>(base.capacities);
         resources.put(STORE_READ, storage.getReadCapacityBytesPerSecond());
         resources.put(STORE_WRITE, storage.getWriteCapacityBytesPerSecond());
@@ -225,46 +254,63 @@ public final class DataTransferFabric {
     public Route route(DataLocation source, DataLocation destination) {
         requireLocation(source);
         requireLocation(destination);
-        if (sourceStorage != null) return storageRoute(source, destination);
-        if (destination.getKind() != DataLocation.Kind.VM || source.equals(destination))
+        if (sourceStorage != null) {
+            return storageRoute(source, destination);
+        }
+        if (destination.getKind() != DataLocation.Kind.VM || source.equals(destination)) {
             throw bad("NF003 input routes require a remote VM destination; local/output paths are separate cases");
+        }
         List<String> resources = new ArrayList<>();
         if (source.getKind() == DataLocation.Kind.VM) {
             resources.add(source.toString());
-            if (topology != null)
+            if (topology != null) {
                 resources.addAll(topology.route(hosts.get(source.getVmId()), hosts.get(destination.getVmId())));
+            }
         }
         resources.add(destination.toString());
         return new Route(source, destination, resources, capacities);
     }
 
     private Route storageRoute(DataLocation source, DataLocation destination) {
-        if (source.equals(destination)) throw bad("A local object has no positive storage route");
+        if (source.equals(destination)) {
+            throw bad("A local object has no positive storage route");
+        }
         boolean reading = source.getKind() == DataLocation.Kind.SOURCE,
                 writing = destination.getKind() == DataLocation.Kind.SOURCE;
-        if (reading && writing) throw bad("Store-to-store routing is unsupported");
+        if (reading && writing) {
+            throw bad("Store-to-store routing is unsupported");
+        }
         List<String> resources = new ArrayList<>();
         if (reading) {
             resources.add(STORE_READ);
             resources.add(STORE_NIC);
-        } else resources.add(source.toString());
+        } else {
+            resources.add(source.toString());
+        }
         int from = reading ? sourceStorage.getAttachmentHostId() : hosts.get(source.getVmId());
         int to = writing ? sourceStorage.getAttachmentHostId() : hosts.get(destination.getVmId());
-        if (topology != null) resources.addAll(topology.route(from, to));
+        if (topology != null) {
+            resources.addAll(topology.route(from, to));
+        }
         if (writing) {
             resources.add(STORE_NIC);
             resources.add(STORE_WRITE);
-        } else resources.add(destination.toString());
+        } else {
+            resources.add(destination.toString());
+        }
         return new Route(source, destination, resources, capacities, false);
     }
 
     void requireLocation(DataLocation location) {
-        if (location == null || !locations.contains(location)) throw bad("Unknown fabric location: " + location);
+        if (location == null || !locations.contains(location)) {
+            throw bad("Unknown fabric location: " + location);
+        }
     }
 
     private static void requireCapacity(double capacity) {
-        if (!Double.isFinite(capacity) || capacity < Double.MIN_NORMAL)
+        if (!Double.isFinite(capacity) || capacity < Double.MIN_NORMAL) {
             throw bad("V2 fabric capacities and standalone rates must be positive normal finite binary64 values");
+        }
     }
 
     private static IllegalArgumentException bad(String message) {

@@ -29,8 +29,9 @@ public final class DataflowVmAssigner {
         private final double mips;
 
         public VmOption(int id, double mips, int pes) {
-            if (id < 0 || !Double.isFinite(mips) || mips <= 0 || pes <= 0)
+            if (id < 0 || !Double.isFinite(mips) || mips <= 0 || pes <= 0) {
                 throw new IllegalArgumentException("Invalid actual VM option");
+            }
             this.id = id;
             this.mips = mips;
             this.pes = pes;
@@ -169,13 +170,16 @@ public final class DataflowVmAssigner {
     private long sequence;
 
     public DataflowVmAssigner(CoherentDataflowRuntime runtime, Collection<VmOption> options) {
-        if (runtime == null || options == null || options.isEmpty())
+        if (runtime == null || options == null || options.isEmpty()) {
             throw new IllegalArgumentException("Runtime and actual VM options are required");
+        }
         this.runtime = runtime;
         Map<Integer, VmOption> copied = new TreeMap<>();
-        for (VmOption vm : options)
-            if (vm == null || copied.put(vm.id, vm) != null)
+        for (VmOption vm : options) {
+            if (vm == null || copied.put(vm.id, vm) != null) {
                 throw new IllegalArgumentException("Duplicate/null actual VM option");
+            }
+        }
         vms = Collections.unmodifiableMap(copied);
     }
     /** @return immutable logical-Task bindings; retry attempt IDs do not create new bindings */
@@ -192,56 +196,77 @@ public final class DataflowVmAssigner {
         if (job == null
                 || job.getClassType() != Parameters.ClassType.COMPUTE.value
                 || job.getTaskList() == null
-                || job.getTaskList().size() != 1)
+                || job.getTaskList().size() != 1) {
             throw new IllegalArgumentException("Online dataflow binding requires a singleton compute Job");
+        }
         Task task = job.getTaskList().get(0);
         int taskId = task.getCloudletId(), jobId = job.getCloudletId();
         Integer bound = bindings.get(taskId);
-        if (jobId < 0 || reservations.containsKey(jobId))
+        if (jobId < 0 || reservations.containsKey(jobId)) {
             throw new IllegalArgumentException("Attempt identity is invalid or already reserved");
+        }
         if (bound == null) {
-            if (job.getVmId() != -1 || task.getVmId() != -1)
+            if (job.getVmId() != -1 || task.getVmId() != -1) {
                 throw new IllegalStateException("Initial online dataflow Task/Job must be unbound");
-        } else if (job.getVmId() != bound || task.getVmId() != bound)
+            }
+        } else if (job.getVmId() != bound || task.getVmId() != bound) {
             throw new IllegalStateException("NOOP retry must inherit its logical Task VM binding");
+        }
         List<DataflowFilePlan.InputDemand> demands =
                 runtime.getFilePlan().demandsFor(Collections.singletonList(taskId));
         List<DataflowFilePlan.FileId> files = new ArrayList<>();
-        for (DataflowFilePlan.InputDemand demand : demands)
+        for (DataflowFilePlan.InputDemand demand : demands) {
             files.add(demand.getFile().getId());
+        }
         long next = Math.addExact(sequence, 1);
         runtime.advance(now);
         DataflowObservation observation = runtime.observeFiles(files);
-        if (!observation.isBound())
+        if (!observation.isBound()) {
             throw new IllegalStateException("Online binding requires actual VM/fabric creation");
-        if (observation.getObservedThrough() != now)
+        }
+        if (observation.getObservedThrough() != now) {
             throw new IllegalStateException("Observation watermark differs from decision boundary");
-        for (int active : observation.getActiveJobs().keySet())
-            if (!reservations.containsKey(active))
+        }
+        for (int active : observation.getActiveJobs().keySet()) {
+            if (!reservations.containsKey(active)) {
                 throw new IllegalStateException(
                         "Active compute attempt has no policy-owned CPU reservation: " + active);
+            }
+        }
         java.util.Set<Integer> actualIds = new java.util.TreeSet<>();
-        for (DataLocation location : observation.getFabric().getLocations())
-            if (location.getKind() == DataLocation.Kind.VM) actualIds.add(location.getVmId());
-        if (!actualIds.equals(vms.keySet()))
+        for (DataLocation location : observation.getFabric().getLocations()) {
+            if (location.getKind() == DataLocation.Kind.VM) {
+                actualIds.add(location.getVmId());
+            }
+        }
+        if (!actualIds.equals(vms.keySet())) {
             throw new IllegalArgumentException("Assignment candidates must cover exactly the actual fabric VMs");
-        for (VmOption vm : vms.values()) observation.getFabric().requireLocation(DataLocation.vm(vm.id));
+        }
+        for (VmOption vm : vms.values()) {
+            observation.getFabric().requireLocation(DataLocation.vm(vm.id));
+        }
         CandidateAssessment assessment = evaluateVmCandidates(task, job, bound, observation, demands, now);
         List<Map<String, Object>> scores = assessment.scores;
         VmOption chosen = assessment.chosen;
         double chosenScore = assessment.chosenScore, chosenCompute = assessment.chosenCompute;
-        if (chosen == null)
+        if (chosen == null) {
             throw new IllegalArgumentException("No actual VM has compatible PEs and a finite dataflow score");
+        }
         Decision decision = new Decision(next, taskId, jobId, chosen.id, bound != null, now, scores, observation);
         CoherentDataflowRuntime.Preparation prepared =
                 runtime.requestJob(jobId, Collections.singletonList(taskId), chosen.id, now);
         // No potentially failing numerical work remains after the runtime transaction succeeds.
         for (Iterator<Map.Entry<Integer, Reservation>> it =
                         reservations.entrySet().iterator();
-                it.hasNext(); )
-            if (!observation.getActiveJobs().containsKey(it.next().getKey())) it.remove();
+                it.hasNext(); ) {
+            if (!observation.getActiveJobs().containsKey(it.next().getKey())) {
+                it.remove();
+            }
+        }
         reservations.put(jobId, new Reservation(chosen.id, chosenCompute));
-        if (bound == null) bindings.put(taskId, chosen.id);
+        if (bound == null) {
+            bindings.put(taskId, chosen.id);
+        }
         sequence = next;
         job.setVmId(chosen.id);
         task.setVmId(chosen.id);
@@ -259,7 +284,9 @@ public final class DataflowVmAssigner {
         VmOption chosen = null;
         double chosenScore = 0, chosenCompute = 0;
         for (VmOption vm : vms.values()) {
-            if (bound != null && bound != vm.id) continue;
+            if (bound != null && bound != vm.id) {
+                continue;
+            }
             Map<String, Object> score = map();
             score.put("vmId", vm.id);
             boolean compatible = vm.pes >= task.getNumberOfPes() && vm.pes >= job.getNumberOfPes();
@@ -311,11 +338,17 @@ public final class DataflowVmAssigner {
         double work = 0;
         for (Map.Entry<Integer, Reservation> entry : reservations.entrySet()) {
             Reservation reservation = entry.getValue();
-            if (reservation.vm != vm) continue;
+            if (reservation.vm != vm) {
+                continue;
+            }
             DataflowObservation.JobView job = observation.getActiveJobs().get(entry.getKey());
-            if (job == null) continue;
+            if (job == null) {
+                continue;
+            }
             double remaining = reservation.seconds;
-            if (job.getCpuStartedAt() != null) remaining = Math.max(0, remaining - (now - job.getCpuStartedAt()));
+            if (job.getCpuStartedAt() != null) {
+                remaining = Math.max(0, remaining - (now - job.getCpuStartedAt()));
+            }
             work = addFinite(work, remaining);
         }
         return addTime(now, work);
@@ -331,14 +364,15 @@ public final class DataflowVmAssigner {
             if (observation.isStoreBackedInputs() && file.getReplica(CoherentDataflowRuntime.SOURCE) == null) {
                 DataflowObservation.CopyView output =
                         observation.getActiveCopy(demand.getFile().getId(), CoherentDataflowRuntime.SOURCE);
-                if (output == null || !output.getPurpose().equals("OUTPUT"))
+                if (output == null || !output.getPurpose().equals("OUTPUT")) {
                     throw new IllegalStateException(
                             "Required SOURCE commit is not visible and has no active materialization");
+                }
                 delay = ratio(
                         output.getService().getRemainingBytes(),
                         output.getService().getNominalRateBytesPerSecond());
                 estimate.conditionalStore = true;
-                if (file.getReplica(destination) == null && demand.getFile().getBytes() > 0)
+                if (file.getReplica(destination) == null && demand.getFile().getBytes() > 0) {
                     delay = addFinite(
                             delay,
                             ratio(
@@ -347,14 +381,16 @@ public final class DataflowVmAssigner {
                                             .getFabric()
                                             .route(CoherentDataflowRuntime.SOURCE, destination)
                                             .getStandaloneRateBytesPerSecond()));
+                }
             } else if (file.getReplica(destination) != null) {
                 delay = 0;
             } else {
                 DataflowObservation.CopyView existing =
                         observation.getActiveCopy(demand.getFile().getId(), destination);
                 if (existing != null) {
-                    if (!existing.getPurpose().equals("INPUT"))
+                    if (!existing.getPurpose().equals("INPUT")) {
                         throw new IllegalStateException("Input target has a non-input copy");
+                    }
                     delay = ratio(
                             existing.getService().getRemainingBytes(),
                             existing.getService().getNominalRateBytesPerSecond());
@@ -363,14 +399,18 @@ public final class DataflowVmAssigner {
                     List<DataReplicaState.Replica> sources = observation.isStoreBackedInputs()
                             ? Collections.singletonList(file.getReplica(CoherentDataflowRuntime.SOURCE))
                             : file.getVisibleReplicas();
-                    if (sources.isEmpty() || sources.get(0) == null)
+                    if (sources.isEmpty() || sources.get(0) == null) {
                         throw new IllegalStateException("No observed replica for required input");
+                    }
                     double rate = 0;
                     DataLocation selected = null;
                     for (DataReplicaState.Replica source : sources) {
-                        if (source.getVisibleAt() > observation.getObservedThrough())
+                        if (source.getVisibleAt() > observation.getObservedThrough()) {
                             throw new IllegalStateException("Future replica in observation");
-                        if (demand.getFile().getBytes() == 0) continue;
+                        }
+                        if (demand.getFile().getBytes() == 0) {
+                            continue;
+                        }
                         double candidate = observation
                                 .getFabric()
                                 .route(source.getLocation(), destination)
@@ -382,8 +422,9 @@ public final class DataflowVmAssigner {
                             rate = candidate;
                         }
                     }
-                    if (demand.getFile().getBytes() > 0)
+                    if (demand.getFile().getBytes() > 0) {
                         delay = ratio(demand.getFile().getBytes(), rate);
+                    }
                 }
             }
             estimate.seconds = Math.max(estimate.seconds, delay);
@@ -393,21 +434,25 @@ public final class DataflowVmAssigner {
 
     private static double ratio(double bytes, double rate) {
         double seconds = bytes / rate;
-        if (!Double.isFinite(seconds) || seconds <= 0)
+        if (!Double.isFinite(seconds) || seconds <= 0) {
             throw new IllegalArgumentException("Nominal remaining input duration is not representable");
+        }
         return seconds;
     }
 
     private static double addFinite(double a, double b) {
         double sum = a + b;
-        if (!Double.isFinite(sum) || a < 0 || b < 0) throw new IllegalArgumentException("Dataflow estimate overflow");
+        if (!Double.isFinite(sum) || a < 0 || b < 0) {
+            throw new IllegalArgumentException("Dataflow estimate overflow");
+        }
         return sum;
     }
 
     private static double addTime(double time, double delay) {
         double result = addFinite(time, delay);
-        if (delay > 0 && result <= time)
+        if (delay > 0 && result <= time) {
             throw new IllegalArgumentException("Dataflow estimate cannot advance the binary64 clock");
+        }
         return result;
     }
 

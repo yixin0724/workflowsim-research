@@ -42,8 +42,9 @@ public final class NetworkInputDemandSnapshot {
                 || local.compareTo(required) > 0
                 || (references == 0 && required.signum() != 0)
                 || (localReferences == 0 && local.signum() != 0)
-                || (references == localReferences && required.compareTo(local) != 0))
+                || (references == localReferences && required.compareTo(local) != 0)) {
             throw new IllegalArgumentException("Inconsistent grouped input-demand counters");
+        }
         return new NetworkInputDemandSnapshot(references, localReferences, required, local);
     }
     /** @return explicit reference-counting scope */

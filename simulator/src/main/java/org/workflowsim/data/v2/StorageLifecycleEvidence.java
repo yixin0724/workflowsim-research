@@ -18,8 +18,9 @@ public final class StorageLifecycleEvidence {
      * @return detached storage-version capture
      */
     public static StorageLifecycleEvidence capture(FileLifecycleEvidence capture, boolean storeBackedInputs) {
-        if (capture == null || !capture.getFabric().has("sourceStorage"))
+        if (capture == null || !capture.getFabric().has("sourceStorage")) {
             throw new IllegalArgumentException("Storage lifecycle requires an explicit bounded fabric");
+        }
         return new StorageLifecycleEvidence(capture, storeBackedInputs);
     }
     /** @return common immutable capture; never pass it through the V2-only codec */

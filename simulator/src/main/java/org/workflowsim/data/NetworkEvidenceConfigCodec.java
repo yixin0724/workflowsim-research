@@ -15,23 +15,28 @@ public final class NetworkEvidenceConfigCodec {
      * @return exact immutable versioned recording policy
      */
     public static NetworkEvidenceConfig decodeConfig(JsonElement value) {
-        if (value == null || !value.isJsonObject())
+        if (value == null || !value.isJsonObject()) {
             throw new IllegalArgumentException("networkEvidence must be an enabled recording object");
+        }
         JsonObject object = value.getAsJsonObject();
         if (!object.keySet().equals(new HashSet<>(Arrays.asList("mode", "maxTraceRecords")))
                 || !object.get("mode").isJsonPrimitive()
-                || !object.getAsJsonPrimitive("mode").isString())
+                || !object.getAsJsonPrimitive("mode").isString()) {
             throw new IllegalArgumentException("Invalid networkEvidence fields or mode type");
+        }
         String mode = object.get("mode").getAsString();
-        if (NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1.name().equals(mode))
+        if (NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1.name().equals(mode)) {
             return NetworkLedgerCodec.decodeConfig(value);
+        }
         boolean storage =
                 NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3.name().equals(mode);
-        if (!storage && !NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2.name().equals(mode))
+        if (!storage && !NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2.name().equals(mode)) {
             throw new IllegalArgumentException("Unsupported enabled networkEvidence mode: " + mode);
+        }
         JsonElement budget = object.get("maxTraceRecords");
-        if (!budget.isJsonPrimitive() || !budget.getAsJsonPrimitive().isNumber())
+        if (!budget.isJsonPrimitive() || !budget.getAsJsonPrimitive().isNumber()) {
             throw new IllegalArgumentException("maxTraceRecords must be an exact integer number");
+        }
         try {
             return storage
                     ? NetworkEvidenceConfig.storageLifecycleV3(
@@ -48,22 +53,29 @@ public final class NetworkEvidenceConfigCodec {
      * @throws IllegalArgumentException when the version/mode pair is not supported
      */
     public static void requireCompatible(DataMovementModel model, NetworkEvidenceConfig recording) {
-        if (model == null || recording == null)
+        if (model == null || recording == null) {
             throw new IllegalArgumentException("Data movement and recording policy are required");
+        }
         switch (recording.getMode()) {
             case OFF:
                 return;
             case FLUID_GROUP_LEDGER_V1:
-                if (model.isPreExecutionTransferDelayWithContentionV1() || model.isFatTreeContentionV1()) return;
+                if (model.isPreExecutionTransferDelayWithContentionV1() || model.isFatTreeContentionV1()) {
+                    return;
+                }
                 throw new IllegalArgumentException(
                         "Enabled network evidence requires preExecutionTransferDelayWithContentionV1() or"
                                 + "fatTreeContentionV1(); unsupported data movement model "
                                 + model.getKind());
             case FILE_LIFECYCLE_V2:
-                if (model.isCoherentFileDataflowV2()) return;
+                if (model.isCoherentFileDataflowV2()) {
+                    return;
+                }
                 throw new IllegalArgumentException("FILE_LIFECYCLE_V2 requires a coherent file dataflow V2 model");
             case FILE_STORAGE_LIFECYCLE_V3:
-                if (model.isCoherentStorageDataflowV3()) return;
+                if (model.isCoherentStorageDataflowV3()) {
+                    return;
+                }
                 throw new IllegalArgumentException("FILE_STORAGE_LIFECYCLE_V3 requires a coherent storage V3 model");
             default:
                 throw new IllegalArgumentException("Unsupported recording policy");

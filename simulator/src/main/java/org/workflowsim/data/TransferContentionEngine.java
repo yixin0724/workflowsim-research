@@ -247,7 +247,9 @@ public final class TransferContentionEngine {
     }
 
     private TransferContentionEngine(int budget, boolean checked, boolean sharing) {
-        if (budget < 0) throw new IllegalArgumentException("Trace event budget cannot be negative: " + budget);
+        if (budget < 0) {
+            throw new IllegalArgumentException("Trace event budget cannot be negative: " + budget);
+        }
         traceState = budget == 0 ? null : new TraceState(budget);
         coherentChecked = checked;
         shareResources = sharing;
@@ -396,8 +398,9 @@ public final class TransferContentionEngine {
         if (!activeTransfers.isEmpty()) {
             throw new IllegalStateException("Cannot change capacity while transfers are active");
         }
-        if (coherentChecked && capacityBytesPerSecond < Double.MIN_NORMAL)
+        if (coherentChecked && capacityBytesPerSecond < Double.MIN_NORMAL) {
             throw unsupported("Subnormal physical capacity");
+        }
         endpointCapacitiesBytesPerSecond.put(endpoint, capacityBytesPerSecond);
         if (traceState != null) {
             traceState.capacity(endpoint, capacityBytesPerSecond, lastAdvanceTime);
@@ -528,19 +531,25 @@ public final class TransferContentionEngine {
             }
         }
         if (coherentChecked) {
-            if (nominalRateBytesPerSecond < Double.MIN_NORMAL || occupiedResources.isEmpty())
+            if (nominalRateBytesPerSecond < Double.MIN_NORMAL || occupiedResources.isEmpty()) {
                 throw unsupported("Positive service requires a normal nominal rate and physical path");
-            for (String resource : occupiedResources)
-                if (!endpointCapacitiesBytesPerSecond.containsKey(resource))
+            }
+            for (String resource : occupiedResources) {
+                if (!endpointCapacitiesBytesPerSecond.containsKey(resource)) {
                     throw unsupported("Unknown physical resource: " + resource);
+                }
+            }
             double finish = now + nominalDuration;
-            if (!Double.isFinite(finish) || finish <= now)
+            if (!Double.isFinite(finish) || finish <= now) {
                 throw unsupported("Unrepresentable absolute isolated finish");
+            }
         }
         AdvanceResult result = advanceInternal(now);
         activeTransfers.put(
                 transferId, new Transfer(bytes, new ArrayList<String>(occupiedResources), nominalRateBytesPerSecond));
-        if (coherentChecked) activeTransfers.get(transferId).coherentAdmissionTime = now;
+        if (coherentChecked) {
+            activeTransfers.get(transferId).coherentAdmissionTime = now;
+        }
         if (traceState != null) {
             activeTransfers.get(transferId).traceAdmissionOrdinal = traceState.nextAdmissionOrdinal++;
             captureCurrentRates();
@@ -580,10 +589,14 @@ public final class TransferContentionEngine {
         List<CompletionObservation> observations = coherentChecked
                 ? new ArrayList<CompletionObservation>()
                 : Collections.<CompletionObservation>emptyList();
-        if (coherentChecked) checkCoherentState();
+        if (coherentChecked) {
+            checkCoherentState();
+        }
         integrateUntil(now, completed, observations);
         lastAdvanceTime = now;
-        if (coherentChecked) checkCoherentState();
+        if (coherentChecked) {
+            checkCoherentState();
+        }
         return new AdvanceResult(completed, earliestCompletion(now), observations);
     }
 
@@ -601,8 +614,9 @@ public final class TransferContentionEngine {
             }
             double elapsed = Math.min(now - lastAdvanceTime, nextDuration);
             if (coherentChecked
-                    && (!(elapsed > 0) || !Double.isFinite(elapsed) || lastAdvanceTime + elapsed <= lastAdvanceTime))
+                    && (!(elapsed > 0) || !Double.isFinite(elapsed) || lastAdvanceTime + elapsed <= lastAdvanceTime)) {
                 throw unsupported("Service step cannot advance the finite binary64 clock");
+            }
             if (traceState != null) {
                 traceState.intervalStart = lastAdvanceTime;
             }
@@ -610,8 +624,9 @@ public final class TransferContentionEngine {
                 if (traceState != null) {
                     transfer.traceRemainingBefore = transfer.remainingBytes;
                 }
-                if (coherentChecked && !Double.isFinite(transfer.rateBytesPerSecond * elapsed))
+                if (coherentChecked && !Double.isFinite(transfer.rateBytesPerSecond * elapsed)) {
                     throw unsupported("Service rate-area multiplication overflow");
+                }
                 transfer.remainingBytes =
                         Math.max(0.0, transfer.remainingBytes - transfer.rateBytesPerSecond * elapsed);
                 if (traceState != null || coherentChecked) {
@@ -656,13 +671,14 @@ public final class TransferContentionEngine {
                 traceState.complete(id, activeTransfers.get(id), lastAdvanceTime, now);
             }
         }
-        if (coherentChecked)
+        if (coherentChecked) {
             for (Long id : settled) {
                 Transfer transfer = activeTransfers.get(id);
                 checkCoherentCompletion(transfer, lastAdvanceTime);
                 observations.add(
                         new CompletionObservation(id, lastAdvanceTime, now, transfer.traceRemainingAfterService));
             }
+        }
         for (Long id : settled) {
             activeTransfers.remove(id);
         }
@@ -735,8 +751,9 @@ public final class TransferContentionEngine {
                     Integer count = weights.get(key);
                     weights.put(key, count == null ? 1 : count + 1);
                 }
-                for (Map.Entry<String, Integer> entry : weights.entrySet())
+                for (Map.Entry<String, Integer> entry : weights.entrySet()) {
                     rate = Math.min(rate, endpointCapacitiesBytesPerSecond.get(entry.getKey()) / entry.getValue());
+                }
                 transfer.rateBytesPerSecond = rate;
             }
             checkCoherentState();
@@ -802,7 +819,9 @@ public final class TransferContentionEngine {
                 throw new IllegalStateException("Effective transfer rate must remain positive and finite");
             }
         }
-        if (coherentChecked) checkCoherentState();
+        if (coherentChecked) {
+            checkCoherentState();
+        }
     }
 
     /** Checked V2 invariants use active state, never the optional history buffer. */
@@ -816,26 +835,34 @@ public final class TransferContentionEngine {
                     || rate > transfer.nominalRateBytesPerSecond
                     || !Double.isFinite(remaining)
                     || remaining <= 0
-                    || remaining > transfer.bytes)
+                    || remaining > transfer.bytes) {
                 throw unsupported("Invalid active flow balance or normal allocation");
+            }
             double duration = remaining / rate, finish = lastAdvanceTime + duration;
-            if (!Double.isFinite(duration) || duration <= 0 || !Double.isFinite(finish) || finish <= lastAdvanceTime)
+            if (!Double.isFinite(duration) || duration <= 0 || !Double.isFinite(finish) || finish <= lastAdvanceTime) {
                 throw unsupported("Active completion prediction is not representable");
+            }
             Map<String, BigDecimal> single = new LinkedHashMap<String, BigDecimal>();
             Map<String, Long> singleTerms = new LinkedHashMap<String, Long>();
             for (String key : transfer.occupiedResources) {
                 Double cap = endpointCapacitiesBytesPerSecond.get(key);
-                if (cap == null || !Double.isFinite(cap) || cap < Double.MIN_NORMAL)
+                if (cap == null || !Double.isFinite(cap) || cap < Double.MIN_NORMAL) {
                     throw unsupported("Unregistered or unsupported physical capacity");
+                }
                 addRate(single, singleTerms, key, rate);
-                if (shareResources) addRate(totals, terms, key, rate);
+                if (shareResources) {
+                    addRate(totals, terms, key, rate);
+                }
             }
-            for (String key : single.keySet())
+            for (String key : single.keySet()) {
                 checkCapacity(single.get(key), endpointCapacitiesBytesPerSecond.get(key), singleTerms.get(key));
+            }
         }
-        if (shareResources)
-            for (String key : totals.keySet())
+        if (shareResources) {
+            for (String key : totals.keySet()) {
                 checkCapacity(totals.get(key), endpointCapacitiesBytesPerSecond.get(key), terms.get(key));
+            }
+        }
     }
 
     private static void checkCoherentCompletion(Transfer transfer, double effective) {
@@ -845,15 +872,17 @@ public final class TransferContentionEngine {
         if (!Double.isFinite(residual)
                 || residual < 0
                 || residual > tolerance
-                || effective <= transfer.coherentAdmissionTime)
+                || effective <= transfer.coherentAdmissionTime) {
             throw unsupported("Invalid numerical completion settlement");
+        }
         double lower =
                 transfer.coherentAdmissionTime + (transfer.bytes - residual) / transfer.nominalRateBytesPerSecond;
         double allowed = Math.min(
                 8 * Math.max(Math.ulp(transfer.coherentAdmissionTime), Math.max(Math.ulp(effective), Math.ulp(lower))),
                 1e-12 * Math.max(transfer.coherentAdmissionTime, Math.max(effective, lower)));
-        if (!Double.isFinite(lower) || (lower > effective && lower - effective > allowed))
+        if (!Double.isFinite(lower) || (lower > effective && lower - effective > allowed)) {
             throw unsupported("Completion violates isolated-rate scalar lower bound");
+        }
     }
 
     private static void addRate(Map<String, BigDecimal> totals, Map<String, Long> terms, String key, double rate) {
@@ -869,8 +898,9 @@ public final class TransferContentionEngine {
                 .multiply(BigDecimal.valueOf(8))
                 .multiply(BigDecimal.valueOf(count + 1))
                 .min(cap.multiply(new BigDecimal("1e-12")));
-        if (sum.compareTo(cap.add(tolerance)) > 0)
+        if (sum.compareTo(cap.add(tolerance)) > 0) {
             throw unsupported("Allocation exceeds the declared scalar capacity profile");
+        }
     }
 
     private static IllegalArgumentException unsupported(String message) {

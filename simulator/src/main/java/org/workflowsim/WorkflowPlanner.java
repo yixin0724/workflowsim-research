@@ -84,8 +84,9 @@ public final class WorkflowPlanner extends SimEntity {
 
     /** @param value run-owned V2 coordinator; installed before parsing */
     public void setCoherentDataflowRuntime(org.workflowsim.data.v2.CoherentDataflowRuntime value) {
-        if (value == null || coherentDataflow != null)
+        if (value == null || coherentDataflow != null) {
             throw new IllegalArgumentException("V2 runtime must be installed once");
+        }
         coherentDataflow = value;
     }
 
@@ -195,8 +196,9 @@ public final class WorkflowPlanner extends SimEntity {
                 if (coherentDataflow != null) {
                     java.util.Set<org.workflowsim.data.v2.DataLocation> locations = new java.util.TreeSet<>();
                     locations.add(org.workflowsim.data.v2.CoherentDataflowRuntime.SOURCE);
-                    for (org.cloudbus.cloudsim.Vm vm : getWorkflowEngine().getAllVmList())
+                    for (org.cloudbus.cloudsim.Vm vm : getWorkflowEngine().getAllVmList()) {
                         locations.add(org.workflowsim.data.v2.DataLocation.vm(vm.getId()));
+                    }
                     coherentDataflow.initializePlan(
                             org.workflowsim.data.v2.DataflowFilePlan.capture(
                                     getTaskList(), getWorkflowParser().getTaskWorkflowIndices()),

@@ -45,8 +45,9 @@ public final class DataflowFilePlan {
          * @return immutable key
          */
         public static FileId of(int workflowInputIndex, String name) {
-            if (workflowInputIndex < 0 || name == null || name.isEmpty())
+            if (workflowInputIndex < 0 || name == null || name.isEmpty()) {
                 throw bad("File identity needs a nonnegative workflow input and nonempty name");
+            }
             return new FileId(workflowInputIndex, name);
         }
         /** @return submitted input index */
@@ -66,8 +67,12 @@ public final class DataflowFilePlan {
 
         @Override
         public boolean equals(Object other) {
-            if (this == other) return true;
-            if (!(other instanceof FileId)) return false;
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof FileId)) {
+                return false;
+            }
             FileId id = (FileId) other;
             return workflowInputIndex == id.workflowInputIndex && name.equals(id.name);
         }
@@ -176,7 +181,9 @@ public final class DataflowFilePlan {
         outputs = Collections.unmodifiableMap(outputRows);
         parents = Collections.unmodifiableMap(parentRows);
         Map<FileId, FileDefinition> resolved = new TreeMap<>();
-        for (FileBuilder file : declarations.values()) resolved.put(file.id, new FileDefinition(file));
+        for (FileBuilder file : declarations.values()) {
+            resolved.put(file.id, new FileDefinition(file));
+        }
         byId = Collections.unmodifiableMap(resolved);
         files = immutableList(resolved.values());
     }
@@ -192,50 +199,67 @@ public final class DataflowFilePlan {
      * @throws IllegalArgumentException for inconsistent graph, scope, identity or surviving sizes
      */
     public static DataflowFilePlan capture(List<Task> tasks, Map<Integer, Integer> taskWorkflowIndices) {
-        if (tasks == null || taskWorkflowIndices == null) throw bad("Tasks and workflow indices are required");
+        if (tasks == null || taskWorkflowIndices == null) {
+            throw bad("Tasks and workflow indices are required");
+        }
         Map<Integer, Node> nodes = new TreeMap<>();
         Map<FileId, FileBuilder> files = new TreeMap<>();
         for (Task task : tasks) {
-            if (task == null || task.getCloudletId() < 0)
+            if (task == null || task.getCloudletId() < 0) {
                 throw bad("Logical Task IDs must be nonnegative and Tasks nonnull");
+            }
             int id = task.getCloudletId();
             Integer workflow = taskWorkflowIndices.get(id);
-            if (workflow == null || workflow < 0) throw bad("Missing or invalid workflow input index for Task " + id);
-            if (nodes.containsKey(id)) throw bad("Duplicate logical Task ID " + id);
+            if (workflow == null || workflow < 0) {
+                throw bad("Missing or invalid workflow input index for Task " + id);
+            }
+            if (nodes.containsKey(id)) {
+                throw bad("Duplicate logical Task ID " + id);
+            }
             Node node =
                     new Node(id, workflow, neighbours(task.getParentList(), id), neighbours(task.getChildList(), id));
             nodes.put(id, node);
-            if (task.getFileList() == null) throw bad("Null resolved file list for Task " + id);
+            if (task.getFileList() == null) {
+                throw bad("Null resolved file list for Task " + id);
+            }
             for (FileItem item : task.getFileList()) {
-                if (item == null || (item.getType() != FileType.INPUT && item.getType() != FileType.OUTPUT))
+                if (item == null || (item.getType() != FileType.INPUT && item.getType() != FileType.OUTPUT)) {
                     throw bad("V2 resolved files require INPUT or OUTPUT type");
+                }
                 double bytes = item.getSize();
-                if (!Double.isFinite(bytes) || bytes < 0)
+                if (!Double.isFinite(bytes) || bytes < 0) {
                     throw bad("Resolved file bytes must be finite and nonnegative");
+                }
                 bytes = bytes == 0 ? 0 : bytes;
                 FileId key = FileId.of(workflow, item.getName());
                 FileBuilder file = files.get(key);
                 if (file == null) {
                     file = new FileBuilder(key, bytes);
                     files.put(key, file);
-                } else if (file.bytes != bytes) throw bad("Conflicting resolved sizes for " + key);
+                } else if (file.bytes != bytes) {
+                    throw bad("Conflicting resolved sizes for " + key);
+                }
                 if (item.getType() == FileType.INPUT) {
                     Long count = node.inputs.get(key);
                     node.inputs.put(key, count == null ? 1 : Math.addExact(count, 1));
                     file.consumers.add(id);
                 } else {
-                    if (file.producer != null && file.producer != id)
+                    if (file.producer != null && file.producer != id) {
                         throw bad("Multiple logical producers for " + key);
+                    }
                     file.producer = id;
                     node.outputs.add(key);
                 }
             }
-            for (FileId key : node.outputs)
-                if (node.inputs.containsKey(key))
+            for (FileId key : node.outputs) {
+                if (node.inputs.containsKey(key)) {
                     throw bad("In-place file mutation is not write-once: " + key + " at Task " + id);
+                }
+            }
         }
-        if (!taskWorkflowIndices.keySet().equals(nodes.keySet()))
+        if (!taskWorkflowIndices.keySet().equals(nodes.keySet())) {
             throw bad("Workflow index mapping must cover exactly the captured Task IDs");
+        }
         validateGraph(nodes);
         validateProducers(nodes, files);
         return new DataflowFilePlan(nodes, files);
@@ -260,7 +284,9 @@ public final class DataflowFilePlan {
     /** @param taskId logical Task ID @return immutable direct control parents */
     public List<Integer> getParentTaskIds(int taskId) {
         List<Integer> row = parents.get(taskId);
-        if (row == null) throw bad("Unknown logical Task ID " + taskId);
+        if (row == null) {
+            throw bad("Unknown logical Task ID " + taskId);
+        }
         return row;
     }
     /**
@@ -270,7 +296,9 @@ public final class DataflowFilePlan {
      */
     public FileDefinition getFile(FileId id) {
         FileDefinition file = id == null ? null : byId.get(id);
-        if (file == null) throw bad("Unknown file identity: " + id);
+        if (file == null) {
+            throw bad("Unknown file identity: " + id);
+        }
         return file;
     }
     /**
@@ -279,7 +307,9 @@ public final class DataflowFilePlan {
      */
     public Map<FileId, Long> getInputReferences(int taskId) {
         Map<FileId, Long> row = inputs.get(taskId);
-        if (row == null) throw bad("Unknown logical Task ID " + taskId);
+        if (row == null) {
+            throw bad("Unknown logical Task ID " + taskId);
+        }
         return row;
     }
     /**
@@ -288,7 +318,9 @@ public final class DataflowFilePlan {
      */
     public List<FileId> getOutputFiles(int taskId) {
         List<FileId> row = outputs.get(taskId);
-        if (row == null) throw bad("Unknown logical Task ID " + taskId);
+        if (row == null) {
+            throw bad("Unknown logical Task ID " + taskId);
+        }
         return row;
     }
 
@@ -301,16 +333,22 @@ public final class DataflowFilePlan {
      * @return immutable scoped-key-ordered unique demands, including zero-byte references
      */
     public List<InputDemand> demandsFor(Collection<Integer> logicalTaskIds) {
-        if (logicalTaskIds == null) throw bad("Logical Task selection is required");
+        if (logicalTaskIds == null) {
+            throw bad("Logical Task selection is required");
+        }
         Set<Integer> selected = new TreeSet<>();
-        for (Integer id : logicalTaskIds)
-            if (id == null || !inputs.containsKey(id) || !selected.add(id))
+        for (Integer id : logicalTaskIds) {
+            if (id == null || !inputs.containsKey(id) || !selected.add(id)) {
                 throw bad("Task selection requires distinct known logical IDs");
+            }
+        }
         Map<FileId, DemandBuilder> demands = new TreeMap<>();
-        for (int id : selected)
+        for (int id : selected) {
             for (Map.Entry<FileId, Long> reference : inputs.get(id).entrySet()) {
                 FileDefinition file = byId.get(reference.getKey());
-                if (file.producerTaskId != null && selected.contains(file.producerTaskId)) continue;
+                if (file.producerTaskId != null && selected.contains(file.producerTaskId)) {
+                    continue;
+                }
                 DemandBuilder demand = demands.get(file.id);
                 if (demand == null) {
                     demand = new DemandBuilder(file);
@@ -319,20 +357,27 @@ public final class DataflowFilePlan {
                 demand.references = Math.addExact(demand.references, reference.getValue());
                 demand.consumers.add(id);
             }
+        }
         List<InputDemand> result = new ArrayList<>();
-        for (DemandBuilder demand : demands.values()) result.add(new InputDemand(demand));
+        for (DemandBuilder demand : demands.values()) {
+            result.add(new InputDemand(demand));
+        }
         return Collections.unmodifiableList(result);
     }
 
     private static Set<Integer> neighbours(List<Task> neighbours, int self) {
-        if (neighbours == null) throw bad("Null Task adjacency list");
+        if (neighbours == null) {
+            throw bad("Null Task adjacency list");
+        }
         Set<Integer> ids = new TreeSet<>();
-        for (Task neighbour : neighbours)
+        for (Task neighbour : neighbours) {
             if (neighbour == null
                     || neighbour.getCloudletId() < 0
                     || neighbour.getCloudletId() == self
-                    || !ids.add(neighbour.getCloudletId()))
+                    || !ids.add(neighbour.getCloudletId())) {
                 throw bad("Invalid/duplicate logical Task adjacency for " + self);
+            }
+        }
         return ids;
     }
 
@@ -342,16 +387,20 @@ public final class DataflowFilePlan {
         for (Node node : nodes.values()) {
             for (int parent : node.parents) {
                 Node p = nodes.get(parent);
-                if (p == null || p.workflow != node.workflow || !p.children.contains(node.id))
+                if (p == null || p.workflow != node.workflow || !p.children.contains(node.id)) {
                     throw bad("Missing, cross-workflow or asymmetric parent edge for Task " + node.id);
+                }
             }
             for (int child : node.children) {
                 Node c = nodes.get(child);
-                if (c == null || c.workflow != node.workflow || !c.parents.contains(node.id))
+                if (c == null || c.workflow != node.workflow || !c.parents.contains(node.id)) {
                     throw bad("Missing, cross-workflow or asymmetric child edge for Task " + node.id);
+                }
             }
             remaining.put(node.id, node.parents.size());
-            if (node.parents.isEmpty()) ready.add(node.id);
+            if (node.parents.isEmpty()) {
+                ready.add(node.id);
+            }
         }
         int count = 0;
         while (!ready.isEmpty()) {
@@ -360,10 +409,14 @@ public final class DataflowFilePlan {
             for (int child : node.children) {
                 int next = remaining.get(child) - 1;
                 remaining.put(child, next);
-                if (next == 0) ready.add(child);
+                if (next == 0) {
+                    ready.add(child);
+                }
             }
         }
-        if (count != nodes.size()) throw bad("Logical Task control graph contains a cycle");
+        if (count != nodes.size()) {
+            throw bad("Logical Task control graph contains a cycle");
+        }
     }
 
     private static void validateProducers(Map<Integer, Node> nodes, Map<FileId, FileBuilder> files) {
@@ -371,20 +424,34 @@ public final class DataflowFilePlan {
             Set<Integer> required = new HashSet<>();
             for (FileId id : consumer.inputs.keySet()) {
                 Integer producer = files.get(id).producer;
-                if (producer != null) required.add(producer);
+                if (producer != null) {
+                    required.add(producer);
+                }
             }
-            if (required.isEmpty()) continue;
+            if (required.isEmpty()) {
+                continue;
+            }
             Set<Integer> visited = new HashSet<>();
             Deque<Integer> ancestors = new ArrayDeque<>();
-            for (int parent : consumer.parents) if (visited.add(parent)) ancestors.addLast(parent);
+            for (int parent : consumer.parents) {
+                if (visited.add(parent)) {
+                    ancestors.addLast(parent);
+                }
+            }
             while (!required.isEmpty() && !ancestors.isEmpty()) {
                 int next = ancestors.removeFirst();
                 required.remove(next);
-                if (!required.isEmpty())
-                    for (int parent : nodes.get(next).parents) if (visited.add(parent)) ancestors.addLast(parent);
+                if (!required.isEmpty()) {
+                    for (int parent : nodes.get(next).parents) {
+                        if (visited.add(parent)) {
+                            ancestors.addLast(parent);
+                        }
+                    }
+                }
             }
-            if (!required.isEmpty())
+            if (!required.isEmpty()) {
                 throw bad("File producer is not a control ancestor of Task " + consumer.id + ": " + required);
+            }
         }
     }
 

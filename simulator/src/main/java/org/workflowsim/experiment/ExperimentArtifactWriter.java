@@ -62,48 +62,59 @@ public final class ExperimentArtifactWriter {
         }
         validateRunId(runId);
         if (report.getConfig().getDataflowAssignmentConfig().isEnabled()
-                && !report.getConfig().getNetworkEvidenceConfig().isEnabled())
+                && !report.getConfig().getNetworkEvidenceConfig().isEnabled()) {
             throw new UnsupportedOperationException(
                     "Online assignment certification requires complete matching lifecycle capture; OFF runs cannot"
                             + "export certified actions");
+        }
         if (report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3()
-                != (report.getPlatform().getSourceStorage() != null))
+                != (report.getPlatform().getSourceStorage() != null)) {
             throw new IOException("sourceStorage presence differs from model");
+        }
         org.workflowsim.data.NetworkEvidenceConfig option = report.getConfig().getNetworkEvidenceConfig();
         boolean group = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,
                 file = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,
                 storage = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;
         if (group != (report.getNetworkEvidence() != null)
                 || file != (report.getFileLifecycleEvidence() != null)
-                || storage != (report.getStorageLifecycleEvidence() != null))
+                || storage != (report.getStorageLifecycleEvidence() != null)) {
             throw new IOException("Network capture disagrees with recording configuration");
+        }
         if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime()
-                != (report.getDataflowPlan() != null))
+                != (report.getDataflowPlan() != null)) {
             throw new IOException("Coherent core file plan disagrees with model");
+        }
         com.google.gson.JsonObject networkDocument = null, fileDocument = null, storageDocument = null;
         try {
             org.workflowsim.data.NetworkEvidenceConfigCodec.requireCompatible(
                     report.getConfig().getDataMovementModel(), option);
-            if (group) networkDocument = org.workflowsim.data.NetworkLedgerCodec.document(report.getNetworkEvidence());
-            if (file)
+            if (group) {
+                networkDocument = org.workflowsim.data.NetworkLedgerCodec.document(report.getNetworkEvidence());
+            }
+            if (file) {
                 fileDocument = org.workflowsim.data.v2.FileLifecycleCodec.document(report.getFileLifecycleEvidence());
-            if (storage)
+            }
+            if (storage) {
                 storageDocument =
                         org.workflowsim.data.v2.StorageLifecycleCodec.document(report.getStorageLifecycleEvidence());
+            }
         } catch (IllegalArgumentException | IllegalStateException invalid) {
             throw new IOException("Invalid versioned network evidence before export", invalid);
         }
-        if (group) NetworkLedgerContextValidator.validateReport(report);
-        if (file)
+        if (group) {
+            NetworkLedgerContextValidator.validateReport(report);
+        }
+        if (file) {
             FileLifecycleContextValidator.validateReport(
                     report, org.workflowsim.data.v2.FileLifecycleCodec.decodeDocument(fileDocument));
-        else if (storage)
+        } else if (storage) {
             FileLifecycleContextValidator.validateReport(
                     report, org.workflowsim.data.v2.StorageLifecycleCodec.decodeDocument(storageDocument));
-        else if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime())
+        } else if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime()) {
             FileLifecycleContextValidator.validatePlanContext(
                     GSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report))
                             .getAsJsonObject());
+        }
         Path directory = outputDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);
 

@@ -91,44 +91,54 @@ public final class NetworkRunEvidence {
             List<NetworkFlowBinding> candidates,
             NetworkInputDemandSnapshot inputDemand) {
         requireEnabledContention(config, modelKind);
-        if (trace == null || trace.getStatus() == TransferTraceSnapshot.Status.DISABLED || candidates == null)
+        if (trace == null || trace.getStatus() == TransferTraceSnapshot.Status.DISABLED || candidates == null) {
             throw new IllegalArgumentException(
                     "Enabled network evidence requires an enabled trace and candidate bindings");
+        }
         int budget = config.getMaxTraceRecords();
-        if (trace.getEvents().size() > budget || candidates.size() > budget)
+        if (trace.getEvents().size() > budget || candidates.size() > budget) {
             throw new IllegalArgumentException("Network trace or candidate binding count exceeds the record budget");
+        }
         Map<Long, NetworkFlowBinding> byOrdinal = new LinkedHashMap<Long, NetworkFlowBinding>();
         for (NetworkFlowBinding binding : candidates) {
-            if (binding == null || binding.getAdmissionOrdinal() > budget)
+            if (binding == null || binding.getAdmissionOrdinal() > budget) {
                 throw new IllegalArgumentException("Network binding lies outside the bounded admission prefix");
-            if (byOrdinal.put(binding.getAdmissionOrdinal(), binding) != null)
+            }
+            if (byOrdinal.put(binding.getAdmissionOrdinal(), binding) != null) {
                 throw new IllegalArgumentException(
                         "Duplicate network binding admission ordinal: " + binding.getAdmissionOrdinal());
+            }
         }
         List<NetworkFlowBinding> retained = new ArrayList<NetworkFlowBinding>();
         for (TransferTraceEvent event : trace.getEvents()) {
-            if (event.getType() != TransferTraceEvent.Type.START) continue;
+            if (event.getType() != TransferTraceEvent.Type.START) {
+                continue;
+            }
             NetworkFlowBinding binding = byOrdinal.remove(event.getAdmissionOrdinal());
             if (binding == null
                     || binding.getExternalTransferId() != event.getTransferId().longValue()
-                    || !binding.getOccupiedResources().equals(event.getStart().getOccupiedResources()))
+                    || !binding.getOccupiedResources().equals(event.getStart().getOccupiedResources())) {
                 throw new IllegalStateException("Retained START admission " + event.getAdmissionOrdinal()
                         + " has no matching network flow binding (external ID and ordered resources must match)");
+            }
             retained.add(binding);
         }
-        if (trace.getStatus() == TransferTraceSnapshot.Status.COMPLETE && !byOrdinal.isEmpty())
+        if (trace.getStatus() == TransferTraceSnapshot.Status.COMPLETE && !byOrdinal.isEmpty()) {
             throw new IllegalStateException(
                     "Complete network trace has candidate bindings without retained START records");
+        }
         return new NetworkRunEvidence(config, modelKind, trace, retained, true, inputDemand);
     }
 
     private static void requireEnabledContention(NetworkEvidenceConfig config, DataMovementModel.Kind kind) {
-        if (config == null || !config.isEnabled())
+        if (config == null || !config.isEnabled()) {
             throw new IllegalArgumentException("Network run evidence requires an enabled capture option");
+        }
         if (kind != DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1
-                && kind != DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1)
+                && kind != DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1) {
             throw new IllegalArgumentException(
                     "Grouped network evidence requires an existing fluid contention model: " + kind);
+        }
     }
     /** @return immutable capture option */
     public NetworkEvidenceConfig getConfig() {

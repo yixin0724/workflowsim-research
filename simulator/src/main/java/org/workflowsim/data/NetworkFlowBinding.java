@@ -81,20 +81,30 @@ public final class NetworkFlowBinding {
             String sourceEndpoint,
             String destinationEndpoint,
             List<String> resources) {
-        if (admissionOrdinal <= 0) throw new IllegalArgumentException("Admission ordinal must be positive");
+        if (admissionOrdinal <= 0) {
+            throw new IllegalArgumentException("Admission ordinal must be positive");
+        }
         if (taskIds == null
                 || groupKind == null
                 || sourceEndpoint == null
                 || destinationEndpoint == null
-                || resources == null)
+                || resources == null) {
             throw new IllegalArgumentException("Network flow binding contains a required null value");
+        }
         if ((groupKind == GroupKind.PARENT_GROUP_V1 && parentJobId == null)
-                || (groupKind == GroupKind.EXTERNAL_GROUP_V1 && parentJobId != null))
+                || (groupKind == GroupKind.EXTERNAL_GROUP_V1 && parentJobId != null)) {
             throw new IllegalArgumentException("Parent Job ID must match the network group kind");
-        for (Integer taskId : taskIds)
-            if (taskId == null) throw new IllegalArgumentException("Task IDs cannot contain null");
-        for (String resource : resources)
-            if (resource == null) throw new IllegalArgumentException("Occupied resources cannot contain null");
+        }
+        for (Integer taskId : taskIds) {
+            if (taskId == null) {
+                throw new IllegalArgumentException("Task IDs cannot contain null");
+            }
+        }
+        for (String resource : resources) {
+            if (resource == null) {
+                throw new IllegalArgumentException("Occupied resources cannot contain null");
+            }
+        }
         return new NetworkFlowBinding(
                 externalTransferId,
                 admissionOrdinal,

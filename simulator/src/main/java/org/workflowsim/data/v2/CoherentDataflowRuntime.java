@@ -76,7 +76,9 @@ public final class CoherentDataflowRuntime {
     }
 
     private CoherentDataflowRuntime(boolean shared, int budget, boolean storage, boolean storeInputs) {
-        if (budget < 0) throw new IllegalArgumentException("Lifecycle budget cannot be negative");
+        if (budget < 0) {
+            throw new IllegalArgumentException("Lifecycle budget cannot be negative");
+        }
         this.shared = shared;
         this.budget = budget;
         storageVersion = storage;
@@ -97,13 +99,16 @@ public final class CoherentDataflowRuntime {
      * @param locations known typed VM and SOURCE locations
      */
     public void initializePlan(DataflowFilePlan filePlan, Collection<DataLocation> locations) {
-        if (current != null || filePlan == null)
+        if (current != null || filePlan == null) {
             throw new IllegalStateException("File plan must be installed exactly once");
+        }
         DataReplicaState replicas = new DataReplicaState(filePlan, locations);
-        if (!locations.contains(SOURCE)) throw new IllegalArgumentException("NF003 SOURCE location is missing");
+        if (!locations.contains(SOURCE)) {
+            throw new IllegalArgumentException("NF003 SOURCE location is missing");
+        }
         Stage staged = new Stage(new Frame(replicas, null));
         JsonObject encoded = FileLifecycleFormat.plan(filePlan);
-        for (DataflowFilePlan.FileDefinition file : filePlan.getFiles())
+        for (DataflowFilePlan.FileDefinition file : filePlan.getFiles()) {
             if (file.isExternal()) {
                 replicas.seedExternal(file.getId(), SOURCE, 0);
                 JsonObject p = staged.event(FileLifecycleEvent.Type.EXTERNAL_SEEDED, 0);
@@ -112,6 +117,7 @@ public final class CoherentDataflowRuntime {
                     p.add("location", FileLifecycleFormat.location(SOURCE));
                 }
             }
+        }
         plan = filePlan;
         planDocument = encoded;
         commit(staged);
@@ -121,16 +127,20 @@ public final class CoherentDataflowRuntime {
      * @param actualFabric immutable actual-placement fabric
      */
     public void bindFabric(DataTransferFabric actualFabric) {
-        if (current == null || fabric != null || actualFabric == null)
+        if (current == null || fabric != null || actualFabric == null) {
             throw new IllegalStateException("Plan must precede one fabric binding");
-        if (storageVersion != (actualFabric.getSourceStorage() != null))
+        }
+        if (storageVersion != (actualFabric.getSourceStorage() != null)) {
             throw new IllegalArgumentException("Bounded storage and runtime lifecycle versions must match");
-        if (!new TreeSet<>(current.replicas.snapshot().getLocations()).equals(actualFabric.getLocations()))
+        }
+        if (!new TreeSet<>(current.replicas.snapshot().getLocations()).equals(actualFabric.getLocations())) {
             throw new IllegalArgumentException("Replica and fabric locations disagree");
+        }
         TransferContentionEngine service = TransferContentionEngine.coherentV2(shared);
         for (Map.Entry<String, Double> entry :
-                actualFabric.getResourceCapacities().entrySet())
+                actualFabric.getResourceCapacities().entrySet()) {
             service.setEndpointCapacity(entry.getKey(), entry.getValue());
+        }
         fabric = actualFabric;
         fabricDocument = FileLifecycleFormat.fabric(actualFabric);
         current.service = service;
@@ -141,7 +151,9 @@ public final class CoherentDataflowRuntime {
     }
     /** @return frozen plan */
     public DataflowFilePlan getFilePlan() {
-        if (plan == null) throw new IllegalStateException("No V2 file plan");
+        if (plan == null) {
+            throw new IllegalStateException("No V2 file plan");
+        }
         return plan;
     }
     /** @return defensive plan document for the new model's core manifest */
@@ -176,10 +188,14 @@ public final class CoherentDataflowRuntime {
     /** @param files required logical-file scope @return passive scoped file view plus global
      * active-copy/resource/job state */
     public DataflowObservation observeFiles(Collection<DataflowFilePlan.FileId> files) {
-        if (files == null || plan == null)
+        if (files == null || plan == null) {
             throw new IllegalArgumentException("Initialized plan and explicit observation scope are required");
-        for (DataflowFilePlan.FileId file : files)
-            if (file == null) throw new IllegalArgumentException("Observation file scope cannot contain null");
+        }
+        for (DataflowFilePlan.FileId file : files) {
+            if (file == null) {
+                throw new IllegalArgumentException("Observation file scope cannot contain null");
+            }
+        }
         return observation(new TreeSet<>(files));
     }
 
@@ -188,7 +204,7 @@ public final class CoherentDataflowRuntime {
         Map<DataflowFilePlan.FileId, DataflowObservation.FileView> files = new LinkedHashMap<>();
         Map<Long, DataflowObservation.CopyView> copies = new LinkedHashMap<>();
         Map<Integer, DataflowObservation.JobView> jobs = new LinkedHashMap<>();
-        if (frame == null)
+        if (frame == null) {
             return new DataflowObservation(
                     DataflowObservation.Status.UNINITIALIZED,
                     shared,
@@ -202,10 +218,13 @@ public final class CoherentDataflowRuntime {
                     copies,
                     jobs,
                     Collections.<DataflowFilePlan.FileId>emptySet());
+        }
         Set<DataflowFilePlan.FileId> selected = scope;
         if (selected == null) {
             selected = new TreeSet<>();
-            for (DataflowFilePlan.FileDefinition file : plan.getFiles()) selected.add(file.getId());
+            for (DataflowFilePlan.FileDefinition file : plan.getFiles()) {
+                selected.add(file.getId());
+            }
         }
         Collection<DataLocation> locations =
                 fabric == null ? frame.replicas.snapshot().getLocations() : fabric.getLocations();
@@ -260,7 +279,9 @@ public final class CoherentDataflowRuntime {
             List<DataReplicaState.Replica> holders = new ArrayList<>();
             for (DataLocation location : locations) {
                 DataReplicaState.Replica replica = frame.replicas.getReplica(id, location);
-                if (replica != null) holders.add(replica);
+                if (replica != null) {
+                    holders.add(replica);
+                }
             }
             files.put(id, new DataflowObservation.FileView(file, holders));
         }
@@ -273,13 +294,16 @@ public final class CoherentDataflowRuntime {
             Map<Long, DataflowObservation.CopyView> copies) {
         if (service != null) {
             if (service.getObservedThrough() != frame.replicas.getObservedThrough()
-                    || service.getTransfers().size() != frame.copies.size())
+                    || service.getTransfers().size() != frame.copies.size()) {
                 throw new IllegalStateException("Committed service and replica observations disagree");
+            }
             for (Map.Entry<Long, ActiveCopy> entry : frame.copies.entrySet()) {
                 ActiveCopy copy = entry.getValue();
                 org.workflowsim.data.TransferServiceSnapshot.Flow flow =
                         service.getTransfers().get(entry.getKey());
-                if (flow == null) throw new IllegalStateException("Observed copy has no active service flow");
+                if (flow == null) {
+                    throw new IllegalStateException("Observed copy has no active service flow");
+                }
                 copies.put(
                         entry.getKey(),
                         new DataflowObservation.CopyView(
@@ -296,18 +320,24 @@ public final class CoherentDataflowRuntime {
 
     /** @return newly data-ready Job IDs exactly once */
     public List<Integer> drainReadyJobIds() {
-        if (current == null) return Collections.emptyList();
+        if (current == null) {
+            return Collections.emptyList();
+        }
         List<Integer> result = Collections.unmodifiableList(new ArrayList<>(current.ready));
         current.ready.clear();
         return result;
     }
     /** @return true after all requested Job attempts and positive copies have finished */
     public boolean isQuiescent() {
-        if (current == null) return false;
+        if (current == null) {
+            return false;
+        }
         if (!current.copies.isEmpty()
                 || !current.ready.isEmpty()
                 || !current.outputObligations.isEmpty()
-                || !current.storeWaiters.isEmpty()) return false;
+                || !current.storeWaiters.isEmpty()) {
+            return false;
+        }
         return current.jobs.isEmpty();
     }
 
@@ -321,20 +351,26 @@ public final class CoherentDataflowRuntime {
      *         must read {@link #getPreparation(int)} after data-ready for final deferred-input totals
      */
     public Preparation requestJob(int jobId, List<Integer> taskIds, int vmId, double now) {
-        if (storageVersion) return requestStorageJob(jobId, taskIds, vmId, now);
+        if (storageVersion) {
+            return requestStorageJob(jobId, taskIds, vmId, now);
+        }
         requireBound();
         List<Integer> members = members(taskIds);
         DataLocation destination = DataLocation.vm(vmId);
         fabric.requireLocation(destination);
-        if (jobId < 0 || current.jobs.containsKey(jobId) || current.completedJobs.containsKey(jobId))
+        if (jobId < 0 || current.jobs.containsKey(jobId) || current.completedJobs.containsKey(jobId)) {
             throw new IllegalStateException("Job input request identity is invalid or already used");
+        }
         Stage staged = step(now);
         Frame frame = staged.frame;
-        for (int task : members)
-            for (int parent : plan.getParentTaskIds(task))
-                if (!frame.successfulTasks.containsKey(parent))
+        for (int task : members) {
+            for (int parent : plan.getParentTaskIds(task)) {
+                if (!frame.successfulTasks.containsKey(parent)) {
                     throw new IllegalStateException(
                             "Logical control dependency has not successfully completed: " + parent);
+                }
+            }
+        }
         JobState job = new JobState(members, vmId);
         job.requestedAt = now;
         frame.jobs.put(jobId, job);
@@ -342,16 +378,21 @@ public final class CoherentDataflowRuntime {
         if (requested != null) {
             requested.addProperty("jobId", jobId);
             JsonArray ids = new JsonArray();
-            for (int id : members) ids.add(id);
+            for (int id : members) {
+                ids.add(id);
+            }
             requested.add("taskIds", ids);
             requested.addProperty("destinationVmId", vmId);
         }
         InputAggregate aggregate = resolveJobInputs(staged, frame, job, jobId, vmId, members, destination, now);
-        if (aggregate.references > Integer.MAX_VALUE)
+        if (aggregate.references > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Reference count exceeds the supported core-event count range");
+        }
         job.preparation = new Preparation(
                 aggregate.bytes, aggregate.seconds, aggregate.references, aggregate.copies, aggregate.joins);
-        if (job.pending.isEmpty()) ready(staged, jobId, now);
+        if (job.pending.isEmpty()) {
+            ready(staged, jobId, now);
+        }
         commit(staged);
         return job.preparation;
     }
@@ -392,7 +433,9 @@ public final class CoherentDataflowRuntime {
                 ActiveCopy active;
                 if (ticket != null) {
                     active = frame.copies.get(ticket.getOrdinal());
-                    if (active == null) throw new IllegalStateException("Replica ticket has no service flow");
+                    if (active == null) {
+                        throw new IllegalStateException("Replica ticket has no service flow");
+                    }
                     resolution = "JOIN_EXISTING";
                     aggregate.joins++;
                 } else {
@@ -407,9 +450,10 @@ public final class CoherentDataflowRuntime {
                             decision.getRoute().getResources(),
                             decision.getRoute().getStandaloneRateBytesPerSecond(),
                             now);
-                    if (!result.getCompletedTransferIds().isEmpty())
+                    if (!result.getCompletedTransferIds().isEmpty()) {
                         throw new IllegalStateException(
                                 "Same-observation admission unexpectedly completed old service");
+                    }
                     frame.nextTime = result.getNextCompletionTime();
                     active = new ActiveCopy(ticket, decision, "INPUT", jobId);
                     frame.copies.put(ticket.getOrdinal(), active);
@@ -457,7 +501,9 @@ public final class CoherentDataflowRuntime {
             p.add("sourceReplica", FileLifecycleFormat.replica(ticket.getSourceReplica()));
             p.addProperty("destinationVmId", vmId);
             JsonArray path = new JsonArray();
-            for (String key : decision.getRoute().getResources()) path.add(key);
+            for (String key : decision.getRoute().getResources()) {
+                path.add(key);
+            }
             p.add("resources", path);
             p.addProperty("standaloneRate", decision.getRoute().getStandaloneRateBytesPerSecond());
             p.addProperty("isolatedSeconds", decision.getIsolatedSeconds());
@@ -478,15 +524,19 @@ public final class CoherentDataflowRuntime {
         List<Integer> members = members(taskIds);
         DataLocation destination = DataLocation.vm(vmId);
         fabric.requireLocation(destination);
-        if (jobId < 0 || current.jobs.containsKey(jobId) || current.completedJobs.containsKey(jobId))
+        if (jobId < 0 || current.jobs.containsKey(jobId) || current.completedJobs.containsKey(jobId)) {
             throw new IllegalStateException("Job input request identity is invalid or already used");
+        }
         Stage staged = step(now);
         Frame frame = staged.frame;
-        for (int task : members)
-            for (int parent : plan.getParentTaskIds(task))
-                if (!frame.successfulTasks.containsKey(parent))
+        for (int task : members) {
+            for (int parent : plan.getParentTaskIds(task)) {
+                if (!frame.successfulTasks.containsKey(parent)) {
                     throw new IllegalStateException(
                             "Logical control dependency has not successfully completed: " + parent);
+                }
+            }
+        }
         JobState job = new JobState(members, vmId);
         job.requestedAt = now;
         frame.jobs.put(jobId, job);
@@ -494,7 +544,9 @@ public final class CoherentDataflowRuntime {
         if (requested != null) {
             requested.addProperty("jobId", jobId);
             JsonArray ids = new JsonArray();
-            for (int id : members) ids.add(id);
+            for (int id : members) {
+                ids.add(id);
+            }
             requested.add("taskIds", ids);
             requested.addProperty("destinationVmId", vmId);
         }
@@ -518,13 +570,18 @@ public final class CoherentDataflowRuntime {
                     p.add("fileId", FileLifecycleFormat.file(file));
                     p.addProperty("referenceCount", demand.getReferenceCount());
                 }
-            } else resolveStorageInput(staged, jobId, file, demand.getReferenceCount(), now, false);
+            } else {
+                resolveStorageInput(staged, jobId, file, demand.getReferenceCount(), now, false);
+            }
         }
-        if (job.referenceCount > Integer.MAX_VALUE)
+        if (job.referenceCount > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Reference count exceeds core-event range");
+        }
         job.preparation = new Preparation(
                 job.referenceBytes, job.isolatedInputSeconds, job.referenceCount, job.newCopies, job.joinedCopies);
-        if (job.pending.isEmpty()) ready(staged, jobId, now);
+        if (job.pending.isEmpty()) {
+            ready(staged, jobId, now);
+        }
         commit(staged);
         return job.preparation;
     }
@@ -537,8 +594,9 @@ public final class CoherentDataflowRuntime {
         String resolution;
         Long ordinal = null;
         DataLocation source;
-        if (storeBackedInputs && frame.replicas.getReplica(file, SOURCE) == null)
+        if (storeBackedInputs && frame.replicas.getReplica(file, SOURCE) == null) {
             throw new IllegalStateException("Store input resolution precedes store commitment");
+        }
         DataReplicaState.Replica local = frame.replicas.getReplica(file, destination);
         if (local != null) {
             resolution = "LOCAL";
@@ -556,8 +614,9 @@ public final class CoherentDataflowRuntime {
             ActiveCopy copy;
             if (ticket != null) {
                 copy = frame.copies.get(ticket.getOrdinal());
-                if (copy == null || !copy.purpose.equals("INPUT"))
+                if (copy == null || !copy.purpose.equals("INPUT")) {
                     throw new IllegalStateException("Input ticket has no input service flow");
+                }
                 resolution = "JOIN_EXISTING";
                 job.joinedCopies++;
             } else {
@@ -588,7 +647,9 @@ public final class CoherentDataflowRuntime {
             p.addProperty("copyOrdinal", ordinal);
             p.add("source", FileLifecycleFormat.location(source));
         }
-        if (release && job.pending.isEmpty()) ready(staged, jobId, now);
+        if (release && job.pending.isEmpty()) {
+            ready(staged, jobId, now);
+        }
     }
 
     private ReplicaTransferSelector.Decision storageInputDecision(
@@ -610,8 +671,9 @@ public final class CoherentDataflowRuntime {
                 decision.getRoute().getResources(),
                 decision.getRoute().getStandaloneRateBytesPerSecond(),
                 now);
-        if (!added.getCompletedTransferIds().isEmpty())
+        if (!added.getCompletedTransferIds().isEmpty()) {
             throw new IllegalStateException("Admission unexpectedly completed prior service");
+        }
         frame.nextTime = added.getNextCompletionTime();
         ActiveCopy copy = new ActiveCopy(ticket, decision, purpose, owner);
         frame.copies.put(ticket.getOrdinal(), copy);
@@ -625,7 +687,9 @@ public final class CoherentDataflowRuntime {
             p.addProperty("purpose", purpose);
             p.addProperty("ownerJobId", owner);
             JsonArray path = new JsonArray();
-            for (String key : decision.getRoute().getResources()) path.add(key);
+            for (String key : decision.getRoute().getResources()) {
+                path.add(key);
+            }
             p.add("resources", path);
             p.addProperty("standaloneRate", decision.getRoute().getStandaloneRateBytesPerSecond());
             p.addProperty("isolatedSeconds", decision.getIsolatedSeconds());
@@ -657,8 +721,9 @@ public final class CoherentDataflowRuntime {
                 resolution = "NEW_COPY";
             } else {
                 ActiveCopy copy = frame.copies.get(existing.getOrdinal());
-                if (copy == null || !copy.purpose.equals("OUTPUT"))
+                if (copy == null || !copy.purpose.equals("OUTPUT")) {
                     throw new IllegalStateException("Store ticket has no output flow");
+                }
                 ordinal = existing.getOrdinal();
                 resolution = "JOIN_EXISTING";
             }
@@ -672,17 +737,22 @@ public final class CoherentDataflowRuntime {
             p.addProperty("copyOrdinal", ordinal);
             p.add("source", FileLifecycleFormat.location(replica.getLocation()));
         }
-        if (published) resumeStoreInputs(staged, file, now);
+        if (published) {
+            resumeStoreInputs(staged, file, now);
+        }
     }
 
     private void resumeStoreInputs(Stage staged, DataflowFilePlan.FileId file, double now) {
         LinkedHashSet<Integer> waiting = staged.frame.storeWaiters.remove(file);
-        if (waiting == null) return;
+        if (waiting == null) {
+            return;
+        }
         for (int id : waiting) {
             JobState job = staged.frame.jobs.get(id);
             Long count = job.unresolvedStore.remove(file);
-            if (count == null || !job.pending.contains(file))
+            if (count == null || !job.pending.contains(file)) {
                 throw new IllegalStateException("Deferred input index disagrees");
+            }
             resolveStorageInput(staged, id, file, count, now, true);
         }
     }
@@ -700,13 +770,16 @@ public final class CoherentDataflowRuntime {
     public void cpuStarted(int jobId, List<Integer> taskIds, int vmId, double now) {
         requireBound();
         JobState existing = job(jobId, taskIds, vmId, current);
-        if (existing.readyAt == null || existing.startedAt != null)
+        if (existing.readyAt == null || existing.startedAt != null) {
             throw new IllegalStateException("CPU submission requires one existing data-ready release");
+        }
         Stage staged = step(now);
         JobState job = job(jobId, taskIds, vmId, staged.frame);
-        for (DataflowFilePlan.InputDemand input : plan.demandsFor(job.tasks))
-            if (staged.frame.replicas.getReplica(input.getFile().getId(), DataLocation.vm(vmId)) == null)
+        for (DataflowFilePlan.InputDemand input : plan.demandsFor(job.tasks)) {
+            if (staged.frame.replicas.getReplica(input.getFile().getId(), DataLocation.vm(vmId)) == null) {
                 throw new IllegalStateException("CPU input replica is not visible");
+            }
+        }
         job.startedAt = now;
         JsonObject p = staged.event(FileLifecycleEvent.Type.JOB_CPU_STARTED, now);
         if (p != null) {
@@ -730,7 +803,9 @@ public final class CoherentDataflowRuntime {
                 || existing.finishedAt != null
                 || successes == null
                 || successes.size() != existing.tasks.size()
-                || successes.contains(null)) throw new IllegalStateException("Invalid terminal Job outcome");
+                || successes.contains(null)) {
+            throw new IllegalStateException("Invalid terminal Job outcome");
+        }
         Stage staged = step(now);
         JobState job = job(jobId, taskIds, vmId, staged.frame);
         for (int i = 0; i < job.tasks.size(); i++) {
@@ -745,14 +820,18 @@ public final class CoherentDataflowRuntime {
                 p.addProperty("vmId", vmId);
                 p.addProperty("success", success);
             }
-            if (success) staged.frame.successfulTasks = staged.frame.successfulTasks.with(task, Boolean.TRUE);
+            if (success) {
+                staged.frame.successfulTasks = staged.frame.successfulTasks.with(task, Boolean.TRUE);
+            }
             for (DataReplicaState.Publication publication : publications) {
                 visible(
                         staged,
                         publication.getReplica().getFile().getId(),
                         publication.getReplica().getLocation(),
                         now);
-                if (storageVersion) materializeOutput(staged, jobId, task, publication.getReplica(), now);
+                if (storageVersion) {
+                    materializeOutput(staged, jobId, task, publication.getReplica(), now);
+                }
             }
         }
         job.finishedAt = now;
@@ -772,7 +851,9 @@ public final class CoherentDataflowRuntime {
     }
 
     private FileLifecycleEvidence captureCommon() {
-        if (budget == 0) return null;
+        if (budget == 0) {
+            return null;
+        }
         requireBound();
         return FileLifecycleEvidence.capture(
                 budget, dropped, getCurrentTime(), shared, planDocument, fabricDocument, events);
@@ -782,22 +863,30 @@ public final class CoherentDataflowRuntime {
     public Preparation getPreparation(int jobId) {
         JobState job = current.jobs.get(jobId);
         if (job != null) {
-            if (job.readyAt == null) throw new IllegalStateException("Input preparation is not final");
+            if (job.readyAt == null) {
+                throw new IllegalStateException("Input preparation is not final");
+            }
             return job.preparation;
         }
         CompletedJob completed = current.completedJobs.get(jobId);
-        if (completed == null) throw new IllegalStateException("Input preparation is not final");
+        if (completed == null) {
+            throw new IllegalStateException("Input preparation is not final");
+        }
         return completed.preparation;
     }
     /** @param jobId input-ready attempt @return observed preparation latency, not a sum of overlapping waits */
     public double getObservedInputPreparationSeconds(int jobId) {
         JobState job = current.jobs.get(jobId);
         if (job != null) {
-            if (job.readyAt == null) throw new IllegalStateException("Input preparation is not final");
+            if (job.readyAt == null) {
+                throw new IllegalStateException("Input preparation is not final");
+            }
             return job.readyAt - job.requestedAt;
         }
         CompletedJob completed = current.completedJobs.get(jobId);
-        if (completed == null) throw new IllegalStateException("Input preparation is not final");
+        if (completed == null) {
+            throw new IllegalStateException("Input preparation is not final");
+        }
         return completed.readyAt - completed.requestedAt;
     }
 
@@ -808,11 +897,14 @@ public final class CoherentDataflowRuntime {
         staged.frame.nextTime = result.getNextCompletionTime();
         staged.frame.replicas.advanceTo(now);
         if (result.getCompletedTransferIds().size()
-                != result.getCompletionObservations().size())
+                != result.getCompletionObservations().size()) {
             throw new IllegalStateException("Checked service omitted completion observations");
+        }
         for (TransferContentionEngine.CompletionObservation completion : result.getCompletionObservations()) {
             ActiveCopy copy = staged.frame.copies.remove(completion.getTransferId());
-            if (copy == null) throw new IllegalStateException("Completed service has no file copy identity");
+            if (copy == null) {
+                throw new IllegalStateException("Completed service has no file copy identity");
+            }
             staged.frame.replicas.settleCopy(copy.ticket, now);
             JsonObject p = staged.event(FileLifecycleEvent.Type.COPY_SETTLED, now);
             if (p != null) {
@@ -831,33 +923,46 @@ public final class CoherentDataflowRuntime {
 
     private void visible(Stage staged, DataflowFilePlan.FileId file, DataLocation location, double now) {
         Set<Integer> waiters = staged.frame.waiters.remove(new Target(file, location));
-        if (waiters == null) return;
+        if (waiters == null) {
+            return;
+        }
         for (int id : waiters) {
             JobState job = staged.frame.jobs.get(id);
-            if (job == null || !job.pending.remove(file))
+            if (job == null || !job.pending.remove(file)) {
                 throw new IllegalStateException("File waiter is inconsistent");
-            if (job.pending.isEmpty()) ready(staged, id, now);
+            }
+            if (job.pending.isEmpty()) {
+                ready(staged, id, now);
+            }
         }
     }
 
     private void ready(Stage staged, int id, double now) {
         JobState job = staged.frame.jobs.get(id);
-        if (job.readyAt != null) throw new IllegalStateException("Job data-ready release duplicated");
-        if (!job.unresolvedStore.isEmpty()) throw new IllegalStateException("Store visibility is not target readiness");
-        if (storageVersion)
+        if (job.readyAt != null) {
+            throw new IllegalStateException("Job data-ready release duplicated");
+        }
+        if (!job.unresolvedStore.isEmpty()) {
+            throw new IllegalStateException("Store visibility is not target readiness");
+        }
+        if (storageVersion) {
             job.preparation = new Preparation(
                     job.referenceBytes, job.isolatedInputSeconds, job.referenceCount, job.newCopies, job.joinedCopies);
+        }
         job.readyAt = now;
         staged.frame.ready.add(id);
         JsonObject p = staged.event(FileLifecycleEvent.Type.JOB_DATA_READY, now);
-        if (p != null) p.addProperty("jobId", id);
+        if (p != null) {
+            p.addProperty("jobId", id);
+        }
     }
 
     private void commit(Stage staged) {
         List<FileLifecycleEvent> additions = new ArrayList<>();
         long seq = events.size() + 1L;
-        for (PendingEvent event : staged.pending)
+        for (PendingEvent event : staged.pending) {
             additions.add(FileLifecycleEvent.of(seq++, event.time, event.type, event.payload));
+        }
         long lost = Math.addExact(dropped, staged.dropped);
         events.addAll(additions);
         dropped = lost;
@@ -865,8 +970,9 @@ public final class CoherentDataflowRuntime {
     }
 
     private List<Integer> members(List<Integer> ids) {
-        if (ids == null || ids.size() != 1 || ids.get(0) == null)
+        if (ids == null || ids.size() != 1 || ids.get(0) == null) {
             throw new IllegalArgumentException("V2 runtime initially requires one logical Task per Job");
+        }
         plan.getInputReferences(ids.get(0));
         return Collections.unmodifiableList(new ArrayList<>(ids));
     }
@@ -875,29 +981,34 @@ public final class CoherentDataflowRuntime {
         JobState job = frame.jobs.get(id);
         if (job == null) {
             CompletedJob completed = frame.completedJobs.get(id);
-            if (completed != null && completed.vm == vm && completed.tasks.equals(tasks))
+            if (completed != null && completed.vm == vm && completed.tasks.equals(tasks)) {
                 throw new IllegalStateException("Job attempt has already completed");
+            }
         }
-        if (job == null || job.vm != vm || !job.tasks.equals(tasks))
+        if (job == null || job.vm != vm || !job.tasks.equals(tasks)) {
             throw new IllegalStateException("Job membership or fixed VM changed after input request");
+        }
         return job;
     }
 
     private static void requireSource(ReplicaTransferSelector.Decision decision) {
-        if (decision.getSourceReplica() == null)
+        if (decision.getSourceReplica() == null) {
             throw new IllegalStateException("Dependency-ready input has no published source replica");
+        }
     }
 
     private static double finiteSum(double a, double b) {
         double sum = a + b;
-        if (!Double.isFinite(b) || b < 0 || !Double.isFinite(sum))
+        if (!Double.isFinite(b) || b < 0 || !Double.isFinite(sum)) {
             throw new IllegalArgumentException("V2 core-event aggregate is not representable");
+        }
         return sum;
     }
 
     private void requireBound() {
-        if (current == null || fabric == null || current.service == null)
+        if (current == null || fabric == null || current.service == null) {
             throw new IllegalStateException("V2 runtime plan and actual fabric are not initialized");
+        }
     }
 
     private final class Stage {
@@ -910,7 +1021,9 @@ public final class CoherentDataflowRuntime {
         }
 
         JsonObject event(FileLifecycleEvent.Type type, double time) {
-            if (budget == 0) return null;
+            if (budget == 0) {
+                return null;
+            }
             if (events.size() + pending.size() == budget) {
                 dropped++;
                 return null;
@@ -1001,8 +1114,9 @@ public final class CoherentDataflowRuntime {
                     || job.finishedAt == null
                     || job.preparation == null
                     || !job.pending.isEmpty()
-                    || !job.unresolvedStore.isEmpty())
+                    || !job.unresolvedStore.isEmpty()) {
                 throw new IllegalStateException("Terminal job still has unfinished preparation");
+            }
             tasks = job.tasks;
             vm = job.vm;
             preparation = job.preparation;
@@ -1027,7 +1141,9 @@ public final class CoherentDataflowRuntime {
 
         @Override
         public boolean equals(Object value) {
-            if (!(value instanceof Target)) return false;
+            if (!(value instanceof Target)) {
+                return false;
+            }
             Target other = (Target) value;
             return file.equals(other.file) && location.equals(other.location);
         }
@@ -1056,17 +1172,20 @@ public final class CoherentDataflowRuntime {
             replicas = from.replicas.fork();
             service = from.service == null ? null : from.service.fork();
             nextTime = from.nextTime;
-            for (Map.Entry<Integer, JobState> entry : from.jobs.entrySet())
+            for (Map.Entry<Integer, JobState> entry : from.jobs.entrySet()) {
                 jobs.put(entry.getKey(), new JobState(entry.getValue()));
-            for (Map.Entry<Target, LinkedHashSet<Integer>> entry : from.waiters.entrySet())
+            }
+            for (Map.Entry<Target, LinkedHashSet<Integer>> entry : from.waiters.entrySet()) {
                 waiters.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
+            }
             copies.putAll(from.copies);
             completedJobs = from.completedJobs;
             successfulTasks = from.successfulTasks;
             ready.addAll(from.ready);
             outputObligations.addAll(from.outputObligations);
-            for (Map.Entry<DataflowFilePlan.FileId, LinkedHashSet<Integer>> entry : from.storeWaiters.entrySet())
+            for (Map.Entry<DataflowFilePlan.FileId, LinkedHashSet<Integer>> entry : from.storeWaiters.entrySet()) {
                 storeWaiters.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
+            }
         }
     }
 }

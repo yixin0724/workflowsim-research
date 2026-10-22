@@ -64,16 +64,18 @@ public final class FileLifecycleEvidence {
                 || fabric == null
                 || events == null
                 || events.size() > budget
-                || (dropped > 0 && events.size() != budget))
+                || (dropped > 0 && events.size() != budget)) {
             throw new IllegalArgumentException("Invalid file lifecycle capture shape");
+        }
         long sequence = 1;
         double previous = 0;
         for (FileLifecycleEvent event : events) {
             if (event == null
                     || event.getSequence() != sequence++
                     || event.getObservedTime() < previous
-                    || event.getObservedTime() > observedThrough)
+                    || event.getObservedTime() > observedThrough) {
                 throw new IllegalArgumentException("Invalid file lifecycle prefix order");
+            }
             previous = event.getObservedTime();
         }
         return new FileLifecycleEvidence(budget, dropped, observedThrough, shared, plan, fabric, events);

@@ -42,13 +42,15 @@ final class NetworkLedgerContextValidator {
     private BigDecimal required = BigDecimal.ZERO, requiredError = BigDecimal.ZERO;
 
     static void validateReport(SimulationReport report) throws IOException {
-        if (report.getNetworkEvidence() == null)
+        if (report.getNetworkEvidence() == null) {
             throw fail("ON configuration is missing its captured network evidence");
+        }
         JsonObject context = JSON.toJsonTree(ExperimentManifestWriter.networkContextSnapshot(report))
                 .getAsJsonObject();
         NetworkLedgerContextValidator check = new NetworkLedgerContextValidator(context, report.getNetworkEvidence());
-        for (SimulationEvent event : report.getEvents())
+        for (SimulationEvent event : report.getEvents()) {
             check.acceptEvent(JSON.toJsonTree(event).getAsJsonObject());
+        }
         check.finish();
     }
 
@@ -62,34 +64,45 @@ final class NetworkLedgerContextValidator {
             throw new IOException("Invalid manifest networkEvidence option", e);
         }
         if (option.getMode() != evidence.getConfig().getMode()
-                || option.getMaxTraceRecords() != evidence.getConfig().getMaxTraceRecords())
+                || option.getMaxTraceRecords() != evidence.getConfig().getMaxTraceRecords()) {
             throw fail("Manifest and ledger capture configuration differ");
+        }
         model = text(obj(config, "dataMovementModel"), "kind");
         fileSystem = text(config, "fileSystem");
-        if (!model.equals(evidence.getModelKind().name()))
+        if (!model.equals(evidence.getModelKind().name())) {
             throw fail("Manifest and ledger data movement models differ");
-        if (!"LOCAL".equals(fileSystem) && !"SHARED".equals(fileSystem))
+        }
+        if (!"LOCAL".equals(fileSystem) && !"SHARED".equals(fileSystem)) {
             throw fail("Unknown file system for network context");
+        }
         simulationEnd = nonnegative(result, "simulationEndSeconds");
-        if (evidence.getTraceSnapshot().getEngineTime() > simulationEnd)
+        if (evidence.getTraceSnapshot().getEngineTime() > simulationEnd) {
             throw fail("Network watermark exceeds simulation end");
+        }
         JsonObject assignments = obj(result, "actualVmHostAssignments");
         Set<Integer> hosts = new HashSet<Integer>();
-        for (JsonElement h : arr(platform, "hosts"))
-            if (!hosts.add(integer(object(h, "host"), "id"))) throw fail("Duplicate host ID");
+        for (JsonElement h : arr(platform, "hosts")) {
+            if (!hosts.add(integer(object(h, "host"), "id"))) {
+                throw fail("Duplicate host ID");
+            }
+        }
         for (JsonElement item : arr(platform, "vms")) {
             JsonObject vm = object(item, "VM");
             int id = integer(vm, "id"), host = integer(vm, "preflightHostId");
             if (!hosts.contains(host)
                     || !assignments.has(Integer.toString(id))
-                    || whole(assignments.get(Integer.toString(id)), "VM host") != host)
+                    || whole(assignments.get(Integer.toString(id)), "VM host") != host) {
                 throw fail("VM host placement differs from actual run");
+            }
             long bandwidth = whole(required(vm, "bandwidth"), "VM bandwidth");
             double capacity = bandwidth * 1_000_000.0;
-            if (bandwidth <= 0 || !Double.isFinite(capacity) || vms.put(id, new VmView(host, capacity)) != null)
+            if (bandwidth <= 0 || !Double.isFinite(capacity) || vms.put(id, new VmView(host, capacity)) != null) {
                 throw fail("Invalid VM capacity or ID");
+            }
         }
-        if (assignments.size() != vms.size()) throw fail("Actual VM placement contains extra identities");
+        if (assignments.size() != vms.size()) {
+            throw fail("Actual VM placement contains extra identities");
+        }
         topology = evidence.getModelKind()
                         == DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1
                 ? new Topology(object(required(platform, "networkTopology"), "networkTopology"), hosts)
@@ -98,45 +111,67 @@ final class NetworkLedgerContextValidator {
             JsonObject job = object(item, "Job");
             int id = integer(job, "jobId"), vm = integer(job, "vmId"), type = integer(job, "classType");
             List<Integer> taskIds = new ArrayList<Integer>();
-            for (JsonElement task : arr(job, "taskIds")) taskIds.add(integer(task, "taskId"));
+            for (JsonElement task : arr(job, "taskIds")) {
+                taskIds.add(integer(task, "taskId"));
+            }
             JobView view =
                     new JobView(vm, type, nonnegative(job, "startTime"), nonnegative(job, "finishTime"), taskIds);
-            if (view.finish < view.start || view.finish > simulationEnd || jobs.put(id, view) != null)
+            if (view.finish < view.start || view.finish > simulationEnd || jobs.put(id, view) != null) {
                 throw fail("Invalid Job outcome identity or times");
-            if (type == Parameters.ClassType.COMPUTE.value && !vms.containsKey(vm))
+            }
+            if (type == Parameters.ClassType.COMPUTE.value && !vms.containsKey(vm)) {
                 throw fail("Compute Job has unknown VM");
+            }
         }
-        if (evidence.getInputDemand() == null) throw fail("Run ledger is missing actual input-reference observations");
+        if (evidence.getInputDemand() == null) {
+            throw fail("Run ledger is missing actual input-reference observations");
+        }
     }
 
     void acceptEvent(JsonObject event) throws IOException {
         String type = text(event, "type");
         if (!SimulationEventType.JOB_READY.name().equals(type)
-                && !SimulationEventType.DATA_STAGE_IN_MODELED.name().equals(type)) return;
-        if (integer(event, "classType") != Parameters.ClassType.COMPUTE.value) return;
+                && !SimulationEventType.DATA_STAGE_IN_MODELED.name().equals(type)) {
+            return;
+        }
+        if (integer(event, "classType") != Parameters.ClassType.COMPUTE.value) {
+            return;
+        }
         int jobId = integer(event, "jobId");
         JobView job = jobs.get(jobId);
-        if (job == null || job.type != Parameters.ClassType.COMPUTE.value || integer(event, "vmId") != job.vm)
+        if (job == null || job.type != Parameters.ClassType.COMPUTE.value || integer(event, "vmId") != job.vm) {
             throw fail("Network main event has unknown Job/VM");
+        }
         List<Integer> tasks = new ArrayList<Integer>();
-        for (JsonElement t : arr(event, "taskIds")) tasks.add(integer(t, "event taskId"));
-        if (!tasks.equals(job.tasks)) throw fail("Network main event Task IDs differ from Job outcome");
+        for (JsonElement t : arr(event, "taskIds")) {
+            tasks.add(integer(t, "event taskId"));
+        }
+        if (!tasks.equals(job.tasks)) {
+            throw fail("Network main event Task IDs differ from Job outcome");
+        }
         double time = nonnegative(event, "simulationTime");
-        if (time > job.start) throw fail("Input readiness/modeling occurs after Job starts");
+        if (time > job.start) {
+            throw fail("Input readiness/modeling occurs after Job starts");
+        }
         if (SimulationEventType.JOB_READY.name().equals(type)) {
-            if (ready.put(jobId, time) != null) throw fail("Duplicate Job readiness event");
+            if (ready.put(jobId, time) != null) {
+                throw fail("Duplicate Job readiness event");
+            }
             return;
         }
         JsonObject attributes = obj(event, "attributes");
-        if (!model.equals(text(attributes, "dataMovementModel")))
+        if (!model.equals(text(attributes, "dataMovementModel"))) {
             throw fail("Stage-in event uses another data movement model");
+        }
         int files = integer(attributes, "modeledTransferFileCount"),
                 groups = integer(attributes, "contentionTransferGroupCount");
         double bytes = nonnegative(attributes, "requiredFileBytes");
-        if (files < 0 || groups < 0 || groups > files || (groups > 0 && bytes == 0))
+        if (files < 0 || groups < 0 || groups > files || (groups > 0 && bytes == 0)) {
             throw fail("Invalid modeled input reference/group counts");
-        if (stages.put(jobId, new StageView(time, bytes, groups, files)) != null)
+        }
+        if (stages.put(jobId, new StageView(time, bytes, groups, files)) != null) {
             throw fail("Duplicate modeled input event");
+        }
         try {
             references = Math.addExact(references, (long) files);
         } catch (ArithmeticException e) {
@@ -148,23 +183,32 @@ final class NetworkLedgerContextValidator {
 
     void finish() throws IOException {
         boolean complete = evidence.getTraceSnapshot().getStatus() == TransferTraceSnapshot.Status.COMPLETE;
-        for (Map.Entry<Integer, JobView> job : jobs.entrySet())
+        for (Map.Entry<Integer, JobView> job : jobs.entrySet()) {
             if (job.getValue().type == Parameters.ClassType.COMPUTE.value) {
                 StageView stage = stages.get(job.getKey());
                 Double clock = ready.get(job.getKey());
-                if (stage == null || clock == null || clock.doubleValue() != stage.time)
+                if (stage == null || clock == null || clock.doubleValue() != stage.time) {
                     throw fail("Missing/inconsistent Job readiness or stage-in event");
+                }
             }
-        if (!evidence.isEngineCreated() && !stages.isEmpty())
+        }
+        if (!evidence.isEngineCreated() && !stages.isEmpty()) {
             throw fail("Modeled input stage requires a created fluid engine");
+        }
         NetworkInputDemandSnapshot input = evidence.getInputDemand();
-        if (input.getReferenceCount() != references) throw fail("Input reference counter differs from main events");
+        if (input.getReferenceCount() != references) {
+            throw fail("Input reference counter differs from main events");
+        }
         long groups = 0;
-        for (StageView stage : stages.values()) groups += stage.groups;
-        if (groups > input.getReferenceCount() - input.getLocalReferenceCount())
+        for (StageView stage : stages.values()) {
+            groups += stage.groups;
+        }
+        if (groups > input.getReferenceCount() - input.getLocalReferenceCount()) {
             throw fail("Positive input groups exceed observed nonlocal references");
-        if (required.subtract(input.getRequiredReferenceBytes()).abs().compareTo(requiredError) > 0)
+        }
+        if (required.subtract(input.getRequiredReferenceBytes()).abs().compareTo(requiredError) > 0) {
             throw fail("Input reference bytes differ beyond modeled summation rounding");
+        }
         Map<Long, NetworkFlowBinding> bindings = collectAndVerifyBindings();
         TraceAggregates trace = verifyTraceEvents(bindings);
         Set<String> capacities = trace.capacities;
@@ -176,32 +220,44 @@ final class NetworkLedgerContextValidator {
         boolean started = trace.started;
         long linkCount = trace.linkCount;
         if (evidence.isEngineCreated() && (complete || started)) {
-            for (Integer vm : vms.keySet())
-                if (!capacities.contains(endpoint(vm))) throw fail("Missing declared VM endpoint capacity");
+            for (Integer vm : vms.keySet()) {
+                if (!capacities.contains(endpoint(vm))) {
+                    throw fail("Missing declared VM endpoint capacity");
+                }
+            }
             long expectedLinks = topology == null ? 0 : topology.linkCount();
-            if (linkCount != expectedLinks || capacities.size() != (long) vms.size() + expectedLinks)
+            if (linkCount != expectedLinks || capacities.size() != (long) vms.size() + expectedLinks) {
                 throw fail("Missing or extra declared network capacities");
+            }
         }
         for (Map.Entry<Integer, StageView> entry : stages.entrySet()) {
             int actual = counts.containsKey(entry.getKey()) ? counts.get(entry.getKey()) : 0;
-            if (actual > entry.getValue().groups || (complete && actual != entry.getValue().groups))
+            if (actual > entry.getValue().groups || (complete && actual != entry.getValue().groups)) {
                 throw fail("Ledger group count differs from main stage-in event");
+            }
             BigDecimal payload = payloads.containsKey(entry.getKey()) ? payloads.get(entry.getKey()) : BigDecimal.ZERO;
             if (payload.subtract(exact(entry.getValue().bytes))
                             .compareTo(rounding(
                                     entry.getValue().bytes,
                                     (long) entry.getValue().files + entry.getValue().groups + 1))
-                    > 0) throw fail("Admission payload exceeds modeled input demand");
+                    > 0) {
+                throw fail("Admission payload exceeds modeled input demand");
+            }
         }
         if (complete) {
-            if (completed.size() != bindings.size()) throw fail("Completed run retains unfinished input transfers");
+            if (completed.size() != bindings.size()) {
+                throw fail("Completed run retains unfinished input transfers");
+            }
             if (admitted.signum() == 0) {
-                if (input.getTransferableReferenceBytes().signum() != 0)
+                if (input.getTransferableReferenceBytes().signum() != 0) {
                     throw fail("Nonlocal positive input has no admitted transfer");
+                }
             } else if (admitted.subtract(input.getTransferableReferenceBytes())
                             .abs()
                             .compareTo(rounding(largestGroup, references + 1))
-                    > 0) throw fail("Admitted payload differs beyond legacy group summation rounding");
+                    > 0) {
+                throw fail("Admitted payload differs beyond legacy group summation rounding");
+            }
         }
     }
 
@@ -214,33 +270,45 @@ final class NetworkLedgerContextValidator {
             if (job == null
                     || job.type != Parameters.ClassType.COMPUTE.value
                     || !job.tasks.equals(b.getTaskIds())
-                    || !endpoint(job.vm).equals(b.getDestinationEndpoint()))
+                    || !endpoint(job.vm).equals(b.getDestinationEndpoint())) {
                 throw fail("Network binding differs from consuming Job/Task/VM");
-            if (bindings.put(b.getAdmissionOrdinal(), b) != null) throw fail("Duplicate network binding ordinal");
+            }
+            if (bindings.put(b.getAdmissionOrdinal(), b) != null) {
+                throw fail("Duplicate network binding ordinal");
+            }
             List<String> path = new ArrayList<String>();
             if (b.getGroupKind() == NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1) {
-                if (!externalJobs.add(b.getJobId()))
+                if (!externalJobs.add(b.getJobId())) {
                     throw fail("V1 permits only one external input group per Job attempt");
-                if (!"source".equals(b.getSourceEndpoint()) || b.getParentJobId() != null)
+                }
+                if (!"source".equals(b.getSourceEndpoint()) || b.getParentJobId() != null) {
                     throw fail("External group has an invalid source");
-                if (topology == null) path.add("source");
+                }
+                if (topology == null) {
+                    path.add("source");
+                }
                 path.add(endpoint(job.vm));
             } else {
                 JobView parent = jobs.get(b.getParentJobId());
-                if (parent == null || !vms.containsKey(parent.vm))
+                if (parent == null || !vms.containsKey(parent.vm)) {
                     throw fail("Parent group has an unknown producer Job/VM");
+                }
                 String source = "LOCAL".equals(fileSystem) ? endpoint(parent.vm) : "source";
-                if (!source.equals(b.getSourceEndpoint()))
+                if (!source.equals(b.getSourceEndpoint())) {
                     throw fail("Constrained source differs from V1 producer/storage policy");
+                }
                 path.add(source);
                 path.add(endpoint(job.vm));
                 if (topology != null) {
-                    if (!"LOCAL".equals(fileSystem)) throw fail("Fat-tree capture requires LOCAL inputs");
+                    if (!"LOCAL".equals(fileSystem)) {
+                        throw fail("Fat-tree capture requires LOCAL inputs");
+                    }
                     path.addAll(topology.route(vms.get(parent.vm).host, vms.get(job.vm).host));
                 }
             }
-            if (!path.equals(b.getOccupiedResources()))
+            if (!path.equals(b.getOccupiedResources())) {
                 throw fail("Binding resource path differs from declared V1 routing");
+            }
         }
         return bindings;
     }
@@ -260,27 +328,37 @@ final class NetworkLedgerContextValidator {
             if (e.getType() == TransferTraceEvent.Type.CAPACITY) {
                 String key = e.getCapacity().getResourceKey();
                 double expected;
-                if (started || e.getEffectiveTime() != 0 || !capacities.add(key))
+                if (started || e.getEffectiveTime() != 0 || !capacities.add(key)) {
                     throw fail("Run capacities must be initialized once before admissions");
+                }
                 if (key.startsWith("VM:")) {
                     VmView vm = vms.get(canonicalInt(key.substring(3)));
-                    if (vm == null) throw fail("Unknown VM capacity resource");
+                    if (vm == null) {
+                        throw fail("Unknown VM capacity resource");
+                    }
                     expected = vm.capacity;
                 } else if (topology != null && topology.validLink(key)) {
                     expected = topology.capacity;
                     linkCount++;
-                } else throw fail("Unknown or unmodeled capacity resource: " + key);
-                if (e.getCapacity().getCapacityBytesPerSecond() != expected)
+                } else {
+                    throw fail("Unknown or unmodeled capacity resource: " + key);
+                }
+                if (e.getCapacity().getCapacityBytesPerSecond() != expected) {
                     throw fail("Capacity differs from platform bandwidth");
+                }
             } else if (e.getType() == TransferTraceEvent.Type.START) {
                 started = true;
                 NetworkFlowBinding b = bindings.get(e.getAdmissionOrdinal());
-                if (b == null) throw fail("Retained admission lacks a binding");
+                if (b == null) {
+                    throw fail("Retained admission lacks a binding");
+                }
                 StageView stage = stages.get(b.getJobId());
-                if (stage == null || e.getObservedTime() != stage.time)
+                if (stage == null || e.getObservedTime() != stage.time) {
                     throw fail("Admission does not start at modeled Job-ready time");
-                if (b.getParentJobId() != null && jobs.get(b.getParentJobId()).finish > e.getObservedTime())
+                }
+                if (b.getParentJobId() != null && jobs.get(b.getParentJobId()).finish > e.getObservedTime()) {
                     throw fail("Parent input starts before producer finishes");
+                }
                 int n = counts.containsKey(b.getJobId()) ? counts.get(b.getJobId()) + 1 : 1;
                 counts.put(b.getJobId(), n);
                 BigDecimal amount = exact(e.getStart().getBytes());
@@ -292,9 +370,12 @@ final class NetworkLedgerContextValidator {
                                 .add(amount));
             } else if (e.getType() == TransferTraceEvent.Type.COMPLETE) {
                 NetworkFlowBinding b = bindings.get(e.getAdmissionOrdinal());
-                if (b == null) throw fail("Completion has no retained binding");
-                if (e.getObservedTime() > jobs.get(b.getJobId()).start)
+                if (b == null) {
+                    throw fail("Completion has no retained binding");
+                }
+                if (e.getObservedTime() > jobs.get(b.getJobId()).start) {
                     throw fail("Job starts before its network inputs are observed complete");
+                }
                 completed.add(e.getAdmissionOrdinal());
             }
         }
@@ -364,29 +445,41 @@ final class NetworkLedgerContextValidator {
         final Map<Integer, int[]> placement = new HashMap<Integer, int[]>();
 
         Topology(JsonObject raw, Set<Integer> hosts) throws IOException {
-            if (!"FAT_TREE".equals(text(raw, "kind"))) throw fail("Unknown topology kind");
+            if (!"FAT_TREE".equals(text(raw, "kind"))) {
+                throw fail("Unknown topology kind");
+            }
             k = integer(raw, "k");
-            if (k < 2 || k % 2 != 0 || (long) k * k / 2 > Integer.MAX_VALUE) throw fail("Invalid Fat-tree size");
+            if (k < 2 || k % 2 != 0 || (long) k * k / 2 > Integer.MAX_VALUE) {
+                throw fail("Invalid Fat-tree size");
+            }
             half = k / 2;
             cores = required(raw, "coreSwitchCount").isJsonNull() ? half * half : integer(raw, "coreSwitchCount");
-            if (cores < 1 || cores > (long) half * half) throw fail("Invalid core count");
+            if (cores < 1 || cores > (long) half * half) {
+                throw fail("Invalid core count");
+            }
             available = (int) (((long) cores + half - 1) / half);
             capacity = nonnegative(raw, "linkBandwidthMbPerSecond") * 1_000_000.0;
-            if (!(capacity > 0) || !Double.isFinite(capacity)) throw fail("Unrepresentable link capacity");
+            if (!(capacity > 0) || !Double.isFinite(capacity)) {
+                throw fail("Unrepresentable link capacity");
+            }
             JsonElement explicit = required(raw, "hostEdgePlacements");
             List<Integer> sorted = new ArrayList<Integer>(hosts);
             Collections.sort(sorted);
-            if (explicit.isJsonNull())
+            if (explicit.isJsonNull()) {
                 for (int i = 0; i < sorted.size(); i++) {
                     int edge = i % (k * half);
                     placement.put(sorted.get(i), new int[] {edge / half, edge % half});
                 }
-            else {
+            } else {
                 JsonObject entries = object(explicit, "hostEdgePlacements");
-                if (entries.size() != hosts.size()) throw fail("Incomplete host placement");
+                if (entries.size() != hosts.size()) {
+                    throw fail("Incomplete host placement");
+                }
                 for (Integer host : hosts) {
                     int edge = integer(required(entries, Integer.toString(host)), "host edge");
-                    if (edge < 0 || edge >= (long) k * half) throw fail("Invalid host edge");
+                    if (edge < 0 || edge >= (long) k * half) {
+                        throw fail("Invalid host edge");
+                    }
                     placement.put(host, new int[] {edge / half, edge % half});
                 }
             }
@@ -398,9 +491,13 @@ final class NetworkLedgerContextValidator {
 
         List<String> route(int source, int destination) throws IOException {
             int[] s = placement.get(source), d = placement.get(destination);
-            if (s == null || d == null) throw fail("Unplaced VM host");
+            if (s == null || d == null) {
+                throw fail("Unplaced VM host");
+            }
             List<String> out = new ArrayList<String>();
-            if (source == destination) return out;
+            if (source == destination) {
+                return out;
+            }
             String se = "EDGE:" + s[0] + ":" + s[1], de = "EDGE:" + d[0] + ":" + d[1];
             out.add("LINK:ACC:" + source + "->" + se);
             if (!se.equals(de)) {
@@ -419,10 +516,14 @@ final class NetworkLedgerContextValidator {
         }
 
         boolean validLink(String key) {
-            if (!key.startsWith("LINK:")) return false;
+            if (!key.startsWith("LINK:")) {
+                return false;
+            }
             try {
                 String[] edge = key.substring(5).split("->", -1);
-                if (edge.length != 2) return false;
+                if (edge.length != 2) {
+                    return false;
+                }
                 String[] a = edge[0].split(":", -1), b = edge[1].split(":", -1);
                 return directed(a, b) || directed(b, a);
             } catch (IOException e) {
@@ -464,7 +565,9 @@ final class NetworkLedgerContextValidator {
     }
 
     private static JsonElement required(JsonObject o, String key) throws IOException {
-        if (!o.has(key)) throw fail("Missing " + key);
+        if (!o.has(key)) {
+            throw fail("Missing " + key);
+        }
         return o.get(key);
     }
 
@@ -473,31 +576,41 @@ final class NetworkLedgerContextValidator {
     }
 
     private static JsonObject object(JsonElement e, String key) throws IOException {
-        if (e == null || !e.isJsonObject()) throw fail("Expected object " + key);
+        if (e == null || !e.isJsonObject()) {
+            throw fail("Expected object " + key);
+        }
         return e.getAsJsonObject();
     }
 
     private static JsonArray arr(JsonObject o, String key) throws IOException {
         JsonElement e = required(o, key);
-        if (!e.isJsonArray()) throw fail("Expected array " + key);
+        if (!e.isJsonArray()) {
+            throw fail("Expected array " + key);
+        }
         return e.getAsJsonArray();
     }
 
     private static String text(JsonObject o, String key) throws IOException {
         JsonElement e = required(o, key);
-        if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString()) throw fail("Expected text " + key);
+        if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString()) {
+            throw fail("Expected text " + key);
+        }
         return e.getAsString();
     }
 
     private static BigDecimal decimal(JsonElement e, String name) throws IOException {
-        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber())
+        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
             throw fail("Expected numeric " + name);
+        }
         try {
             String token = e.getAsString();
-            if (token.length() > 4096) throw fail("Oversized number " + name);
+            if (token.length() > 4096) {
+                throw fail("Oversized number " + name);
+            }
             BigDecimal n = new BigDecimal(token);
-            if (n.precision() > 4096 || Math.abs((long) n.scale()) > 4096)
+            if (n.precision() > 4096 || Math.abs((long) n.scale()) > 4096) {
                 throw fail("Oversized numeric exponent " + name);
+            }
             return n;
         } catch (NumberFormatException x) {
             throw new IOException("Invalid number " + name, x);
@@ -518,22 +631,27 @@ final class NetworkLedgerContextValidator {
 
     private static int integer(JsonElement e, String name) throws IOException {
         long n = whole(e, name);
-        if (n < Integer.MIN_VALUE || n > Integer.MAX_VALUE) throw fail("Integer out of range " + name);
+        if (n < Integer.MIN_VALUE || n > Integer.MAX_VALUE) {
+            throw fail("Integer out of range " + name);
+        }
         return (int) n;
     }
 
     private static double nonnegative(JsonObject o, String key) throws IOException {
         BigDecimal n = decimal(required(o, key), key);
         double d = n.doubleValue();
-        if (!Double.isFinite(d) || d < 0 || (d == 0 && n.signum() != 0))
+        if (!Double.isFinite(d) || d < 0 || (d == 0 && n.signum() != 0)) {
             throw fail("Invalid finite nonnegative " + key);
+        }
         return d;
     }
 
     private static int canonicalInt(String value) throws IOException {
         try {
             int n = Integer.parseInt(value);
-            if (n < 0 || !Integer.toString(n).equals(value)) throw fail("Invalid resource ID");
+            if (n < 0 || !Integer.toString(n).equals(value)) {
+                throw fail("Invalid resource ID");
+            }
             return n;
         } catch (NumberFormatException e) {
             throw new IOException("Invalid resource ID", e);

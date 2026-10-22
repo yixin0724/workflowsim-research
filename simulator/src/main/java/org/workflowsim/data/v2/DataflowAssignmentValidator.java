@@ -115,11 +115,12 @@ public final class DataflowAssignmentValidator {
         String fs = text(config.get("fileSystem"), "fileSystem");
         storeInputs = storage && "SHARED".equals(fs);
         require("LOCAL".equals(fs) || storeInputs, "Unsupported online file system");
-        if (storage)
+        if (storage) {
             equal(
                     object(document.get("policies"), "policies"),
                     "inputAccess",
                     storeInputs ? StorageLifecycleCodec.STORE_INPUT_ACCESS : StorageLifecycleCodec.LOCAL_INPUT_ACCESS);
+        }
         JsonObject recording = object(config.get("networkEvidence"), "networkEvidence");
         keys(recording, "mode", "maxTraceRecords");
         equal(recording, "mode", storage ? StorageLifecycleCodec.MODE : FileLifecycleCodec.MODE);
@@ -139,8 +140,9 @@ public final class DataflowAssignmentValidator {
                 whole(overhead.get("workflowEngineDelayInterval"), "workflowEngineDelayInterval") == 0
                         && number(overhead.get("bandwidth"), "bandwidth") == 0,
                 "Online overhead is unsupported");
-        for (String name : Arrays.asList("workflowEngineDelays", "queueDelays", "postDelays", "clusteringDelays"))
+        for (String name : Arrays.asList("workflowEngineDelays", "queueDelays", "postDelays", "clusteringDelays")) {
             require(object(overhead.get(name), name).size() == 0, "Online overhead maps must be empty");
+        }
         JsonObject failure = object(config.get("failureModel"), "failureModel");
         equal(failure, "clusteringAlgorithm", "FTCLUSTERING_NOOP");
         equal(failure, "monitorMode", "MONITOR_NONE");
@@ -203,7 +205,9 @@ public final class DataflowAssignmentValidator {
             JsonElement compute = main.get("classType");
             if (compute == null
                     || compute.isJsonNull()
-                    || integer(compute, "classType") != Parameters.ClassType.COMPUTE.value) return;
+                    || integer(compute, "classType") != Parameters.ClassType.COMPUTE.value) {
+                return;
+            }
             Attempt attempt = identity(main);
             JsonObject attrs = object(main.get("attributes"), "execution attributes");
             require(
@@ -218,11 +222,15 @@ public final class DataflowAssignmentValidator {
             return;
         }
         if (!Arrays.asList("JOB_READY", "RETRY_JOB_CREATED", "JOB_RETURNED", "JOB_FAILED")
-                .contains(type)) return;
+                .contains(type)) {
+            return;
+        }
         JsonElement classType = main.get("classType");
         if (classType == null
                 || classType.isJsonNull()
-                || integer(classType, "classType") != Parameters.ClassType.COMPUTE.value) return;
+                || integer(classType, "classType") != Parameters.ClassType.COMPUTE.value) {
+            return;
+        }
         Attempt attempt = identity(main);
         anchorComputeMainEvent(main, type, sequence, at, attempt);
     }
@@ -237,11 +245,13 @@ public final class DataflowAssignmentValidator {
                     "Every compute JOB_READY needs one preceding same-clock assignment");
             JsonObject attrs = object(main.get("attributes"), "JOB_READY attributes");
             Retry retry = retries.get(attempt.id);
-            if (retry == null) require(!attrs.has("retryOfFailedJobId"), "Initial readiness claims a retry parent");
-            else
+            if (retry == null) {
+                require(!attrs.has("retryOfFailedJobId"), "Initial readiness claims a retry parent");
+            } else {
                 require(
                         integer(attrs.get("retryOfFailedJobId"), "retryOfFailedJobId") == retry.parent,
                         "Readiness retry parent differs");
+            }
             ready.put(attempt.id, anchor);
         } else if ("JOB_RETURNED".equals(type)) {
             require(
@@ -294,7 +304,9 @@ public final class DataflowAssignmentValidator {
      * @throws IllegalArgumentException if any final join, bound, reservation or score is invalid
      */
     public Result finish() {
-        if (result != null) return result;
+        if (result != null) {
+            return result;
+        }
         requireOpen();
         closed = true;
         require(
@@ -354,7 +366,9 @@ public final class DataflowAssignmentValidator {
                 "Final lifecycle/action coverage is not complete and quiescent");
         require(prefix.retryCount == retries.size(), "Retry creation has no corresponding reused action");
         JsonArray records = new JsonArray();
-        for (Action action : assignments.values()) records.add(action.record);
+        for (Action action : assignments.values()) {
+            records.add(action.record);
+        }
         result = new Result(records, prefix.initialCount, prefix.retryCount);
         return result;
     }
@@ -459,7 +473,9 @@ public final class DataflowAssignmentValidator {
             if (bound == null) {
                 bindings.put(attempt.task, attempt.vm);
                 initialCount++;
-            } else retryCount++;
+            } else {
+                retryCount++;
+            }
         }
         /** request() 的候选估值循环（逐字搬运转写；分数公式的 binary64 次序与 tie-break 原样）。 */
         private CandidateLoop evaluateCandidates(
@@ -475,12 +491,15 @@ public final class DataflowAssignmentValidator {
                 require(
                         candidate.compatible == compatible,
                         "Candidate PE compatibility differs from actual Task/Job requests");
-                if (!compatible) continue;
+                if (!compatible) {
+                    continue;
+                }
                 long mi = executionMi(attempt, vm);
                 double compute = ratio(mi, vm.mips, "computeSeconds");
                 require(candidate.compute == compute, "Candidate executable compute cost differs");
-                if (candidate.vm == attempt.vm)
+                if (candidate.vm == attempt.vm) {
                     require(mi == attempt.effectiveMi, "Selected effective MI differs from Task outcome");
+                }
                 Bounds inputs = bounds(tasks.get(attempt.task), DataLocation.vm(vm.id));
                 require(
                         candidate.input >= inputs.lower
@@ -498,7 +517,9 @@ public final class DataflowAssignmentValidator {
                     bestVm = vm.id;
                     best = score;
                 }
-                if (vm.id == attempt.vm) selected = candidate;
+                if (vm.id == attempt.vm) {
+                    selected = candidate;
+                }
             }
             CandidateLoop loop = new CandidateLoop();
             loop.selected = selected;
@@ -515,7 +536,9 @@ public final class DataflowAssignmentValidator {
         double cpuAvailable(int vm, double now) {
             double work = 0;
             for (LiveJob job : active.values()) {
-                if (job.attempt.vm != vm) continue;
+                if (job.attempt.vm != vm) {
+                    continue;
+                }
                 double remaining = job.compute;
                 if (job.start != null) {
                     require(job.start <= now, "Future observed CPU start");
@@ -557,10 +580,13 @@ public final class DataflowAssignmentValidator {
                                 "Input has no currently visible eligible source");
                         if (file.bytes > 0) {
                             double rate = 0;
-                            if (storeInputs) rate = fabric.rate(SOURCE, destination);
-                            else
-                                for (DataLocation source : sources)
+                            if (storeInputs) {
+                                rate = fabric.rate(SOURCE, destination);
+                            } else {
+                                for (DataLocation source : sources) {
                                     rate = Math.max(rate, fabric.rate(source, destination));
+                                }
+                            }
                             lower = upper = ratio(file.bytes, rate, "new nonlocal input duration");
                         }
                     }
@@ -597,7 +623,9 @@ public final class DataflowAssignmentValidator {
             require(copy != null, "Decoded settlement has no active copy");
             targets.remove(new Target(copy.file, copy.destination));
             publish(copy.file, copy.destination);
-            if (copy.output) pendingOutputs.remove(copy.file);
+            if (copy.output) {
+                pendingOutputs.remove(copy.file);
+            }
         }
 
         void output(JsonObject p) {
@@ -624,10 +652,14 @@ public final class DataflowAssignmentValidator {
                     "Terminal lifecycle differs from final compute outcome");
             active.remove(id);
             terminal.put(id, new Terminal(at, success));
-            if (!success) return;
+            if (!success) {
+                return;
+            }
             for (FileKey file : tasks.get(job.attempt.task).outputs) {
                 publish(file, DataLocation.vm(job.attempt.vm));
-                if (storage && !has(file, SOURCE)) pendingOutputs.add(file);
+                if (storage && !has(file, SOURCE)) {
+                    pendingOutputs.add(file);
+                }
             }
         }
 
@@ -656,9 +688,12 @@ public final class DataflowAssignmentValidator {
         for (JsonElement value : array(plan.get("tasks"), "tasks")) {
             JsonObject row = object(value, "Task");
             TaskPlan task = new TaskPlan();
-            for (JsonElement input : array(row.get("inputs"), "inputs"))
+            for (JsonElement input : array(row.get("inputs"), "inputs")) {
                 task.inputs.add(fileKey(object(input, "input").get("fileId")));
-            for (JsonElement output : array(row.get("outputs"), "outputs")) task.outputs.add(fileKey(output));
+            }
+            for (JsonElement output : array(row.get("outputs"), "outputs")) {
+                task.outputs.add(fileKey(output));
+            }
             tasks.put(integer(row.get("taskId"), "taskId"), task);
         }
     }
@@ -675,7 +710,9 @@ public final class DataflowAssignmentValidator {
         Set<Integer> endpoints = new TreeSet<>();
         for (JsonElement value : array(rawFabric.get("locations"), "locations")) {
             DataLocation location = location(value);
-            if (location.getKind() == DataLocation.Kind.VM) endpoints.add(location.getVmId());
+            if (location.getKind() == DataLocation.Kind.VM) {
+                endpoints.add(location.getVmId());
+            }
         }
         require(!vms.isEmpty() && endpoints.equals(vms.keySet()), "Actual fabric VM inventory differs from platform");
     }
@@ -687,7 +724,9 @@ public final class DataflowAssignmentValidator {
             JsonObject row = object(value, "Job outcome");
             int id = integer(row.get("jobId"), "jobId");
             require(allJobIds.add(id), "Duplicate Job outcome");
-            if (integer(row.get("classType"), "classType") == Parameters.ClassType.COMPUTE.value) jobs.put(id, row);
+            if (integer(row.get("classType"), "classType") == Parameters.ClassType.COMPUTE.value) {
+                jobs.put(id, row);
+            }
         }
         for (JsonElement value : array(result.get("tasks"), "result.tasks")) {
             JsonObject row = object(value, "Task outcome");
@@ -741,7 +780,9 @@ public final class DataflowAssignmentValidator {
 
     private Map<Integer, Map<Integer, Double>> loadMatrix(JsonObject config) {
         JsonElement value = required(config, "taskCostMatrix");
-        if (value.isJsonNull()) return null;
+        if (value.isJsonNull()) {
+            return null;
+        }
         JsonObject raw = object(value, "taskCostMatrix");
         keys(raw, "unit", "runtimeConversion", "entries");
         equal(raw, "unit", "EXECUTION_SECONDS");
@@ -758,10 +799,11 @@ public final class DataflowAssignmentValidator {
                     values.computeIfAbsent(task, ignored -> new HashMap<>()).put(vm, seconds) == null,
                     "Duplicate matrix coordinate");
         }
-        for (int task : tasks.keySet())
+        for (int task : tasks.keySet()) {
             require(
                     values.containsKey(task) && values.get(task).keySet().containsAll(vms.keySet()),
                     "Matrix must cover actual Task/VM coordinates without MI fallback");
+        }
         return values;
     }
 
@@ -836,8 +878,9 @@ public final class DataflowAssignmentValidator {
             selected = integer(attrs.get("selectedVmId"), "selectedVmId");
             require(selected == attempt.vm, "Selected VM differs from full main/final Job binding");
             summary = new Summary(object(attrs.get("observation"), "observation"));
-            for (JsonElement row : array(attrs.get("candidates"), "candidates"))
+            for (JsonElement row : array(attrs.get("candidates"), "candidates")) {
                 candidates.add(new Candidate(object(row, "candidate")));
+            }
             record = main.deepCopy();
         }
     }
@@ -894,8 +937,9 @@ public final class DataflowAssignmentValidator {
             vm = integer(row.get("vmId"), "candidate vmId");
             compatible = bool(row.get("compatible"), "compatible");
             if (!compatible) {
-                for (String name : CANDIDATE_VALUES)
+                for (String name : CANDIDATE_VALUES) {
                     require(required(row, name).isJsonNull(), "Incompatible candidate values must all be null");
+                }
                 input = cpu = compute = score = 0;
                 conditional = false;
                 joined = 0;
@@ -1236,27 +1280,37 @@ public final class DataflowAssignmentValidator {
         if (a != null && b != null && a.isJsonObject() && b.isJsonObject()) {
             JsonObject x = a.getAsJsonObject(), y = b.getAsJsonObject();
             require(x.keySet().equals(y.keySet()), message);
-            for (String key : y.keySet()) same(x.get(key), y.get(key), message);
+            for (String key : y.keySet()) {
+                same(x.get(key), y.get(key), message);
+            }
         } else if (a != null && b != null && a.isJsonArray() && b.isJsonArray()) {
             JsonArray x = a.getAsJsonArray(), y = b.getAsJsonArray();
             require(x.size() == y.size(), message);
-            for (int i = 0; i < y.size(); i++) same(x.get(i), y.get(i), message);
+            for (int i = 0; i < y.size(); i++) {
+                same(x.get(i), y.get(i), message);
+            }
         } else if (a != null
                 && b != null
                 && a.isJsonPrimitive()
                 && b.isJsonPrimitive()
                 && a.getAsJsonPrimitive().isNumber()
-                && b.getAsJsonPrimitive().isNumber())
+                && b.getAsJsonPrimitive().isNumber()) {
             require(decimal(a, message).compareTo(decimal(b, message)) == 0, message);
-        else require(a != null && a.equals(b), message);
+        } else {
+            require(a != null && a.equals(b), message);
+        }
     }
 
     private void requireOpen() {
-        if (closed) throw new IllegalStateException("Assignment audit is already finished");
+        if (closed) {
+            throw new IllegalStateException("Assignment audit is already finished");
+        }
     }
 
     private static void require(boolean condition, String message) {
-        if (!condition) throw bad(message);
+        if (!condition) {
+            throw bad(message);
+        }
     }
 
     private static IllegalArgumentException bad(String message) {

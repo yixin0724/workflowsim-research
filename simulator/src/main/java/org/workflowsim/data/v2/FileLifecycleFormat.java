@@ -24,8 +24,11 @@ final class FileLifecycleFormat {
         o.addProperty("kind", location.getKind().name());
         o.add("vmId", JsonNull.INSTANCE);
         o.add("sourceId", JsonNull.INSTANCE);
-        if (location.getKind() == DataLocation.Kind.VM) o.addProperty("vmId", location.getVmId());
-        else o.addProperty("sourceId", location.getSourceId());
+        if (location.getKind() == DataLocation.Kind.VM) {
+            o.addProperty("vmId", location.getVmId());
+        } else {
+            o.addProperty("sourceId", location.getSourceId());
+        }
         return o;
     }
 
@@ -55,7 +58,9 @@ final class FileLifecycleFormat {
             task.addProperty("taskId", id);
             task.addProperty("workflowInputIndex", plan.getTaskWorkflowIndices().get(id));
             JsonArray parents = new JsonArray(), inputs = new JsonArray(), outputs = new JsonArray();
-            for (int parent : plan.getParentTaskIds(id)) parents.add(parent);
+            for (int parent : plan.getParentTaskIds(id)) {
+                parents.add(parent);
+            }
             for (Map.Entry<DataflowFilePlan.FileId, Long> input :
                     plan.getInputReferences(id).entrySet()) {
                 JsonObject item = new JsonObject();
@@ -63,7 +68,9 @@ final class FileLifecycleFormat {
                 item.addProperty("referenceCount", input.getValue());
                 inputs.add(item);
             }
-            for (DataflowFilePlan.FileId output : plan.getOutputFiles(id)) outputs.add(file(output));
+            for (DataflowFilePlan.FileId output : plan.getOutputFiles(id)) {
+                outputs.add(file(output));
+            }
             task.add("parents", parents);
             task.add("inputs", inputs);
             task.add("outputs", outputs);
@@ -84,7 +91,9 @@ final class FileLifecycleFormat {
     static JsonObject fabric(DataTransferFabric fabric) {
         JsonObject o = new JsonObject();
         JsonArray locations = new JsonArray(), resources = new JsonArray(), hosts = new JsonArray();
-        for (DataLocation location : fabric.getLocations()) locations.add(location(location));
+        for (DataLocation location : fabric.getLocations()) {
+            locations.add(location(location));
+        }
         for (Map.Entry<String, Double> entry : fabric.getResourceCapacities().entrySet()) {
             JsonObject row = new JsonObject();
             row.addProperty("key", entry.getKey());

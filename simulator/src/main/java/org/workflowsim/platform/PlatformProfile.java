@@ -239,9 +239,14 @@ public final class PlatformProfile {
             validateUniqueVmIds(vms);
             if (sourceStorage != null) {
                 boolean found = false;
-                for (HostSpec host : hosts) if (host.getId() == sourceStorage.getAttachmentHostId()) found = true;
-                if (!found)
+                for (HostSpec host : hosts) {
+                    if (host.getId() == sourceStorage.getAttachmentHostId()) {
+                        found = true;
+                    }
+                }
+                if (!found) {
                     throw new IllegalArgumentException("Dataflow storage attachment references an undeclared host");
+                }
             }
             validatePinnedVmHostIds(hosts, vms, pinnedVmHostIds);
             for (VmSpec vm : vms) {

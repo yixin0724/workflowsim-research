@@ -668,10 +668,11 @@ public final class SimulationConfig {
             if (dataflowAssignmentConfig.isEnabled()
                     && (!dataMovementModel.usesCoherentDataflowRuntime()
                             || planningAlgorithm != PlanningAlgorithm.INVALID
-                            || schedulingAlgorithm != SchedulingAlgorithm.STATIC))
+                            || schedulingAlgorithm != SchedulingAlgorithm.STATIC)) {
                 throw new IllegalArgumentException(
                         "Online dataflow binding requires coherent V2/V3, INVALID preplanning and STATIC bound-VM"
                                 + "dispatch");
+            }
             if (dataMovementModel.usesCoherentDataflowRuntime()) {
                 if (planningAlgorithm
                                 != (dataflowAssignmentConfig.isEnabled()
@@ -681,10 +682,11 @@ public final class SimulationConfig {
                         || (dataMovementModel.isCoherentFileDataflowV2()
                                 && fileSystem != ReplicaCatalog.FileSystem.LOCAL)
                         || clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE
-                        || !isNoOverhead(overheadModel))
+                        || !isNoOverhead(overheadModel)) {
                     throw new IllegalArgumentException(
                             "Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE"
                                     + "clustering and no overhead; existing LOCAL planners are not V2 estimators");
+                }
             }
         }
 

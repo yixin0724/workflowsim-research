@@ -52,12 +52,13 @@ public final class ExperimentArtifactValidator {
         }
         byte[] manifestBytes = Files.readAllBytes(manifest);
         JsonObject root = object(manifestBytes, "experiment manifest");
-        if (isCoherentManifest(root))
+        if (isCoherentManifest(root)) {
             try {
                 root = org.workflowsim.data.NetworkLedgerCodec.parseDocument(strictUtf8(manifestBytes));
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Invalid strict V2 manifest JSON", invalid);
             }
+        }
         String schema = requireString(root, "schema", "experiment manifest");
         if (!MANIFEST_SCHEMA_V2.equals(schema)
                 && !MANIFEST_SCHEMA_V3.equals(schema)
@@ -69,8 +70,9 @@ public final class ExperimentArtifactValidator {
                         || (root.has("platform")
                                 && root.get("platform").isJsonObject()
                                 && root.getAsJsonObject("platform").has("sourceStorage")))
-                && !MANIFEST_SCHEMA_V4.equals(schema))
+                && !MANIFEST_SCHEMA_V4.equals(schema)) {
             throw new IOException("Coherent V2 dataflow requires manifest v4");
+        }
         validateManifestTopLevelShape(root);
         if (MANIFEST_SCHEMA_V3.equals(schema) || MANIFEST_SCHEMA_V4.equals(schema)) {
             validateV3Provenance(requireObject(root, "provenance", "experiment manifest"));
@@ -105,8 +107,12 @@ public final class ExperimentArtifactValidator {
             throw new IOException("Event count mismatch: manifest declares " + expectedEvents + " but JSONL contains "
                     + actualEvents);
         }
-        if (networkContext != null) networkContext.finish();
-        if (fileContext != null) fileContext.finish();
+        if (networkContext != null) {
+            networkContext.finish();
+        }
+        if (fileContext != null) {
+            fileContext.finish();
+        }
         return buildValidationResult(
                 manifest,
                 metrics,
@@ -158,13 +164,14 @@ public final class ExperimentArtifactValidator {
     private static org.workflowsim.data.NetworkEvidenceConfig decodeRecordingConfig(JsonObject root)
             throws IOException {
         org.workflowsim.data.NetworkEvidenceConfig recording = org.workflowsim.data.NetworkEvidenceConfig.off();
-        if (root.getAsJsonObject("configuration").has("networkEvidence"))
+        if (root.getAsJsonObject("configuration").has("networkEvidence")) {
             try {
                 recording = org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(
                         root.getAsJsonObject("configuration").get("networkEvidence"));
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Invalid network recording mode", invalid);
             }
+        }
         return recording;
     }
 
@@ -189,10 +196,12 @@ public final class ExperimentArtifactValidator {
                 storageLifecycle = paths.get(org.workflowsim.data.v2.StorageLifecycleCodec.ARTIFACT_ROLE);
         if (groupRequested != (networkLedger != null)
                 || fileRequested != (fileLifecycle != null)
-                || storageRequested != (storageLifecycle != null))
+                || storageRequested != (storageLifecycle != null)) {
             throw new IOException("Network recording configuration and versioned artifact roles disagree");
-        if (recording.isEnabled() && !MANIFEST_SCHEMA_V4.equals(schema))
+        }
+        if (recording.isEnabled() && !MANIFEST_SCHEMA_V4.equals(schema)) {
             throw new IOException("Versioned network evidence requires manifest v4");
+        }
         if (groupRequested) {
             try {
                 bundles.decoded = org.workflowsim.data.NetworkLedgerCodec.decode(strictUtf8(networkLedger));
@@ -401,16 +410,26 @@ public final class ExperimentArtifactValidator {
     }
 
     private static boolean isCoherentManifest(JsonObject root) {
-        if (root.has("dataflowComputeRequests")) return true;
+        if (root.has("dataflowComputeRequests")) {
+            return true;
+        }
         JsonElement config = root.get("configuration");
-        if (config == null || !config.isJsonObject()) return false;
-        if (config.getAsJsonObject().has("dataflowAssignment")) return true;
+        if (config == null || !config.isJsonObject()) {
+            return false;
+        }
+        if (config.getAsJsonObject().has("dataflowAssignment")) {
+            return true;
+        }
         JsonElement model = config.getAsJsonObject().get("dataMovementModel");
-        if (model == null || !model.isJsonObject()) return false;
+        if (model == null || !model.isJsonObject()) {
+            return false;
+        }
         JsonElement kind = model.getAsJsonObject().get("kind");
         if (kind == null
                 || !kind.isJsonPrimitive()
-                || !kind.getAsJsonPrimitive().isString()) return false;
+                || !kind.getAsJsonPrimitive().isString()) {
+            return false;
+        }
         return "COHERENT_FILE_DATAFLOW_V2".equals(kind.getAsString())
                 || "COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2".equals(kind.getAsString())
                 || "COHERENT_STORAGE_DATAFLOW_V3".equals(kind.getAsString())
@@ -443,10 +462,15 @@ public final class ExperimentArtifactValidator {
                 if (fileContext == null
                         && event.has("type")
                         && event.get("type").isJsonPrimitive()
-                        && "DATAFLOW_VM_ASSIGNED".equals(event.get("type").getAsString()))
+                        && "DATAFLOW_VM_ASSIGNED".equals(event.get("type").getAsString())) {
                     throw new IOException("Online assignment events require their full lifecycle context");
-                if (networkContext != null) networkContext.acceptEvent(event);
-                if (fileContext != null) fileContext.acceptEvent(event);
+                }
+                if (networkContext != null) {
+                    networkContext.acceptEvent(event);
+                }
+                if (fileContext != null) {
+                    fileContext.acceptEvent(event);
+                }
                 count++;
             }
         }

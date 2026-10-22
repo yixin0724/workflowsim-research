@@ -299,15 +299,18 @@ public final class SimulationReport {
             return null;
         }
         Map<Integer, DataflowComputeRequest> ordered = new TreeMap<>();
-        for (Job job : completedJobs)
+        for (Job job : completedJobs) {
             if (job.getClassType() == org.workflowsim.utils.Parameters.ClassType.COMPUTE.value) {
-                if (job.getTaskList().size() != 1)
+                if (job.getTaskList().size() != 1) {
                     throw new IllegalStateException("Online compute request must remain singleton");
+                }
                 DataflowComputeRequest request =
                         new DataflowComputeRequest(job, job.getTaskList().get(0));
-                if (ordered.put(job.getCloudletId(), request) != null)
+                if (ordered.put(job.getCloudletId(), request) != null) {
                     throw new IllegalStateException("Duplicate online compute attempt");
+                }
             }
+        }
         return new ArrayList<>(ordered.values());
     }
 

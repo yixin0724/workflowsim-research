@@ -49,8 +49,11 @@ public final class DataflowObservation {
         }
 
         public DataReplicaState.Replica getReplica(DataLocation location) {
-            for (DataReplicaState.Replica replica : replicas)
-                if (replica.getLocation().equals(location)) return replica;
+            for (DataReplicaState.Replica replica : replicas) {
+                if (replica.getLocation().equals(location)) {
+                    return replica;
+                }
+            }
             return null;
         }
     }
@@ -258,7 +261,9 @@ public final class DataflowObservation {
     /** @param id included logical identity @return immutable file view; missing scope is not an empty replica set */
     public FileView getFile(DataflowFilePlan.FileId id) {
         FileView result = files.get(id);
-        if (result == null) throw new IllegalArgumentException("File is unknown or outside observation scope: " + id);
+        if (result == null) {
+            throw new IllegalArgumentException("File is unknown or outside observation scope: " + id);
+        }
         return result;
     }
 
@@ -276,8 +281,11 @@ public final class DataflowObservation {
     /** @param file scoped file identity @param destination typed actual target @return active copy or null, not a
      * visible replica */
     public CopyView getActiveCopy(DataflowFilePlan.FileId file, DataLocation destination) {
-        for (CopyView copy : copies.values())
-            if (copy.file.getId().equals(file) && copy.destination.equals(destination)) return copy;
+        for (CopyView copy : copies.values()) {
+            if (copy.file.getId().equals(file) && copy.destination.equals(destination)) {
+                return copy;
+            }
+        }
         return null;
     }
 

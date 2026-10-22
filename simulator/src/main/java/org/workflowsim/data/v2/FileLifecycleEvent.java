@@ -37,8 +37,9 @@ public final class FileLifecycleEvent {
      * @return immutable record; this factory is not a semantic certificate
      */
     public static FileLifecycleEvent of(long sequence, double observedTime, Type type, JsonObject payload) {
-        if (sequence < 1 || !Double.isFinite(observedTime) || observedTime < 0 || type == null || payload == null)
+        if (sequence < 1 || !Double.isFinite(observedTime) || observedTime < 0 || type == null || payload == null) {
             throw new IllegalArgumentException("Invalid file lifecycle event fields");
+        }
         return new FileLifecycleEvent(sequence, observedTime == 0 ? 0 : observedTime, type, payload);
     }
     /** @return retained ordinal */

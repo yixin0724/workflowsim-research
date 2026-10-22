@@ -91,8 +91,9 @@ public class WorkflowDatacenter extends Datacenter {
     private org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
     /** @param storage explicit bounded storage for the dedicated storage version */
     public void setSourceStorage(org.workflowsim.data.v2.DataflowStorageSpec storage) {
-        if (storage == null || sourceStorage != null || !dataMovementModel.isCoherentStorageDataflowV3())
+        if (storage == null || sourceStorage != null || !dataMovementModel.isCoherentStorageDataflowV3()) {
             throw new IllegalArgumentException("Storage spec requires one storage-V3 installation");
+        }
         sourceStorage = storage;
     }
 
@@ -101,28 +102,33 @@ public class WorkflowDatacenter extends Datacenter {
         if (runtime == null
                 || engineId < 0
                 || coherentDataflow != null
-                || !dataMovementModel.usesCoherentDataflowRuntime())
+                || !dataMovementModel.usesCoherentDataflowRuntime()) {
             throw new IllegalArgumentException("Invalid V2 runtime installation");
+        }
         coherentDataflow = runtime;
         coherentEngineId = engineId;
     }
 
     private org.workflowsim.data.v2.CoherentDataflowRuntime requireCoherentRuntime() {
-        if (coherentDataflow == null)
+        if (coherentDataflow == null) {
             throw new IllegalStateException("Coherent V2 model requires its dedicated initialized run context");
+        }
         return coherentDataflow;
     }
     /** Bind routes to actual created VM placements, never the logical producer's planned host. */
     void initializeCoherentFabric() {
         org.workflowsim.data.v2.CoherentDataflowRuntime runtime = requireCoherentRuntime();
-        if (runtime.isFabricBound()) return;
+        if (runtime.isFabricBound()) {
+            return;
+        }
         Map<Integer, Double> capacities = new LinkedHashMap<Integer, Double>();
         Map<Integer, Integer> hosts = new LinkedHashMap<Integer, Integer>();
-        for (Host host : getVmAllocationPolicy().getHostList())
+        for (Host host : getVmAllocationPolicy().getHostList()) {
             for (Vm vm : host.getVmList()) {
                 capacities.put(vm.getId(), vm.getBw() * (double) Consts.MILLION);
                 hosts.put(vm.getId(), host.getId());
             }
+        }
         java.util.List<String> sources = Collections.singletonList("source");
         runtime.bindFabric(
                 runtime.isStorageVersion()
@@ -136,10 +142,12 @@ public class WorkflowDatacenter extends Datacenter {
     /** Actual-created immutable compute options for the engine's opt-in destination binding. */
     java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> actualDataflowVmOptions() {
         java.util.List<org.workflowsim.data.v2.DataflowVmAssigner.VmOption> result = new ArrayList<>();
-        for (Host host : getVmAllocationPolicy().getHostList())
-            for (Vm vm : host.getVmList())
+        for (Host host : getVmAllocationPolicy().getHostList()) {
+            for (Vm vm : host.getVmList()) {
                 result.add(new org.workflowsim.data.v2.DataflowVmAssigner.VmOption(
                         vm.getId(), vm.getMips(), vm.getNumberOfPes()));
+            }
+        }
         return Collections.unmodifiableList(result);
     }
     /** @return independently versioned file lifecycle capture, null for OFF/V1 */
@@ -157,7 +165,9 @@ public class WorkflowDatacenter extends Datacenter {
 
     private static java.util.List<Integer> coherentTaskIds(Job job) {
         java.util.List<Integer> ids = new ArrayList<Integer>();
-        for (Task task : job.getTaskList()) ids.add(task.getCloudletId());
+        for (Task task : job.getTaskList()) {
+            ids.add(task.getCloudletId());
+        }
         return ids;
     }
 
@@ -225,9 +235,12 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws IllegalStateException after engine creation
      */
     public void setNetworkEvidenceConfig(NetworkEvidenceConfig value) {
-        if (value == null) throw new IllegalArgumentException("Network evidence configuration cannot be null");
-        if (transferContentionEngine != null)
+        if (value == null) {
+            throw new IllegalArgumentException("Network evidence configuration cannot be null");
+        }
+        if (transferContentionEngine != null) {
             throw new IllegalStateException("Network evidence must be configured before creating the transfer engine");
+        }
         networkEvidenceConfig = value;
     }
 
@@ -238,11 +251,18 @@ public class WorkflowDatacenter extends Datacenter {
 
     /** Observe the locality decision already made by the original grouped-input loop. */
     void recordNetworkInputDemand(FileItem file, boolean local) {
-        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return;
-        if (transferContentionEngine == null)
+        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) {
+            return;
+        }
+        if (transferContentionEngine == null) {
             throw new IllegalStateException("Input demand can only be observed after creating the transfer engine");
-        if (file == null) throw new IllegalArgumentException("Input reference is required");
-        if (inputDemandTracker == null) inputDemandTracker = new NetworkInputDemandTracker();
+        }
+        if (file == null) {
+            throw new IllegalArgumentException("Input reference is required");
+        }
+        if (inputDemandTracker == null) {
+            inputDemandTracker = new NetworkInputDemandTracker();
+        }
         inputDemandTracker.record(file.getSize(), local);
     }
 
@@ -255,14 +275,21 @@ public class WorkflowDatacenter extends Datacenter {
             String sourceEndpoint,
             String destinationEndpoint,
             List<String> occupiedResources) {
-        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return;
-        if (transferContentionEngine == null)
+        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) {
+            return;
+        }
+        if (transferContentionEngine == null) {
             throw new IllegalStateException("Cannot bind a network flow before a successful transfer admission");
+        }
         long ordinal = transferContentionEngine.getActiveTransferAdmissionOrdinal(transferId);
         // Each START consumes at least one record. Later ordinals cannot be in a retained prefix.
-        if (ordinal > networkEvidenceConfig.getMaxTraceRecords()) return;
+        if (ordinal > networkEvidenceConfig.getMaxTraceRecords()) {
+            return;
+        }
         List<Integer> taskIds = new ArrayList<Integer>();
-        for (Task task : job.getTaskList()) taskIds.add(task.getCloudletId());
+        for (Task task : job.getTaskList()) {
+            taskIds.add(task.getCloudletId());
+        }
         NetworkFlowBinding binding = NetworkFlowBinding.of(
                 transferId,
                 ordinal,
@@ -273,9 +300,12 @@ public class WorkflowDatacenter extends Datacenter {
                 sourceEndpoint,
                 destinationEndpoint,
                 occupiedResources);
-        if (networkFlowBindings == null) networkFlowBindings = new LinkedHashMap<Long, NetworkFlowBinding>();
-        if (networkFlowBindings.containsKey(ordinal))
+        if (networkFlowBindings == null) {
+            networkFlowBindings = new LinkedHashMap<Long, NetworkFlowBinding>();
+        }
+        if (networkFlowBindings.containsKey(ordinal)) {
             throw new IllegalStateException("Network admission already has a binding: " + ordinal);
+        }
         networkFlowBindings.put(ordinal, binding);
     }
 
@@ -285,9 +315,12 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws IllegalStateException if retained admissions and bindings disagree
      */
     public NetworkRunEvidence captureNetworkEvidence() {
-        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) return null;
-        if (transferContentionEngine == null)
+        if (networkEvidenceConfig.getMode() != NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1) {
+            return null;
+        }
+        if (transferContentionEngine == null) {
             return NetworkRunEvidence.empty(networkEvidenceConfig, dataMovementModel.getKind());
+        }
         List<NetworkFlowBinding> candidates = networkFlowBindings == null
                 ? Collections.<NetworkFlowBinding>emptyList()
                 : new ArrayList<NetworkFlowBinding>(networkFlowBindings.values());
@@ -392,10 +425,11 @@ public class WorkflowDatacenter extends Datacenter {
      * @throws Exception 当所需副本或 VM 无法解析时抛出
      */
     public double estimateTransferSecondsForFiles(List<FileItem> files, Job job) throws Exception {
-        if (dataMovementModel.usesCoherentDataflowRuntime())
+        if (dataMovementModel.usesCoherentDataflowRuntime()) {
             throw new UnsupportedOperationException(
                     "Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar"
                             + "estimator");
+        }
         double time = 0.0;
         for (FileItem file : files) {
             if (!file.isRealInputFile(files)) {
@@ -928,9 +962,10 @@ public class WorkflowDatacenter extends Datacenter {
      */
     private DataTransferEstimate estimateDataStageInForComputeJob(List<FileItem> requiredFiles, Job job)
             throws Exception {
-        if (dataMovementModel.usesCoherentDataflowRuntime())
+        if (dataMovementModel.usesCoherentDataflowRuntime()) {
             throw new IllegalStateException(
                     "Coherent V2 cannot fall through to execution-envelope transfer estimation");
+        }
         int requiredFileCount = realInputFileCount(requiredFiles);
         double requiredBytes = realInputBytes(requiredFiles);
         if (dataMovementModel.isLegacyWorkflowsimV1()) {
@@ -1201,7 +1236,9 @@ public class WorkflowDatacenter extends Datacenter {
                 && dataMovementModel.usesCoherentDataflowRuntime()) {
             Job job = (Job) cl;
             java.util.List<Boolean> successes = new ArrayList<Boolean>();
-            for (Task task : job.getTaskList()) successes.add(task.getCloudletStatus() == Cloudlet.SUCCESS);
+            for (Task task : job.getTaskList()) {
+                successes.add(task.getCloudletStatus() == Cloudlet.SUCCESS);
+            }
             requireCoherentRuntime()
                     .jobFinished(job.getCloudletId(), coherentTaskIds(job), job.getVmId(), successes, CloudSim.clock());
             sendNow(coherentEngineId, WorkflowSimTags.COHERENT_DATAFLOW_CHECK, null);

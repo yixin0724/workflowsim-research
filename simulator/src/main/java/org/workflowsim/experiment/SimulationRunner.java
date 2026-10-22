@@ -49,9 +49,10 @@ public final class SimulationRunner {
                     + " does not match platform VM count " + platform.getVms().size());
         }
         validateCostModel(config, platform);
-        if (config.getDataMovementModel().isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null))
+        if (config.getDataMovementModel().isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null)) {
             throw new SimulationConfigurationException(
                     "Bounded sourceStorage must be present exactly for the storage V3 dataflow model");
+        }
         // Fat-tree 链路争用模型：在会话外装配拓扑并校验模型与拓扑声明的双向契约
         // （配置异常在此直接以 SimulationConfigurationException 抛出，不被执行期
         // 包装；拓扑构造是纯配置计算，不触碰 CloudSim 状态）。
@@ -115,13 +116,16 @@ public final class SimulationRunner {
                             config.getFileSystem() == org.workflowsim.utils.ReplicaCatalog.FileSystem.SHARED)
                     : new org.workflowsim.data.v2.CoherentDataflowRuntime(
                             config.getDataMovementModel().isCoherentShared(), budget);
-            if (platform.getSourceStorage() != null) datacenter.setSourceStorage(platform.getSourceStorage());
+            if (platform.getSourceStorage() != null) {
+                datacenter.setSourceStorage(platform.getSourceStorage());
+            }
             planner.setCoherentDataflowRuntime(coherent);
             engine.setCoherentDataflowRuntime(coherent);
             datacenter.setCoherentDataflowRuntime(coherent, engine.getId());
             engine.setDataflowAssignmentConfig(config.getDataflowAssignmentConfig());
-            if (config.getDataflowAssignmentConfig().isEnabled())
+            if (config.getDataflowAssignmentConfig().isEnabled()) {
                 engine.getScheduler(0).enableDataflowBindingGuard();
+            }
         }
         List<CondorVM> vms = PlatformFactory.createVms(platform, engine.getSchedulerId(0));
         engine.submitVmList(vms, 0);
@@ -159,9 +163,10 @@ public final class SimulationRunner {
                     + engine.getInFlightJobCount() + " in-flight job(s): the event chain stalled "
                     + "silently and the run would produce incomplete evidence");
         }
-        if (coherent != null && !coherent.isQuiescent())
+        if (coherent != null && !coherent.isQuiescent()) {
             throw new SimulationExecutionException(
                     "Simulation stopped before V2 file service and requested Jobs became quiescent");
+        }
         List<Job> completedJobs = engine.getJobsReceivedList();
         Map<Integer, Integer> actualVmHostAssignments = engine.getScheduler(0).getCreatedVmHostAssignments();
         if (!platform.getVmHostAssignments().equals(actualVmHostAssignments)) {
@@ -260,10 +265,11 @@ public final class SimulationRunner {
             if (coherent) {
                 int k = platform.getNetworkTopology().getK();
                 double bytes = platform.getNetworkTopology().getLinkBandwidthMbPerSecond() * 1_000_000.0;
-                if (k < 2 || k > 32 || k % 2 != 0 || !Double.isFinite(bytes) || bytes < Double.MIN_NORMAL)
+                if (k < 2 || k > 32 || k % 2 != 0 || !Double.isFinite(bytes) || bytes < Double.MIN_NORMAL) {
                     throw new SimulationConfigurationException(
                             "Coherent V2 supports even Fat-tree k in [2,32] and normal finite converted B/s"
                                     + "capacities");
+                }
             }
             List<Integer> hostIds = new java.util.ArrayList<Integer>();
             for (PlatformProfile.HostSpec host : platform.getHosts()) {

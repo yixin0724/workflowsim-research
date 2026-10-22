@@ -13,8 +13,9 @@ public final class NetworkInputDemandTracker {
      * @throws IllegalArgumentException for an invalid size, without changing counters
      */
     public void record(double bytes, boolean local) {
-        if (!Double.isFinite(bytes) || bytes < 0)
+        if (!Double.isFinite(bytes) || bytes < 0) {
             throw new IllegalArgumentException("Input reference bytes must be finite and nonnegative");
+        }
         long next = Math.addExact(references, 1L),
                 nextLocal = local ? Math.addExact(localReferences, 1L) : localReferences;
         BigDecimal amount = new BigDecimal(bytes);

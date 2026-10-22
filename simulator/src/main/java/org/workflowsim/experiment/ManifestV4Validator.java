@@ -18,8 +18,9 @@ final class ManifestV4Validator {
 
     static void validate(JsonObject root) throws IOException {
         JsonObject config = object(root, "configuration");
-        if (config.has("dataflowAssignment") || root.has("dataflowComputeRequests"))
+        if (config.has("dataflowAssignment") || root.has("dataflowComputeRequests")) {
             FileLifecycleContextValidator.requiresOnlineAssignmentAudit(root);
+        }
         JsonObject platform = object(root, "platform");
         JsonArray inputs = array(root, "inputs");
         JsonArray paths = array(config, "workflowPaths");
@@ -64,11 +65,14 @@ final class ManifestV4Validator {
         if (root.has("workflowGraph")) {
             validateGraph(root);
         }
-        if (model.isCoherentStorageDataflowV3() != platform.has("sourceStorage"))
+        if (model.isCoherentStorageDataflowV3() != platform.has("sourceStorage")) {
             throw new IOException("sourceStorage declaration differs from model");
-        if (model.usesCoherentDataflowRuntime()) FileLifecycleContextValidator.validatePlanContext(root);
-        else if (root.has("dataflowPlan"))
+        }
+        if (model.usesCoherentDataflowRuntime()) {
+            FileLifecycleContextValidator.validatePlanContext(root);
+        } else if (root.has("dataflowPlan")) {
             throw new IOException("Only coherent dataflow models may declare a dataflowPlan");
+        }
     }
 
     private static void validateGraph(JsonObject root) throws IOException {
@@ -218,12 +222,15 @@ final class ManifestV4Validator {
         } catch (IllegalArgumentException exception) {
             throw new IOException("Invalid dataMovementModel.kind/parameters: " + kind, exception);
         }
-        if (model.usesCoherentDataflowRuntime())
+        if (model.usesCoherentDataflowRuntime()) {
             for (String parameter : new String[] {
                 "accessLinkBandwidthMbPerSecond", "accessLinkLatencySeconds", "sourceEndpointBandwidthMbPerSecond"
-            })
-                if (number(required(value, parameter), parameter, false) != 0)
+            }) {
+                if (number(required(value, parameter), parameter, false) != 0) {
                     throw new IOException("V2 model does not use fixed-endpoint parameters");
+                }
+            }
+        }
         equalText(value, "contentionSemantics", ExperimentManifestWriter.contentionSemantics(model));
         equalText(value, "transferStartSemantics", ExperimentManifestWriter.transferStartSemantics(model));
         equalText(value, "bandwidthUnit", "DECIMAL_MB_PER_SECOND");
@@ -249,8 +256,9 @@ final class ManifestV4Validator {
         if (model.usesCoherentDataflowRuntime()
                 && (k > 32
                         || !Double.isFinite(declaredBandwidth * 1_000_000.0)
-                        || declaredBandwidth * 1_000_000.0 < Double.MIN_NORMAL))
+                        || declaredBandwidth * 1_000_000.0 < Double.MIN_NORMAL)) {
             throw new IOException("Unsupported V2 topology size or converted capacity");
+        }
         JsonElement core = required(value, "coreSwitchCount");
         Integer cores = core.isJsonNull() ? null : Integer.valueOf(integer(core, "networkTopology.coreSwitchCount"));
         JsonElement placement = required(value, "hostEdgePlacements");

@@ -377,7 +377,9 @@ public class WorkflowScheduler extends DatacenterBroker {
         BaseSchedulingAlgorithm scheduler = getSchedulingPolicy();
         if (scheduler instanceof StaticSchedulingAlgorithm) {
             ((StaticSchedulingAlgorithm) scheduler).setStaticSchedulePlan(staticSchedulePlan);
-            if (strictDataflowBindings) ((StaticSchedulingAlgorithm) scheduler).requireDataflowBindings();
+            if (strictDataflowBindings) {
+                ((StaticSchedulingAlgorithm) scheduler).requireDataflowBindings();
+            }
         }
         scheduler.getScheduledList().clear();
         scheduler.setCloudletList(getCloudletList());

@@ -98,7 +98,9 @@ public final class StorageLifecycleCodec {
      * @throws IllegalArgumentException for malformed, unsupported or unverifiable evidence
      */
     public static JsonObject document(StorageLifecycleEvidence evidence) {
-        if (evidence == null) throw new IllegalArgumentException("Storage lifecycle evidence is required");
+        if (evidence == null) {
+            throw new IllegalArgumentException("Storage lifecycle evidence is required");
+        }
         return FileLifecycleCodec.document(
                 evidence.getCapture(), LifecycleContract.STORAGE_V3, evidence.isStoreBackedInputs());
     }
@@ -125,7 +127,9 @@ public final class StorageLifecycleCodec {
      * @throws IllegalArgumentException for malformed, unsupported or unverifiable input
      */
     public static Decoded decodeDocument(JsonObject document) {
-        if (document == null) throw new IllegalArgumentException("Storage lifecycle document is required");
+        if (document == null) {
+            throw new IllegalArgumentException("Storage lifecycle document is required");
+        }
         return new Decoded(FileLifecycleValidator.validate(document, LifecycleContract.STORAGE_V3), document);
     }
 

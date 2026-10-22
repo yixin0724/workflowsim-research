@@ -52,7 +52,9 @@ public final class NetworkLedgerCodec {
      * @return new mutable transport tree; changing it cannot change the capture
      */
     public static JsonObject document(NetworkRunEvidence evidence) {
-        if (evidence == null) throw bad("Enabled network evidence is required");
+        if (evidence == null) {
+            throw bad("Enabled network evidence is required");
+        }
         NetworkRunMetrics metrics = NetworkRunMetrics.calculate(evidence);
         JsonObject root = new JsonObject();
         root.addProperty("schema", SCHEMA);
@@ -102,9 +104,13 @@ public final class NetworkLedgerCodec {
         TransferTraceSnapshot trace =
                 trace(object(raw.get("traceSnapshot"), "traceSnapshot"), config.getMaxTraceRecords());
         JsonArray rawBindings = array(raw.get("bindings"), "bindings");
-        if (rawBindings.size() > config.getMaxTraceRecords()) throw bad("Binding count exceeds trace budget");
+        if (rawBindings.size() > config.getMaxTraceRecords()) {
+            throw bad("Binding count exceeds trace budget");
+        }
         List<NetworkFlowBinding> bindings = new ArrayList<NetworkFlowBinding>();
-        for (JsonElement value : rawBindings) bindings.add(binding(object(value, "binding")));
+        for (JsonElement value : rawBindings) {
+            bindings.add(binding(object(value, "binding")));
+        }
         NetworkInputDemandSnapshot input =
                 raw.get("inputDemand").isJsonNull() ? null : input(object(raw.get("inputDemand"), "inputDemand"));
         boolean created = bool(raw.get("engineCreated"), "engineCreated");
@@ -140,9 +146,13 @@ public final class NetworkLedgerCodec {
         TransferTraceSnapshot.Status status =
                 enumValue(TransferTraceSnapshot.Status.class, text(raw.get("status"), "status"), "status");
         JsonArray rows = array(raw.get("events"), "trace events");
-        if (rows.size() > budget) throw bad("Trace exceeds record budget");
+        if (rows.size() > budget) {
+            throw bad("Trace exceeds record budget");
+        }
         List<TransferTraceEvent> events = new ArrayList<TransferTraceEvent>();
-        for (JsonElement row : rows) events.add(event(object(row, "trace event")));
+        for (JsonElement row : rows) {
+            events.add(event(object(row, "trace event")));
+        }
         return new TransferTraceSnapshot(
                 status,
                 events,
@@ -187,13 +197,16 @@ public final class NetworkLedgerCodec {
                 selected = "complete";
                 break;
         }
-        for (String payload : Arrays.asList("capacity", "start", "rateChange", "serviceSegment", "complete"))
-            if (!payload.equals(selected) && !e.get(payload).isJsonNull())
+        for (String payload : Arrays.asList("capacity", "start", "rateChange", "serviceSegment", "complete")) {
+            if (!payload.equals(selected) && !e.get(payload).isJsonNull()) {
                 throw bad("Unexpected event payload: " + payload);
+            }
+        }
         JsonObject p = object(e.get(selected), selected);
         if (type == TransferTraceEvent.Type.CAPACITY) {
-            if (!e.get("transferId").isJsonNull() || !e.get("admissionOrdinal").isJsonNull())
+            if (!e.get("transferId").isJsonNull() || !e.get("admissionOrdinal").isJsonNull()) {
                 throw bad("CAPACITY identity must be null");
+            }
             equalDouble(effective, observed, "CAPACITY clocks");
             keys(p, "resourceKey", "capacityBytesPerSecond");
             return TransferTraceEvent.capacity(
@@ -290,7 +303,9 @@ public final class NetworkLedgerCodec {
                 "occupiedResources");
         equal(b, "sourceScope", NetworkFlowBinding.SourceScope.MODELED_CONSTRAINED_SOURCE.name());
         List<Integer> taskIds = new ArrayList<Integer>();
-        for (JsonElement task : array(b.get("taskIds"), "taskIds")) taskIds.add(integer(task, "taskId"));
+        for (JsonElement task : array(b.get("taskIds"), "taskIds")) {
+            taskIds.add(integer(task, "taskId"));
+        }
         return NetworkFlowBinding.of(
                 whole(b.get("externalTransferId"), "externalTransferId"),
                 whole(b.get("admissionOrdinal"), "binding ordinal"),
@@ -320,7 +335,9 @@ public final class NetworkLedgerCodec {
                 decimal(i.get("localReferenceBytes"), "localReferenceBytes"));
         if (input.getTransferableReferenceBytes()
                         .compareTo(decimal(i.get("transferableReferenceBytes"), "transferableReferenceBytes"))
-                != 0) throw bad("Input reference byte partition differs");
+                != 0) {
+            throw bad("Input reference byte partition differs");
+        }
         return input;
     }
 
@@ -328,39 +345,66 @@ public final class NetworkLedgerCodec {
      * fields. */
     private static void same(JsonElement expected, JsonElement actual, String path) {
         if (expected == null || expected.isJsonNull()) {
-            if (actual == null || !actual.isJsonNull()) throw bad("Expected explicit null at " + path);
+            if (actual == null || !actual.isJsonNull()) {
+                throw bad("Expected explicit null at " + path);
+            }
             return;
         }
-        if (actual == null || actual.isJsonNull()) throw bad("Missing value at " + path);
+        if (actual == null || actual.isJsonNull()) {
+            throw bad("Missing value at " + path);
+        }
         if (expected.isJsonObject()) {
             JsonObject left = expected.getAsJsonObject(), right = object(actual, path);
-            if (!left.keySet().equals(right.keySet())) throw bad("Missing/unknown fields at " + path);
-            for (String key : left.keySet()) same(left.get(key), right.get(key), path + "/" + key);
+            if (!left.keySet().equals(right.keySet())) {
+                throw bad("Missing/unknown fields at " + path);
+            }
+            for (String key : left.keySet()) {
+                same(left.get(key), right.get(key), path + "/" + key);
+            }
             return;
         }
         if (expected.isJsonArray()) {
             JsonArray left = expected.getAsJsonArray(), right = array(actual, path);
-            if (left.size() != right.size()) throw bad("Array length differs at " + path);
-            for (int n = 0; n < left.size(); n++) same(left.get(n), right.get(n), path + "/" + n);
+            if (left.size() != right.size()) {
+                throw bad("Array length differs at " + path);
+            }
+            for (int n = 0; n < left.size(); n++) {
+                same(left.get(n), right.get(n), path + "/" + n);
+            }
             return;
         }
         JsonPrimitive primitive = expected.getAsJsonPrimitive();
         if (primitive.isNumber()) {
             Number n = primitive.getAsNumber();
-            if (n instanceof Double || n instanceof Float) equalDouble(n.doubleValue(), floating(actual, path), path);
-            else if (decimal(expected, path).compareTo(decimal(actual, path)) != 0)
+            if (n instanceof Double || n instanceof Float) {
+                equalDouble(n.doubleValue(), floating(actual, path), path);
+            } else if (decimal(expected, path).compareTo(decimal(actual, path)) != 0) {
                 throw bad("Exact numeric value differs at " + path);
+            }
         } else if (primitive.isBoolean()) {
-            if (primitive.getAsBoolean() != bool(actual, path)) throw bad("Boolean differs at " + path);
-        } else if (!primitive.getAsString().equals(text(actual, path))) throw bad("Text differs at " + path);
+            if (primitive.getAsBoolean() != bool(actual, path)) {
+                throw bad("Boolean differs at " + path);
+            }
+        } else if (!primitive.getAsString().equals(text(actual, path))) {
+            throw bad("Text differs at " + path);
+        }
     }
 
     private static void wireNumbers(JsonElement value, int depth) {
-        if (depth > MAX_JSON_DEPTH) throw bad("Network ledger JSON nesting exceeds limit");
-        if (value.isJsonObject())
-            for (JsonElement child : value.getAsJsonObject().asMap().values()) wireNumbers(child, depth + 1);
-        else if (value.isJsonArray()) for (JsonElement child : value.getAsJsonArray()) wireNumbers(child, depth + 1);
-        else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) decimal(value, "encoded number");
+        if (depth > MAX_JSON_DEPTH) {
+            throw bad("Network ledger JSON nesting exceeds limit");
+        }
+        if (value.isJsonObject()) {
+            for (JsonElement child : value.getAsJsonObject().asMap().values()) {
+                wireNumbers(child, depth + 1);
+            }
+        } else if (value.isJsonArray()) {
+            for (JsonElement child : value.getAsJsonArray()) {
+                wireNumbers(child, depth + 1);
+            }
+        } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+            decimal(value, "encoded number");
+        }
     }
     /**
      * Read strict JSON syntax into a fresh transport object while preserving numeric types.
@@ -372,11 +416,15 @@ public final class NetworkLedgerCodec {
      * @throws IllegalArgumentException for invalid syntax or numeric/depth limits
      */
     public static JsonObject parseDocument(String json) {
-        if (json == null) throw bad("Network ledger JSON is required");
+        if (json == null) {
+            throw bad("Network ledger JSON is required");
+        }
         JsonSyntax parser = new JsonSyntax(json);
         JsonElement value = parser.value(0);
         parser.space();
-        if (parser.at != json.length()) throw parser.error("Trailing JSON content");
+        if (parser.at != json.length()) {
+            throw parser.error("Trailing JSON content");
+        }
         return object(value, "network ledger JSON");
     }
 
@@ -391,24 +439,34 @@ public final class NetworkLedgerCodec {
         }
 
         JsonElement value(int depth) {
-            if (depth > MAX_JSON_DEPTH) throw error("JSON nesting exceeds limit");
+            if (depth > MAX_JSON_DEPTH) {
+                throw error("JSON nesting exceeds limit");
+            }
             space();
             char c = peek();
             if (c == '{') {
                 at++;
                 JsonObject object = new JsonObject();
                 space();
-                if (take('}')) return object;
+                if (take('}')) {
+                    return object;
+                }
                 while (true) {
                     space();
-                    if (peek() != '"') throw error("Object keys must be quoted strings");
+                    if (peek() != '"') {
+                        throw error("Object keys must be quoted strings");
+                    }
                     String key = string();
-                    if (object.has(key)) throw error("Duplicate JSON key: " + key);
+                    if (object.has(key)) {
+                        throw error("Duplicate JSON key: " + key);
+                    }
                     space();
                     expect(':');
                     object.add(key, value(depth + 1));
                     space();
-                    if (take('}')) return object;
+                    if (take('}')) {
+                        return object;
+                    }
                     expect(',');
                 }
             }
@@ -416,15 +474,21 @@ public final class NetworkLedgerCodec {
                 at++;
                 JsonArray array = new JsonArray();
                 space();
-                if (take(']')) return array;
+                if (take(']')) {
+                    return array;
+                }
                 while (true) {
                     array.add(value(depth + 1));
                     space();
-                    if (take(']')) return array;
+                    if (take(']')) {
+                        return array;
+                    }
                     expect(',');
                 }
             }
-            if (c == '"') return new JsonPrimitive(string());
+            if (c == '"') {
+                return new JsonPrimitive(string());
+            }
             if (c == 't') {
                 literal("true");
                 return new JsonPrimitive(true);
@@ -437,7 +501,9 @@ public final class NetworkLedgerCodec {
                 literal("null");
                 return JsonNull.INSTANCE;
             }
-            if (c == '-' || digit(c)) return numeric();
+            if (c == '-' || digit(c)) {
+                return numeric();
+            }
             throw error("Expected JSON value");
         }
 
@@ -446,28 +512,41 @@ public final class NetworkLedgerCodec {
             take('-');
             if (take('0')) {
                 /* A following digit is rejected by the enclosing delimiter grammar. */
-            } else if (peek() >= '1' && peek() <= '9') digits(start);
-            else throw error("Invalid JSON number integer part");
+            } else if (peek() >= '1' && peek() <= '9') {
+                digits(start);
+            } else {
+                throw error("Invalid JSON number integer part");
+            }
             if (take('.')) {
                 int first = at;
                 digits(start);
-                if (at == first) throw error("Number fraction needs digits");
+                if (at == first) {
+                    throw error("Number fraction needs digits");
+                }
             }
             if (peek() == 'e' || peek() == 'E') {
                 at++;
-                if (peek() == '+' || peek() == '-') at++;
+                if (peek() == '+' || peek() == '-') {
+                    at++;
+                }
                 int first = at;
                 digits(start);
-                if (at == first) throw error("Number exponent needs digits");
+                if (at == first) {
+                    throw error("Number exponent needs digits");
+                }
             }
-            if (at - start > MAX_NUMBER_DIGITS) throw error("Numeric token exceeds limit");
+            if (at - start > MAX_NUMBER_DIGITS) {
+                throw error("Numeric token exceeds limit");
+            }
             return new JsonPrimitive(number(text.substring(start, at), "JSON number"));
         }
 
         void digits(int start) {
             while (digit(peek())) {
                 at++;
-                if (at - start > MAX_NUMBER_DIGITS) throw error("Numeric token exceeds limit");
+                if (at - start > MAX_NUMBER_DIGITS) {
+                    throw error("Numeric token exceeds limit");
+                }
             }
         }
 
@@ -476,13 +555,19 @@ public final class NetworkLedgerCodec {
             StringBuilder result = new StringBuilder();
             while (at < text.length()) {
                 char c = text.charAt(at++);
-                if (c == '"') return result.toString();
-                if (c < 0x20) throw error("Unescaped string control character");
+                if (c == '"') {
+                    return result.toString();
+                }
+                if (c < 0x20) {
+                    throw error("Unescaped string control character");
+                }
                 if (c != 92) {
                     result.append(c);
                     continue;
                 }
-                if (at >= text.length()) throw error("Incomplete string escape");
+                if (at >= text.length()) {
+                    throw error("Incomplete string escape");
+                }
                 char escape = text.charAt(at++);
                 if (escape == '"' || escape == 92 || escape == '/') {
                     result.append(escape);
@@ -505,14 +590,18 @@ public final class NetworkLedgerCodec {
                         result.append((char) 9);
                         break;
                     case 'u':
-                        if (text.length() - at < 4) throw error("Incomplete Unicode escape");
+                        if (text.length() - at < 4) {
+                            throw error("Incomplete Unicode escape");
+                        }
                         int code = 0;
                         for (int i = 0; i < 4; i++) {
                             char h = text.charAt(at++);
                             int hex = h >= '0' && h <= '9'
                                     ? h - '0'
                                     : h >= 'a' && h <= 'f' ? h - 'a' + 10 : h >= 'A' && h <= 'F' ? h - 'A' + 10 : -1;
-                            if (hex < 0) throw error("Invalid Unicode escape");
+                            if (hex < 0) {
+                                throw error("Invalid Unicode escape");
+                            }
                             code = code * 16 + hex;
                         }
                         result.append((char) code);
@@ -525,14 +614,18 @@ public final class NetworkLedgerCodec {
         }
 
         void literal(String value) {
-            if (!text.startsWith(value, at)) throw error("Invalid JSON literal");
+            if (!text.startsWith(value, at)) {
+                throw error("Invalid JSON literal");
+            }
             at += value.length();
         }
 
         void space() {
             while (at < text.length()) {
                 char c = text.charAt(at);
-                if (c != ' ' && c != 10 && c != 13 && c != 9) return;
+                if (c != ' ' && c != 10 && c != 13 && c != 9) {
+                    return;
+                }
                 at++;
             }
         }
@@ -550,7 +643,9 @@ public final class NetworkLedgerCodec {
         }
 
         void expect(char c) {
-            if (!take(c)) throw error("Expected delimiter " + c);
+            if (!take(c)) {
+                throw error("Expected delimiter " + c);
+            }
         }
 
         static boolean digit(char c) {
@@ -563,39 +658,49 @@ public final class NetworkLedgerCodec {
     }
 
     private static JsonObject object(JsonElement e, String name) {
-        if (e == null || !e.isJsonObject()) throw bad("Expected object: " + name);
+        if (e == null || !e.isJsonObject()) {
+            throw bad("Expected object: " + name);
+        }
         return e.getAsJsonObject();
     }
 
     private static JsonArray array(JsonElement e, String name) {
-        if (e == null || !e.isJsonArray()) throw bad("Expected array: " + name);
+        if (e == null || !e.isJsonArray()) {
+            throw bad("Expected array: " + name);
+        }
         return e.getAsJsonArray();
     }
 
     private static String text(JsonElement e, String name) {
-        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString())
+        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString()) {
             throw bad("Expected string: " + name);
+        }
         return e.getAsString();
     }
 
     private static boolean bool(JsonElement e, String name) {
-        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isBoolean())
+        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isBoolean()) {
             throw bad("Expected boolean: " + name);
+        }
         return e.getAsBoolean();
     }
 
     private static BigDecimal decimal(JsonElement e, String name) {
-        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber())
+        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
             throw bad("Expected number: " + name);
+        }
         return number(e.getAsString(), name);
     }
 
     private static BigDecimal number(String token, String name) {
-        if (token.length() > MAX_NUMBER_DIGITS) throw bad("Numeric token too long: " + name);
+        if (token.length() > MAX_NUMBER_DIGITS) {
+            throw bad("Numeric token too long: " + name);
+        }
         try {
             BigDecimal n = new BigDecimal(token);
-            if (n.precision() > MAX_NUMBER_DIGITS || Math.abs((long) n.scale()) > MAX_NUMBER_DIGITS)
+            if (n.precision() > MAX_NUMBER_DIGITS || Math.abs((long) n.scale()) > MAX_NUMBER_DIGITS) {
                 throw bad("Numeric exponent/precision too large: " + name);
+            }
             return n;
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid number: " + name, e);
@@ -605,8 +710,9 @@ public final class NetworkLedgerCodec {
     private static double floating(JsonElement e, String name) {
         BigDecimal n = decimal(e, name);
         double d = n.doubleValue();
-        if (!Double.isFinite(d) || (d == 0.0 && n.signum() != 0))
+        if (!Double.isFinite(d) || (d == 0.0 && n.signum() != 0)) {
             throw bad("Binary64 value is not representable: " + name);
+        }
         return d;
     }
 
@@ -628,21 +734,28 @@ public final class NetworkLedgerCodec {
 
     private static List<String> strings(JsonElement e, String name) {
         List<String> out = new ArrayList<String>();
-        for (JsonElement item : array(e, name)) out.add(text(item, name));
+        for (JsonElement item : array(e, name)) {
+            out.add(text(item, name));
+        }
         return out;
     }
 
     private static void keys(JsonObject object, String... names) {
-        if (!object.keySet().equals(new LinkedHashSet<String>(Arrays.asList(names))))
+        if (!object.keySet().equals(new LinkedHashSet<String>(Arrays.asList(names)))) {
             throw bad("Missing or unknown fields; expected " + Arrays.toString(names));
+        }
     }
 
     private static void equal(JsonObject object, String field, String value) {
-        if (!value.equals(text(object.get(field), field))) throw bad("Unsupported " + field);
+        if (!value.equals(text(object.get(field), field))) {
+            throw bad("Unsupported " + field);
+        }
     }
 
     private static void equalDouble(double a, double b, String path) {
-        if (a != b) throw bad("Binary64 value differs at " + path);
+        if (a != b) {
+            throw bad("Binary64 value differs at " + path);
+        }
     }
 
     private static <E extends Enum<E>> E enumValue(Class<E> type, String value, String name) {

@@ -251,12 +251,17 @@ public final class DataReplicaState {
      * @param knownLocations distinct immutable typed locations; no capacity is implied
      */
     public DataReplicaState(DataflowFilePlan plan, Collection<DataLocation> knownLocations) {
-        if (plan == null || knownLocations == null) throw bad("File plan and known locations are required");
+        if (plan == null || knownLocations == null) {
+            throw bad("File plan and known locations are required");
+        }
         this.plan = plan;
         ticketOwner = new Object();
         Set<DataLocation> copied = new TreeSet<>();
-        for (DataLocation location : knownLocations)
-            if (location == null || !copied.add(location)) throw bad("Locations must be nonnull and distinct");
+        for (DataLocation location : knownLocations) {
+            if (location == null || !copied.add(location)) {
+                throw bad("Locations must be nonnull and distinct");
+            }
+        }
         locations = Collections.unmodifiableSet(copied);
         locationList = immutableList(locations);
     }
@@ -332,8 +337,9 @@ public final class DataReplicaState {
     public Publication seedExternal(DataflowFilePlan.FileId file, DataLocation source, double now) {
         DataflowFilePlan.FileDefinition definition = plan.getFile(file);
         requireKnown(locations, source);
-        if (!definition.isExternal() || source.getKind() != DataLocation.Kind.SOURCE)
+        if (!definition.isExternal() || source.getKind() != DataLocation.Kind.SOURCE) {
             throw bad("Only external logical files can be seeded at SOURCE locations");
+        }
         double at = time(now);
         Replica proposal = new Replica(
                 definition, source, at, Acquisition.EXTERNAL_SEED, new Origin(null, null, source, at), null, null);
@@ -359,29 +365,37 @@ public final class DataReplicaState {
             int taskId, long jobAttemptId, DataLocation actualVm, boolean succeeded, double now) {
         List<DataflowFilePlan.FileId> outputIds = plan.getOutputFiles(taskId);
         requireKnown(locations, actualVm);
-        if (jobAttemptId < 0 || actualVm.getKind() != DataLocation.Kind.VM)
+        if (jobAttemptId < 0 || actualVm.getKind() != DataLocation.Kind.VM) {
             throw bad("Task outcome needs nonnegative attempt ID and an actual VM location");
+        }
         double at = time(now);
         JobObservation job = jobObservations.get(jobAttemptId);
-        if (job != null && !job.matches(actualVm, at))
+        if (job != null && !job.matches(actualVm, at)) {
             throw new IllegalStateException("A Job attempt has one actual VM and one completion observation");
+        }
         Attempt key = new Attempt(taskId, jobAttemptId);
         Completion previous = completions.get(key);
         if (previous != null) {
-            if (!previous.matches(actualVm, succeeded, at))
+            if (!previous.matches(actualVm, succeeded, at)) {
                 throw new IllegalStateException("A Task/Job attempt outcome cannot be rewritten");
+            }
             return Collections.emptyList();
         }
         List<Replica> proposals = new ArrayList<>();
         if (succeeded) {
             Origin origin = new Origin(taskId, jobAttemptId, actualVm, at);
-            for (DataflowFilePlan.FileId file : outputIds)
+            for (DataflowFilePlan.FileId file : outputIds) {
                 proposals.add(
                         new Replica(plan.getFile(file), actualVm, at, Acquisition.TASK_OUTPUT, origin, null, null));
+            }
         }
         List<Publication> published = new ArrayList<>();
-        for (Replica proposal : proposals) published.add(publish(proposal));
-        if (job == null) jobObservations = jobObservations.with(jobAttemptId, new JobObservation(actualVm, at));
+        for (Replica proposal : proposals) {
+            published.add(publish(proposal));
+        }
+        if (job == null) {
+            jobObservations = jobObservations.with(jobAttemptId, new JobObservation(actualVm, at));
+        }
         completions = completions.with(key, new Completion(actualVm, succeeded, at));
         observedThrough = at;
         return Collections.unmodifiableList(published);
@@ -402,15 +416,23 @@ public final class DataReplicaState {
         requireKnown(locations, source);
         requireKnown(locations, destination);
         double at = time(now);
-        if (definition.getBytes() == 0) throw bad("Zero-byte references do not admit positive copies");
-        if (!Double.isFinite(Math.nextUp(at))) throw bad("Positive copy admission has no finite future observation");
+        if (definition.getBytes() == 0) {
+            throw bad("Zero-byte references do not admit positive copies");
+        }
+        if (!Double.isFinite(Math.nextUp(at))) {
+            throw bad("Positive copy admission has no finite future observation");
+        }
         Replica replica = requireVisible(file, source);
-        if (visible(file, destination) != null)
+        if (visible(file, destination) != null) {
             throw new IllegalStateException("Destination already has a visible replica; no copy is needed");
+        }
         Target target = new Target(file, destination);
-        if (byTarget.containsKey(target))
+        if (byTarget.containsKey(target)) {
             throw new IllegalStateException("An active copy already exists; join its ticket instead");
-        if (nextOrdinal == Long.MAX_VALUE) throw new IllegalStateException("Copy identity range exhausted");
+        }
+        if (nextOrdinal == Long.MAX_VALUE) {
+            throw new IllegalStateException("Copy identity range exhausted");
+        }
         CopyTicket ticket = new CopyTicket(ticketOwner, nextOrdinal, replica, destination, at);
         active.put(ticket.ordinal, ticket);
         byTarget.put(target, ticket);
@@ -427,10 +449,16 @@ public final class DataReplicaState {
      * @return new or already-present destination replica, retaining earliest visibility
      */
     public Publication settleCopy(CopyTicket ticket, double now) {
-        if (ticket == null || ticket.owner != ticketOwner) throw bad("Copy ticket belongs to another run or is null");
-        if (active.get(ticket.ordinal) != ticket) throw new IllegalStateException("Copy is not active");
+        if (ticket == null || ticket.owner != ticketOwner) {
+            throw bad("Copy ticket belongs to another run or is null");
+        }
+        if (active.get(ticket.ordinal) != ticket) {
+            throw new IllegalStateException("Copy is not active");
+        }
         double at = time(now);
-        if (at <= ticket.releaseTime) throw bad("Positive copy settlement must be observed after its admission");
+        if (at <= ticket.releaseTime) {
+            throw bad("Positive copy settlement must be observed after its admission");
+        }
         Replica proposal = new Replica(
                 ticket.source.file,
                 ticket.destination,
@@ -460,8 +488,9 @@ public final class DataReplicaState {
         requireKnown(locations, source);
         requireKnown(locations, destination);
         double at = time(now);
-        if (definition.getBytes() != 0)
+        if (definition.getBytes() != 0) {
             throw bad("Only zero-byte references can be resolved without positive copy service");
+        }
         Replica replica = requireVisible(file, source);
         Publication result = publish(new Replica(
                 definition, destination, at, Acquisition.ZERO_BYTE_REFERENCE, replica.origin, source, null));
@@ -480,8 +509,9 @@ public final class DataReplicaState {
         if (definition.isExternal()
                 || definition.getBytes() != 0
                 || source.getKind() != DataLocation.Kind.VM
-                || destination.getKind() != DataLocation.Kind.SOURCE)
+                || destination.getKind() != DataLocation.Kind.SOURCE) {
             throw bad("Zero output needs a produced object, VM source and store destination");
+        }
         Replica replica = requireVisible(file, source);
         Publication result = publish(
                 new Replica(definition, destination, at, Acquisition.ZERO_BYTE_OUTPUT, replica.origin, source, null));
@@ -491,8 +521,9 @@ public final class DataReplicaState {
 
     private Replica requireVisible(DataflowFilePlan.FileId file, DataLocation source) {
         Replica replica = visible(file, source);
-        if (replica == null)
+        if (replica == null) {
             throw new IllegalStateException("Source does not hold a visible replica: " + file + " at " + source);
+        }
         return replica;
     }
 
@@ -504,7 +535,9 @@ public final class DataReplicaState {
     private Publication publish(Replica proposal) {
         Map<DataLocation, Replica> previous = replicas.get(proposal.file.getId());
         Replica existing = previous == null ? null : previous.get(proposal.location);
-        if (existing != null) return new Publication(existing, false);
+        if (existing != null) {
+            return new Publication(existing, false);
+        }
         // Copy only the changed file's ordered row; published rows are never mutated again.
         Map<DataLocation, Replica> copies = previous == null ? new TreeMap<>() : new TreeMap<>(previous);
         copies.put(proposal.location, proposal);
@@ -513,13 +546,16 @@ public final class DataReplicaState {
     }
 
     private double time(double now) {
-        if (!Double.isFinite(now) || now < 0 || now < observedThrough)
+        if (!Double.isFinite(now) || now < 0 || now < observedThrough) {
             throw bad("Observation time must be finite, nonnegative and monotonic");
+        }
         return now == 0 ? 0 : now;
     }
 
     private static void requireKnown(Set<DataLocation> locations, DataLocation location) {
-        if (location == null || !locations.contains(location)) throw bad("Unknown data location: " + location);
+        if (location == null || !locations.contains(location)) {
+            throw bad("Unknown data location: " + location);
+        }
     }
 
     private static <T> List<T> immutableList(Collection<T> values) {
@@ -546,7 +582,9 @@ public final class DataReplicaState {
 
         @Override
         public boolean equals(Object other) {
-            if (!(other instanceof Target)) return false;
+            if (!(other instanceof Target)) {
+                return false;
+            }
             Target target = (Target) other;
             return file.equals(target.file) && location.equals(target.location);
         }
@@ -568,7 +606,9 @@ public final class DataReplicaState {
 
         @Override
         public boolean equals(Object other) {
-            if (!(other instanceof Attempt)) return false;
+            if (!(other instanceof Attempt)) {
+                return false;
+            }
             Attempt attempt = (Attempt) other;
             return task == attempt.task && job == attempt.job;
         }

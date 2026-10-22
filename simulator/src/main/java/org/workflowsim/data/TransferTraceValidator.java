@@ -172,11 +172,13 @@ public final class TransferTraceValidator {
                 return;
             }
             require(budget > 0 && events.size() <= budget, "Enabled capture exceeds its positive record budget");
-            if (truncated)
+            if (truncated) {
                 require(
                         events.size() == budget && snapshot.getDroppedCount() > 0,
                         "TRUNCATED requires a full prefix and positive dropped count");
-            else require(snapshot.getDroppedCount() == 0, "COMPLETE capture cannot have dropped records");
+            } else {
+                require(snapshot.getDroppedCount() == 0, "COMPLETE capture cannot have dropped records");
+            }
             double lastEffective = 0, lastObserved = 0;
             for (int i = 0; i < events.size(); i++) {
                 TransferTraceEvent e = events.get(i);
@@ -197,11 +199,15 @@ public final class TransferTraceValidator {
         }
 
         void run() {
-            if (snapshot.getStatus() == TransferTraceSnapshot.Status.DISABLED) return;
+            if (snapshot.getStatus() == TransferTraceSnapshot.Status.DISABLED) {
+                return;
+            }
             while (index < events.size() && !partial) {
                 if (horizon != null) {
                     if (!active.isEmpty() && cursor < horizon) {
-                        if (!step()) break;
+                        if (!step()) {
+                            break;
+                        }
                         continue;
                     }
                     cursor = horizon;
@@ -223,7 +229,9 @@ public final class TransferTraceValidator {
                         if (active.isEmpty()) {
                             require(e.getEffectiveTime() >= cursor, at("Admission precedes cursor"));
                             cursor = e.getEffectiveTime();
-                        } else same(cursor, e.getEffectiveTime(), at("Unexplained active time gap before admission"));
+                        } else {
+                            same(cursor, e.getEffectiveTime(), at("Unexplained active time gap before admission"));
+                        }
                         require(e.getAdmissionOrdinal() == nextOrdinal, at("Admission ordinal gap or reuse"));
                         require(!externalIds.containsKey(e.getTransferId()), at("External ID reused while active"));
                         Flow admitted = new Flow(e);
@@ -231,30 +239,39 @@ public final class TransferTraceValidator {
                         externalIds.put(admitted.externalId, admitted.ordinal);
                         nextOrdinal++;
                         index++;
-                        if (!rates(admitted.ordinal, e.getObservedTime(), "ADMISSION_RATE_CHANGES")) break;
+                        if (!rates(admitted.ordinal, e.getObservedTime(), "ADMISSION_RATE_CHANGES")) {
+                            break;
+                        }
                         break;
                     case SERVICE_SEGMENT:
                     case COMPLETE:
                         require(!active.isEmpty(), at("Service/settlement without active flows"));
                         require(e.getObservedTime() > cursor, at("Advance must observe a later time"));
                         horizon = e.getObservedTime();
-                        if (!step()) break;
+                        if (!step()) {
+                            break;
+                        }
                         break;
                     default:
                         throw bad(at("Rate change outside allocation transition"));
                 }
             }
-            if (partial) return;
+            if (partial) {
+                return;
+            }
             if (horizon != null) {
                 if (!active.isEmpty() && cursor < horizon) {
                     step();
-                    if (partial) return;
+                    if (partial) {
+                        return;
+                    }
                 }
                 cursor = horizon;
                 horizon = null;
             }
-            if (!truncated && !active.isEmpty())
+            if (!truncated && !active.isEmpty()) {
                 same(cursor, snapshot.getEngineTime(), "Complete capture omits active service before its watermark");
+            }
             if (truncated && !active.isEmpty() && cursor < snapshot.getEngineTime()) {
                 // Do not replay unknown arrivals. They cost START plus a record for their own
                 // later progress; every already-active flow still requires a service/removal.
@@ -285,9 +302,11 @@ public final class TransferTraceValidator {
             }
             if (index == events.size() && truncated) {
                 Set<Long> variable = new HashSet<Long>();
-                for (Flow flow : active.values())
-                    if (flow.ordinal > previousOrdinal && (excluded == null || flow.ordinal != excluded))
+                for (Flow flow : active.values()) {
+                    if (flow.ordinal > previousOrdinal && (excluded == null || flow.ordinal != excluded)) {
                         variable.add(flow.ordinal);
+                    }
+                }
                 if (!variable.isEmpty()) {
                     fixedAllocationBounds(variable);
                     boolean alreadyStable = true;
@@ -313,7 +332,9 @@ public final class TransferTraceValidator {
 
         /** Conservative event lower bound when unobserved admissions/rate changes may precede time progress. */
         long progressMinimum(double observed, boolean unseenRatesMayPrecede) {
-            if (active.isEmpty() || !(cursor < observed)) return 0L;
+            if (active.isEmpty() || !(cursor < observed)) {
+                return 0L;
+            }
             double duration = Double.POSITIVE_INFINITY;
             Flow earliest = null;
             for (Flow flow : active.values()) {
@@ -328,7 +349,9 @@ public final class TransferTraceValidator {
             long settlements = 0;
             for (Flow flow : active.values()) {
                 double after = Math.max(0.0, flow.remaining - flow.rate * elapsed);
-                if (after <= tolerance(flow.bytes) || (flow == earliest && elapsed >= duration)) settlements++;
+                if (after <= tolerance(flow.bytes) || (flow == earliest && elapsed >= duration)) {
+                    settlements++;
+                }
             }
             long direct = (elapsed > 0.0 ? active.size() : 0L)
                     + settlements
@@ -359,7 +382,9 @@ public final class TransferTraceValidator {
             for (Flow f : before) {
                 double remainder = Math.max(0.0, f.remaining - f.rate * elapsed);
                 after.put(f.ordinal, remainder);
-                if (remainder <= tolerance(f.bytes) || (f == earliest && elapsed >= duration)) settled.add(f);
+                if (remainder <= tolerance(f.bytes) || (f == earliest && elapsed >= duration)) {
+                    settled.add(f);
+                }
             }
             long continuation = end < observed ? before.size() - settled.size() : 0L;
             if (elapsed > 0) {
@@ -385,11 +410,14 @@ public final class TransferTraceValidator {
                     same(after.get(f.ordinal), s.getRemainingAfter(), at("Service subtraction/clamp mismatch"));
                     index++;
                 }
-            } else
+            } else {
                 require(
                         elapsed == 0.0 && duration == 0.0 && earliest != null,
                         at("Unjustified zero-elapsed settlement"));
-            for (Flow f : before) f.remaining = after.get(f.ordinal);
+            }
+            for (Flow f : before) {
+                f.remaining = after.get(f.ordinal);
+            }
             cursor = end;
             require(elapsed != 0.0 || !settled.isEmpty(), at("Zero step made no progress"));
             for (int i = 0; i < settled.size(); i++) {
@@ -412,7 +440,9 @@ public final class TransferTraceValidator {
                 completed++;
                 index++;
             }
-            if (!settled.isEmpty()) return rates(null, observed, "COMPLETION_RATE_CHANGES");
+            if (!settled.isEmpty()) {
+                return rates(null, observed, "COMPLETION_RATE_CHANGES");
+            }
             certified = index;
             return true;
         }
@@ -420,10 +450,12 @@ public final class TransferTraceValidator {
         /** Necessary bounds on final rates already fixed by a truncated transition. */
         void fixedAllocationBounds(Set<Long> variable) {
             Map<String, Resource> fixed = new LinkedHashMap<String, Resource>();
-            for (Flow flow : active.values())
+            for (Flow flow : active.values()) {
                 for (String key : flow.resources) {
                     Double capacity = capacities.get(key);
-                    if (capacity == null) continue;
+                    if (capacity == null) {
+                        continue;
+                    }
                     Resource r = fixed.get(key);
                     if (r == null) {
                         r = new Resource(capacity);
@@ -435,20 +467,25 @@ public final class TransferTraceValidator {
                         r.maximumRate = Math.max(r.maximumRate, flow.rate);
                     }
                 }
-            for (Resource r : fixed.values())
+            }
+            for (Resource r : fixed.values()) {
                 require(
                         r.load.subtract(decimal(r.capacity)).compareTo(ulpBudget(r.capacity, r.terms)) <= 0,
                         at("Already-fixed prefix allocation exceeds resource capacity"));
+            }
             Map<Long, BigDecimal> variableUpper = new HashMap<Long, BigDecimal>();
-            for (Flow flow : active.values())
+            for (Flow flow : active.values()) {
                 if (variable.contains(flow.ordinal)) {
                     BigDecimal upper = decimal(flow.nominal);
                     Map<String, Long> multiplicity = new HashMap<String, Long>();
-                    for (String key : flow.resources)
+                    for (String key : flow.resources) {
                         multiplicity.put(key, multiplicity.containsKey(key) ? multiplicity.get(key) + 1L : 1L);
+                    }
                     for (Map.Entry<String, Long> entry : multiplicity.entrySet()) {
                         Resource r = fixed.get(entry.getKey());
-                        if (r == null) continue;
+                        if (r == null) {
+                            continue;
+                        }
                         BigDecimal available = decimal(r.capacity)
                                 .add(ulpBudget(r.capacity, r.terms))
                                 .subtract(r.load);
@@ -458,8 +495,11 @@ public final class TransferTraceValidator {
                     }
                     variableUpper.put(flow.ordinal, upper);
                 }
+            }
             for (Flow flow : active.values()) {
-                if (variable.contains(flow.ordinal) || near(flow.rate, flow.nominal, active.size())) continue;
+                if (variable.contains(flow.ordinal) || near(flow.rate, flow.nominal, active.size())) {
+                    continue;
+                }
                 // Any final user no greater than this rate within the capped relative profile
                 // must be <= rate/(1-1e-12). Ceiling arithmetic is a conservative upper bound.
                 BigDecimal tieUpper = decimal(flow.rate)
@@ -469,19 +509,27 @@ public final class TransferTraceValidator {
                 boolean possible = false;
                 for (String key : flow.resources) {
                     Resource r = fixed.get(key);
-                    if (r == null) continue;
+                    if (r == null) {
+                        continue;
+                    }
                     if (decimal(r.maximumRate)
                                     .subtract(decimal(flow.rate))
                                     .compareTo(ulpBudget(Math.max(r.maximumRate, flow.rate), active.size()))
-                            > 0) continue;
+                            > 0) {
+                        continue;
+                    }
                     BigDecimal upper = r.load;
-                    for (Flow other : active.values())
+                    for (Flow other : active.values()) {
                         if (variable.contains(other.ordinal)) {
                             BigDecimal candidate =
                                     variableUpper.get(other.ordinal).min(tieUpper);
-                            for (String occupied : other.resources)
-                                if (key.equals(occupied)) upper = upper.add(candidate);
+                            for (String occupied : other.resources) {
+                                if (key.equals(occupied)) {
+                                    upper = upper.add(candidate);
+                                }
+                            }
                         }
+                    }
                     if (decimal(r.capacity).subtract(upper).compareTo(ulpBudget(r.capacity, r.terms)) <= 0) {
                         possible = true;
                         break;
@@ -498,7 +546,9 @@ public final class TransferTraceValidator {
                 require(f.rate <= f.nominal, at("Rate exceeds nominal cap"));
                 for (String key : f.resources) {
                     Double cap = capacities.get(key);
-                    if (cap == null) continue;
+                    if (cap == null) {
+                        continue;
+                    }
                     Resource r = resources.get(key);
                     if (r == null) {
                         r = new Resource(cap);
@@ -509,16 +559,21 @@ public final class TransferTraceValidator {
                     r.maximumRate = Math.max(r.maximumRate, f.rate);
                 }
             }
-            for (Resource r : resources.values())
+            for (Resource r : resources.values()) {
                 require(
                         r.load.subtract(decimal(r.capacity)).compareTo(ulpBudget(r.capacity, r.terms)) <= 0,
                         at("Resource capacity exceeded"));
+            }
             for (Flow f : active.values()) {
-                if (near(f.rate, f.nominal, active.size())) continue;
+                if (near(f.rate, f.nominal, active.size())) {
+                    continue;
+                }
                 boolean bottleneck = false;
                 for (String key : f.resources) {
                     Resource r = resources.get(key);
-                    if (r == null) continue;
+                    if (r == null) {
+                        continue;
+                    }
                     boolean saturated =
                             r.load.subtract(decimal(r.capacity)).abs().compareTo(ulpBudget(r.capacity, r.terms)) <= 0;
                     boolean noHigher = decimal(r.maximumRate)
@@ -594,7 +649,9 @@ public final class TransferTraceValidator {
                                 <= e.getStart().getNominalRateBytesPerSecond(),
                         "Initial rate exceeds nominal");
                 require(e.getStart().getOccupiedResources() != null, "Resources are required");
-                for (String key : e.getStart().getOccupiedResources()) require(key != null, "Null occupied resource");
+                for (String key : e.getStart().getOccupiedResources()) {
+                    require(key != null, "Null occupied resource");
+                }
                 same(e.getEffectiveTime(), e.getObservedTime(), "Admission clocks differ");
                 break;
             case RATE_CHANGE:
@@ -652,7 +709,9 @@ public final class TransferTraceValidator {
     }
 
     private static void require(boolean condition, String message) {
-        if (!condition) throw bad(message);
+        if (!condition) {
+            throw bad(message);
+        }
     }
 
     private static IllegalArgumentException bad(String message) {

@@ -212,8 +212,9 @@ public final class NetworkTraceMetrics {
             area = area.add(a.area);
             residual = residual.add(a.residual);
             remaining = remaining.add(a.remaining);
-            if (a.demand.compareTo(a.debit.add(a.residual).add(a.remaining)) != 0)
+            if (a.demand.compareTo(a.debit.add(a.residual).add(a.remaining)) != 0) {
                 throw new IllegalStateException("Validated flow balance did not conserve demand: " + a.ordinal);
+            }
             if (a.complete) {
                 finished = finished.add(a.demand);
                 fcts.add(row.effectiveFctSeconds);
@@ -237,7 +238,9 @@ public final class NetworkTraceMetrics {
         p95EffectiveFctSeconds = fcts.isEmpty() ? null : fcts.get((int) ((95L * fcts.size() + 99L) / 100L) - 1);
         flows = Collections.unmodifiableList(flowRows);
         List<ResourceUsage> resourceRows = new ArrayList<ResourceUsage>();
-        for (ResourceAcc a : acc.resources.values()) resourceRows.add(new ResourceUsage(a));
+        for (ResourceAcc a : acc.resources.values()) {
+            resourceRows.add(new ResourceUsage(a));
+        }
         resources = Collections.unmodifiableList(resourceRows);
     }
 
@@ -251,9 +254,13 @@ public final class NetworkTraceMetrics {
      */
     public static NetworkTraceMetrics calculate(TransferTraceSnapshot snapshot, int maxTraceRecords) {
         TransferTraceValidator.Result validated = TransferTraceValidator.validate(snapshot, maxTraceRecords);
-        if (!validated.isCompleteCapture()) return new NetworkTraceMetrics(snapshot, validated, null);
+        if (!validated.isCompleteCapture()) {
+            return new NetworkTraceMetrics(snapshot, validated, null);
+        }
         Accumulator acc = new Accumulator();
-        for (TransferTraceEvent event : snapshot.getEvents()) acc.accept(event);
+        for (TransferTraceEvent event : snapshot.getEvents()) {
+            acc.accept(event);
+        }
         return new NetworkTraceMetrics(snapshot, validated, acc);
     }
 
@@ -310,7 +317,9 @@ public final class NetworkTraceMetrics {
                     FlowAcc added = new FlowAcc(e);
                     all.put(added.ordinal, added);
                     active.put(added.ordinal, added);
-                    for (String key : added.resources) resource(key);
+                    for (String key : added.resources) {
+                        resource(key);
+                    }
                     break;
                 case RATE_CHANGE:
                     break; // Rates are already linked/certified; service rows carry the actual rate used.
@@ -320,10 +329,12 @@ public final class NetworkTraceMetrics {
                     if (serviceRowsRemaining == 0) {
                         serviceRowsRemaining = active.size();
                         epochs++;
-                        for (ResourceAcc r : resources.values())
-                            if (r.capacity != null)
+                        for (ResourceAcc r : resources.values()) {
+                            if (r.capacity != null) {
                                 r.capacityArea =
                                         r.capacityArea.add(exact(r.capacity).multiply(elapsed));
+                            }
+                        }
                     }
                     FlowAcc flow = active.get(e.getAdmissionOrdinal());
                     BigDecimal service = exact(s.getRateBytesPerSecond()).multiply(elapsed);
@@ -333,7 +344,9 @@ public final class NetworkTraceMetrics {
                     for (String key : flow.resources) {
                         ResourceAcc r = resource(key);
                         r.area = r.area.add(service);
-                        if (r.capacity != null) r.boundedArea = r.boundedArea.add(service);
+                        if (r.capacity != null) {
+                            r.boundedArea = r.boundedArea.add(service);
+                        }
                     }
                     serviceRowsRemaining--;
                     break;
