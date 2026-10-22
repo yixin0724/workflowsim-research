@@ -51,6 +51,9 @@
     <module name="LineLength">
         <property name="max" value="120"/>
         <property name="fileExtensions" value="java"/>
+        <!-- Tier-A promote（2026-10-22，二期 L1/L2/L3 批）：主代码与测试树均清零
+             （join 恒等拆分 + palantir 120 列兼容）；新超长行=拼写/文案走样即拦 -->
+        <property name="severity" value="error"/>
     </module>
 
     <module name="TreeWalker">
@@ -111,7 +114,11 @@
         <module name="MethodParamPad"/>
         <module name="ParenPad"/>
         <module name="LeftCurly"/>
-        <module name="RightCurly"/>
+        <!-- Tier-A promote（2026-10-22，二期 W1 批）：全仓含测试树清零；
+             palantir 默认同线产 else，新违例即拦 -->
+        <module name="RightCurly">
+            <property name="severity" value="error"/>
+        </module>
         <module name="NeedBraces"/>
 
         <!-- 命名（174 条基线，重命名批处理，与 format-only 分离提交） -->
