@@ -135,8 +135,7 @@ public final class ClusteringEngine extends SimEntity {
                 // 优先按每层目标作业数构造。
                 if (params.getClustersNum() != 0) {
                     this.engine = new HorizontalClustering(params.getClustersNum(), 0);
-                } // 否则按每个作业的目标任务数构造。
-                else if (params.getClustersSize() != 0) {
+                } else if (params.getClustersSize() != 0) { // 否则按每个作业的目标任务数构造。
                     this.engine = new HorizontalClustering(0, params.getClustersSize());
                 }
                 break;
