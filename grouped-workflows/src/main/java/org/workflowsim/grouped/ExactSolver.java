@@ -1,7 +1,9 @@
 package org.workflowsim.grouped;
 
-import com.google.gson.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.google.gson.JsonObject;
 
 /** Complete enumeration of the declared decoder family, restricted to tiny inputs. */
 public final class ExactSolver {

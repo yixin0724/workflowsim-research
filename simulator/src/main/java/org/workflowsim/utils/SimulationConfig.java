@@ -3,6 +3,7 @@ package org.workflowsim.utils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.data.NetworkEvidenceConfig;
 import org.workflowsim.failure.FailureModelConfig;

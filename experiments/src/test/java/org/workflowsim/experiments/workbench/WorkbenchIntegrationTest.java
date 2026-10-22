@@ -18,9 +18,6 @@ import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.payload
 import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.text;
 import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.workflow;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -36,12 +33,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.experiment.ExperimentArtifactValidator;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 class WorkbenchIntegrationTest {
     @TempDir

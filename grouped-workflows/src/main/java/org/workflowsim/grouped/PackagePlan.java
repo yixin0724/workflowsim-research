@@ -1,7 +1,11 @@
 package org.workflowsim.grouped;
 
-import com.google.gson.*;
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 /** Physical partition, fixed node assignment, and a topological priority order. */
 public final class PackagePlan {

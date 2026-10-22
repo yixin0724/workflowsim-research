@@ -3,15 +3,13 @@ package org.workflowsim.experiments.workbench;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.*;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.experiment.ExperimentArtifactValidator;
 import org.workflowsim.experiment.ExperimentArtifactWriter;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** Public Workbench run and standalone report must use the separate validated V2 display schema. */
 class WorkbenchFileLifecycleReportIntegrationTest {

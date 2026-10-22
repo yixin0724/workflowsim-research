@@ -336,6 +336,11 @@
                             <palantirJavaFormat>
                                 <version>2.50.0</version>
                             </palantirJavaFormat>
+                            <!-- import 分组与 checkstyle ImportOrder(groups/separated) 同向：
+                                 java,javax,org,com 组间空行，组内字母序。 -->
+                            <importOrder>
+                                <order>java,javax,org,com</order>
+                            </importOrder>
                         </java>
                     </configuration>
                 </plugin>

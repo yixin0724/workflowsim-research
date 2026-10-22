@@ -1,7 +1,5 @@
 package org.workflowsim.experiments.workbench;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,6 +7,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.data.NetworkEvidenceConfig;
 import org.workflowsim.data.NetworkFlowBinding;
@@ -19,6 +18,9 @@ import org.workflowsim.data.NetworkTraceMetrics;
 import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.data.TransferTraceEvent;
 import org.workflowsim.experiment.ExperimentArtifactValidator;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 /** Explicit browser inputs: actual public run/report paths plus clearly scoped typed-projection stress cases. */
 final class NetworkBrowserFixtures {

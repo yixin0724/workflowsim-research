@@ -1,10 +1,12 @@
 package org.workflowsim.data.v2;
 
+import java.util.Map;
+
+import org.workflowsim.network.FatTreeTopology;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import java.util.Map;
-import org.workflowsim.network.FatTreeTopology;
 
 /** Stable explicit write-side shapes; read-side validation must not Gson-populate private fields. */
 final class FileLifecycleFormat {

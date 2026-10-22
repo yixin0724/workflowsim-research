@@ -1,8 +1,5 @@
 package org.workflowsim.data.v2;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -15,8 +12,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
 import org.cloudbus.cloudsim.Cloudlet;
 import org.workflowsim.utils.Parameters;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /**
  * Independent read-side audit of online destination bindings and logged nominal scores.

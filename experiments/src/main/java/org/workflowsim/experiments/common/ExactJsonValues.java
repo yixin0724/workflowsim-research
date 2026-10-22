@@ -1,9 +1,10 @@
 package org.workflowsim.experiments.common;
 
+import java.math.BigDecimal;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.math.BigDecimal;
 
 /** JSON value comparison without Gson's lossy conversion of parsed integers to double. */
 public final class ExactJsonValues {

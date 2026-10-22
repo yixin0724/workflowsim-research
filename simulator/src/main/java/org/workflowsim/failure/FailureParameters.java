@@ -20,6 +20,7 @@ package org.workflowsim.failure;
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeSet;
+
 import org.workflowsim.Task;
 import org.workflowsim.utils.DistributionGenerator;
 import org.workflowsim.utils.DistributionGenerator.DistributionFamily;

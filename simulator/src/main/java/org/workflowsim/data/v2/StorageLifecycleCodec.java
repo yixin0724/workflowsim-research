@@ -1,10 +1,12 @@
 package org.workflowsim.data.v2;
 
+import java.util.Set;
+
+import org.workflowsim.data.NetworkLedgerCodec;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import java.util.Set;
-import org.workflowsim.data.NetworkLedgerCodec;
 
 /**
  * Strict standalone V3 storage-lifecycle certificate codec. Independently checks bounded

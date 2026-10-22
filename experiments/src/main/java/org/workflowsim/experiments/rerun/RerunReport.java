@@ -1,11 +1,12 @@
 package org.workflowsim.experiments.rerun;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 
 /**
  * D2 阶段 6：rerun 差异比对报告（契约 §报告格式）。

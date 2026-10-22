@@ -3,16 +3,13 @@ package org.workflowsim.experiments.workbench;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.*;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +19,11 @@ import org.workflowsim.data.NetworkLedgerCodec;
 import org.workflowsim.data.NetworkRunEvidence;
 import org.workflowsim.experiment.ExperimentArtifactValidator;
 import org.workflowsim.experiment.ExperimentArtifactWriter;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** NF002D2: both real public report paths embed validated network display data, never fetch sidecars in a browser. */
 class WorkbenchNetworkReportIntegrationTest {

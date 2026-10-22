@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 import org.workflowsim.data.DataMovementModel;
 import org.workflowsim.failure.FailureModelConfig;

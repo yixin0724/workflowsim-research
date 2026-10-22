@@ -18,6 +18,7 @@ package org.workflowsim.utils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.random.Well19937c;
 

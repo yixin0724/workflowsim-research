@@ -1,6 +1,5 @@
 package org.workflowsim.data.v2;
 
-import com.google.gson.Gson;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryType;
@@ -12,10 +11,13 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.workflowsim.FileItem;
 import org.workflowsim.Job;
 import org.workflowsim.Task;
 import org.workflowsim.utils.Parameters;
+
+import com.google.gson.Gson;
 
 /**
  * Reproducible controller-only profile, not a scheduling study or a wall-clock test threshold.

@@ -2,14 +2,13 @@ package org.workflowsim.experiment;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +25,9 @@ import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 /** Storage V3 runs in the real Kernel and exports only through its dedicated verified contract. */
 class StorageDataflowKernelIntegrationTest {

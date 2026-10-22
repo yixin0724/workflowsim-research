@@ -3,17 +3,19 @@ package org.workflowsim.data;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.workflowsim.data.TransferTraceEvent.Type.*;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+
 import org.junit.jupiter.api.Test;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 /** NF002B1: independent grammar/certificate validation, not a call to the production allocator. */
 class TransferTraceValidatorTest {

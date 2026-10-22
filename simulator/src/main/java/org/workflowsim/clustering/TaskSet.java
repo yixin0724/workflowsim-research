@@ -17,6 +17,7 @@ package org.workflowsim.clustering;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.workflowsim.Task;
 
 /**

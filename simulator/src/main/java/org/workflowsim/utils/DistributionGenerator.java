@@ -18,6 +18,7 @@
 package org.workflowsim.utils;
 
 import java.util.Arrays;
+
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.LogNormalDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;

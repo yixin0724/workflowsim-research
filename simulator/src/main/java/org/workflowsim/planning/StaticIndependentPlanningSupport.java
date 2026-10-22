@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;
 import org.workflowsim.utils.TaskExecutionModel;

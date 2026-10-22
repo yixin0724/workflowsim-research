@@ -13,6 +13,7 @@ import static org.workflowsim.planning.PlanningRegressionFixtures.vms;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.CondorVM;

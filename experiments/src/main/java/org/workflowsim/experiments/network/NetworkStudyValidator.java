@@ -1,12 +1,5 @@
 package org.workflowsim.experiments.network;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -21,12 +14,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+
 import org.workflowsim.experiment.ExperimentArtifactValidator;
 import org.workflowsim.experiment.ExperimentManifestWriter;
 import org.workflowsim.experiments.common.ExactJsonValues;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.utils.Parameters.PlanningAlgorithm;
 import org.workflowsim.utils.SimulationConfig;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
 
 /** Checks a registered protocol and its evidence; integrity validation is not a current-code rerun. */
 public final class NetworkStudyValidator {

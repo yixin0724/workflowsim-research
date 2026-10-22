@@ -1,9 +1,10 @@
 package org.workflowsim.data;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.util.Arrays;
 import java.util.HashSet;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** Recording-mode dispatch shared by configuration consumers; the V1 ledger decoder stays V1-only. */
 public final class NetworkEvidenceConfigCodec {

@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 /** NF001 contracts: independent fluid arithmetic, numeric boundaries, and opt-in isolation. */

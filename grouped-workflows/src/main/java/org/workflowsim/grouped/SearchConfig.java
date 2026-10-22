@@ -1,6 +1,6 @@
 package org.workflowsim.grouped;
 
-import com.google.gson.*;
+import com.google.gson.JsonObject;
 
 /** Explicit bounded-search configuration; identical physical permissions for all methods. */
 public final class SearchConfig {

@@ -2,6 +2,7 @@ package org.workflowsim.planning;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;
 

@@ -2,11 +2,6 @@ package org.workflowsim.experiments.workbench;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 import org.workflowsim.FileItem;
 import org.workflowsim.Task;
@@ -26,6 +22,12 @@ import org.workflowsim.data.v2.FileLifecycleCodec;
 import org.workflowsim.network.FatTreeTopology;
 import org.workflowsim.network.NetworkTopologySpec;
 import org.workflowsim.utils.Parameters.FileType;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** Real standalone runtime captures, not fabricated CPU-report contexts or service-area certificates. */
 class FileLifecycleReportViewTest {

@@ -2,11 +2,13 @@ package org.workflowsim.data;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.GsonBuilder;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
+
 import org.junit.jupiter.api.Test;
+
+import com.google.gson.GsonBuilder;
 
 /** NF002B2 analytic byte/time oracles; no metric expectations obtained from the allocator. */
 class NetworkTraceMetricsTest {

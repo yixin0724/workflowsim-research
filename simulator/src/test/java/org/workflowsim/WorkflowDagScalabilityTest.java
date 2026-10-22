@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+
 import org.junit.jupiter.api.Test;
 
 /** Count the original linear reciprocal-list membership cost, not machine-dependent wall time. */

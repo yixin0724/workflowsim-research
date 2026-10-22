@@ -3,6 +3,7 @@ package org.workflowsim.rl;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
 import org.workflowsim.exception.SimulationConfigurationException;
 
 /**

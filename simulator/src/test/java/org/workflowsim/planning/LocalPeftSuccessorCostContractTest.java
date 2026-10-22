@@ -9,6 +9,7 @@ import static org.workflowsim.planning.PlanningRegressionFixtures.projectedTasks
 import static org.workflowsim.planning.PlanningRegressionFixtures.vms;
 
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;

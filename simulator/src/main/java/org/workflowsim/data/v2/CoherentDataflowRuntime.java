@@ -1,7 +1,5 @@
 package org.workflowsim.data.v2;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,7 +10,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+
 import org.workflowsim.data.TransferContentionEngine;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 /**
  * Run-owned V2 coordinator: one transaction spans service, replicas, input waiters and evidence.

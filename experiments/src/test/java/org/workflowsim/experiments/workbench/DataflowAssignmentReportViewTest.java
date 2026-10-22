@@ -2,11 +2,6 @@ package org.workflowsim.experiments.workbench;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.cloudbus.cloudsim.Cloudlet;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.FileItem;
@@ -32,6 +28,12 @@ import org.workflowsim.data.v2.FileLifecycleCodec;
 import org.workflowsim.data.v2.StorageLifecycleCodec;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.TaskExecutionModel;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** Public runtime/codec/validator fixtures only; no reflection, files or fabricated Result objects. */
 class DataflowAssignmentReportViewTest {

@@ -1,7 +1,19 @@
 package org.workflowsim.grouped;
 
-import com.google.gson.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Set;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** Validated, fixed-workload input. Units are seconds, bytes, and bytes/second. */
 public final class Scenario {

@@ -16,6 +16,7 @@ import static org.workflowsim.planning.SharedStorageDlsEtfSlotAuditSupport.vm;
 
 import java.util.Collections;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.workflowsim.CondorVM;
 import org.workflowsim.Task;

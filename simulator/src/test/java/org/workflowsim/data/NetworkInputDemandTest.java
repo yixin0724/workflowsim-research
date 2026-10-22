@@ -2,10 +2,12 @@ package org.workflowsim.data;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.Gson;
 import java.math.BigDecimal;
 import java.util.Collections;
+
 import org.junit.jupiter.api.Test;
+
+import com.google.gson.Gson;
 
 /** Locality uses observed skip decisions, never demand-minus-serviced-byte inference. */
 class NetworkInputDemandTest {

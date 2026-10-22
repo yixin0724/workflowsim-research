@@ -3,17 +3,12 @@ package org.workflowsim.experiments.workbench;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.*;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +21,13 @@ import org.workflowsim.experiment.ExperimentArtifactValidator;
 import org.workflowsim.experiment.ExperimentManifestWriter;
 import org.workflowsim.experiments.rerun.EvidenceCoreDiffer;
 import org.workflowsim.experiments.rerun.RerunEvidenceReader;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 /** NF002D1: opt-in configuration reaches each real candidate/seed without changing legacy OFF. */
 class WorkbenchNetworkConfigIntegrationTest {

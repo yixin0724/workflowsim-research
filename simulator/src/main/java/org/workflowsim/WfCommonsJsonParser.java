@@ -8,8 +8,6 @@
  */
 package org.workflowsim;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -23,11 +21,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.cloudbus.cloudsim.Log;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.FileType;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConstants;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 
 /**
  * WfCommons 工作流实例 JSON 解析器。

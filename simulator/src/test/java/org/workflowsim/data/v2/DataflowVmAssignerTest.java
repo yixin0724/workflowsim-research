@@ -2,18 +2,20 @@ package org.workflowsim.data.v2;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.workflowsim.FileItem;
 import org.workflowsim.Job;
 import org.workflowsim.Task;
 import org.workflowsim.utils.Parameters;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 class DataflowVmAssignerTest {
     private static final Gson JSON = new GsonBuilder().serializeNulls().create();

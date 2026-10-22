@@ -1,8 +1,5 @@
 package org.workflowsim.experiments.rerun;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -10,7 +7,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.workflowsim.experiment.ExperimentArtifactValidator;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 
 /**
  * 阶段 1：读取单个 run 目录的证据三件套并做结构校验（见契约“执行流程”第一步）。

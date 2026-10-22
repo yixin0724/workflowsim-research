@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.gson.Gson;
 import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
+
+import com.google.gson.Gson;
 
 /** NF002A's constant-time diagnostic join must not infer ordinal from external ID. */
 class TransferAdmissionOrdinalTest {

@@ -1,8 +1,5 @@
 package org.workflowsim.experiments.workbench;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +9,12 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.workflowsim.experiment.ExperimentArtifactWriter;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /** Generate small, self-contained browser fixtures using the real public Workbench entry points. */
 public final class WorkbenchBrowserFixtures {

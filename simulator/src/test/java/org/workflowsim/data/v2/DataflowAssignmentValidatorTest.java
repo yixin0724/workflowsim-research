@@ -2,19 +2,13 @@ package org.workflowsim.data.v2;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.cloudbus.cloudsim.Cloudlet;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.FileItem;
@@ -25,6 +19,14 @@ import org.workflowsim.network.FatTreeTopology;
 import org.workflowsim.network.NetworkTopologySpec;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.TaskExecutionModel;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 /** Literal independent oracles plus real runtime/assigner captures; no Kernel or filesystem needed. */
 class DataflowAssignmentValidatorTest {

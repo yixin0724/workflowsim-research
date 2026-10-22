@@ -2,13 +2,15 @@ package org.workflowsim.experiments.network;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 class NetworkStudyIntegrationTest {
     @Test

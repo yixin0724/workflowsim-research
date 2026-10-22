@@ -3,10 +3,11 @@ package org.workflowsim.experiments.common;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.Test;
+
 import com.google.gson.JsonNull;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import org.junit.jupiter.api.Test;
 
 class ExactJsonValuesTest {
     @Test

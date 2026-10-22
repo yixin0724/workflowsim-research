@@ -7,11 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.workflowsim.experiment.ExperimentManifestWriter;
 import org.workflowsim.failure.FailureModelConfig;
@@ -23,6 +22,9 @@ import org.workflowsim.utils.OverheadModelConfig;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
+
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 
 /** NF002A: Java opt-in only; no new physics or model support policy. */
 class NetworkEvidenceConfigTest {

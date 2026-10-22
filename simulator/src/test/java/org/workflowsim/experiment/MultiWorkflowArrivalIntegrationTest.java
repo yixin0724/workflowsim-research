@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+
 import org.cloudbus.cloudsim.Log;
 import org.junit.jupiter.api.Test;
 import org.workflowsim.platform.PlatformProfile;

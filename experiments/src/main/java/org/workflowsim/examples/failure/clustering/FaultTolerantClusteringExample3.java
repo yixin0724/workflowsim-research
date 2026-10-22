@@ -18,6 +18,7 @@ package org.workflowsim.examples.failure.clustering;
 import java.io.File;
 import java.util.Calendar;
 import java.util.List;
+
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.workflowsim.CondorVM;

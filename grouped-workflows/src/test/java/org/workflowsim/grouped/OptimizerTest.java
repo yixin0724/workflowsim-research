@@ -2,9 +2,11 @@ package org.workflowsim.grouped;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.*;
 import java.util.*;
+
 import org.junit.jupiter.api.Test;
+
+import com.google.gson.*;
 
 class OptimizerTest {
     static JsonObject request(String algorithm, int evaluations, long seed) {

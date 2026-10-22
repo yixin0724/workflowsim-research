@@ -2,10 +2,6 @@ package org.workflowsim.experiments.workbench;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -13,6 +9,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.data.DataMovementModel;
@@ -23,6 +20,11 @@ import org.workflowsim.data.NetworkLedgerCodec;
 import org.workflowsim.data.NetworkRunEvidence;
 import org.workflowsim.data.TransferContentionEngine;
 import org.workflowsim.data.TransferTraceEvent;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /** Typed validated capture -> bounded display only. Extreme labels do not pretend to be run-context artifacts. */
 class NetworkReportViewTest {
