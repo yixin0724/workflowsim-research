@@ -323,7 +323,8 @@ public final class NetworkLedgerCodec {
         return input;
     }
 
-    /** Typed semantic equality: expected Number runtime types distinguish binary64 from exact decimal/integer fields. */
+    /** Typed semantic equality: expected Number runtime types distinguish binary64 from exact decimal/integer
+     * fields. */
     private static void same(JsonElement expected, JsonElement actual, String path) {
         if (expected == null || expected.isJsonNull()) {
             if (actual == null || !actual.isJsonNull()) throw bad("Expected explicit null at " + path);

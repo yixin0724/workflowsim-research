@@ -55,7 +55,8 @@ public final class NetworkEvidenceConfigCodec {
             case FLUID_GROUP_LEDGER_V1:
                 if (model.isPreExecutionTransferDelayWithContentionV1() || model.isFatTreeContentionV1()) return;
                 throw new IllegalArgumentException(
-                        "Enabled network evidence requires preExecutionTransferDelayWithContentionV1() or fatTreeContentionV1(); unsupported data movement model "
+                        "Enabled network evidence requires preExecutionTransferDelayWithContentionV1() or"
+                                + "fatTreeContentionV1(); unsupported data movement model "
                                 + model.getKind());
             case FILE_LIFECYCLE_V2:
                 if (model.isCoherentFileDataflowV2()) return;

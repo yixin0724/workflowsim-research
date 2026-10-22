@@ -212,7 +212,8 @@ public final class WorkbenchConfig {
             if (assignment.isEnabled()
                     && (!models.movement.usesCoherentDataflowRuntime() || !models.networkEvidence.isEnabled()))
                 throw new IllegalArgumentException(
-                        "Online destination binding in Workbench requires a coherent model and complete lifecycle recording");
+                        "Online destination binding in Workbench requires a coherent model and complete lifecycle "
+                                + "recording");
             String id = text(algorithm, "id", null);
             if (!id.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}") || !ids.add(id)) {
                 throw new IllegalArgumentException("Algorithm IDs must be unique safe identifiers");
@@ -229,7 +230,8 @@ public final class WorkbenchConfig {
                     || !AlgorithmCatalog.isSupportedBySimulationRunner(scheduler)
                     || scheduler == Parameters.SchedulingAlgorithm.RL_POLICY) {
                 throw new IllegalArgumentException(
-                        "Workbench requires maintained built-in algorithms; external RL policies use the Java RlEnvironment adapter");
+                        "Workbench requires maintained built-in algorithms; external RL policies use the Java "
+                                + "RlEnvironment adapter");
             }
             String candidateTrack = assignment.isEnabled()
                     ? "DATAFLOW_BINDING"

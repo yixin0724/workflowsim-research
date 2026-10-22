@@ -31,7 +31,8 @@ public final class ExperimentManifestWriter {
                 && (!report.getConfig().getNetworkEvidenceConfig().isEnabled()
                         || report.getDataflowComputeRequests() == null))
             throw new UnsupportedOperationException(
-                    "Online assignment certification requires complete lifecycle capture and frozen compute requests; use an enabled lifecycle mode");
+                    "Online assignment certification requires complete lifecycle capture and frozen compute"
+                            + "requests; use an enabled lifecycle mode");
         org.workflowsim.data.DataMovementModel model = report.getConfig().getDataMovementModel();
         if (model.isCoherentStorageDataflowV3() != (report.getPlatform().getSourceStorage() != null))
             throw new IllegalArgumentException("sourceStorage presence differs from its declared model");

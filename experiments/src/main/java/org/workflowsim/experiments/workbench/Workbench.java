@@ -28,7 +28,8 @@ public final class Workbench {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             throw new IllegalArgumentException(
-                    "Usage: Workbench validate <config> | run <config> <output-root> | history <output-root> | report <manifest> <new-report.html>");
+                    "Usage: Workbench validate <config> | run <config> <output-root> | history <output-root> | "
+                            + "report <manifest> <new-report.html>");
         }
         switch (args[0]) {
             case "validate":
@@ -217,8 +218,15 @@ public final class Workbench {
                     .forEach(directories::add);
         }
         List<Map<String, Object>> records = new ArrayList<Map<String, Object>>();
-        StringBuilder html = new StringBuilder(
-                "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>WorkflowSim 实验历史</title><style>body{font:16px/1.7 system-ui;background:#f3f6f8;color:#142b40;max-width:1100px;margin:45px auto;padding:20px}table{background:white;width:100%;border-collapse:collapse}td,th{padding:15px;text-align:left;border-bottom:1px solid #dce5ea}a{color:#087f8c}.hint{color:#536b7c}</style><h1>实验历史</h1><p class=\"hint\">每次实验独立保留。运行中状态也可能表示进程被中断，请检查该实验记录。</p><table><tr><th>实验</th><th>状态</th><th>成功 / 计划</th><th>开始时间</th></tr>");
+        StringBuilder html =
+                new StringBuilder("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" "
+                        + "content=\"width=device-width, initial-scale=1\"><title>WorkflowSim "
+                        + "实验历史</title><style>body{font:16px/1.7 system-ui;background:#f3f6f8;color:#142b40;max-"
+                        + "width:1100px;margin:45px auto;padding:20px}table{background:white;width:100%;border-c"
+                        + "ollapse:collapse}td,th{padding:15px;text-align:left;border-bottom:1px solid "
+                        + "#dce5ea}a{color:#087f8c}.hint{color:#536b7c}</style><h1>实验历史</h1><p "
+                        + "class=\"hint\">每次实验独立保留。运行中状态也可能表示进程被中断，请检查该实验记录。</p><table><tr><th>实验</th><th>状态</th"
+                        + "><th>成功 / 计划</th><th>开始时间</th></tr>");
         for (Path directory : directories) {
             Map<String, Object> record = new LinkedHashMap<String, Object>();
             String relative = directory.getFileName().toString();

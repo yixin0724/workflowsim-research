@@ -63,7 +63,8 @@ public final class ExperimentArtifactWriter {
         if (report.getConfig().getDataflowAssignmentConfig().isEnabled()
                 && !report.getConfig().getNetworkEvidenceConfig().isEnabled())
             throw new UnsupportedOperationException(
-                    "Online assignment certification requires complete matching lifecycle capture; OFF runs cannot export certified actions");
+                    "Online assignment certification requires complete matching lifecycle capture; OFF runs cannot"
+                            + "export certified actions");
         if (report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3()
                 != (report.getPlatform().getSourceStorage() != null))
             throw new IOException("sourceStorage presence differs from model");

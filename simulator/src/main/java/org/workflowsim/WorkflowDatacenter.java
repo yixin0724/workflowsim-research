@@ -393,7 +393,8 @@ public class WorkflowDatacenter extends Datacenter {
     public double estimateTransferSecondsForFiles(List<FileItem> files, Job job) throws Exception {
         if (dataMovementModel.usesCoherentDataflowRuntime())
             throw new UnsupportedOperationException(
-                    "Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar estimator");
+                    "Coherent V2 requires one immutable visible-source/resource-route decision, not the V1 scalar"
+                            + "estimator");
         double time = 0.0;
         for (FileItem file : files) {
             if (!file.isRealInputFile(files)) {

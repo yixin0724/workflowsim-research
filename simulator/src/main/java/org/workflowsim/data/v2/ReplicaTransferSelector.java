@@ -153,8 +153,8 @@ public final class ReplicaTransferSelector {
         double seconds = file.getBytes() / selectedRoute.getStandaloneRateBytesPerSecond();
         double finish = now + seconds;
         if (!Double.isFinite(seconds) || seconds <= 0 || !Double.isFinite(finish) || finish <= now)
-            throw bad(
-                    "Selected positive transfer duration/absolute finish is not representable in the supported binary64 domain");
+            throw bad("Selected positive transfer duration/absolute finish is not representable in the supported"
+                    + "binary64 domain");
         return new Decision(file, destination, now, Outcome.NETWORK_COPY, selected, selectedRoute, seconds, finish);
     }
     /**
@@ -185,7 +185,8 @@ public final class ReplicaTransferSelector {
             return new Decision(file, destination, now, Outcome.LOCAL_PRESENT, local, null, 0.0, now, policy);
         return fixedSource(store, fabric, destination, now, policy);
     }
-    /** @param source actual successful output copy @param fabric bounded store fabric @param now observation @return fixed-source materialization decision */
+    /** @param source actual successful output copy @param fabric bounded store fabric @param now observation
+     * @return fixed-source materialization decision */
     public static Decision materializeToStore(DataReplicaState.Replica source, DataTransferFabric fabric, double now) {
         if (source == null
                 || source.getFile().isExternal()

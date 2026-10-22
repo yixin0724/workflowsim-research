@@ -462,8 +462,10 @@ public final class NetworkStudyPlan {
         result.put(
                 "inference",
                 variant == StudyVariant.R10
-                        ? "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_THREE_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS"
-                        : "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;HOLM_TWO_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS");
+                        ? "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;"
+                                + "HOLM_THREE_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS"
+                        : "DAG_PAIRED_AFTER_SEED_MEAN;SEPARATE_POPULATIONS;"
+                                + "HOLM_TWO_PLANNERS;DESCRIPTIVE_SELECTED_CORPUS");
         result.put("transferStart", "ALL_GROUPS_START_AT_JOB_READY");
         if (!isHistoricalProtocol()) {
             result.put("executionSemantics", TaskExecutionModel.EXECUTION_SEMANTICS);

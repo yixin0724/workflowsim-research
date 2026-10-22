@@ -67,7 +67,8 @@ public final class CoherentDataflowRuntime {
     private JsonObject planDocument, fabricDocument;
     private Frame current;
 
-    /** @param shared enable cross-flow sharing @param recordBudget zero disables capture; positive bounds lifecycle records */
+    /** @param shared enable cross-flow sharing @param recordBudget zero disables capture; positive bounds lifecycle
+     * records */
     public CoherentDataflowRuntime(boolean shared, int recordBudget) {
         this(shared, recordBudget, false, false);
     }
@@ -79,7 +80,8 @@ public final class CoherentDataflowRuntime {
         storageVersion = storage;
         storeBackedInputs = storeInputs;
     }
-    /** @param shared inter-flow sharing @param budget zero or positive capture budget @param storeBackedInputs store commitment gates input cache/read access @return explicitly versioned storage coordinator */
+    /** @param shared inter-flow sharing @param budget zero or positive capture budget @param storeBackedInputs
+     * store commitment gates input cache/read access @return explicitly versioned storage coordinator */
     public static CoherentDataflowRuntime withStorage(boolean shared, int budget, boolean storeBackedInputs) {
         return new CoherentDataflowRuntime(shared, budget, true, storeBackedInputs);
     }
@@ -169,7 +171,8 @@ public final class CoherentDataflowRuntime {
     public DataflowObservation observe() {
         return observation(null);
     }
-    /** @param files required logical-file scope @return passive scoped file view plus global active-copy/resource/job state */
+    /** @param files required logical-file scope @return passive scoped file view plus global
+     * active-copy/resource/job state */
     public DataflowObservation observeFiles(Collection<DataflowFilePlan.FileId> files) {
         if (files == null || plan == null)
             throw new IllegalArgumentException("Initialized plan and explicit observation scope are required");
@@ -772,7 +775,8 @@ public final class CoherentDataflowRuntime {
         return FileLifecycleEvidence.capture(
                 budget, dropped, getCurrentTime(), shared, planDocument, fabricDocument, events);
     }
-    /** @param jobId input-ready attempt @return final nominal input quantities (may be deferred under storage policy) */
+    /** @param jobId input-ready attempt @return final nominal input quantities (may be deferred under storage
+     * policy) */
     public Preparation getPreparation(int jobId) {
         JobState job = current.jobs.get(jobId);
         if (job != null) {

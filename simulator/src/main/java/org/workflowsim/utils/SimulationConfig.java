@@ -253,7 +253,8 @@ public final class SimulationConfig {
         private org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignmentConfig =
                 org.workflowsim.data.v2.DataflowAssignmentConfig.off();
 
-        /** @param value explicit online destination-binding option, independent of network recording @return this builder */
+        /** @param value explicit online destination-binding option, independent of network recording @return this
+         * builder */
         public Builder dataflowAssignment(org.workflowsim.data.v2.DataflowAssignmentConfig value) {
             dataflowAssignmentConfig = value;
             return this;
@@ -668,7 +669,8 @@ public final class SimulationConfig {
                             || planningAlgorithm != PlanningAlgorithm.INVALID
                             || schedulingAlgorithm != SchedulingAlgorithm.STATIC))
                 throw new IllegalArgumentException(
-                        "Online dataflow binding requires coherent V2/V3, INVALID preplanning and STATIC bound-VM dispatch");
+                        "Online dataflow binding requires coherent V2/V3, INVALID preplanning and STATIC bound-VM"
+                                + "dispatch");
             if (dataMovementModel.usesCoherentDataflowRuntime()) {
                 if (planningAlgorithm
                                 != (dataflowAssignmentConfig.isEnabled()
@@ -680,7 +682,8 @@ public final class SimulationConfig {
                         || clusteringParameters.getClusteringMethod() != ClusteringParameters.ClusteringMethod.NONE
                         || !isNoOverhead(overheadModel))
                     throw new IllegalArgumentException(
-                            "Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE clustering and no overhead; existing LOCAL planners are not V2 estimators");
+                            "Coherent V2 initially requires RANDOM static mapping, STATIC dispatch, LOCAL, NONE"
+                                    + "clustering and no overhead; existing LOCAL planners are not V2 estimators");
             }
         }
 

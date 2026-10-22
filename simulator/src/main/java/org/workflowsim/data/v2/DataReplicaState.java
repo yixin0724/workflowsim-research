@@ -469,7 +469,8 @@ public final class DataReplicaState {
         return result;
     }
 
-    /** @param file produced zero-byte object @param source visible producing VM @param destination registered store @param now observation @return zero-output metadata publication */
+    /** @param file produced zero-byte object @param source visible producing VM @param destination registered store
+     * @param now observation @return zero-output metadata publication */
     public Publication commitZeroOutput(
             DataflowFilePlan.FileId file, DataLocation source, DataLocation destination, double now) {
         DataflowFilePlan.FileDefinition definition = plan.getFile(file);

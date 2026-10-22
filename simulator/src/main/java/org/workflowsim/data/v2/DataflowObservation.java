@@ -272,7 +272,8 @@ public final class DataflowObservation {
     public Set<DataflowFilePlan.FileId> getPendingOutputFiles() {
         return pendingOutputs;
     }
-    /** @param file scoped file identity @param destination typed actual target @return active copy or null, not a visible replica */
+    /** @param file scoped file identity @param destination typed actual target @return active copy or null, not a
+     * visible replica */
     public CopyView getActiveCopy(DataflowFilePlan.FileId file, DataLocation destination) {
         for (CopyView copy : copies.values())
             if (copy.file.getId().equals(file) && copy.destination.equals(destination)) return copy;

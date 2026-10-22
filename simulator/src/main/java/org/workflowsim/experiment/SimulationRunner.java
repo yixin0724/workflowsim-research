@@ -261,7 +261,8 @@ public final class SimulationRunner {
                 double bytes = platform.getNetworkTopology().getLinkBandwidthMbPerSecond() * 1_000_000.0;
                 if (k < 2 || k > 32 || k % 2 != 0 || !Double.isFinite(bytes) || bytes < Double.MIN_NORMAL)
                     throw new SimulationConfigurationException(
-                            "Coherent V2 supports even Fat-tree k in [2,32] and normal finite converted B/s capacities");
+                            "Coherent V2 supports even Fat-tree k in [2,32] and normal finite converted B/s"
+                                    + "capacities");
             }
             List<Integer> hostIds = new java.util.ArrayList<Integer>();
             for (PlatformProfile.HostSpec host : platform.getHosts()) {

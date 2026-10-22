@@ -29,7 +29,8 @@ public final class ExactSolver {
         out.addProperty("complete", true);
         out.addProperty(
                 "scope",
-                "all legal path partitions, compatible assignments and topological priorities in the fixed work-conserving decoder family");
+                "all legal path partitions, compatible assignments and topological priorities in the fixed "
+                        + "work-conserving decoder family");
         out.addProperty("legal_partitions", solver.partitions);
         out.addProperty("enumerated_plans", solver.evaluated);
         out.addProperty("solver_seconds", (System.nanoTime() - started) * 1e-9);
