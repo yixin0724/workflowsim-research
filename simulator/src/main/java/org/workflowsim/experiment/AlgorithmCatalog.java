@@ -109,8 +109,8 @@ public final class AlgorithmCatalog {
             dispatch.put("decisionRule", "Dispatch data-ready Jobs to their previously committed VM only when idle");
             dispatch.put(
                     "limitations",
-                    limitations(
-                            "Control-ready destination assignment is a separate explicit phase; STATIC cannot remap compute inputs already transferred."));
+                    limitations("Control-ready destination assignment is a separate explicit phase; STATIC cannot remap"
+                            + "compute inputs already transferred."));
             Map<String, Object> assignment = new LinkedHashMap<>();
             assignment.put(
                     "mode", config.getDataflowAssignmentConfig().getMode().name());
@@ -118,8 +118,8 @@ public final class AlgorithmCatalog {
             assignment.put("decisionLayer", "CONTROL_READY_VM_BINDING_BEFORE_INPUT_TRANSFER");
             assignment.put(
                     "limitations",
-                    limitations(
-                            "Nominal remaining-input and CPU-reservation estimates are myopic, not contention-exact completion forecasts; NOOP retries reuse the logical Task binding."));
+                    limitations("Nominal remaining-input and CPU-reservation estimates are myopic, not contention-exact"
+                            + "completion forecasts; NOOP retries reuse the logical Task binding."));
             contract.put("dataflowAssignment", assignment);
         }
         contract.put("scheduler", dispatch);
@@ -179,8 +179,8 @@ public final class AlgorithmCatalog {
                 values.put("verification", "REGRESSION_COVERED_WITH_STATIC_MCT");
                 values.put(
                         "limitations",
-                        limitations(
-                                "A SimulationConfig requires a non-INVALID planner; model-generated stage-in Jobs use the legacy fallback mapping."));
+                        limitations("A SimulationConfig requires a non-INVALID planner; model-generated stage-in Jobs"
+                                + "use the legacy fallback mapping."));
                 break;
             case RL_POLICY:
                 rlPolicyScheduler(values);
@@ -377,8 +377,11 @@ public final class AlgorithmCatalog {
         values.put(
                 "limitations",
                 limitations(
-                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                        "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and"
+                                + "legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy"
+                                + "task PE requirements.",
+                        "It is aligned to the current abstract shared-storage model, not calibrated to a real"
+                                + "storage or network system."));
     }
 
     /** Catalog switch branch (SHARED_STORAGE_CPOP).
@@ -389,15 +392,19 @@ public final class AlgorithmCatalog {
         values.put("inputDomain", "VALID_DAG_SHARED_STORAGE_NO_CLUSTERING");
         values.put(
                 "decisionRule",
-                "CPOP upward-plus-downward rank priority; an identified critical path is assigned to the minimum-cost processor");
+                "CPOP upward-plus-downward rank priority; an identified critical path is assigned to the"
+                        + "minimum-cost processor");
         values.put("requiredScheduler", SchedulingAlgorithm.STATIC.name());
         values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
         values.put("reproductionScope", "CORE_CPOP_DECISION_SEMANTICS_ADAPTED_TO_CONTROLLED_SHARED_STORAGE_MODEL");
         values.put(
                 "limitations",
                 limitations(
-                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                        "It is aligned to the current abstract shared-storage model, not calibrated to a real storage or network system."));
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and"
+                                + "legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy"
+                                + "task PE requirements.",
+                        "It is aligned to the current abstract shared-storage model, not calibrated to a real"
+                                + "storage or network system."));
     }
 
     /** Catalog switch branch (SHARED_STORAGE_DLS).
@@ -417,8 +424,11 @@ public final class AlgorithmCatalog {
         values.put(
                 "limitations",
                 limitations(
-                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                        "It adapts DLS to the current shared-storage model and does not reproduce irregular interconnect topology, routing, or communication contention.",
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and"
+                                + "legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy"
+                                + "task PE requirements.",
+                        "It adapts DLS to the current shared-storage model and does not reproduce irregular"
+                                + "interconnect topology, routing, or communication contention.",
                         "It is not calibrated to a real storage or network system."));
     }
 
@@ -439,8 +449,11 @@ public final class AlgorithmCatalog {
         values.put(
                 "limitations",
                 limitations(
-                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                        "It adapts ETF to the current shared-storage model and does not reproduce the original communication-delay or homogeneous-processor assumptions.",
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and"
+                                + "legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy"
+                                + "task PE requirements.",
+                        "It adapts ETF to the current shared-storage model and does not reproduce the original"
+                                + "communication-delay or homogeneous-processor assumptions.",
                         "It is not calibrated to a real storage or network system."));
     }
 
@@ -463,8 +476,12 @@ public final class AlgorithmCatalog {
         values.put(
                 "limitations",
                 limitations(
-                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy task PE requirements.",
-                        "The controlled model has no interprocessor communication term, topology, routing, or link contention; OCT is therefore a successor look-ahead rather than a network prediction.",
+                        "Requires SHARED storage, NONE clustering, disabled overhead/failure, SPACE_SHARED VMs, and"
+                                + "legacyWorkflowsimV1; task cost matrices are rejected. Placements must satisfy"
+                                + "task PE requirements.",
+                        "The controlled model has no interprocessor communication term, topology, routing, or link"
+                                + "contention; OCT is therefore a successor look-ahead rather than a network"
+                                + "prediction.",
                         "It is not calibrated to a real storage or network system."));
     }
 
@@ -524,12 +541,14 @@ public final class AlgorithmCatalog {
                 "limitations",
                 limitations(
                         "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
+                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible"
+                                + "placements.",
                         "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
                                 + "otherwise raw per-PE task length/MIPS.",
                         "Replica availability is timestamped: inputs become visible at the complete input hold end, "
                                 + "outputs at planned compute finish. Candidate estimates only use replicas "
-                                + "available at dependency readiness; external inputs, including roots, transfer from that time.",
+                                + "available at dependency readiness; external inputs, including roots, transfer from"
+                                + "that time.",
                         "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
                                 + "replicas produced by later-planned tasks, short compute completions and contention "
                                 + "can cause planning/runtime differences.",
@@ -565,12 +584,14 @@ public final class AlgorithmCatalog {
                 "limitations",
                 limitations(
                         "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
+                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible"
+                                + "placements.",
                         "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
                                 + "otherwise raw per-PE task length/MIPS.",
                         "Replica availability is timestamped: inputs become visible at the complete input hold end, "
                                 + "outputs at planned compute finish. Candidate estimates only use replicas "
-                                + "available at dependency readiness; external inputs, including roots, transfer from that time.",
+                                + "available at dependency readiness; external inputs, including roots, transfer from"
+                                + "that time.",
                         "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
                                 + "replicas produced by later-planned tasks, short compute completions and contention "
                                 + "can cause planning/runtime differences.",
@@ -579,7 +600,8 @@ public final class AlgorithmCatalog {
                         "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
                                 + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
                                 + "root external inputs still incur their own transfer hold.",
-                        "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime completion ordering remain explicit model boundaries."));
+                        "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime"
+                                + "completion ordering remain explicit model boundaries."));
     }
 
     /** Catalog switch branch (LOCAL_PEFT).
@@ -607,12 +629,14 @@ public final class AlgorithmCatalog {
                 "limitations",
                 limitations(
                         "Requires LOCAL file system, NONE clustering, disabled overhead/failure, "
-                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible placements.",
+                                + "a preExecution-family data movement model, SPACE_SHARED VMs, and PE-compatible"
+                                + "placements.",
                         "Compute seconds use TaskExecutionModel: rounded task/VM matrix costs when present, "
                                 + "otherwise raw per-PE task length/MIPS.",
                         "Replica availability is timestamped: inputs become visible at the complete input hold end, "
                                 + "outputs at planned compute finish. Candidate estimates only use replicas "
-                                + "available at dependency readiness; external inputs, including roots, transfer from that time.",
+                                + "available at dependency readiness; external inputs, including roots, transfer from"
+                                + "that time.",
                         "This is a partial-plan estimate, not a full runtime event replay. Same-time event ordering, "
                                 + "replicas produced by later-planned tasks, short compute completions and contention "
                                 + "can cause planning/runtime differences.",
@@ -622,7 +646,8 @@ public final class AlgorithmCatalog {
                         "Bootstrap includes the 110-MI stage-in Job and a kernel release interval. "
                                 + "The platform-level stage-in replica is not a preloaded destination-VM copy; "
                                 + "root external inputs still incur their own transfer hold.",
-                        "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime completion ordering remain explicit model boundaries.",
+                        "Positive transfer holds use the minimum event interval; integer-MI rounding and runtime"
+                                + "completion ordering remain explicit model boundaries.",
                         "Mean-OCT priority is not necessarily topological under heterogeneous compute costs; "
                                 + "a dependency-ready list schedules every parent before its children, "
                                 + "including cases where a child has higher mean OCT.",
