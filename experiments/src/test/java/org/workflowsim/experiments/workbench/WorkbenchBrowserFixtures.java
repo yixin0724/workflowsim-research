@@ -1,5 +1,7 @@
 package org.workflowsim.experiments.workbench;
 
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.configuration;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

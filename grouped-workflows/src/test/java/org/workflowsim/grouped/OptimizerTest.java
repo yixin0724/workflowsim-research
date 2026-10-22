@@ -1,12 +1,11 @@
 package org.workflowsim.grouped;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import com.google.gson.*;
+import com.google.gson.JsonObject;
 
 class OptimizerTest {
     static JsonObject request(String algorithm, int evaluations, long seed) {

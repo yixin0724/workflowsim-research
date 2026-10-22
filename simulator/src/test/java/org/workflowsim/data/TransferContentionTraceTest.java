@@ -1,7 +1,17 @@
 package org.workflowsim.data;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.workflowsim.data.TransferTraceEvent.Type.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.workflowsim.data.TransferTraceEvent.Type.CAPACITY;
+import static org.workflowsim.data.TransferTraceEvent.Type.COMPLETE;
+import static org.workflowsim.data.TransferTraceEvent.Type.RATE_CHANGE;
+import static org.workflowsim.data.TransferTraceEvent.Type.SERVICE_SEGMENT;
+import static org.workflowsim.data.TransferTraceEvent.Type.START;
 import static org.workflowsim.data.TransferTraceSnapshot.Status.DISABLED;
 import static org.workflowsim.data.TransferTraceSnapshot.Status.TRUNCATED;
 

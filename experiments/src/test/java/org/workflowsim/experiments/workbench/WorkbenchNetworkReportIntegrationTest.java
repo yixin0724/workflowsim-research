@@ -1,7 +1,20 @@
 package org.workflowsim.experiments.workbench;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.algorithm;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.algorithms;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.json;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.localConfiguration;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.object;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.payload;
+import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.text;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

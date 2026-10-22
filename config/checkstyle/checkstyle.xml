@@ -99,11 +99,21 @@
         <!-- ============ Tier-B（warning，存量在册逐批清零） ============ -->
         <!-- import 卫生：星型/顺序（17/226 条基线）。
              groups/separated 维持基线审计口径：java, javax, org, com 四组且组间空行分隔。 -->
-        <module name="AvoidStarImport"/>
+        <module name="AvoidStarImport">
+            <property name="severity" value="error"/>
+        </module>
+        <!-- Tier-A promote（2026-10-22，二期 IO1 批）：117 顺序/空行 + 17 星型全清零；
+             spotless importOrder 步骤与 palantir 同向固化，新违例即拦 -->
         <module name="ImportOrder">
             <property name="groups" value="java,javax,org,com"/>
             <property name="ordered" value="true"/>
             <property name="separated" value="true"/>
+            <!-- option=top（2026-10-22 二期 IO1）：spotless importOrder 步骤的
+                 canonical 将 static 前置（google 风格），与默认 under 冲突；
+                 对齐为 top 后两工具单向一致。同 strict 度的方向调整，留存判例。 -->
+            <property name="option" value="top"/>
+            <property name="sortStaticImportsAlphabetically" value="true"/>
+            <property name="severity" value="error"/>
         </module>
 
         <!-- 空白机械项（约 2.6 万条基线，Phase 4 formatter 主力） -->

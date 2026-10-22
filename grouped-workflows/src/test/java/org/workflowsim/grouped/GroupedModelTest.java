@@ -1,12 +1,17 @@
 package org.workflowsim.grouped;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.*;
+import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import com.google.gson.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /** Hand-computable examples and rejection tests for physical package semantics. */
 class GroupedModelTest {
