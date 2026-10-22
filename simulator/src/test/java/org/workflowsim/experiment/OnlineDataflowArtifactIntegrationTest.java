@@ -252,7 +252,13 @@ class OnlineDataflowArtifactIntegrationTest {
         if (!Files.exists(input))
             Files.write(
                     input,
-                    ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"unused\" link=\"output\" size=\"500000\"/><uses file=\"z\" link=\"output\" size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"z\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>")
+                    ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
+                                    + "file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"unused\" "
+                                    + "link=\"output\" size=\"500000\"/><uses file=\"z\" link=\"output\" "
+                                    + "size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" "
+                                    + "size=\"1000000\"/><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses "
+                                    + "file=\"z\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent "
+                                    + "ref=\"p\"/></child></adag>")
                             .getBytes(StandardCharsets.UTF_8));
         DataMovementModel model = storage
                 ? (shared

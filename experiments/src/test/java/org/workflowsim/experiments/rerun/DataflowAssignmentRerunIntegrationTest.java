@@ -190,7 +190,11 @@ class DataflowAssignmentRerunIntegrationTest {
         Files.createDirectories(input.getParent());
         Files.write(
                 input,
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"zero\" link=\"output\" size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"zero\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>"
+                ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
+                                + "file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"zero\" link=\"output\" "
+                                + "size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" "
+                                + "size=\"1000000\"/><uses file=\"zero\" link=\"input\" size=\"0\"/></job><child "
+                                + "ref=\"c\"><parent ref=\"p\"/></child></adag>")
                         .getBytes(StandardCharsets.UTF_8));
         DataMovementModel model = storage
                 ? (shared

@@ -38,7 +38,12 @@ class CoherentDataflowKernelIntegrationTest {
     private boolean logging;
     private static final Gson JSON = new GsonBuilder().serializeNulls().create();
     private static final String DAX =
-            "<adag><job id=\"p\" runtime=\"1\"><uses file=\"ext-a\" link=\"input\" size=\"0.125\"/><uses file=\"ext-b\" link=\"input\" size=\"0.375\"/><uses file=\"a\" link=\"output\" size=\"2000000\"/><uses file=\"b\" link=\"output\" size=\"3000000\"/></job><job id=\"c\" runtime=\"2\"><uses file=\"a\" link=\"input\" size=\"2000000\"/><uses file=\"b\" link=\"input\" size=\"3000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>";
+            "<adag><job id=\"p\" runtime=\"1\"><uses file=\"ext-a\" link=\"input\" size=\"0.125\"/><uses "
+                    + "file=\"ext-b\" link=\"input\" size=\"0.375\"/><uses file=\"a\" link=\"output\" "
+                    + "size=\"2000000\"/><uses file=\"b\" link=\"output\" size=\"3000000\"/></job><job id=\"c\" "
+                    + "runtime=\"2\"><uses file=\"a\" link=\"input\" size=\"2000000\"/><uses file=\"b\" "
+                    + "link=\"input\" size=\"3000000\"/></job><child ref=\"c\"><parent "
+                    + "ref=\"p\"/></child></adag>";
 
     @BeforeEach
     void quiet() {
@@ -149,7 +154,10 @@ class CoherentDataflowKernelIntegrationTest {
     void realFailureRetryKeepsCachedInputsAndOnlySuccessPublishesOutputs() throws Exception {
         Path path = input(
                 "retry.dax",
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"20000000\"/><uses file=\"result\" link=\"output\" size=\"5000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"result\" link=\"input\" size=\"5000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>");
+                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"20000000\"/><uses "
+                        + "file=\"result\" link=\"output\" size=\"5000000\"/></job><job id=\"c\" "
+                        + "runtime=\"1\"><uses file=\"result\" link=\"input\" size=\"5000000\"/></job><child "
+                        + "ref=\"c\"><parent ref=\"p\"/></child></adag>");
         FailureModelConfig failures = FailureModelConfig.builder()
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)
@@ -190,7 +198,14 @@ class CoherentDataflowKernelIntegrationTest {
     void realKernelReusesAnEarlyFileCacheWhileTheSlowSiblingIsPending() throws Exception {
         Path path = input(
                 "kernel-cache.dax",
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"fast\" link=\"output\" size=\"2000000\"/><uses file=\"slow\" link=\"output\" size=\"8000000\"/></job><job id=\"both\" runtime=\"1\"><uses file=\"fast\" link=\"input\" size=\"2000000\"/><uses file=\"slow\" link=\"input\" size=\"8000000\"/></job><job id=\"gate\" runtime=\"6\"/><job id=\"reuse\" runtime=\"1\"><uses file=\"fast\" link=\"input\" size=\"2000000\"/></job><child ref=\"both\"><parent ref=\"p\"/></child><child ref=\"gate\"><parent ref=\"p\"/></child><child ref=\"reuse\"><parent ref=\"p\"/><parent ref=\"gate\"/></child></adag>");
+                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"fast\" link=\"output\" size=\"2000000\"/><uses "
+                        + "file=\"slow\" link=\"output\" size=\"8000000\"/></job><job id=\"both\" "
+                        + "runtime=\"1\"><uses file=\"fast\" link=\"input\" size=\"2000000\"/><uses "
+                        + "file=\"slow\" link=\"input\" size=\"8000000\"/></job><job id=\"gate\" "
+                        + "runtime=\"6\"/><job id=\"reuse\" runtime=\"1\"><uses file=\"fast\" link=\"input\" "
+                        + "size=\"2000000\"/></job><child ref=\"both\"><parent ref=\"p\"/></child><child "
+                        + "ref=\"gate\"><parent ref=\"p\"/></child><child ref=\"reuse\"><parent "
+                        + "ref=\"p\"/><parent ref=\"gate\"/></child></adag>");
         PlatformProfile.Builder p = PlatformProfile.builder("actual-cache-source");
         for (int vm = 0; vm < 4; vm++) {
             p.addHost(new PlatformProfile.HostSpec(vm, 2, 2000, 4096, 10000L, 1000000L))
@@ -256,7 +271,13 @@ class CoherentDataflowKernelIntegrationTest {
     void realKernelSameDestinationWaitersShareOneCopyInBothServiceModes() throws Exception {
         Path path = input(
                 "kernel-join.dax",
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"shared\" link=\"output\" size=\"2000000\"/></job><job id=\"a\" runtime=\"1\"><uses file=\"shared\" link=\"input\" size=\"2000000\"/></job><job id=\"b\" runtime=\"1\"><uses file=\"shared\" link=\"input\" size=\"2000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"shared\" link=\"input\" size=\"2000000\"/></job><child ref=\"a\"><parent ref=\"p\"/></child><child ref=\"b\"><parent ref=\"p\"/></child><child ref=\"c\"><parent ref=\"p\"/></child></adag>");
+                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"shared\" link=\"output\" "
+                        + "size=\"2000000\"/></job><job id=\"a\" runtime=\"1\"><uses file=\"shared\" "
+                        + "link=\"input\" size=\"2000000\"/></job><job id=\"b\" runtime=\"1\"><uses "
+                        + "file=\"shared\" link=\"input\" size=\"2000000\"/></job><job id=\"c\" "
+                        + "runtime=\"1\"><uses file=\"shared\" link=\"input\" size=\"2000000\"/></job><child "
+                        + "ref=\"a\"><parent ref=\"p\"/></child><child ref=\"b\"><parent "
+                        + "ref=\"p\"/></child><child ref=\"c\"><parent ref=\"p\"/></child></adag>");
         Double makespan = null;
         for (boolean shared : new boolean[] {true, false}) {
             SimulationReport report = run(path, false, shared, 2000);

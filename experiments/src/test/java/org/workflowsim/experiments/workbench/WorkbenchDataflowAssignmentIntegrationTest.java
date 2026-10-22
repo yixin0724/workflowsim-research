@@ -226,7 +226,11 @@ class WorkbenchDataflowAssignmentIntegrationTest {
             throws Exception {
         Path input = text(
                 directory.resolve("input-" + (serial++) + ".dax"),
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"zero\" link=\"output\" size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"zero\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>");
+                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
+                        + "file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"zero\" link=\"output\" "
+                        + "size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" "
+                        + "size=\"1000000\"/><uses file=\"zero\" link=\"input\" size=\"0\"/></job><child "
+                        + "ref=\"c\"><parent ref=\"p\"/></child></adag>");
         JsonObject c = localConfiguration(input.toString(), 2, fat),
                 a = algorithm("online", "STATIC", "INVALID"),
                 assignment = new JsonObject();

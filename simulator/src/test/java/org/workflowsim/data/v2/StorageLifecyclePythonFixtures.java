@@ -32,7 +32,12 @@ import org.workflowsim.utils.SimulationConfig;
 public final class StorageLifecyclePythonFixtures {
     private static final int BUDGET = 20000;
     private static final String FLOW =
-            "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"unused\" link=\"output\" size=\"500000\"/><uses file=\"zero\" link=\"output\" size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"zero\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>";
+            "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
+                    + "file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"unused\" link=\"output\" "
+                    + "size=\"500000\"/><uses file=\"zero\" link=\"output\" size=\"0\"/></job><job id=\"c\" "
+                    + "runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"x\" "
+                    + "link=\"input\" size=\"1000000\"/><uses file=\"zero\" link=\"input\" "
+                    + "size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>";
 
     private StorageLifecyclePythonFixtures() {}
     /** @param args fresh output root */
@@ -67,7 +72,8 @@ public final class StorageLifecyclePythonFixtures {
                 zero =
                         text(
                                 root.resolve("inputs/zero.dax"),
-                                "<adag><job id=\"z\" runtime=\"1\"><uses file=\"z\" link=\"output\" size=\"0\"/></job></adag>"),
+                                "<adag><job id=\"z\" runtime=\"1\"><uses file=\"z\" link=\"output\" "
+                                        + "size=\"0\"/></job></adag>"),
                 empty = text(root.resolve("inputs/empty.dax"), "<adag><job id=\"e\" runtime=\"1\"/></adag>");
         saveRun(root, "zero-output", configuration(zero, true, true, 1, BUDGET), platform(1, false), files, manifests);
         saveRun(root, "no-files", configuration(empty, false, false, 1, BUDGET), platform(1, true), files, manifests);

@@ -167,7 +167,10 @@ class WorkbenchFileLifecycleReportIntegrationTest {
     private Path run(boolean shared, boolean fat, int budget, boolean input, boolean legacy) throws Exception {
         String name = "workflow-" + (serial++) + ".dax";
         String body = input
-                ? "<job id=\"a\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"data\" link=\"output\" size=\"1000000\"/></job><job id=\"b\" runtime=\"1\"><uses file=\"data\" link=\"input\" size=\"1000000\"/></job><child ref=\"b\"><parent ref=\"a\"/></child>"
+                ? "<job id=\"a\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
+                        + "file=\"data\" link=\"output\" size=\"1000000\"/></job><job id=\"b\" "
+                        + "runtime=\"1\"><uses file=\"data\" link=\"input\" size=\"1000000\"/></job><child "
+                        + "ref=\"b\"><parent ref=\"a\"/></child>"
                 : "<job id=\"a\" runtime=\"1\"/>";
         text(directory.resolve(name), "<adag>" + body + "</adag>");
         JsonObject config = localConfiguration(name, 2, fat);

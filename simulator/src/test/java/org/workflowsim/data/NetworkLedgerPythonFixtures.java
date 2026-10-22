@@ -37,8 +37,10 @@ public final class NetworkLedgerPythonFixtures {
         Files.write(
                 data,
                 ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"0.5\"/>"
-                                + "<uses file=\"a\" link=\"output\" size=\"5000000\"/></job><job id=\"c\" runtime=\"2\">"
-                                + "<uses file=\"a\" link=\"input\" size=\"5000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>")
+                                + "<uses file=\"a\" link=\"output\" size=\"5000000\"/></job><job id=\"c\" "
+                                + "runtime=\"2\">"
+                                + "<uses file=\"a\" link=\"input\" size=\"5000000\"/></job><child "
+                                + "ref=\"c\"><parent ref=\"p\"/></child></adag>")
                         .getBytes(StandardCharsets.UTF_8));
         Files.write(zero, "<adag><job id=\"z\" runtime=\"1\"/></adag>".getBytes(StandardCharsets.UTF_8));
         for (boolean fat : new boolean[] {false, true}) {

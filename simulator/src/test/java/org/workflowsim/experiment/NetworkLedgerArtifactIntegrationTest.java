@@ -517,8 +517,10 @@ class NetworkLedgerArtifactIntegrationTest {
             throws Exception {
         Path dax = temporary.resolve("workflow-" + (serial++) + ".dax");
         String data = input
-                ? "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"a\" link=\"output\" size=\"5000000\"/></job>"
-                        + "<job id=\"c\" runtime=\"2\"><uses file=\"a\" link=\"input\" size=\"5000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>"
+                ? "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
+                        + "file=\"a\" link=\"output\" size=\"5000000\"/></job>"
+                        + "<job id=\"c\" runtime=\"2\"><uses file=\"a\" link=\"input\" "
+                        + "size=\"5000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>"
                 : "<job id=\"p\" runtime=\"1\"/>";
         Files.write(dax, ("<adag>" + data + "</adag>").getBytes(StandardCharsets.UTF_8));
         PlatformProfile.Builder platform = PlatformProfile.builder("ledger-artifact-fixture");

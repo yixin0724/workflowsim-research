@@ -32,7 +32,12 @@ import org.workflowsim.utils.SimulationConfig;
 public final class FileLifecyclePythonFixtures {
     private static final int BUDGET = 20000;
     private static final String FLOW =
-            "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external-a\" link=\"input\" size=\"0.125\"/><uses file=\"external-b\" link=\"input\" size=\"0.375\"/><uses file=\"a\" link=\"output\" size=\"2000000\"/><uses file=\"b\" link=\"output\" size=\"3000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"a\" link=\"input\" size=\"2000000\"/><uses file=\"b\" link=\"input\" size=\"3000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>";
+            "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external-a\" link=\"input\" size=\"0.125\"/><uses "
+                    + "file=\"external-b\" link=\"input\" size=\"0.375\"/><uses file=\"a\" link=\"output\" "
+                    + "size=\"2000000\"/><uses file=\"b\" link=\"output\" size=\"3000000\"/></job><job id=\"c\" "
+                    + "runtime=\"1\"><uses file=\"a\" link=\"input\" size=\"2000000\"/><uses file=\"b\" "
+                    + "link=\"input\" size=\"3000000\"/></job><child ref=\"c\"><parent "
+                    + "ref=\"p\"/></child></adag>";
 
     private FileLifecyclePythonFixtures() {}
     /** @param args fresh output root */
@@ -55,7 +60,8 @@ public final class FileLifecyclePythonFixtures {
                         manifests);
         Path zero = text(
                 root.resolve("inputs/zero.dax"),
-                "<adag><job id=\"z\" runtime=\"1\"><uses file=\"zero\" link=\"input\" size=\"0\"/><uses file=\"zero\" link=\"input\" size=\"0\"/></job></adag>");
+                "<adag><job id=\"z\" runtime=\"1\"><uses file=\"zero\" link=\"input\" size=\"0\"/><uses "
+                        + "file=\"zero\" link=\"input\" size=\"0\"/></job></adag>");
         Path noInput = text(root.resolve("inputs/no-input.dax"), "<adag><job id=\"z\" runtime=\"1\"/></adag>");
         saveRun(root, "zero-reference", config(zero, true, BUDGET, 2), platform(false, 2, 1), standalone, manifests);
         saveRun(root, "no-input", config(noInput, true, BUDGET, 2), platform(false, 2, 1), standalone, manifests);
@@ -74,7 +80,10 @@ public final class FileLifecyclePythonFixtures {
         saveRun(root, "off-isolated", config(input, false, 0, 2), platform(true, 2, 1), standalone, manifests);
         Path retry = text(
                 root.resolve("inputs/retry.dax"),
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"20000000\"/><uses file=\"out\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"out\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>");
+                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"20000000\"/><uses "
+                        + "file=\"out\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" "
+                        + "runtime=\"1\"><uses file=\"out\" link=\"input\" size=\"1000000\"/></job><child "
+                        + "ref=\"c\"><parent ref=\"p\"/></child></adag>");
         FailureModelConfig failure = FailureModelConfig.builder()
                 .clusteringAlgorithm(FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(FailureParameters.FTCMonitor.MONITOR_NONE)

@@ -70,7 +70,8 @@ class StorageDataflowKernelIntegrationTest {
     void differentVmReadsShareTheSourceWhileNominalMetricMeaningStaysIntact() throws Exception {
         Path input = input(
                 "reads",
-                "<job id=\"a\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/></job><job id=\"b\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/></job>");
+                "<job id=\"a\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/></job><job "
+                        + "id=\"b\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/></job>");
         SimulationReport shared = run(input, true, 2, false, 1000), isolated = run(input, false, 2, false, 1000);
         assertTrue(shared.getMakespan() > isolated.getMakespan());
         assertEquals(2, events(shared, FileLifecycleEvent.Type.COPY_ADMITTED).size());
@@ -89,7 +90,9 @@ class StorageDataflowKernelIntegrationTest {
     void storeWaitCannotBeBypassedLocallyAndCpuCanOverlapWriteback() throws Exception {
         Path input = input(
                 "overlap",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1000000\"/></job><job id=\"free\" runtime=\"0.5\"/><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1000000\"/></job><job "
+                        + "id=\"free\" runtime=\"0.5\"/><job id=\"c\" runtime=\"1\"><uses file=\"x\" "
+                        + "link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
         SimulationReport report = run(input, true, 1, false, 1000);
         assertEquals(
                 1,
@@ -113,7 +116,8 @@ class StorageDataflowKernelIntegrationTest {
     void storageReadAndWriteUseActualFatTreeAttachment() throws Exception {
         Path input = input(
                 "fat",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/><uses file=\"out\" link=\"output\" size=\"1000000\"/></job>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/><uses file=\"out\" "
+                        + "link=\"output\" size=\"1000000\"/></job>");
         SimulationReport report = run(input, true, 1, true, 1000);
         List<FileLifecycleEvent> copies = events(report, FileLifecycleEvent.Type.COPY_ADMITTED);
         assertEquals(2, copies.size());
@@ -135,7 +139,8 @@ class StorageDataflowKernelIntegrationTest {
     void offAndTruncatedCaptureDoNotChangeCpuOrStorageTrajectory() throws Exception {
         Path input = input(
                 "parity",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/><uses file=\"out\" link=\"output\" size=\"1000000\"/></job>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/><uses file=\"out\" "
+                        + "link=\"output\" size=\"1000000\"/></job>");
         SimulationReport off = run(input, true, 1, false, 0),
                 on = run(input, true, 1, false, 1000),
                 prefix = run(input, true, 1, false, 1);
@@ -183,7 +188,8 @@ class StorageDataflowKernelIntegrationTest {
     void realNoopRetriesOnlyUploadSuccessfulOutputs() throws Exception {
         Path input = input(
                 "retry",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/><uses file=\"out\" link=\"output\" size=\"1000000\"/></job>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"in\" link=\"input\" size=\"1000000\"/><uses file=\"out\" "
+                        + "link=\"output\" size=\"1000000\"/></job>");
         org.workflowsim.failure.FailureModelConfig failure = org.workflowsim.failure.FailureModelConfig.builder()
                 .clusteringAlgorithm(org.workflowsim.failure.FailureParameters.FTCluteringAlgorithm.FTCLUSTERING_NOOP)
                 .monitorMode(org.workflowsim.failure.FailureParameters.FTCMonitor.MONITOR_NONE)

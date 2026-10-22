@@ -238,8 +238,10 @@ class WorkbenchNetworkReportIntegrationTest {
     private Path run(boolean fat, int budget, boolean input) throws Exception {
         String name = "workflow-" + (serial++) + ".dax";
         String data = input
-                ? "<job id=\"a\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"0.5\"/><uses file=\"edge\" link=\"output\" size=\"1000000\"/></job>"
-                        + "<job id=\"b\" runtime=\"0.5\"><uses file=\"edge\" link=\"input\" size=\"1000000\"/></job><child ref=\"b\"><parent ref=\"a\"/></child>"
+                ? "<job id=\"a\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"0.5\"/><uses file=\"edge\" "
+                        + "link=\"output\" size=\"1000000\"/></job>"
+                        + "<job id=\"b\" runtime=\"0.5\"><uses file=\"edge\" link=\"input\" "
+                        + "size=\"1000000\"/></job><child ref=\"b\"><parent ref=\"a\"/></child>"
                 : "<job id=\"a\" runtime=\"1\"/>";
         text(directory.resolve(name), "<adag>" + data + "</adag>");
         JsonObject config = localConfiguration(name, 2, fat);

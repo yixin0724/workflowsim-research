@@ -43,7 +43,8 @@ class WorkbenchNetworkConfigIntegrationTest {
                 directory.resolve("flow.dax"),
                 "<adag><job id=\"a\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/>"
                         + "<uses file=\"edge\" link=\"output\" size=\"1000000\"/></job><job id=\"b\" runtime=\"0.5\">"
-                        + "<uses file=\"edge\" link=\"input\" size=\"1000000\"/></job><child ref=\"b\"><parent ref=\"a\"/></child></adag>");
+                        + "<uses file=\"edge\" link=\"input\" size=\"1000000\"/></job><child ref=\"b\"><parent "
+                        + "ref=\"a\"/></child></adag>");
     }
 
     @AfterEach

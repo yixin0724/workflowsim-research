@@ -169,7 +169,11 @@ class FileLifecycleRerunIntegrationTest {
         Files.createDirectories(input.getParent());
         Files.write(
                 input,
-                "<adag><job id=\"p\" runtime=\"1\"><uses file=\"input\" link=\"input\" size=\"0.5\"/><uses file=\"a\" link=\"output\" size=\"2000000\"/><uses file=\"b\" link=\"output\" size=\"3000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"a\" link=\"input\" size=\"2000000\"/><uses file=\"b\" link=\"input\" size=\"3000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>"
+                ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"input\" link=\"input\" size=\"0.5\"/><uses "
+                                + "file=\"a\" link=\"output\" size=\"2000000\"/><uses file=\"b\" link=\"output\" "
+                                + "size=\"3000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"a\" link=\"input\" "
+                                + "size=\"2000000\"/><uses file=\"b\" link=\"input\" size=\"3000000\"/></job><child "
+                                + "ref=\"c\"><parent ref=\"p\"/></child></adag>")
                         .getBytes(StandardCharsets.UTF_8));
         SimulationConfig config = SimulationConfig.builder(input.toString(), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)

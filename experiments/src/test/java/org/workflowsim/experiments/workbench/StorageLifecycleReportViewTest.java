@@ -561,7 +561,8 @@ class StorageLifecycleReportViewTest {
         assertEquals(
                 text(new BigDecimal(large).add(BigDecimal.valueOf(2))),
                 view.getAsJsonObject("totals").get("requiredReferenceBytes").getAsString(),
-                "reference bytes are exact even though runtime nominal seconds intentionally use binary64 accumulation");
+                "reference bytes are exact even though runtime nominal seconds intentionally use binary64 "
+                        + "accumulation");
         assertNulls(job, "dataReadyAt", "observedPreparationSeconds");
         assertEquals("0", job.get("storeGateWaitSeconds").getAsString());
     }

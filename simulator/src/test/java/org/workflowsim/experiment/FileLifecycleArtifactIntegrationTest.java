@@ -334,7 +334,10 @@ class FileLifecycleArtifactIntegrationTest {
         if (!Files.exists(path))
             Files.write(
                     path,
-                    "<adag><job id=\"p\" runtime=\"1\"><uses file=\"data\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"data\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>"
+                    ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"data\" link=\"output\" "
+                                    + "size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"data\" "
+                                    + "link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent "
+                                    + "ref=\"p\"/></child></adag>")
                             .getBytes(StandardCharsets.UTF_8));
         return path;
     }

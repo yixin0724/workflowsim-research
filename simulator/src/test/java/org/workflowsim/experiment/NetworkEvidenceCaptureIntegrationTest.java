@@ -406,9 +406,9 @@ class NetworkEvidenceCaptureIntegrationTest {
     @Test
     void groupDoubleRoundingGapCannotBeMistakenForLocalitySavings() throws Exception {
         for (int small : new int[] {1, 3}) {
-            String dax =
-                    "<adag><job id=\"root\" runtime=\"1\"><uses file=\"large\" link=\"input\" size=\"10000000000000000\"/>"
-                            + "<uses file=\"small\" link=\"input\" size=\"" + small + "\"/></job></adag>";
+            String dax = "<adag><job id=\"root\" runtime=\"1\"><uses file=\"large\" link=\"input\" "
+                    + "size=\"10000000000000000\"/>"
+                    + "<uses file=\"small\" link=\"input\" size=\"" + small + "\"/></job></adag>";
             Path workflow = input("locality-rounding-" + small + ".dax", dax);
             SimulationReport off = run(workflow, false, 1, 0), on = run(workflow, false, 1, FULL_BUDGET);
             assertOldEvidenceEquals(off, on);

@@ -125,7 +125,8 @@ class DataflowFilePlanIntegrationTest {
         Path input = dax(
                 "size-conflict.dax",
                 "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"8\"/></job>"
-                        + "<job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"16\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
+                        + "<job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"16\"/></job><child "
+                        + "ref=\"c\"><parent ref=\"p\"/></child>");
         try (SimulationSession session = SimulationSession.open(
                 SimulationConfig.builder(input.toString(), 1).build())) {
             WorkflowParser parser = new WorkflowParser(0);
@@ -143,7 +144,8 @@ class DataflowFilePlanIntegrationTest {
         Path input = dax(
                 "multi-writer.dax",
                 "<job id=\"a\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1\"/></job>"
-                        + "<job id=\"b\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1\"/></job>"
+                        + "<job id=\"b\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1\"/></job><job "
+                        + "id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1\"/></job>"
                         + "<child ref=\"c\"><parent ref=\"a\"/><parent ref=\"b\"/></child>");
         try (SimulationSession session = SimulationSession.open(
                 SimulationConfig.builder(input.toString(), 1).build())) {

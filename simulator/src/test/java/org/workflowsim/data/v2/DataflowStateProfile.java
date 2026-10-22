@@ -30,7 +30,8 @@ public final class DataflowStateProfile {
     public static void main(String[] args) throws Exception {
         if (args.length != 4)
             throw new IllegalArgumentException(
-                    "Usage: DataflowStateProfile <FILELESS|FILES_V2|STORE_V3|ONLINE_V3|WIDE_V2> <sizes> <OFF|TRUNCATED|FULL> <repetitions>");
+                    "Usage: DataflowStateProfile <FILELESS|FILES_V2|STORE_V3|ONLINE_V3|WIDE_V2> <sizes> "
+                            + "<OFF|TRUNCATED|FULL> <repetitions>");
         String scenario = args[0], capture = args[2];
         int repetitions = Integer.parseInt(args[3]);
         if (repetitions < 1 || repetitions > 20) throw new IllegalArgumentException("Invalid repetitions");

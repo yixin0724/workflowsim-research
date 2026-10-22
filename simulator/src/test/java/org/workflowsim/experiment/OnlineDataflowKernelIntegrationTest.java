@@ -54,7 +54,10 @@ class OnlineDataflowKernelIntegrationTest {
     void unplannedTasksBindBeforeInputTransferInEveryCoherentPhysicalFamily() throws Exception {
         Path input = input(
                 "flow",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"1000000\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"1000000\"/><uses "
+                        + "file=\"x\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses "
+                        + "file=\"x\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent "
+                        + "ref=\"p\"/></child>");
         for (boolean storage : new boolean[] {false, true})
             for (boolean shared : new boolean[] {false, true})
                 for (boolean fat : new boolean[] {false, true}) {
@@ -141,7 +144,9 @@ class OnlineDataflowKernelIntegrationTest {
     void sharedStorageBindingDoesNotTreatUncommittedLocalOutputAsFreeInput() throws Exception {
         Path input = input(
                 "store",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1000000\"/></job><job "
+                        + "id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" "
+                        + "size=\"1000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
         SimulationReport report =
                 new SimulationRunner().run(config(input, true, true, 2000), platform(true, false, 1000, 1000));
         List<SimulationEvent> assignments = assigned(report);
@@ -196,7 +201,8 @@ class OnlineDataflowKernelIntegrationTest {
     void observationAndActionsAreIndependentOfCaptureBudget() throws Exception {
         Path input = input(
                 "capture",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"1000000\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/></job>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"1000000\"/><uses "
+                        + "file=\"x\" link=\"output\" size=\"1000000\"/></job>");
         Gson gson = new GsonBuilder().serializeNulls().create();
         SimulationReport reference = null;
         for (int budget : new int[] {0, 1, 2000}) {

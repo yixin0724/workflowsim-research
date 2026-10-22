@@ -37,7 +37,9 @@ final class NetworkBrowserFixtures {
         Path data = WorkbenchTestSupport.text(
                 output.resolve("network-display.dax"),
                 "<adag><job id=\"a\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"0.5\"/>"
-                        + "<uses file=\"edge\" link=\"output\" size=\"1000000\"/></job><job id=\"b\" runtime=\"0.5\"><uses file=\"edge\" link=\"input\" size=\"1000000\"/></job><child ref=\"b\"><parent ref=\"a\"/></child></adag>");
+                        + "<uses file=\"edge\" link=\"output\" size=\"1000000\"/></job><job id=\"b\" "
+                        + "runtime=\"0.5\"><uses file=\"edge\" link=\"input\" "
+                        + "size=\"1000000\"/></job><child ref=\"b\"><parent ref=\"a\"/></child></adag>");
         Path zero = WorkbenchTestSupport.text(
                 output.resolve("network-zero.dax"), "<adag><job id=\"z\" runtime=\"1\"/></adag>");
         Map<String, Path> manifests = new LinkedHashMap<String, Path>();

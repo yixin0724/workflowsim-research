@@ -303,8 +303,10 @@ class NetworkRerunIntegrationTest {
         Files.write(
                 input,
                 ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/>"
-                                + "<uses file=\"a\" link=\"output\" size=\"5000000\"/></job><job id=\"c\" runtime=\"2\">"
-                                + "<uses file=\"a\" link=\"input\" size=\"5000000\"/></job><child ref=\"c\"><parent ref=\"p\"/></child></adag>")
+                                + "<uses file=\"a\" link=\"output\" size=\"5000000\"/></job><job id=\"c\" "
+                                + "runtime=\"2\">"
+                                + "<uses file=\"a\" link=\"input\" size=\"5000000\"/></job><child "
+                                + "ref=\"c\"><parent ref=\"p\"/></child></adag>")
                         .getBytes(StandardCharsets.UTF_8));
         PlatformProfile.Builder platform = PlatformProfile.builder("network-rerun");
         int[] ids = {7, 42};

@@ -42,7 +42,12 @@ public final class DataflowAssignmentPythonFixtures {
         Path flow = input(
                 root,
                 "flow",
-                "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"x\" link=\"output\" size=\"1000000\"/><uses file=\"unused\" link=\"output\" size=\"500000\"/><uses file=\"z\" link=\"output\" size=\"0\"/></job><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"z\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
+                "<job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses file=\"x\" "
+                        + "link=\"output\" size=\"1000000\"/><uses file=\"unused\" link=\"output\" "
+                        + "size=\"500000\"/><uses file=\"z\" link=\"output\" size=\"0\"/></job><job id=\"c\" "
+                        + "runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"x\" "
+                        + "link=\"input\" size=\"1000000\"/><uses file=\"z\" link=\"input\" "
+                        + "size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
         for (boolean storage : new boolean[] {false, true})
             for (boolean gate : new boolean[] {false, true}) {
                 if (!storage && gate) continue;
@@ -97,8 +102,9 @@ public final class DataflowAssignmentPythonFixtures {
                 .randomSeed(1)
                 .build();
         save(root, "busy-vm-overlap", overlap, platform(false, false, 1000, 100, 1), manifests);
-        String join =
-                "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"10000000\"/></job><job id=\"q\" runtime=\"0.2\"/><job id=\"c\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"10000000\"/></job><child ref=\"c\"><parent ref=\"q\"/></child>";
+        String join = "<job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"10000000\"/></job><job "
+                + "id=\"q\" runtime=\"0.2\"/><job id=\"c\" runtime=\"1\"><uses file=\"x\" "
+                + "link=\"input\" size=\"10000000\"/></job><child ref=\"c\"><parent ref=\"q\"/></child>";
         Path joined = input(root, "join", join);
         for (boolean storage : new boolean[] {false, true})
             save(
