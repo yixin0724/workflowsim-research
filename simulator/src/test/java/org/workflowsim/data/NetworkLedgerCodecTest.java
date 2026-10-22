@@ -273,7 +273,9 @@ class NetworkLedgerCodecTest {
         JsonObject wrong = document();
         JsonArray events = trace(wrong).getAsJsonArray("events");
         events.remove(5);
-        for (int i = 0; i < events.size(); i++) events.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        for (int i = 0; i < events.size(); i++) {
+            events.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        }
         bad(wrong);
     }
 
@@ -285,8 +287,12 @@ class NetworkLedgerCodecTest {
                 () -> NetworkLedgerCodec.decode(
                         valid.replaceFirst("\\\"schema\\\":", "\"schema\":\"duplicate\",\"schema\":")));
         for (String text : Arrays.asList(
-                valid + "{}", valid + " //comment", "{schema:'x'}", valid.substring(0, valid.lastIndexOf('}')) + ",}"))
+                valid + "{}",
+                valid + " //comment",
+                "{schema:'x'}",
+                valid.substring(0, valid.lastIndexOf('}')) + ",}")) {
             assertThrows(IllegalArgumentException.class, () -> NetworkLedgerCodec.decode(text));
+        }
     }
 
     @Test
@@ -295,9 +301,13 @@ class NetworkLedgerCodecTest {
         assertThrows(
                 IllegalArgumentException.class, () -> NetworkLedgerCodec.decode(valid.replace("1500", "1e99999999")));
         StringBuilder deep = new StringBuilder();
-        for (int i = 0; i < 100; i++) deep.append('[');
+        for (int i = 0; i < 100; i++) {
+            deep.append('[');
+        }
         deep.append('0');
-        for (int i = 0; i < 100; i++) deep.append(']');
+        for (int i = 0; i < 100; i++) {
+            deep.append(']');
+        }
         assertThrows(IllegalArgumentException.class, () -> NetworkLedgerCodec.decode(deep.toString()));
         JsonObject wrong = document();
         event(wrong, 1).addProperty("effectiveTime", new BigDecimal("1e-4000"));
@@ -413,12 +423,14 @@ class NetworkLedgerCodecTest {
 
     @Test
     void lexicalScaleAndDepthBoundariesDoNotReplaceSemanticValidation() {
-        for (String n : Arrays.asList("1e4096", "1e-4096", "-0", "1E+3"))
+        for (String n : Arrays.asList("1e4096", "1e-4096", "-0", "1E+3")) {
             assertTrue(NetworkLedgerCodec.parseDocument("{\"n\":" + n + "}")
                     .getAsJsonPrimitive("n")
                     .isNumber());
-        for (String n : Arrays.asList("1e4097", "1e-4097", "1.0e-4096"))
+        }
+        for (String n : Arrays.asList("1e4097", "1e-4097", "1.0e-4096")) {
             assertThrows(IllegalArgumentException.class, () -> NetworkLedgerCodec.parseDocument("{\"n\":" + n + "}"));
+        }
         assertDoesNotThrow(
                 () -> NetworkLedgerCodec.parseDocument("{\"n\":" + repeat('[', 63) + "0" + repeat(']', 63) + "}"));
         assertThrows(
@@ -438,8 +450,9 @@ class NetworkLedgerCodecTest {
         assertTrue(value.getAsJsonArray("v").get(0).getAsBoolean());
         assertFalse(value.getAsJsonArray("v").get(1).getAsBoolean());
         assertTrue(value.getAsJsonArray("v").get(2).isJsonNull());
-        for (String n : Arrays.asList("+1", "01", ".1", "1.", "1e+", "NaN", "1true", "Infinity", "0x1", "-"))
+        for (String n : Arrays.asList("+1", "01", ".1", "1.", "1e+", "NaN", "1true", "Infinity", "0x1", "-")) {
             assertThrows(IllegalArgumentException.class, () -> NetworkLedgerCodec.parseDocument("{\"n\":" + n + "}"));
+        }
         for (String json : Arrays.asList(
                 "{\"schema\":1,\"\\u0073chema\":2}",
                 "{\"x\":\"\\x41\"}",
@@ -451,7 +464,9 @@ class NetworkLedgerCodecTest {
                 "{x:1}",
                 "{}{}",
                 "/*x*/{}",
-                "\u000b{}")) assertThrows(IllegalArgumentException.class, () -> NetworkLedgerCodec.parseDocument(json));
+                "\u000b{}")) {
+            assertThrows(IllegalArgumentException.class, () -> NetworkLedgerCodec.parseDocument(json));
+        }
     }
 
     @Test
@@ -551,8 +566,8 @@ class NetworkLedgerCodecTest {
         engine.addTransfer(Long.MIN_VALUE, 1000, PATH, 100, 0);
         engine.advance(20);
         List<NetworkFlowBinding> retained = new ArrayList<>();
-        for (TransferTraceEvent event : engine.getTraceSnapshot().getEvents())
-            if (event.getType() == TransferTraceEvent.Type.START)
+        for (TransferTraceEvent event : engine.getTraceSnapshot().getEvents()) {
+            if (event.getType() == TransferTraceEvent.Type.START) {
                 retained.add(NetworkFlowBinding.of(
                         event.getTransferId(),
                         event.getAdmissionOrdinal(),
@@ -563,6 +578,8 @@ class NetworkLedgerCodecTest {
                         "VM:7",
                         "VM:42",
                         PATH));
+            }
+        }
         return NetworkRunEvidence.capture(
                 NetworkEvidenceConfig.fluidGroupLedger(budget),
                 KIND,

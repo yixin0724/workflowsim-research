@@ -65,8 +65,9 @@ class FileLifecycleReportViewTest {
                 "nestedItemsOmitted")) {
             assertEquals("0", view.get(key).getAsString(), key);
         }
-        for (JsonElement value : view.getAsJsonObject("totals").asMap().values())
+        for (JsonElement value : view.getAsJsonObject("totals").asMap().values()) {
             assertEquals("0", value.getAsString());
+        }
         assertEquals(Integer.toString(BUDGET), view.get("traceBudget").getAsString());
         assertEquals("256", view.get("labelLimit").getAsString());
         assertEquals("12", view.get("nestedListLimit").getAsString());
@@ -218,7 +219,9 @@ class FileLifecycleReportViewTest {
                 "effectiveFctSeconds",
                 "observedFctSeconds",
                 "notificationLagSeconds",
-                "completionResidualBytes")) assertTrue(copy.get(key).isJsonNull(), key);
+                "completionResidualBytes")) {
+            assertTrue(copy.get(key).isJsonNull(), key);
+        }
         assertEquals(
                 "0", active.getAsJsonObject("totals").get("settledPayloadBytes").getAsString());
         assertEquals(
@@ -465,7 +468,9 @@ class FileLifecycleReportViewTest {
             }
             DataTransferFabric fabric = DataTransferFabric.endpoints(capacities, Collections.singletonList("source"));
             CoherentDataflowRuntime runtime = runtime(true, BUDGET, plan(tasks.toArray(new Task[0])), fabric);
-            for (int i = 0; i < count; i++) runtime.requestJob(i, one(i), i, 0);
+            for (int i = 0; i < count; i++) {
+                runtime.requestJob(i, one(i), i, 0);
+            }
             runtime.advance(1);
             FileLifecycleCodec.Decoded decoded = decoded(runtime);
             JsonObject view = tree(decoded);
@@ -497,7 +502,9 @@ class FileLifecycleReportViewTest {
     void eventPreviewBoundaryDoesNotTurnACompleteCaptureIntoTruncation() {
         for (int count : new int[] {128, 129}) {
             FileItem[] files = new FileItem[count];
-            for (int i = 0; i < count; i++) files[i] = in("seed-" + i, 1);
+            for (int i = 0; i < count; i++) {
+                files[i] = in("seed-" + i, 1);
+            }
             JsonObject view = tree(decoded(runtime(true, plan(task(1, files)))));
             checkPreview(view, "events", count, 128);
             assertEquals(Integer.toString(count), view.get("retainedRecords").getAsString());
@@ -612,12 +619,14 @@ class FileLifecycleReportViewTest {
         assertEquals("0", totals.get("completionResidualBytes").getAsString());
         assertTrue(view.get("quiescent").getAsBoolean());
         assertEquals("0", view.get("labelsClipped").getAsString());
-        for (JsonElement value : rows(view, "copies"))
+        for (JsonElement value : rows(view, "copies")) {
             assertEquals(maximum, value.getAsJsonObject().get("payloadBytes").getAsString());
-        for (JsonElement value : rows(view, "resources"))
+        }
+        for (JsonElement value : rows(view, "resources")) {
             assertEquals(
                     maximum,
                     value.getAsJsonObject().get("capacityBytesPerSecond").getAsString());
+        }
         assertTrue(event(rows(view, "events"), "COPY_ADMITTED", 0)
                 .get("detail")
                 .getAsString()
@@ -640,7 +649,9 @@ class FileLifecycleReportViewTest {
                 "effectiveFctSeconds",
                 "observedFctSeconds",
                 "payloadBytes",
-                "isolatedSeconds")) assertEquals(tiny, copy.get(key).getAsString(), key);
+                "isolatedSeconds")) {
+            assertEquals(tiny, copy.get(key).getAsString(), key);
+        }
         assertEquals("0", copy.get("notificationLagSeconds").getAsString());
         assertEquals("0", copy.get("completionResidualBytes").getAsString());
         assertEquals("SETTLED", copy.get("status").getAsString());
@@ -750,13 +761,17 @@ class FileLifecycleReportViewTest {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 
@@ -816,14 +831,18 @@ class FileLifecycleReportViewTest {
     private static JsonObject event(JsonArray events, String type, int occurrence) {
         for (JsonElement value : events) {
             JsonObject event = value.getAsJsonObject();
-            if (type.equals(event.get("type").getAsString()) && occurrence-- == 0) return event;
+            if (type.equals(event.get("type").getAsString()) && occurrence-- == 0) {
+                return event;
+            }
         }
         throw new AssertionError("Missing event " + type);
     }
 
     private static List<String> strings(JsonArray values) {
         List<String> strings = new ArrayList<>();
-        for (JsonElement value : values) strings.add(value.getAsString());
+        for (JsonElement value : values) {
+            strings.add(value.getAsString());
+        }
         return strings;
     }
 
@@ -865,10 +884,13 @@ class FileLifecycleReportViewTest {
 
     private static void assertNoJsonNumbers(JsonElement value) {
         if (value.isJsonObject()) {
-            for (Map.Entry<String, JsonElement> entry : value.getAsJsonObject().entrySet())
+            for (Map.Entry<String, JsonElement> entry : value.getAsJsonObject().entrySet()) {
                 assertNoJsonNumbers(entry.getValue());
+            }
         } else if (value.isJsonArray()) {
-            for (JsonElement item : value.getAsJsonArray()) assertNoJsonNumbers(item);
+            for (JsonElement item : value.getAsJsonArray()) {
+                assertNoJsonNumbers(item);
+            }
         } else if (value.isJsonPrimitive()) {
             assertFalse(value.getAsJsonPrimitive().isNumber(), value.toString());
         }
@@ -883,12 +905,18 @@ class FileLifecycleReportViewTest {
                 Map.Entry<String, Object> entry = map.entrySet().iterator().next();
                 assertThrows(UnsupportedOperationException.class, () -> entry.setValue("not allowed"));
             }
-            for (Object item : map.values()) assertDeepImmutable(item);
+            for (Object item : map.values()) {
+                assertDeepImmutable(item);
+            }
         } else if (value instanceof List) {
             List<Object> list = (List<Object>) value;
             assertThrows(UnsupportedOperationException.class, () -> list.add("not allowed"));
-            if (!list.isEmpty()) assertThrows(UnsupportedOperationException.class, () -> list.set(0, "not allowed"));
-            for (Object item : list) assertDeepImmutable(item);
+            if (!list.isEmpty()) {
+                assertThrows(UnsupportedOperationException.class, () -> list.set(0, "not allowed"));
+            }
+            for (Object item : list) {
+                assertDeepImmutable(item);
+            }
         } else {
             assertTrue(
                     value == null || value instanceof String || value instanceof Boolean,

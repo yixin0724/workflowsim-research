@@ -219,12 +219,16 @@ final class FileLifecycleBrowserFixtures {
             capacities.put(i, 1.0);
         }
         CoherentDataflowRuntime many = runtime(plan(tasks.toArray(new Task[0])), capacities);
-        for (int i = 0; i < 65; i++) many.requestJob(i + 1, one(i + 1), i, 0);
+        for (int i = 0; i < 65; i++) {
+            many.requestJob(i + 1, one(i + 1), i, 0);
+        }
         many.advance(1);
         typed(rows, expected, cpu, "typed-v2-hostile-capped", decode(many));
 
         Map<Integer, Double> resourceCapacities = new LinkedHashMap<>();
-        for (int i = 0; i < 65; i++) resourceCapacities.put(i, i + 1.0);
+        for (int i = 0; i < 65; i++) {
+            resourceCapacities.put(i, i + 1.0);
+        }
         typed(rows, expected, cpu, "typed-v2-resource-cap", decode(runtime(plan(), resourceCapacities)));
 
         CoherentDataflowRuntime active = runtime(
@@ -255,7 +259,9 @@ final class FileLifecycleBrowserFixtures {
 
     /** Independent certificate-derived expectations: never read the display projection as an oracle. */
     private static Map<String, Object> expect(FileLifecycleCodec.Decoded decoded, boolean contextValidated) {
-        if (decoded == null) return state("OFF");
+        if (decoded == null) {
+            return state("OFF");
+        }
         JsonObject document = decoded.getDocument(), plan = document.getAsJsonObject("filePlan");
         Map<DataflowFilePlan.FileId, BigDecimal> sizes = new LinkedHashMap<>();
         for (JsonElement item : plan.getAsJsonArray("files")) {
@@ -276,9 +282,10 @@ final class FileLifecycleBrowserFixtures {
                     BigDecimal bytes = new BigDecimal(payload.get("bytes").getAsDouble());
                     payloads.put(payload.get("copyOrdinal").getAsLong(), bytes);
                     admitted = admitted.add(bytes);
-                    if (sources.size() < COPY_PREVIEW_LIMIT)
+                    if (sources.size() < COPY_PREVIEW_LIMIT) {
                         sources.add(sourceLabel(
                                 payload.getAsJsonObject("sourceReplica").getAsJsonObject("location")));
+                    }
                     break;
                 case "COPY_SETTLED":
                     settled =
@@ -387,7 +394,9 @@ final class FileLifecycleBrowserFixtures {
     }
 
     private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
+        if (!condition) {
+            throw new AssertionError(message);
+        }
     }
 
     /** Keep the exact validated manifest/view snapshot attached, rather than reconstructing CPU evidence. */
@@ -443,13 +452,17 @@ final class FileLifecycleBrowserFixtures {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 

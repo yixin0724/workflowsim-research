@@ -124,8 +124,11 @@ class TransferTraceValidatorTest {
                             TransferTraceEvent.start(3, 0, 2, 2, 100, Arrays.asList("A"), 100, 50 + delta),
                             TransferTraceEvent.rateChange(4, 0, 0, 1, 1, 100, 50 - delta)),
                     0);
-            if (multiplier == 1) valid(trace);
-            else invalid(trace);
+            if (multiplier == 1) {
+                valid(trace);
+            } else {
+                invalid(trace);
+            }
         }
     }
 
@@ -483,7 +486,9 @@ class TransferTraceValidatorTest {
                                 4)));
         assertAllPrefixes(e.getTraceSnapshot());
         TransferContentionEngine allRemain = engine();
-        for (int id = 1; id <= 3; id++) add(allRemain, id, 10, 1, 0);
+        for (int id = 1; id <= 3; id++) {
+            add(allRemain, id, 10, 1, 0);
+        }
         allRemain.advance(2);
         List<TransferTraceEvent> starts =
                 allRemain.getTraceSnapshot().getEvents().subList(0, 3);
@@ -535,12 +540,13 @@ class TransferTraceValidatorTest {
 
     @Test
     void acceptsBoundedScaledMultiResourceScriptsAndAllTheirPrefixes() {
-        for (int seed = 0; seed < 12; seed++)
+        for (int seed = 0; seed < 12; seed++) {
             for (double scale : new double[] {1e-9, 1.0, 1e9}) {
                 Random random = new Random(seed);
                 TransferContentionEngine e = engine();
-                for (int resource = 0; resource < 3; resource++)
+                for (int resource = 0; resource < 3; resource++) {
                     e.setEndpointCapacity("R" + resource, scale * (1 + random.nextInt(10)));
+                }
                 double now = seed % 2 == 0 ? 0 : 1e6;
                 e.advance(now);
                 for (int i = 0; i < 10; i++) {
@@ -548,8 +554,14 @@ class TransferTraceValidatorTest {
                     e.advance(now);
                     valid(e.getTraceSnapshot());
                     List<String> path = new ArrayList<String>();
-                    for (int resource = 0; resource < 3; resource++) if (random.nextBoolean()) path.add("R" + resource);
-                    if (!path.isEmpty() && random.nextInt(5) == 0) path.add(path.get(0));
+                    for (int resource = 0; resource < 3; resource++) {
+                        if (random.nextBoolean()) {
+                            path.add("R" + resource);
+                        }
+                    }
+                    if (!path.isEmpty() && random.nextInt(5) == 0) {
+                        path.add(path.get(0));
+                    }
                     e.addTransfer(
                             1000 + i, scale * (.5 + random.nextInt(12)), path, scale * (.5 + random.nextInt(12)), now);
                     valid(e.getTraceSnapshot());
@@ -558,6 +570,7 @@ class TransferTraceValidatorTest {
                 valid(e.getTraceSnapshot());
                 assertAllPrefixes(e.getTraceSnapshot());
             }
+        }
     }
 
     private static TransferContentionEngine engine() {
@@ -605,8 +618,9 @@ class TransferTraceValidatorTest {
 
     private static List<TransferTraceEvent> renumber(List<TransferTraceEvent> rows) {
         List<TransferTraceEvent> result = new ArrayList<>();
-        for (int i = 0; i < rows.size(); i++)
+        for (int i = 0; i < rows.size(); i++) {
             result.add(tweak(rows.get(i), null, "sequence", new JsonPrimitive(i + 1)));
+        }
         return result;
     }
 

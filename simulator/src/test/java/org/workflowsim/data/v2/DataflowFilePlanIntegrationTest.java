@@ -198,7 +198,9 @@ class DataflowFilePlanIntegrationTest {
 
     private static List<Integer> taskIds(Job job) {
         List<Integer> ids = new ArrayList<>();
-        for (Task task : job.getTaskList()) ids.add(task.getCloudletId());
+        for (Task task : job.getTaskList()) {
+            ids.add(task.getCloudletId());
+        }
         return ids;
     }
 

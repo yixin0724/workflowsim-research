@@ -56,7 +56,7 @@ class FileLifecycleArtifactIntegrationTest {
     @Test
     void allNewModelAndTopologyVariantsWriteAndValidateTheirOwnRole() throws Exception {
         Path workflow = input();
-        for (boolean shared : new boolean[] {true, false})
+        for (boolean shared : new boolean[] {true, false}) {
             for (boolean fat : new boolean[] {false, true}) {
                 SimulationReport report = run(workflow, shared, fat, 1000, 1);
                 ExperimentArtifactWriter.ExperimentArtifacts out = ExperimentArtifactWriter.write(
@@ -80,6 +80,7 @@ class FileLifecycleArtifactIntegrationTest {
                                 .get("mode")
                                 .getAsString());
             }
+        }
     }
 
     @Test
@@ -112,11 +113,13 @@ class FileLifecycleArtifactIntegrationTest {
         Path existing = directory.resolve("keep");
         Files.createDirectories(existing);
         byte[] sentinel = "preserve".getBytes(StandardCharsets.UTF_8);
-        for (String suffix : Arrays.asList("metrics.json", "events.jsonl", "manifest.json", "file-lifecycle.json"))
+        for (String suffix : Arrays.asList("metrics.json", "events.jsonl", "manifest.json", "file-lifecycle.json")) {
             Files.write(existing.resolve("run." + suffix), sentinel);
+        }
         assertThrows(java.io.IOException.class, () -> ExperimentArtifactWriter.write(report, existing, "run"));
-        for (String suffix : Arrays.asList("metrics.json", "events.jsonl", "manifest.json", "file-lifecycle.json"))
+        for (String suffix : Arrays.asList("metrics.json", "events.jsonl", "manifest.json", "file-lifecycle.json")) {
             assertArrayEquals(sentinel, Files.readAllBytes(existing.resolve("run." + suffix)));
+        }
     }
 
     @Test
@@ -148,7 +151,7 @@ class FileLifecycleArtifactIntegrationTest {
         ExperimentArtifactWriter.ExperimentArtifacts out =
                 ExperimentArtifactWriter.write(run(input(), true, false, 1000, 1), directory.resolve("route"), "run");
         JsonObject ledger = read(out.getFileLifecycle());
-        for (JsonElement event : ledger.getAsJsonArray("events"))
+        for (JsonElement event : ledger.getAsJsonArray("events")) {
             if (event.getAsJsonObject().get("type").getAsString().equals("COPY_ADMITTED")) {
                 event.getAsJsonObject()
                         .getAsJsonObject("payload")
@@ -156,6 +159,7 @@ class FileLifecycleArtifactIntegrationTest {
                         .set(0, new com.google.gson.JsonPrimitive("VM:42"));
                 break;
             }
+        }
         save(out.getFileLifecycle(), ledger);
         rehash(out, "file-lifecycle", out.getFileLifecycle());
         assertThrows(java.io.IOException.class, () -> ExperimentArtifactValidator.validate(out.getManifest()));
@@ -240,8 +244,9 @@ class FileLifecycleArtifactIntegrationTest {
         for (String line : Files.readAllLines(out.getEvents(), StandardCharsets.UTF_8)) {
             JsonObject event = JsonParser.parseString(line).getAsJsonObject();
             if (event.get("type").getAsString().equals("TASK_EXECUTION_MODELED")
-                    && event.get("jobId").getAsInt() == job)
+                    && event.get("jobId").getAsInt() == job) {
                 event.getAsJsonObject("attributes").addProperty("taskFinishTime", 0);
+            }
             changed.add(event.toString());
         }
         Files.write(out.getEvents(), changed, StandardCharsets.UTF_8);
@@ -292,21 +297,26 @@ class FileLifecycleArtifactIntegrationTest {
         ExperimentArtifactWriter.ExperimentArtifacts out =
                 ExperimentArtifactWriter.write(report, directory.resolve("retry-order"), "run");
         List<JsonObject> events = new ArrayList<>();
-        for (String line : Files.readAllLines(out.getEvents(), StandardCharsets.UTF_8))
+        for (String line : Files.readAllLines(out.getEvents(), StandardCharsets.UTF_8)) {
             events.add(JsonParser.parseString(line).getAsJsonObject());
+        }
         int created = -1, failed = -1;
-        for (int i = 0; i < events.size(); i++)
+        for (int i = 0; i < events.size(); i++) {
             if (events.get(i).get("type").getAsString().equals("RETRY_JOB_CREATED")) {
                 created = i;
                 int previous = events.get(i)
                         .getAsJsonObject("attributes")
                         .get("failedJobId")
                         .getAsInt();
-                for (int j = 0; j < i; j++)
+                for (int j = 0; j < i; j++) {
                     if (events.get(j).get("type").getAsString().equals("JOB_FAILED")
-                            && events.get(j).get("jobId").getAsInt() == previous) failed = j;
+                            && events.get(j).get("jobId").getAsInt() == previous) {
+                        failed = j;
+                    }
+                }
                 break;
             }
+        }
         assertTrue(created > failed && failed >= 0);
         assertEquals(
                 events.get(created).get("simulationTime"), events.get(failed).get("simulationTime"));
@@ -340,7 +350,7 @@ class FileLifecycleArtifactIntegrationTest {
 
     private Path input() throws Exception {
         Path path = directory.resolve("workflow.dax");
-        if (!Files.exists(path))
+        if (!Files.exists(path)) {
             Files.write(
                     path,
                     ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"data\" link=\"output\" "
@@ -348,6 +358,7 @@ class FileLifecycleArtifactIntegrationTest {
                                     + "link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent "
                                     + "ref=\"p\"/></child></adag>")
                             .getBytes(StandardCharsets.UTF_8));
+        }
         return path;
     }
 
@@ -381,7 +392,9 @@ class FileLifecycleArtifactIntegrationTest {
                             PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], host);
         }
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        }
         return new SimulationRunner().run(config, p.build());
     }
 
@@ -395,8 +408,11 @@ class FileLifecycleArtifactIntegrationTest {
     }
 
     private static JsonObject role(JsonObject manifest, String role) {
-        for (JsonElement value : manifest.getAsJsonArray("artifacts"))
-            if (value.getAsJsonObject().get("role").getAsString().equals(role)) return value.getAsJsonObject();
+        for (JsonElement value : manifest.getAsJsonArray("artifacts")) {
+            if (value.getAsJsonObject().get("role").getAsString().equals(role)) {
+                return value.getAsJsonObject();
+            }
+        }
         throw new AssertionError("Missing role " + role);
     }
 
@@ -404,7 +420,9 @@ class FileLifecycleArtifactIntegrationTest {
             throws Exception {
         byte[] bytes = Files.readAllBytes(path);
         StringBuilder sha = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) sha.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            sha.append(String.format("%02x", b & 255));
+        }
         JsonObject manifest = read(out.getManifest());
         JsonObject entry = role(manifest, role);
         entry.addProperty("sha256", sha.toString());

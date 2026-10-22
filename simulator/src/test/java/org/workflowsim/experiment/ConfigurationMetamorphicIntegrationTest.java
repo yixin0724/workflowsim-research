@@ -75,8 +75,9 @@ class ConfigurationMetamorphicIntegrationTest {
         };
         for (Parameters.SchedulingAlgorithm scheduler : online) {
             for (ReplicaCatalog.FileSystem fs : ReplicaCatalog.FileSystem.values()) {
-                if (scheduler == Parameters.SchedulingAlgorithm.DATA && fs == ReplicaCatalog.FileSystem.SHARED)
+                if (scheduler == Parameters.SchedulingAlgorithm.DATA && fs == ReplicaCatalog.FileSystem.SHARED) {
                     continue;
+                }
                 for (Movement model : new Movement[] {Movement.LEGACY, Movement.FIXED}) {
                     cells.add(new Cell(Parameters.PlanningAlgorithm.INVALID, scheduler, fs, model, false));
                 }
@@ -94,7 +95,9 @@ class ConfigurationMetamorphicIntegrationTest {
         for (Parameters.PlanningAlgorithm planner : mapping) {
             for (ReplicaCatalog.FileSystem fs : ReplicaCatalog.FileSystem.values()) {
                 for (Movement model : Movement.values()) {
-                    if (model == Movement.FAT_TREE && fs == ReplicaCatalog.FileSystem.SHARED) continue;
+                    if (model == Movement.FAT_TREE && fs == ReplicaCatalog.FileSystem.SHARED) {
+                        continue;
+                    }
                     cells.add(new Cell(
                             planner,
                             Parameters.SchedulingAlgorithm.STATIC,
@@ -199,8 +202,9 @@ class ConfigurationMetamorphicIntegrationTest {
                     PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             platform.pinVmToHost(VM_IDS[i], VM_IDS[i]);
         }
-        if (cell.movement == Movement.FAT_TREE)
+        if (cell.movement == Movement.FAT_TREE) {
             platform.networkTopology(NetworkTopologySpec.fatTree(4, 0.25 * dataScale));
+        }
         return new SimulationRunner().run(config, platform.build());
     }
 
@@ -237,19 +241,24 @@ class ConfigurationMetamorphicIntegrationTest {
             if (!independent) {
                 for (int[] edge : EDGES) {
                     double bytes = edge[0] == 1 ? 0.5 : 2_000_000.0;
-                    if (edge[1] == task) file(xml, "e" + edge[0] + "-" + edge[1], "input", bytes * scale);
-                    if (edge[0] == task) file(xml, "e" + edge[0] + "-" + edge[1], "output", bytes * scale);
+                    if (edge[1] == task) {
+                        file(xml, "e" + edge[0] + "-" + edge[1], "input", bytes * scale);
+                    }
+                    if (edge[0] == task) {
+                        file(xml, "e" + edge[0] + "-" + edge[1], "output", bytes * scale);
+                    }
                 }
             }
             xml.append("</job>");
         }
         if (!independent) {
-            for (int[] edge : EDGES)
+            for (int[] edge : EDGES) {
                 xml.append("<child ref=\"t")
                         .append(edge[1])
                         .append("\"><parent ref=\"t")
                         .append(edge[0])
                         .append("\"/></child>");
+            }
         }
         return xml.append("</adag>").toString();
     }
@@ -277,13 +286,19 @@ class ConfigurationMetamorphicIntegrationTest {
         Map<Integer, SimulationReport.TaskOutcome> tasks = taskOutcomes(report);
         assertEquals(WORK_MI.length, tasks.size());
         Map<Integer, SimulationReport.JobOutcome> jobs = new HashMap<>();
-        for (SimulationReport.JobOutcome job : report.getJobs()) jobs.put(job.getJobId(), job);
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            jobs.put(job.getJobId(), job);
+        }
         for (int id = 1; id <= WORK_MI.length; id++) {
             SimulationReport.TaskOutcome task = tasks.get(id);
             assertEquals(WORK_MI[id - 1], task.getLengthMi());
             assertEquals(WORK_MI[id - 1], task.getEffectiveExecutionLengthMi());
             int machine = -1;
-            for (int i = 0; i < VM_IDS.length; i++) if (VM_IDS[i] == task.getVmId()) machine = i;
+            for (int i = 0; i < VM_IDS.length; i++) {
+                if (VM_IDS[i] == task.getVmId()) {
+                    machine = i;
+                }
+            }
             assertTrue(machine >= 0, "mapping must use a declared non-contiguous VM ID");
             double seconds = WORK_MI[id - 1] / MIPS[machine];
             SimulationReport.JobOutcome job = jobs.get(task.getJobId());

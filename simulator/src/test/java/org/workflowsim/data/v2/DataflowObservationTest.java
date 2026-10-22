@@ -79,7 +79,9 @@ class DataflowObservationTest {
         r.advance(20);
         int before = r.captureStorageEvidence().getCapture().getEvents().size();
         String expected = JSON.toJson(r.observe());
-        for (int i = 0; i < 10; i++) assertEquals(expected, JSON.toJson(r.observe()));
+        for (int i = 0; i < 10; i++) {
+            assertEquals(expected, JSON.toJson(r.observe()));
+        }
         assertEquals(before, r.captureStorageEvidence().getCapture().getEvents().size());
         assertEquals(Arrays.asList(10, 20), r.drainReadyJobIds());
     }
@@ -194,8 +196,11 @@ class DataflowObservationTest {
             CoherentDataflowRuntime r = twoReaders(budget);
             r.advance(3);
             String actual = JSON.toJson(r.observe());
-            if (expected == null) expected = actual;
-            else assertEquals(expected, actual);
+            if (expected == null) {
+                expected = actual;
+            } else {
+                assertEquals(expected, actual);
+            }
         }
     }
 
@@ -289,7 +294,9 @@ class DataflowObservationTest {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task t : tasks) scopes.put(t.getCloudletId(), 0);
+        for (Task t : tasks) {
+            scopes.put(t.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
@@ -307,7 +314,9 @@ class DataflowObservationTest {
 
     private static Task task(int id, FileItem... files) {
         Task t = new Task(id, 1000);
-        for (FileItem file : files) t.addFile(file);
+        for (FileItem file : files) {
+            t.addFile(file);
+        }
         return t;
     }
 

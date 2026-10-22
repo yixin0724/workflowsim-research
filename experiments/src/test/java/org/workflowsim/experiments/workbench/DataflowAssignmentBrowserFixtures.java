@@ -70,7 +70,9 @@ final class DataflowAssignmentBrowserFixtures {
         Map<String, Bundle> physical = new LinkedHashMap<>();
         for (boolean storage : new boolean[] {false, true}) {
             for (boolean storeInputs : new boolean[] {false, true}) {
-                if (!storage && storeInputs) continue; // V2 has LOCAL access only.
+                if (!storage && storeInputs) {
+                    continue;
+                }
                 for (boolean shared : new boolean[] {true, false}) {
                     for (boolean fat : new boolean[] {false, true}) {
                         String name = "dataflow-assignment-" + (storage ? "v3-" : "v2-")
@@ -143,8 +145,9 @@ final class DataflowAssignmentBrowserFixtures {
                 "Expected " + SPEC_COUNT + " new online specs, actually appended " + appendedCount);
         List<String> names = new ArrayList<>();
         Set<String> unique = new HashSet<>();
-        for (Map<String, Object> report : reports)
+        for (Map<String, Object> report : reports) {
             require(unique.add((String) report.get("name")), "Duplicate browser fixture name");
+        }
         for (int i = initialCount; i < reports.size(); i++) {
             Map<String, Object> spec = reports.get(i);
             require(
@@ -209,7 +212,9 @@ final class DataflowAssignmentBrowserFixtures {
         config.add("seeds", seeds);
         JsonObject platform = config.getAsJsonObject("platform");
         JsonArray mips = new JsonArray();
-        for (int i = 0; i < vmCount; i++) mips.add(1000 * (i + 1));
+        for (int i = 0; i < vmCount; i++) {
+            mips.add(1000 * (i + 1));
+        }
         platform.add("vmMips", mips);
         platform.addProperty("bandwidthMbPerSecond", 2);
         if (storage) {
@@ -353,7 +358,9 @@ final class DataflowAssignmentBrowserFixtures {
         add(rows, expected, fractional, "typed-online-fractional-zero-output");
 
         StringBuilder noFiles = new StringBuilder("<adag>");
-        for (int i = 0; i < 65; i++) noFiles.append("<job id=\"cap-").append(i).append("\" runtime=\"1\"/>");
+        for (int i = 0; i < 65; i++) {
+            noFiles.append("<job id=\"cap-").append(i).append("\" runtime=\"1\"/>");
+        }
         noFiles.append("</adag>");
         Bundle capped = onlineBundle(manifest(
                 run(
@@ -387,7 +394,7 @@ final class DataflowAssignmentBrowserFixtures {
         }
         JsonObject first = capped.assignments.get(0).getAsJsonObject();
         require("12".equals(number(first.get("vmId"))), "First cap action must select the thirteenth VM");
-        for (JsonElement item : capped.assignments)
+        for (JsonElement item : capped.assignments) {
             require(
                     item.getAsJsonObject()
                                     .getAsJsonObject("attributes")
@@ -395,11 +402,13 @@ final class DataflowAssignmentBrowserFixtures {
                                     .size()
                             == 13,
                     "Every initial cap action must score the full thirteen-VM domain");
+        }
         JsonArray candidates = first.getAsJsonObject("attributes").getAsJsonArray("candidates");
-        for (int i = 0; i < CANDIDATE_LIMIT; i++)
+        for (int i = 0; i < CANDIDATE_LIMIT; i++) {
             require(
                     !"12".equals(number(candidates.get(i).getAsJsonObject().get("vmId"))),
                     "The first selected candidate must lie beyond the candidate preview cap");
+        }
         add(rows, expected, capped, "typed-online-action-candidate-caps");
 
         Bundle joined = onlineBundle(manifest(
@@ -556,7 +565,9 @@ final class DataflowAssignmentBrowserFixtures {
 
     /** Independent oracle over full checked main records; never read the bounded display projection. */
     private static Map<String, Object> expect(JsonArray assignments) {
-        if (assignments == null) return state("HIDDEN");
+        if (assignments == null) {
+            return state("HIDDEN");
+        }
         int initial = 0, retries = 0, conditional = 0;
         BigDecimal joined = BigDecimal.ZERO;
         List<String> selectedVms = new ArrayList<>();
@@ -566,12 +577,15 @@ final class DataflowAssignmentBrowserFixtures {
                     attrs = main.getAsJsonObject("attributes"),
                     chosen = selected(main);
             String binding = attrs.get("binding").getAsString();
-            if ("INITIAL".equals(binding)) initial++;
-            else {
+            if ("INITIAL".equals(binding)) {
+                initial++;
+            } else {
                 require("RETRY_REUSE".equals(binding), "Unexpected checked binding kind");
                 retries++;
             }
-            if (chosen.get("conditionalStoreWait").getAsBoolean()) conditional++;
+            if (chosen.get("conditionalStoreWait").getAsBoolean()) {
+                conditional++;
+            }
             joined = joined.add(exact(chosen.get("joinedInputCopies")));
             if (rows.size() < ACTION_LIMIT) {
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -625,7 +639,9 @@ final class DataflowAssignmentBrowserFixtures {
         // Search the complete raw domain, including the winner beyond the first twelve candidates.
         for (JsonElement item : attrs.getAsJsonArray("candidates")) {
             JsonObject candidate = item.getAsJsonObject();
-            if (exact(candidate.get("vmId")).compareTo(selectedVm) == 0) return candidate;
+            if (exact(candidate.get("vmId")).compareTo(selectedVm) == 0) {
+                return candidate;
+            }
         }
         throw new AssertionError("Checked raw action has no selected candidate");
     }
@@ -674,8 +690,11 @@ final class DataflowAssignmentBrowserFixtures {
     }
 
     private static boolean hasEvent(JsonObject lifecycle, String type) {
-        for (JsonElement item : lifecycle.getAsJsonArray("events"))
-            if (type.equals(item.getAsJsonObject().get("type").getAsString())) return true;
+        for (JsonElement item : lifecycle.getAsJsonArray("events")) {
+            if (type.equals(item.getAsJsonObject().get("type").getAsString())) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -686,14 +705,18 @@ final class DataflowAssignmentBrowserFixtures {
                     && "ZERO"
                             .equals(event.getAsJsonObject("payload")
                                     .get("resolution")
-                                    .getAsString())) return true;
+                                    .getAsString())) {
+                return true;
+            }
         }
         return false;
     }
 
     private static boolean hasFileBytes(JsonObject lifecycle, String bytes) {
         for (JsonElement item : lifecycle.getAsJsonObject("filePlan").getAsJsonArray("files")) {
-            if (exact(item.getAsJsonObject().get("bytes")).compareTo(new BigDecimal(bytes)) == 0) return true;
+            if (exact(item.getAsJsonObject().get("bytes")).compareTo(new BigDecimal(bytes)) == 0) {
+                return true;
+            }
         }
         return false;
     }
@@ -740,15 +763,18 @@ final class DataflowAssignmentBrowserFixtures {
     }
 
     private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
+        if (!condition) {
+            throw new AssertionError(message);
+        }
     }
 
     private static void requireNew(Path... paths) throws IOException {
-        for (Path path : paths)
+        for (Path path : paths) {
             if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
                 throw new IOException("Refusing existing online fixture path: "
                         + path.toAbsolutePath().normalize());
             }
+        }
     }
 
     /** One validation result supplies both the raw oracle and every coexisting display view. */
@@ -798,11 +824,12 @@ final class DataflowAssignmentBrowserFixtures {
                             .get("logicalTaskCompletionStatus")
                             .getAsString());
             report.attachTo(row);
-            if (assignments != null)
+            if (assignments != null) {
                 require(
                         row.containsKey("dataflowAssignment")
                                 && (row.containsKey("fileLifecycle") || row.containsKey("storageLifecycle")),
                         "Action panel must coexist with its real physical lifecycle, not replace it");
+            }
             return row;
         }
     }

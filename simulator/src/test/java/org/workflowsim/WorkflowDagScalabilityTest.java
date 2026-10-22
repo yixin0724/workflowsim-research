@@ -19,8 +19,9 @@ class WorkflowDagScalabilityTest {
             Graph graph = star(width, true);
             WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
             assertEquals(1, graph.tasks.get(0).getDepth());
-            for (int i = 1; i < graph.tasks.size(); i++)
+            for (int i = 1; i < graph.tasks.size(); i++) {
                 assertEquals(2, graph.tasks.get(i).getDepth());
+            }
             assertLinearMembershipBudget(graph, width);
         }
     }
@@ -31,8 +32,9 @@ class WorkflowDagScalabilityTest {
             Graph graph = star(width, false);
             WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
             assertEquals(2, graph.tasks.get(0).getDepth());
-            for (int i = 1; i < graph.tasks.size(); i++)
+            for (int i = 1; i < graph.tasks.size(); i++) {
                 assertEquals(1, graph.tasks.get(i).getDepth());
+            }
             assertLinearMembershipBudget(graph, width);
         }
     }
@@ -41,14 +43,18 @@ class WorkflowDagScalabilityTest {
     void denseTwoLayerGraphRetainsDepthsWithoutRepeatedReverseScans() {
         int width = 64;
         Graph graph = new Graph();
-        for (int i = 0; i < 2 * width; i++) graph.add(i + 1);
-        for (int left = 0; left < width; left++)
+        for (int i = 0; i < 2 * width; i++) {
+            graph.add(i + 1);
+        }
+        for (int left = 0; left < width; left++) {
             for (int right = width; right < 2 * width; right++) {
                 connect(graph.tasks.get(left), graph.tasks.get(right));
             }
+        }
         WorkflowDagValidator.validateAndAssignDepths(graph.tasks);
-        for (int i = 0; i < graph.tasks.size(); i++)
+        for (int i = 0; i < graph.tasks.size(); i++) {
             assertEquals(i < width ? 1 : 2, graph.tasks.get(i).getDepth());
+        }
         assertLinearMembershipBudget(graph, width * width);
     }
 
@@ -113,9 +119,13 @@ class WorkflowDagScalabilityTest {
             int count = 24;
             Graph graph = new Graph();
             List<Integer> ids = new ArrayList<>();
-            for (int i = 0; i < count; i++) ids.add(7 + i * 31);
+            for (int i = 0; i < count; i++) {
+                ids.add(7 + i * 31);
+            }
             Collections.shuffle(ids, random);
-            for (int id : ids) graph.add(id);
+            for (int id : ids) {
+                graph.add(id);
+            }
             int[] expectedDepth = new int[count];
             for (int child = 0; child < count; child++) {
                 expectedDepth[child] = 1;
@@ -129,8 +139,9 @@ class WorkflowDagScalabilityTest {
             List<Task> permuted = new ArrayList<>(graph.tasks);
             Collections.shuffle(permuted, random);
             WorkflowDagValidator.validateAndAssignDepths(permuted);
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < count; i++) {
                 assertEquals(expectedDepth[i], graph.tasks.get(i).getDepth(), "seed=" + seed + " node=" + i);
+            }
         }
     }
 
@@ -145,8 +156,11 @@ class WorkflowDagScalabilityTest {
         Task centre = graph.add(1);
         for (int i = 0; i < width; i++) {
             Task leaf = graph.add(2 + i);
-            if (fanOut) connect(centre, leaf);
-            else connect(leaf, centre);
+            if (fanOut) {
+                connect(centre, leaf);
+            } else {
+                connect(leaf, centre);
+            }
         }
         return graph;
     }
@@ -182,7 +196,9 @@ class WorkflowDagScalabilityTest {
         public boolean contains(Object sought) {
             for (Task task : this) {
                 counter.comparisons++;
-                if (sought == null ? task == null : sought.equals(task)) return true;
+                if (sought == null ? task == null : sought.equals(task)) {
+                    return true;
+                }
             }
             return false;
         }

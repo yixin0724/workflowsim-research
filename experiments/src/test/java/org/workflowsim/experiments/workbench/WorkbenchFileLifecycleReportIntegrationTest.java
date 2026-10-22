@@ -53,7 +53,7 @@ class WorkbenchFileLifecycleReportIntegrationTest {
 
     @Test
     void bothEntryPointsEmbedTheSameV2ViewWithoutV1Fields() throws Exception {
-        for (boolean shared : new boolean[] {true, false})
+        for (boolean shared : new boolean[] {true, false}) {
             for (boolean fat : new boolean[] {false, true}) {
                 Path experiment = run(shared, fat, 2000, true, false), manifest = manifest(experiment);
                 JsonObject normal = displayed(experiment.resolve("report.html"));
@@ -84,6 +84,7 @@ class WorkbenchFileLifecycleReportIntegrationTest {
                 assertFalse(text(standalone).contains("fetch("));
                 assertTrue(text(standalone).contains("file-lifecycle-copy-table"));
             }
+        }
     }
 
     @Test
@@ -153,21 +154,25 @@ class WorkbenchFileLifecycleReportIntegrationTest {
                 manifest = manifest(experiment),
                 ledger = manifest.getParent().resolve("result.file-lifecycle.json");
         JsonObject value = object(ledger);
-        for (JsonElement e : value.getAsJsonArray("events"))
+        for (JsonElement e : value.getAsJsonArray("events")) {
             if (e.getAsJsonObject().get("type").getAsString().equals("COPY_ADMITTED")) {
                 e.getAsJsonObject().getAsJsonObject("payload").addProperty("destinationVmId", 999);
                 break;
             }
+        }
         ExperimentArtifactWriter.writeJson(ledger, value);
         JsonObject root = object(manifest);
         byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(ledger));
         StringBuilder sha = new StringBuilder();
-        for (byte b : digest) sha.append(String.format("%02x", b & 255));
-        for (JsonElement item : root.getAsJsonArray("artifacts"))
+        for (byte b : digest) {
+            sha.append(String.format("%02x", b & 255));
+        }
+        for (JsonElement item : root.getAsJsonArray("artifacts")) {
             if (item.getAsJsonObject().get("role").getAsString().equals("file-lifecycle")) {
                 item.getAsJsonObject().addProperty("sha256", sha.toString());
                 item.getAsJsonObject().addProperty("sizeBytes", Files.size(ledger));
             }
+        }
         ExperimentArtifactWriter.writeJson(manifest, root);
         Path target = directory.resolve("not-created/report.html");
         assertThrows(

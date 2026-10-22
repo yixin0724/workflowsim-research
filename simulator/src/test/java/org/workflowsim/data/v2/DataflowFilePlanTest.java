@@ -225,11 +225,14 @@ class DataflowFilePlanTest {
 
     @Test
     void rejectsInvalidFileMetadataAndDistinguishesZeroFromNoInput() {
-        for (double bytes : new double[] {-1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
+        for (double bytes : new double[] {-1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
             assertThrows(IllegalArgumentException.class, () -> capture(task(1, in("x", bytes))));
+        }
         for (FileItem file : new FileItem[] {
             in(null, 1), in("", 1), new FileItem("unset-type", 1), typed("none", 1, FileType.NONE), null
-        }) assertThrows(IllegalArgumentException.class, () -> capture(task(1, file)));
+        }) {
+            assertThrows(IllegalArgumentException.class, () -> capture(task(1, file)));
+        }
         Task nullFiles = task(1);
         nullFiles.setFileList(null);
         assertThrows(IllegalArgumentException.class, () -> capture(nullFiles));
@@ -270,7 +273,9 @@ class DataflowFilePlanTest {
             Task t = task(i);
             tasks.add(t);
             scopes.put(i, 0);
-            if (i > 0) edge(tasks.get(i - 1), t);
+            if (i > 0) {
+                edge(tasks.get(i - 1), t);
+            }
         }
         tasks.get(0).addFile(out("far-ancestor", 1));
         tasks.get(count - 1).addFile(in("far-ancestor", 1));
@@ -297,13 +302,19 @@ class DataflowFilePlanTest {
 
     private static DataflowFilePlan capture(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) if (task != null) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            if (task != null) {
+                scopes.put(task.getCloudletId(), 0);
+            }
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task t = new Task(id, 1000);
-        for (FileItem file : files) t.addFile(file);
+        for (FileItem file : files) {
+            t.addFile(file);
+        }
         return t;
     }
 
@@ -332,7 +343,9 @@ class DataflowFilePlanTest {
 
     private static List<DataflowFilePlan.FileId> ids(List<DataflowFilePlan.InputDemand> demands) {
         List<DataflowFilePlan.FileId> ids = new ArrayList<>();
-        for (DataflowFilePlan.InputDemand d : demands) ids.add(d.getFile().getId());
+        for (DataflowFilePlan.InputDemand d : demands) {
+            ids.add(d.getFile().getId());
+        }
         return ids;
     }
 }

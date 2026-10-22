@@ -52,8 +52,8 @@ class StorageLifecycleRerunIntegrationTest {
 
     @Test
     void readerAndRebuilderRetainStorageDimensionsAndVersionedPath() throws Exception {
-        for (boolean inputs : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean inputs : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean fat : new boolean[] {false, true}) {
                     Path run = fixture(inputs, shared, fat, 2000);
                     RerunEvidence evidence = RerunEvidenceReader.read(run);
@@ -78,12 +78,14 @@ class StorageLifecycleRerunIntegrationTest {
                     assertEquals(
                             2000, rebuilt.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
                 }
+            }
+        }
     }
 
     @Test
     void allStorageRuntimeVariantsRerunIdentically() throws Exception {
-        for (boolean inputs : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean inputs : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean fat : new boolean[] {false, true}) {
                     Path run = fixture(inputs, shared, fat, 2000), output = directory.resolve("rerun-" + (serial++));
                     RerunReport result = RerunDiffExecutor.execute(run, output);
@@ -92,6 +94,8 @@ class StorageLifecycleRerunIntegrationTest {
                             read(run.resolve("result.storage-lifecycle.json")),
                             read(output.resolve("rerun/result.storage-lifecycle.json")));
                 }
+            }
+        }
     }
 
     @Test
@@ -212,7 +216,9 @@ class StorageLifecycleRerunIntegrationTest {
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 2000, 4096, 10000, 1000000));
         p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 2));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         ExperimentArtifactWriter.write(new SimulationRunner().run(c, p.build()), run, "result");
         return run;
     }
@@ -225,7 +231,9 @@ class StorageLifecycleRerunIntegrationTest {
     private static void rehash(Path run, Path sidecar) throws Exception {
         byte[] bytes = Files.readAllBytes(sidecar);
         StringBuilder sha = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) sha.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            sha.append(String.format("%02x", b & 255));
+        }
         Path path = run.resolve("result.manifest.json");
         JsonObject manifest = read(path);
         for (JsonElement value : manifest.getAsJsonArray("artifacts")) {

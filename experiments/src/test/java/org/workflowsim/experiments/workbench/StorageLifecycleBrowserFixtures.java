@@ -319,9 +319,13 @@ final class StorageLifecycleBrowserFixtures {
         DataTransferFabric cappedFabric =
                 DataTransferFabric.withStorage(capacities, hosts, null, DataflowStorageSpec.of(0, .01, .01, .01));
         CoherentDataflowRuntime many = runtime(true, true, plan(tasks.toArray(new Task[0])), cappedFabric);
-        for (int i = 0; i < 65; i++) many.requestJob(10000 - i, one(i + 1), i % 62, 0);
+        for (int i = 0; i < 65; i++) {
+            many.requestJob(10000 - i, one(i + 1), i % 62, 0);
+        }
         many.advance(2);
-        for (int i = 0; i < 65; i++) finish(many, 10000 - i, i + 1, i % 62, 2, 2);
+        for (int i = 0; i < 65; i++) {
+            finish(many, 10000 - i, i + 1, i % 62, 2, 2);
+        }
         StorageLifecycleCodec.Decoded capped = decode(many);
         require(
                 capped.getCopyCount() == 65
@@ -335,7 +339,9 @@ final class StorageLifecycleBrowserFixtures {
         typed(rows, expected, cpu, "typed-v3-hostile-capped", capped);
 
         FileItem[] seeds = new FileItem[129];
-        for (int i = 0; i < seeds.length; i++) seeds[i] = in("seed-" + i, 1);
+        for (int i = 0; i < seeds.length; i++) {
+            seeds[i] = in("seed-" + i, 1);
+        }
         StorageLifecycleCodec.Decoded eventCap =
                 decode(runtime(true, true, plan(task(1, seeds)), fabric(1, 1, 1, 1, 1, 1)));
         require(
@@ -394,7 +400,9 @@ final class StorageLifecycleBrowserFixtures {
 
     /** Independent decoded-certificate oracle: never inspect StorageLifecycleReportView output. */
     private static Map<String, Object> expect(StorageLifecycleCodec.Decoded decoded, boolean contextValidated) {
-        if (decoded == null) return state("OFF");
+        if (decoded == null) {
+            return state("OFF");
+        }
         JsonObject document = decoded.getDocument(),
                 plan = document.getAsJsonObject("filePlan"),
                 fabric = document.getAsJsonObject("fabric");
@@ -447,8 +455,11 @@ final class StorageLifecycleBrowserFixtures {
                     String purpose = payload.get("purpose").getAsString();
                     boolean output = "OUTPUT".equals(purpose);
                     copies.put(payload.get("copyOrdinal").getAsLong(), new CopyFact(bytes, output));
-                    if (output) admittedOutput = admittedOutput.add(bytes);
-                    else admittedInput = admittedInput.add(bytes);
+                    if (output) {
+                        admittedOutput = admittedOutput.add(bytes);
+                    } else {
+                        admittedInput = admittedInput.add(bytes);
+                    }
                     if (sources.size() < COPY_PREVIEW_LIMIT) {
                         sources.add(location(
                                 payload.getAsJsonObject("sourceReplica").getAsJsonObject("location")));
@@ -461,7 +472,9 @@ final class StorageLifecycleBrowserFixtures {
                     if (copy.output) {
                         settledOutput = settledOutput.add(copy.bytes);
                         lastCommit = maximum(lastCommit, exact(event.get("observedTime")));
-                    } else settledInput = settledInput.add(copy.bytes);
+                    } else {
+                        settledInput = settledInput.add(copy.bytes);
+                    }
                     residual = residual.add(exact(payload.get("remainingAfterService")));
                     break;
                 case "INPUT_RESOLVED":
@@ -472,15 +485,18 @@ final class StorageLifecycleBrowserFixtures {
                         localReferences = localReferences.add(count);
                         localBytes = localBytes.add(sizes.get(fileId(payload.getAsJsonObject("fileId")))
                                 .multiply(new BigDecimal(count)));
-                    } else if ("JOIN_EXISTING".equals(resolution)) joinedReferences = joinedReferences.add(count);
+                    } else if ("JOIN_EXISTING".equals(resolution)) {
+                        joinedReferences = joinedReferences.add(count);
+                    }
                     break;
                 case "TASK_FINISHED":
                     lastCpu = maximum(lastCpu, exact(event.get("observedTime")));
                     break;
                 case "OUTPUT_RESOLVED":
                     // Only first zero-byte publication is a new commit. ALREADY_STORED and seeds are not.
-                    if ("ZERO".equals(payload.get("resolution").getAsString()))
+                    if ("ZERO".equals(payload.get("resolution").getAsString())) {
                         lastCommit = maximum(lastCommit, exact(event.get("observedTime")));
+                    }
                     break;
                 default:
                     break;
@@ -601,7 +617,9 @@ final class StorageLifecycleBrowserFixtures {
             JsonObject event = item.getAsJsonObject();
             if (type.equals(event.get("type").getAsString())
                     && resolution.equals(
-                            event.getAsJsonObject("payload").get("resolution").getAsString())) return true;
+                            event.getAsJsonObject("payload").get("resolution").getAsString())) {
+                return true;
+            }
         }
         return false;
     }
@@ -642,14 +660,18 @@ final class StorageLifecycleBrowserFixtures {
     }
 
     private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
+        if (!condition) {
+            throw new AssertionError(message);
+        }
     }
 
     private static void requireNew(Path... paths) throws IOException {
-        for (Path path : paths)
-            if (Files.exists(path))
+        for (Path path : paths) {
+            if (Files.exists(path)) {
                 throw new IOException("Refusing existing storage fixture path: "
                         + path.toAbsolutePath().normalize());
+            }
+        }
     }
 
     /** Attach exactly one cached, actually validated manifest/view snapshot without reconstructing CPU evidence. */
@@ -719,13 +741,17 @@ final class StorageLifecycleBrowserFixtures {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 

@@ -751,8 +751,9 @@ class DataReplicaStructuralSharingTest {
         for (int i = 0; i < fileCount; i++) {
             tickets.add(parent.admitCopy(id("file-" + i), VM7, VM42, 0));
         }
-        for (CopyTicket ticket : tickets)
+        for (CopyTicket ticket : tickets) {
             copies.add(parent.settleCopy(ticket, 1).getReplica());
+        }
         for (int i = 0; i < extraHistory; i++) {
             parent.recordTaskCompletion(i % fileCount + 1, 10000 + i, VM7, (i & 1) == 0, 1);
         }
@@ -775,9 +776,15 @@ class DataReplicaStructuralSharingTest {
         }
         DataReplicaState nested = child.fork();
         Snapshot childBeforeLaterWrites = child.snapshot();
-        for (int i = 0; i < fileCount; i++) child.seedExternal(id("seed-" + i), SECOND, 4);
-        for (int i = 0; i < fileCount; i++) nested.recordTaskCompletion(i + 1, 30000 + i, VM99, true, 5);
-        for (int i = 0; i < fileCount; i++) sibling.recordTaskCompletion(i + 1, 20000 + i, VM99, true, 6);
+        for (int i = 0; i < fileCount; i++) {
+            child.seedExternal(id("seed-" + i), SECOND, 4);
+        }
+        for (int i = 0; i < fileCount; i++) {
+            nested.recordTaskCompletion(i + 1, 30000 + i, VM99, true, 5);
+        }
+        for (int i = 0; i < fileCount; i++) {
+            sibling.recordTaskCompletion(i + 1, 20000 + i, VM99, true, 6);
+        }
 
         Snapshot parentNow = parent.snapshot();
         Snapshot childNow = child.snapshot();
@@ -841,18 +848,24 @@ class DataReplicaStructuralSharingTest {
 
     private static void assertRows(Snapshot snapshot, FileId file, Replica... expected) {
         assertSameElements(Arrays.asList(expected), snapshot.getReplicas(file));
-        for (Replica replica : expected) assertSame(replica, snapshot.getReplica(file, replica.getLocation()));
+        for (Replica replica : expected) {
+            assertSame(replica, snapshot.getReplica(file, replica.getLocation()));
+        }
     }
 
     private static void assertLocations(Snapshot snapshot, FileId file, DataLocation... expected) {
         List<DataLocation> actual = new ArrayList<>();
-        for (Replica replica : snapshot.getReplicas(file)) actual.add(replica.getLocation());
+        for (Replica replica : snapshot.getReplicas(file)) {
+            actual.add(replica.getLocation());
+        }
         assertEquals(Arrays.asList(expected), actual);
     }
 
     private static <T> void assertSameElements(List<T> expected, List<T> actual) {
         assertEquals(expected.size(), actual.size());
-        for (int i = 0; i < expected.size(); i++) assertSame(expected.get(i), actual.get(i));
+        for (int i = 0; i < expected.size(); i++) {
+            assertSame(expected.get(i), actual.get(i));
+        }
     }
 
     private static void assertActive(DataReplicaState state, CopyTicket... tickets) {
@@ -904,7 +917,9 @@ class DataReplicaStructuralSharingTest {
             for (FileDefinition file : plan.getFiles()) {
                 rows.put(file.getId(), new ArrayList<>(snapshot.getReplicas(file.getId())));
                 List<CopyTicket> targets = new ArrayList<>();
-                for (DataLocation location : locations) targets.add(state.getInFlight(file.getId(), location));
+                for (DataLocation location : locations) {
+                    targets.add(state.getInFlight(file.getId(), location));
+                }
                 inFlight.put(file.getId(), targets);
             }
         }
@@ -929,7 +944,9 @@ class DataReplicaStructuralSharingTest {
                     DataLocation location = locations.get(i);
                     Replica expected = null;
                     for (Replica replica : row.getValue()) {
-                        if (location.equals(replica.getLocation())) expected = replica;
+                        if (location.equals(replica.getLocation())) {
+                            expected = replica;
+                        }
                     }
                     assertSame(expected, state.getReplica(file, location));
                     assertSame(expected, snapshot.getReplica(file, location));
@@ -957,19 +974,25 @@ class DataReplicaStructuralSharingTest {
 
     private static DataflowFilePlan manyFilePlan(int count) {
         List<Task> tasks = new ArrayList<>();
-        for (int i = 0; i < count; i++) tasks.add(task(i + 1, in("seed-" + i, 0), out("file-" + i, i + .25)));
+        for (int i = 0; i < count; i++) {
+            tasks.add(task(i + 1, in("seed-" + i, 0), out("file-" + i, i + .25)));
+        }
         return capture(tasks);
     }
 
     private static DataflowFilePlan capture(List<Task> tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(tasks, scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 

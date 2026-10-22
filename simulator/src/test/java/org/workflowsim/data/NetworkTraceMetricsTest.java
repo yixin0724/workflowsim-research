@@ -108,13 +108,17 @@ class NetworkTraceMetricsTest {
     @Test
     void multiHopResourceAreaCannotBeSummedAsUniqueTransferredBytes() {
         TransferContentionEngine e = engine();
-        for (String key : Arrays.asList("A", "B", "C")) e.setEndpointCapacity(key, 100);
+        for (String key : Arrays.asList("A", "B", "C")) {
+            e.setEndpointCapacity(key, 100);
+        }
         add(e, 1, 100, 100, 0, "A", "B", "C");
         e.advance(1);
         NetworkTraceMetrics m = metrics(e);
         dec("100", m.getModeledRateAreaBytes());
         BigDecimal occupancy = BigDecimal.ZERO;
-        for (NetworkTraceMetrics.ResourceUsage r : m.getResources()) occupancy = occupancy.add(r.getRateAreaBytes());
+        for (NetworkTraceMetrics.ResourceUsage r : m.getResources()) {
+            occupancy = occupancy.add(r.getRateAreaBytes());
+        }
         dec("300", occupancy);
     }
 
@@ -310,7 +314,9 @@ class NetworkTraceMetricsTest {
     @Test
     void exactByteAggregatesDoNotOverflowBinary64OrLoseMeanTime() {
         TransferContentionEngine e = engine();
-        for (int id = 1; id <= 3; id++) add(e, id, Double.MAX_VALUE, 1, 0);
+        for (int id = 1; id <= 3; id++) {
+            add(e, id, Double.MAX_VALUE, 1, 0);
+        }
         e.advance(Double.MAX_VALUE);
         NetworkTraceMetrics m = metrics(e);
         BigDecimal total = new BigDecimal(Double.MAX_VALUE).multiply(BigDecimal.valueOf(3));
@@ -336,7 +342,9 @@ class NetworkTraceMetricsTest {
     @Test
     void p95UsesExactNearestRankRatherThanInterpolationOrObservedClock() {
         TransferContentionEngine e = engine();
-        for (int id = 1; id <= 20; id++) add(e, id, id, 1, 0);
+        for (int id = 1; id <= 20; id++) {
+            add(e, id, id, 1, 0);
+        }
         e.advance(30);
         NetworkTraceMetrics m = metrics(e);
         assertEquals(Integer.valueOf(20), m.getCompletedFctSampleCount());
@@ -401,7 +409,11 @@ class NetworkTraceMetricsTest {
     }
 
     private static NetworkTraceMetrics.ResourceUsage resource(NetworkTraceMetrics m, String key) {
-        for (NetworkTraceMetrics.ResourceUsage r : m.getResources()) if (key.equals(r.getResourceKey())) return r;
+        for (NetworkTraceMetrics.ResourceUsage r : m.getResources()) {
+            if (key.equals(r.getResourceKey())) {
+                return r;
+            }
+        }
         throw new AssertionError("Missing resource " + key);
     }
 

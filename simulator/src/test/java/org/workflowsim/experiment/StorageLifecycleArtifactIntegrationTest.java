@@ -57,8 +57,8 @@ class StorageLifecycleArtifactIntegrationTest {
     @Test
     void allStoragePolicySharingAndTopologyBundlesValidateTheirOwnRole() throws Exception {
         Path input = input();
-        for (boolean storeInputs : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean storeInputs : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean fat : new boolean[] {false, true}) {
                     SimulationReport report = run(input, storeInputs, shared, fat, 2000, .5);
                     ExperimentArtifactWriter.ExperimentArtifacts out = ExperimentArtifactWriter.write(
@@ -84,6 +84,8 @@ class StorageLifecycleArtifactIntegrationTest {
                                     .getCapture()
                                     .isShared());
                 }
+            }
+        }
     }
 
     @Test
@@ -108,11 +110,13 @@ class StorageLifecycleArtifactIntegrationTest {
         Path keep = directory.resolve("keep");
         Files.createDirectories(keep);
         byte[] sentinel = "keep-original".getBytes(StandardCharsets.UTF_8);
-        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "storage-lifecycle.json"))
+        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "storage-lifecycle.json")) {
             Files.write(keep.resolve("result." + suffix), sentinel);
+        }
         assertThrows(java.io.IOException.class, () -> ExperimentArtifactWriter.write(report, keep, "result"));
-        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "storage-lifecycle.json"))
+        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "storage-lifecycle.json")) {
             assertArrayEquals(sentinel, Files.readAllBytes(keep.resolve("result." + suffix)));
+        }
     }
 
     @Test
@@ -165,7 +169,9 @@ class StorageLifecycleArtifactIntegrationTest {
                                 .getAsJsonObject("fileId")
                                 .get("name")
                                 .getAsString()
-                                .equals(name)) continue;
+                                .equals(name)) {
+                    continue;
+                }
                 e.addProperty("sequence", changed.size() + 1);
                 changed.add(e);
             }
@@ -190,9 +196,11 @@ class StorageLifecycleArtifactIntegrationTest {
                                 .getAsString()
                                 .equals("OUTPUT")) {
                     JsonObject p = e.getAsJsonObject("payload");
-                    if (field.equals("ownerJobId")) p.addProperty(field, 999);
-                    else if (field.equals("purpose")) p.addProperty(field, "INPUT");
-                    else {
+                    if (field.equals("ownerJobId")) {
+                        p.addProperty(field, 999);
+                    } else if (field.equals("purpose")) {
+                        p.addProperty(field, "INPUT");
+                    } else {
                         JsonObject location = new JsonObject();
                         location.addProperty("kind", "VM");
                         location.addProperty("vmId", 42);
@@ -229,8 +237,11 @@ class StorageLifecycleArtifactIntegrationTest {
                 JsonObject e = JsonParser.parseString(line).getAsJsonObject();
                 if (e.get("type").getAsString().equals("DATA_STAGE_IN_MODELED")
                         && e.get("jobId").getAsInt() == child) {
-                    if (field.equals("simulationTime")) e.addProperty(field, requested);
-                    else e.getAsJsonObject("attributes").addProperty(field, 123);
+                    if (field.equals("simulationTime")) {
+                        e.addProperty(field, requested);
+                    } else {
+                        e.getAsJsonObject("attributes").addProperty(field, 123);
+                    }
                     altered = true;
                 }
                 changed.add(e.toString());
@@ -283,7 +294,7 @@ class StorageLifecycleArtifactIntegrationTest {
 
     private Path input() throws Exception {
         Path p = directory.resolve("workflow.dax");
-        if (!Files.exists(p))
+        if (!Files.exists(p)) {
             Files.write(
                     p,
                     ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
@@ -294,6 +305,7 @@ class StorageLifecycleArtifactIntegrationTest {
                                     + "file=\"zero\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent "
                                     + "ref=\"p\"/></child></adag>")
                             .getBytes(StandardCharsets.UTF_8));
+        }
         return p;
     }
 
@@ -323,7 +335,9 @@ class StorageLifecycleArtifactIntegrationTest {
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 2000, 4096, 10000, 1000000));
         p.sourceStorage(DataflowStorageSpec.of(30, 1, write, 2));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         return new SimulationRunner().run(c, p.build());
     }
 
@@ -337,8 +351,11 @@ class StorageLifecycleArtifactIntegrationTest {
     }
 
     private static JsonObject role(JsonObject root, String role) {
-        for (JsonElement e : root.getAsJsonArray("artifacts"))
-            if (e.getAsJsonObject().get("role").getAsString().equals(role)) return e.getAsJsonObject();
+        for (JsonElement e : root.getAsJsonArray("artifacts")) {
+            if (e.getAsJsonObject().get("role").getAsString().equals(role)) {
+                return e.getAsJsonObject();
+            }
+        }
         throw new AssertionError("missing role");
     }
 
@@ -346,7 +363,9 @@ class StorageLifecycleArtifactIntegrationTest {
             throws Exception {
         byte[] bytes = Files.readAllBytes(path);
         StringBuilder sha = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) sha.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            sha.append(String.format("%02x", b & 255));
+        }
         JsonObject root = read(out.getManifest()), entry = role(root, role);
         entry.addProperty("sha256", sha.toString());
         entry.addProperty("sizeBytes", bytes.length);

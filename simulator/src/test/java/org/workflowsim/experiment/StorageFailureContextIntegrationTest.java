@@ -99,19 +99,27 @@ class StorageFailureContextIntegrationTest {
         }
         assertTrue(failed >= 0);
         int other = original == 7 ? 42 : 7;
-        for (JsonElement row : root.getAsJsonObject("result").getAsJsonArray("jobs"))
-            if (row.getAsJsonObject().get("jobId").getAsInt() == failed)
+        for (JsonElement row : root.getAsJsonObject("result").getAsJsonArray("jobs")) {
+            if (row.getAsJsonObject().get("jobId").getAsInt() == failed) {
                 row.getAsJsonObject().addProperty("vmId", other);
-        for (JsonElement row : root.getAsJsonObject("result").getAsJsonArray("tasks"))
-            if (row.getAsJsonObject().get("jobId").getAsInt() == failed)
+            }
+        }
+        for (JsonElement row : root.getAsJsonObject("result").getAsJsonArray("tasks")) {
+            if (row.getAsJsonObject().get("jobId").getAsInt() == failed) {
                 row.getAsJsonObject().addProperty("vmId", other);
+            }
+        }
         save(out.getManifest(), root);
         JsonObject doc = read(out.getStorageLifecycle());
         for (JsonElement row : doc.getAsJsonArray("events")) {
             JsonObject e = row.getAsJsonObject(), p = e.getAsJsonObject("payload");
             if (p.has("jobId") && p.get("jobId").getAsInt() == failed) {
-                if (p.has("vmId")) p.addProperty("vmId", other);
-                if (p.has("destinationVmId")) p.addProperty("destinationVmId", other);
+                if (p.has("vmId")) {
+                    p.addProperty("vmId", other);
+                }
+                if (p.has("destinationVmId")) {
+                    p.addProperty("destinationVmId", other);
+                }
             }
         }
         assertDoesNotThrow(
@@ -124,8 +132,11 @@ class StorageFailureContextIntegrationTest {
             if (e.has("jobId") && !e.get("jobId").isJsonNull() && e.get("jobId").getAsInt() == failed) {
                 e.addProperty("vmId", other);
                 JsonObject attrs = e.getAsJsonObject("attributes");
-                for (String key : new String[] {"vmId", "selectedVmId", "destinationVmId"})
-                    if (attrs.has(key)) attrs.addProperty(key, other);
+                for (String key : new String[] {"vmId", "selectedVmId", "destinationVmId"}) {
+                    if (attrs.has(key)) {
+                        attrs.addProperty(key, other);
+                    }
+                }
             }
             changed.add(e.toString());
         }
@@ -141,8 +152,11 @@ class StorageFailureContextIntegrationTest {
         JsonObject root = read(out.getManifest());
         root.getAsJsonObject("configuration").remove("networkEvidence");
         JsonArray keep = new JsonArray();
-        for (JsonElement row : root.getAsJsonArray("artifacts"))
-            if (!row.getAsJsonObject().get("role").getAsString().equals("storage-lifecycle")) keep.add(row);
+        for (JsonElement row : root.getAsJsonArray("artifacts")) {
+            if (!row.getAsJsonObject().get("role").getAsString().equals("storage-lifecycle")) {
+                keep.add(row);
+            }
+        }
         root.add("artifacts", keep);
         save(out.getManifest(), root);
     }
@@ -209,7 +223,9 @@ class StorageFailureContextIntegrationTest {
             throws Exception {
         byte[] bytes = Files.readAllBytes(path);
         StringBuilder sha = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) sha.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            sha.append(String.format("%02x", b & 255));
+        }
         JsonObject root = read(out.getManifest());
         for (JsonElement row : root.getAsJsonArray("artifacts")) {
             JsonObject entry = row.getAsJsonObject();

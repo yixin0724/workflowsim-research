@@ -53,10 +53,12 @@ class DataflowAssignmentRerunIntegrationTest {
 
     @Test
     void rebuilderRetainsOrdinaryOnlinePolicyAndCompleteRecording() throws Exception {
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             for (boolean gate : new boolean[] {false, true}) {
-                if (!storage && gate) continue;
-                for (boolean shared : new boolean[] {false, true})
+                if (!storage && gate) {
+                    continue;
+                }
+                for (boolean shared : new boolean[] {false, true}) {
                     for (boolean fat : new boolean[] {false, true}) {
                         RerunEvidence evidence = RerunEvidenceReader.read(fixture(storage, gate, shared, fat));
                         ManifestConfigRebuilder.RebuiltConfiguration rebuilt =
@@ -77,21 +79,27 @@ class DataflowAssignmentRerunIntegrationTest {
                                 .has("dataflowAssignment"));
                         assertTrue(evidence.getManifest().has("dataflowComputeRequests"));
                     }
+                }
             }
+        }
     }
 
     @Test
     void actualV2V3OnlineAccessSharingAndTopologyRunsRerunExactly() throws Exception {
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             for (boolean gate : new boolean[] {false, true}) {
-                if (!storage && gate) continue;
-                for (boolean shared : new boolean[] {false, true})
+                if (!storage && gate) {
+                    continue;
+                }
+                for (boolean shared : new boolean[] {false, true}) {
                     for (boolean fat : new boolean[] {false, true}) {
                         Path run = fixture(storage, gate, shared, fat);
                         RerunReport result = RerunDiffExecutor.execute(run, directory.resolve("rerun-" + (serial++)));
                         assertEquals(RerunVerdict.IDENTICAL_CORE, result.getVerdict(), result.toJson());
                     }
+                }
             }
+        }
     }
 
     @Test
@@ -237,8 +245,12 @@ class DataflowAssignmentRerunIntegrationTest {
                     .pinVmToHost(ids[i], host);
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 4000, 4096, 10000, 1000000));
-        if (storage) p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 1));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (storage) {
+            p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 1));
+        }
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         ExperimentArtifactWriter.write(new SimulationRunner().run(c, p.build()), run, "result");
         return run;
     }
@@ -251,7 +263,9 @@ class DataflowAssignmentRerunIntegrationTest {
     private static void rehash(Path run, Path sidecar, String role) throws Exception {
         byte[] bytes = Files.readAllBytes(sidecar);
         StringBuilder hash = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) hash.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            hash.append(String.format("%02x", b & 255));
+        }
         Path path = run.resolve("result.manifest.json");
         JsonObject root = read(path);
         for (JsonElement item : root.getAsJsonArray("artifacts")) {

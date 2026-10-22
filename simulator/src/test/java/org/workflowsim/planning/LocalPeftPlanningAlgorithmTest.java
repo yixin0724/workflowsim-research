@@ -152,12 +152,16 @@ class LocalPeftPlanningAlgorithmTest {
             }
             tasks[id].setVmExecutionCostSeconds(perVm);
         }
-        for (int[] edge : edges) connect(tasks[edge[0]], tasks[edge[1]], edge[2]);
+        for (int[] edge : edges) {
+            connect(tasks[edge[0]], tasks[edge[1]], edge[2]);
+        }
         CondorVM p1 = vm(0, 1L, 1.0);
         CondorVM p2 = vm(1, 1L, 1.0);
         CondorVM p3 = vm(2, 1L, 1.0);
         List<Task> taskList = new ArrayList<Task>();
-        for (int id = 1; id <= 10; id++) taskList.add(tasks[id]);
+        for (int id = 1; id <= 10; id++) {
+            taskList.add(tasks[id]);
+        }
         LocalPeftPlanningAlgorithm planner = planner(taskList, p1, p2, p3);
 
         double[][] expectedOct = {

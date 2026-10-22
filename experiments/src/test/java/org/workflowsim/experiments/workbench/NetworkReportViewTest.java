@@ -104,7 +104,9 @@ class NetworkReportViewTest {
     @Test
     void hugeAndSubBinary64AggregatesKeepExactDecimalText() {
         TransferContentionEngine huge = new TransferContentionEngine(BUDGET);
-        for (int id = 1; id <= 2; id++) huge.addTransfer(id, Double.MAX_VALUE, Collections.<String>emptyList(), 1, 0);
+        for (int id = 1; id <= 2; id++) {
+            huge.addTransfer(id, Double.MAX_VALUE, Collections.<String>emptyList(), 1, 0);
+        }
         huge.advance(Double.MAX_VALUE);
         NetworkLedgerCodec.Decoded large = decoded(huge, BUDGET);
         assertEquals(
@@ -151,8 +153,11 @@ class NetworkReportViewTest {
         assertEquals(
                 "0.0", view.getAsJsonObject("fct").get("meanEffectiveSeconds").getAsString());
         JsonObject service = null;
-        for (JsonElement e : view.getAsJsonObject("events").getAsJsonArray("rows"))
-            if ("SERVICE_SEGMENT".equals(e.getAsJsonObject().get("type").getAsString())) service = e.getAsJsonObject();
+        for (JsonElement e : view.getAsJsonObject("events").getAsJsonArray("rows")) {
+            if ("SERVICE_SEGMENT".equals(e.getAsJsonObject().get("type").getAsString())) {
+                service = e.getAsJsonObject();
+            }
+        }
         assertNotNull(service);
         assertTrue(service.get("detail").getAsString().contains("elapsed=" + Double.toString(1.0 / 49.0)));
         assertTrue(new BigDecimal(view.getAsJsonObject("totals")
@@ -166,18 +171,24 @@ class NetworkReportViewTest {
     void flowResourceAndEventPreviewLimitsDoNotPretendCaptureWasTruncated() {
         for (int count : new int[] {NetworkReportView.FLOW_LIMIT, NetworkReportView.FLOW_LIMIT + 1}) {
             TransferContentionEngine e = new TransferContentionEngine(BUDGET);
-            for (int i = 0; i < count; i++) e.addTransfer(i, 1, Collections.<String>emptyList(), 1, 0);
+            for (int i = 0; i < count; i++) {
+                e.addTransfer(i, 1, Collections.<String>emptyList(), 1, 0);
+            }
             e.advance(1);
             checkPreview(tree(decoded(e, BUDGET)), "flows", count, NetworkReportView.FLOW_LIMIT);
         }
         for (int count : new int[] {NetworkReportView.RESOURCE_LIMIT, NetworkReportView.RESOURCE_LIMIT + 1}) {
             TransferContentionEngine e = new TransferContentionEngine(BUDGET);
-            for (int i = 0; i < count; i++) e.setEndpointCapacity("A" + i, 1);
+            for (int i = 0; i < count; i++) {
+                e.setEndpointCapacity("A" + i, 1);
+            }
             checkPreview(tree(decoded(e, BUDGET)), "resources", count, NetworkReportView.RESOURCE_LIMIT);
         }
         for (int count : new int[] {NetworkReportView.EVENT_LIMIT, NetworkReportView.EVENT_LIMIT + 1}) {
             TransferContentionEngine e = new TransferContentionEngine(BUDGET);
-            for (int i = 0; i < count; i++) e.setEndpointCapacity("A", i + 1);
+            for (int i = 0; i < count; i++) {
+                e.setEndpointCapacity("A", i + 1);
+            }
             checkPreview(tree(decoded(e, BUDGET)), "events", count, NetworkReportView.EVENT_LIMIT);
         }
     }
@@ -185,15 +196,21 @@ class NetworkReportViewTest {
     @Test
     void nestedListsAndLabelsAreBoundedWithoutBreakingSurrogatePairs() {
         StringBuilder label = new StringBuilder();
-        for (int i = 0; i < NetworkReportView.LABEL_LIMIT - 1; i++) label.append('x');
+        for (int i = 0; i < NetworkReportView.LABEL_LIMIT - 1; i++) {
+            label.append('x');
+        }
         label.append("😀tail");
         List<String> resources = new ArrayList<String>();
-        for (int i = 0; i < NetworkReportView.LIST_LIMIT + 1; i++) resources.add(label.toString());
+        for (int i = 0; i < NetworkReportView.LIST_LIMIT + 1; i++) {
+            resources.add(label.toString());
+        }
         TransferContentionEngine engine = new TransferContentionEngine(BUDGET);
         engine.addTransfer(1, 1, resources, 1, 0);
         engine.advance(1);
         List<Integer> tasks = new ArrayList<Integer>();
-        for (int i = 0; i < NetworkReportView.LIST_LIMIT + 1; i++) tasks.add(i);
+        for (int i = 0; i < NetworkReportView.LIST_LIMIT + 1; i++) {
+            tasks.add(i);
+        }
         NetworkFlowBinding binding = NetworkFlowBinding.of(
                 1,
                 1,
@@ -351,8 +368,8 @@ class NetworkReportViewTest {
 
     private static List<NetworkFlowBinding> bindings(TransferContentionEngine e) {
         List<NetworkFlowBinding> rows = new ArrayList<NetworkFlowBinding>();
-        for (TransferTraceEvent event : e.getTraceSnapshot().getEvents())
-            if (event.getType() == TransferTraceEvent.Type.START)
+        for (TransferTraceEvent event : e.getTraceSnapshot().getEvents()) {
+            if (event.getType() == TransferTraceEvent.Type.START) {
                 rows.add(NetworkFlowBinding.of(
                         event.getTransferId(),
                         event.getAdmissionOrdinal(),
@@ -363,15 +380,23 @@ class NetworkReportViewTest {
                         "source",
                         "destination",
                         event.getStart().getOccupiedResources()));
+            }
+        }
         return rows;
     }
 
     private static void assertNoJsonNumbers(JsonElement value) {
-        if (value.isJsonObject())
-            for (Map.Entry<String, JsonElement> e : value.getAsJsonObject().entrySet())
+        if (value.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> e : value.getAsJsonObject().entrySet()) {
                 assertNoJsonNumbers(e.getValue());
-        else if (value.isJsonArray()) for (JsonElement e : value.getAsJsonArray()) assertNoJsonNumbers(e);
-        else if (value.isJsonPrimitive()) assertFalse(value.getAsJsonPrimitive().isNumber(), value.toString());
+            }
+        } else if (value.isJsonArray()) {
+            for (JsonElement e : value.getAsJsonArray()) {
+                assertNoJsonNumbers(e);
+            }
+        } else if (value.isJsonPrimitive()) {
+            assertFalse(value.getAsJsonPrimitive().isNumber(), value.toString());
+        }
     }
 
     private static void checkPreview(JsonObject view, String key, int total, int cap) {

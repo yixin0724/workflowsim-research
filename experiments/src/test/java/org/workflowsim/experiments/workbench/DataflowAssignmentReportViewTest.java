@@ -70,8 +70,9 @@ class DataflowAssignmentReportViewTest {
         run.drain();
         run.completeReady(job, true);
         Fixture fixture = run.fixture();
-        for (int i = 0; i < fixture.main.size(); i++)
+        for (int i = 0; i < fixture.main.size(); i++) {
             fixture.main.get(i).getAsJsonObject().addProperty("sequence", 100L + i);
+        }
         JsonObject view = tree(fixture), action = action(view, 0);
         assertMetadata(view);
         assertSummary(view, 1, 1, 0, 0, 0);
@@ -144,7 +145,9 @@ class DataflowAssignmentReportViewTest {
     void actionAndCandidateCapsDoNotLoseTheSelectedThirteenthVm() {
         Task[] tasks = tasks(65);
         List<VmOption> vms = new ArrayList<>();
-        for (int i = 13; i >= 1; i--) vms.add(new VmOption(i * 10, i == 13 ? 2000 : 1000, 1));
+        for (int i = 13; i >= 1; i--) {
+            vms.add(new VmOption(i * 10, i == 13 ? 2000 : 1000, 1));
+        }
         Run run = new Run(false, true, false, vms, tasks);
         completePrefix(run, tasks, tasks.length);
         JsonObject view = tree(run.fixture());
@@ -248,7 +251,7 @@ class DataflowAssignmentReportViewTest {
 
     @Test
     void observationFlagsKeepStorageAccessAndSharingIndependent() {
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             for (boolean shared : new boolean[] {false, true}) {
                 for (boolean gate : storage ? new boolean[] {false, true} : new boolean[] {false}) {
                     Task task = task(1);
@@ -270,10 +273,12 @@ class DataflowAssignmentReportViewTest {
                             "activeCopyCount",
                             "activeJobCount",
                             "pendingOutputFileCount",
-                            "scopedFileCount"))
+                            "scopedFileCount")) {
                         assertEquals("0", observation.get(field).getAsString(), field);
+                    }
                 }
             }
+        }
     }
 
     @Test
@@ -495,7 +500,9 @@ class DataflowAssignmentReportViewTest {
             DataflowAssignmentValidator validator = storage
                     ? new DataflowAssignmentValidator(manifest, StorageLifecycleCodec.decodeDocument(life))
                     : new DataflowAssignmentValidator(manifest, FileLifecycleCodec.decodeDocument(life));
-            for (JsonElement event : main) validator.acceptEvent(event.getAsJsonObject());
+            for (JsonElement event : main) {
+                validator.acceptEvent(event.getAsJsonObject());
+            }
             return validator.finish();
         }
     }
@@ -534,7 +541,9 @@ class DataflowAssignmentReportViewTest {
                     ? CoherentDataflowRuntime.withStorage(shared, 4096, gate)
                     : new CoherentDataflowRuntime(shared, 4096);
             Map<Integer, Integer> scopes = new LinkedHashMap<>();
-            for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+            for (Task task : tasks) {
+                scopes.put(task.getCloudletId(), 0);
+            }
             runtime.initializePlan(DataflowFilePlan.capture(Arrays.asList(tasks), scopes), fabric.getLocations());
             runtime.bindFabric(fabric);
             assigner = new DataflowVmAssigner(runtime, vms);
@@ -545,7 +554,9 @@ class DataflowAssignmentReportViewTest {
             job.setClassType(Parameters.ClassType.COMPUTE.value);
             job.setTaskList(Collections.singletonList(task));
             job.setNumberOfPes(task.getNumberOfPes());
-            if (retryParents.containsKey(id)) job.setVmId(task.getVmId());
+            if (retryParents.containsKey(id)) {
+                job.setVmId(task.getVmId());
+            }
             DataflowVmAssigner.Decision decision = assigner.prepare(job, at).getDecision();
             jobs.put(id, new Info(job, task));
             emit(
@@ -554,7 +565,9 @@ class DataflowAssignmentReportViewTest {
                     at,
                     JSON.toJsonTree(decision.getAttributes()).getAsJsonObject());
             JsonObject ready = object();
-            if (retryParents.containsKey(id)) ready.addProperty("retryOfFailedJobId", retryParents.get(id));
+            if (retryParents.containsKey(id)) {
+                ready.addProperty("retryOfFailedJobId", retryParents.get(id));
+            }
             emit("JOB_READY", job, at, ready);
             return job;
         }
@@ -592,7 +605,9 @@ class DataflowAssignmentReportViewTest {
                     at);
             info.status = success ? Cloudlet.SUCCESS : Cloudlet.FAILED;
             emit("JOB_RETURNED", job, at, object("jobStatus", info.status));
-            if (!success) emit("JOB_FAILED", job, at, object());
+            if (!success) {
+                emit("JOB_FAILED", job, at, object());
+            }
         }
 
         void completeReady(Job job, boolean success) {
@@ -633,7 +648,11 @@ class DataflowAssignmentReportViewTest {
                 int job = info.job.getCloudletId(), task = info.task.getCloudletId(), vm = info.job.getVmId();
                 long length = info.task.getCloudletLength();
                 double mips = 0;
-                for (VmOption option : vms) if (option.getId() == vm) mips = option.getMips();
+                for (VmOption option : vms) {
+                    if (option.getId() == vm) {
+                        mips = option.getMips();
+                    }
+                }
                 long effective = TaskExecutionModel.executionLengthMi(info.task, vm, mips);
                 requests.add(object(
                         "jobId",
@@ -753,18 +772,24 @@ class DataflowAssignmentReportViewTest {
     }
 
     private static void completePrefix(Run run, Task[] tasks, int count) {
-        for (int i = 0; i < count; i++) run.completeReady(run.prepare(i + 1, tasks[i], run.now()), true);
+        for (int i = 0; i < count; i++) {
+            run.completeReady(run.prepare(i + 1, tasks[i], run.now()), true);
+        }
     }
 
     private static Task[] tasks(int count) {
         Task[] tasks = new Task[count];
-        for (int i = 0; i < count; i++) tasks[i] = task(i + 1);
+        for (int i = 0; i < count; i++) {
+            tasks[i] = task(i + 1);
+        }
         return tasks;
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 
@@ -808,17 +833,19 @@ class DataflowAssignmentReportViewTest {
 
     private static JsonObject object(Object... pairs) {
         JsonObject object = new JsonObject();
-        for (int i = 0; i < pairs.length; i += 2)
+        for (int i = 0; i < pairs.length; i += 2) {
             object.add(
                     (String) pairs[i],
                     pairs[i + 1] instanceof JsonElement ? (JsonElement) pairs[i + 1] : JSON.toJsonTree(pairs[i + 1]));
+        }
         return object;
     }
 
     private static JsonArray array(Object... values) {
         JsonArray array = new JsonArray();
-        for (Object value : values)
+        for (Object value : values) {
             array.add(value instanceof JsonElement ? (JsonElement) value : JSON.toJsonTree(value));
+        }
         return array;
     }
 
@@ -826,7 +853,9 @@ class DataflowAssignmentReportViewTest {
         for (JsonElement value : fixture.main) {
             JsonObject event = value.getAsJsonObject();
             if (event.get("type").getAsString().equals("DATAFLOW_VM_ASSIGNED")
-                    && event.get("jobId").getAsInt() == job) return event;
+                    && event.get("jobId").getAsInt() == job) {
+                return event;
+            }
         }
         throw new AssertionError("Missing assignment for Job " + job);
     }
@@ -837,7 +866,9 @@ class DataflowAssignmentReportViewTest {
 
     private static JsonObject candidate(Fixture fixture, int job, int vm) {
         for (JsonElement value : attributes(fixture, job).getAsJsonArray("candidates")) {
-            if (value.getAsJsonObject().get("vmId").getAsInt() == vm) return value.getAsJsonObject();
+            if (value.getAsJsonObject().get("vmId").getAsInt() == vm) {
+                return value.getAsJsonObject();
+            }
         }
         throw new AssertionError("Missing candidate VM " + vm);
     }
@@ -939,11 +970,16 @@ class DataflowAssignmentReportViewTest {
 
     private static void assertNoJsonNumbers(JsonElement value) {
         if (value.isJsonObject()) {
-            for (JsonElement child : value.getAsJsonObject().asMap().values()) assertNoJsonNumbers(child);
+            for (JsonElement child : value.getAsJsonObject().asMap().values()) {
+                assertNoJsonNumbers(child);
+            }
         } else if (value.isJsonArray()) {
-            for (JsonElement child : value.getAsJsonArray()) assertNoJsonNumbers(child);
-        } else if (value.isJsonPrimitive())
+            for (JsonElement child : value.getAsJsonArray()) {
+                assertNoJsonNumbers(child);
+            }
+        } else if (value.isJsonPrimitive()) {
             assertFalse(value.getAsJsonPrimitive().isNumber(), value.toString());
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -955,12 +991,18 @@ class DataflowAssignmentReportViewTest {
                 Map.Entry<String, Object> entry = map.entrySet().iterator().next();
                 assertThrows(UnsupportedOperationException.class, () -> entry.setValue("not allowed"));
             }
-            for (Object child : map.values()) assertDeepImmutable(child);
+            for (Object child : map.values()) {
+                assertDeepImmutable(child);
+            }
         } else if (value instanceof List) {
             List<Object> list = (List<Object>) value;
             assertThrows(UnsupportedOperationException.class, () -> list.add("not allowed"));
-            if (!list.isEmpty()) assertThrows(UnsupportedOperationException.class, () -> list.set(0, "not allowed"));
-            for (Object child : list) assertDeepImmutable(child);
+            if (!list.isEmpty()) {
+                assertThrows(UnsupportedOperationException.class, () -> list.set(0, "not allowed"));
+            }
+            for (Object child : list) {
+                assertDeepImmutable(child);
+            }
         } else {
             assertTrue(
                     value == null || value instanceof String || value instanceof Boolean,

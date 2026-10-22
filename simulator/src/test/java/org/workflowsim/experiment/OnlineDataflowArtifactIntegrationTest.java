@@ -54,10 +54,12 @@ class OnlineDataflowArtifactIntegrationTest {
 
     @Test
     void allPhysicalAccessSharingAndTopologyVariantsExportVerifiedActions() throws Exception {
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             for (boolean storeInputs : new boolean[] {false, true}) {
-                if (!storage && storeInputs) continue;
-                for (boolean shared : new boolean[] {false, true})
+                if (!storage && storeInputs) {
+                    continue;
+                }
+                for (boolean shared : new boolean[] {false, true}) {
                     for (boolean fat : new boolean[] {false, true}) {
                         SimulationReport report = run(storage, storeInputs, shared, fat, 2000);
                         ExperimentArtifactWriter.ExperimentArtifacts out = ExperimentArtifactWriter.write(
@@ -83,7 +85,9 @@ class OnlineDataflowArtifactIntegrationTest {
                                         .get("planningAlgorithm")
                                         .getAsString());
                     }
+                }
             }
+        }
     }
 
     @Test
@@ -91,12 +95,13 @@ class OnlineDataflowArtifactIntegrationTest {
         for (int budget : new int[] {0, 1}) {
             SimulationReport report = run(true, true, true, false, budget);
             Path output = directory.resolve("rejected-" + budget);
-            if (budget == 0)
+            if (budget == 0) {
                 assertThrows(
                         UnsupportedOperationException.class,
                         () -> ExperimentArtifactWriter.write(report, output, "result"));
-            else
+            } else {
                 assertThrows(java.io.IOException.class, () -> ExperimentArtifactWriter.write(report, output, "result"));
+            }
             assertFalse(Files.exists(output));
         }
     }
@@ -199,8 +204,8 @@ class OnlineDataflowArtifactIntegrationTest {
     @Test
     void executionMiAndScopeCannotContradictTheCertifiedActionAfterRehash() throws Exception {
         List<org.junit.jupiter.api.function.Executable> checks = new ArrayList<>();
-        for (boolean storage : new boolean[] {false, true})
-            for (String field : new String[] {"taskLengthMi", "effectiveExecutionLengthMi", "taskTimingScope"})
+        for (boolean storage : new boolean[] {false, true}) {
+            for (String field : new String[] {"taskLengthMi", "effectiveExecutionLengthMi", "taskTimingScope"}) {
                 checks.add(() -> {
                     ExperimentArtifactWriter.ExperimentArtifacts out = ExperimentArtifactWriter.write(
                             run(storage, storage, true, false, 2000),
@@ -209,14 +214,18 @@ class OnlineDataflowArtifactIntegrationTest {
                     ExperimentArtifactValidator.validate(out.getManifest());
                     List<JsonObject> all = events(out);
                     boolean found = false;
-                    for (JsonObject event : all)
+                    for (JsonObject event : all) {
                         if (event.get("type").getAsString().equals("TASK_EXECUTION_MODELED")) {
                             JsonObject attrs = event.getAsJsonObject("attributes");
-                            if (field.equals("taskTimingScope")) attrs.addProperty(field, "MEASURED_CPU_WINDOW");
-                            else attrs.addProperty(field, attrs.get(field).getAsLong() + 1);
+                            if (field.equals("taskTimingScope")) {
+                                attrs.addProperty(field, "MEASURED_CPU_WINDOW");
+                            } else {
+                                attrs.addProperty(field, attrs.get(field).getAsLong() + 1);
+                            }
                             found = true;
                             break;
                         }
+                    }
                     assertTrue(found);
                     saveEvents(out, all);
                     assertThrows(
@@ -224,6 +233,8 @@ class OnlineDataflowArtifactIntegrationTest {
                             () -> ExperimentArtifactValidator.validate(out.getManifest()),
                             "Contradicted " + field + " for storage=" + storage);
                 });
+            }
+        }
         assertAll(checks);
     }
 
@@ -256,7 +267,7 @@ class OnlineDataflowArtifactIntegrationTest {
     private SimulationReport run(boolean storage, boolean storeInputs, boolean shared, boolean fat, int budget)
             throws Exception {
         Path input = directory.resolve("workflow.dax");
-        if (!Files.exists(input))
+        if (!Files.exists(input)) {
             Files.write(
                     input,
                     ("<adag><job id=\"p\" runtime=\"1\"><uses file=\"external\" link=\"input\" size=\"0.5\"/><uses "
@@ -267,6 +278,7 @@ class OnlineDataflowArtifactIntegrationTest {
                                     + "file=\"z\" link=\"input\" size=\"0\"/></job><child ref=\"c\"><parent "
                                     + "ref=\"p\"/></child></adag>")
                             .getBytes(StandardCharsets.UTF_8));
+        }
         DataMovementModel model = storage
                 ? (shared
                         ? DataMovementModel.coherentStorageDataflowV3()
@@ -305,8 +317,12 @@ class OnlineDataflowArtifactIntegrationTest {
                     .pinVmToHost(ids[i], host);
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 4000, 4096, 10000, 1000000));
-        if (storage) p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 1));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (storage) {
+            p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 1));
+        }
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         return new SimulationRunner().run(config, p.build());
     }
 
@@ -321,22 +337,28 @@ class OnlineDataflowArtifactIntegrationTest {
 
     private static List<JsonObject> events(ExperimentArtifactWriter.ExperimentArtifacts out) throws Exception {
         List<JsonObject> events = new ArrayList<>();
-        for (String line : Files.readAllLines(out.getEvents(), StandardCharsets.UTF_8))
+        for (String line : Files.readAllLines(out.getEvents(), StandardCharsets.UTF_8)) {
             events.add(JsonParser.parseString(line).getAsJsonObject());
+        }
         return events;
     }
 
     private static List<JsonObject> cloneEvents(List<JsonObject> original) {
         List<JsonObject> copy = new ArrayList<>();
-        for (JsonObject row : original) copy.add(row.deepCopy());
+        for (JsonObject row : original) {
+            copy.add(row.deepCopy());
+        }
         return copy;
     }
 
     private static JsonObject assignment(List<JsonObject> events, int index) {
-        for (JsonObject event : events)
+        for (JsonObject event : events) {
             if (event.get("type").getAsString().equals("DATAFLOW_VM_ASSIGNED")) {
-                if (index-- == 0) return event;
+                if (index-- == 0) {
+                    return event;
+                }
             }
+        }
         throw new AssertionError("Missing assignment");
     }
 
@@ -344,7 +366,9 @@ class OnlineDataflowArtifactIntegrationTest {
         int chosen = action.getAsJsonObject("attributes").get("selectedVmId").getAsInt();
         for (JsonElement item : action.getAsJsonObject("attributes").getAsJsonArray("candidates")) {
             JsonObject row = item.getAsJsonObject();
-            if (row.get("vmId").getAsInt() == chosen) return row;
+            if (row.get("vmId").getAsInt() == chosen) {
+                return row;
+            }
         }
         throw new AssertionError("Missing selected candidate");
     }
@@ -352,12 +376,16 @@ class OnlineDataflowArtifactIntegrationTest {
     private static void saveEvents(ExperimentArtifactWriter.ExperimentArtifacts out, List<JsonObject> events)
             throws Exception {
         List<String> lines = new ArrayList<>();
-        for (JsonObject event : events) lines.add(event.toString());
+        for (JsonObject event : events) {
+            lines.add(event.toString());
+        }
         Files.write(out.getEvents(), lines, StandardCharsets.UTF_8);
         JsonObject root = read(out.getManifest());
         byte[] bytes = Files.readAllBytes(out.getEvents());
         StringBuilder hash = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) hash.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            hash.append(String.format("%02x", b & 255));
+        }
         for (JsonElement item : root.getAsJsonArray("artifacts")) {
             JsonObject row = item.getAsJsonObject();
             if (row.get("role").getAsString().equals("events")) {

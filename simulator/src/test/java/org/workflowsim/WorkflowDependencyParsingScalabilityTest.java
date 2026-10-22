@@ -35,20 +35,30 @@ class WorkflowDependencyParsingScalabilityTest {
             Counter count = new Counter();
             WorkflowParser parser = new WorkflowParser(0);
             List<Task> nodes = nodes(width + 1, count);
-            for (int i = 0; i < nodes.size(); i++) parser.mName2Task.put("t" + i, nodes.get(i));
+            for (int i = 0; i < nodes.size(); i++) {
+                parser.mName2Task.put("t" + i, nodes.get(i));
+            }
             Method link = WorkflowParser.class.getDeclaredMethod("parseDaxDependencies", Element.class);
             link.setAccessible(true);
             List<Element> declarations = new ArrayList<>();
             if (fanOut) {
-                for (int i = 1; i <= width; i++) declarations.add(child("t" + i, "t0"));
+                for (int i = 1; i <= width; i++) {
+                    declarations.add(child("t" + i, "t0"));
+                }
             } else {
                 Element all = new Element("child").setAttribute("ref", "t0");
-                for (int i = 1; i <= width; i++) all.addContent(new Element("parent").setAttribute("ref", "t" + i));
+                for (int i = 1; i <= width; i++) {
+                    all.addContent(new Element("parent").setAttribute("ref", "t" + i));
+                }
                 declarations.add(all);
             }
-            for (Element declaration : declarations) invoke(link, parser, declaration);
+            for (Element declaration : declarations) {
+                invoke(link, parser, declaration);
+            }
             // Repeated legal DAX declarations are deduplicated, not repeated in Task adjacency.
-            for (Element declaration : declarations) invoke(link, parser, declaration);
+            for (Element declaration : declarations) {
+                invoke(link, parser, declaration);
+            }
             assertStar(nodes, fanOut, width);
             System.out.println("PARSER_MEMBERSHIP_AUDIT kind=DAX width=" + width + " fanOut=" + fanOut + " comparisons="
                     + count.comparisons);
@@ -84,7 +94,9 @@ class WorkflowDependencyParsingScalabilityTest {
             Counter adjacency = new Counter();
             List<Task> nodes = nodes(width + 1, adjacency);
             Map<String, Task> byId = new LinkedHashMap<>();
-            for (int i = 0; i < nodes.size(); i++) byId.put("t" + i, nodes.get(i));
+            for (int i = 0; i < nodes.size(); i++) {
+                byId.put("t" + i, nodes.get(i));
+            }
             Method connect = WfCommonsJsonParser.class.getDeclaredMethod(
                     "connectDependencies", List.class, Map.class, Map.class);
             connect.setAccessible(true);
@@ -197,7 +209,9 @@ class WorkflowDependencyParsingScalabilityTest {
 
     private static List<Integer> ids(List<Task> tasks) {
         List<Integer> ids = new ArrayList<>();
-        for (Task task : tasks) ids.add(task.getCloudletId());
+        for (Task task : tasks) {
+            ids.add(task.getCloudletId());
+        }
         return ids;
     }
 
@@ -211,7 +225,9 @@ class WorkflowDependencyParsingScalabilityTest {
             set(type, task, "id", "t" + i);
             CountedList<String> parents = new CountedList<>(counter), children = new CountedList<>(counter);
             if (i == 0) {
-                for (int leaf = 1; leaf <= width; leaf++) (fanOut ? children : parents).add("t" + leaf);
+                for (int leaf = 1; leaf <= width; leaf++) {
+                    (fanOut ? children : parents).add("t" + leaf);
+                }
             } else {
                 (fanOut ? parents : children).add("t0");
             }
@@ -234,8 +250,12 @@ class WorkflowDependencyParsingScalabilityTest {
             return method.invoke(target, args);
         } catch (InvocationTargetException failure) {
             Throwable cause = failure.getCause();
-            if (cause instanceof Exception) throw (Exception) cause;
-            if (cause instanceof Error) throw (Error) cause;
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
             throw new AssertionError(cause);
         }
     }
@@ -255,7 +275,9 @@ class WorkflowDependencyParsingScalabilityTest {
         public boolean contains(Object sought) {
             for (E value : this) {
                 counter.comparisons++;
-                if (sought == null ? value == null : sought.equals(value)) return true;
+                if (sought == null ? value == null : sought.equals(value)) {
+                    return true;
+                }
             }
             return false;
         }

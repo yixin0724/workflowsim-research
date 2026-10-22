@@ -91,7 +91,7 @@ class WorkbenchNetworkConfigIntegrationTest {
 
     @Test
     void onModeAndBudgetReachEveryCandidateAndSurviveSeedCopies() throws Exception {
-        for (boolean fat : new boolean[] {false, true})
+        for (boolean fat : new boolean[] {false, true}) {
             for (int budget : new int[] {1, 2000, Integer.MAX_VALUE}) {
                 JsonObject source = network(fat, budget);
                 algorithms(source, algorithm("random", null, "RANDOM"), algorithm("local-heft", null, "LOCAL_HEFT"));
@@ -104,14 +104,16 @@ class WorkbenchNetworkConfigIntegrationTest {
                         .getAsJsonObject("networkEvidence")
                         .addProperty("maxTraceRecords", 7);
                 assertEquals(source, config.getSource(), "returned JSON cannot mutate the stored option");
-                for (WorkbenchConfig.Candidate candidate : config.getCandidates())
+                for (WorkbenchConfig.Candidate candidate : config.getCandidates()) {
                     for (long seed : new long[] {1, 17, Long.MIN_VALUE, Long.MAX_VALUE}) {
                         NetworkEvidenceConfig option =
                                 candidate.config.withRandomSeed(seed).getNetworkEvidenceConfig();
                         assertEquals(NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1, option.getMode());
                         assertEquals(budget, option.getMaxTraceRecords());
                     }
+                }
             }
+        }
     }
 
     @Test
@@ -219,7 +221,7 @@ class WorkbenchNetworkConfigIntegrationTest {
 
     @Test
     void realEndpointAndFatTreeRunsPublishValidatedFullAndTruncatedLedgersForEverySeed() throws Exception {
-        for (boolean fat : new boolean[] {false, true})
+        for (boolean fat : new boolean[] {false, true}) {
             for (int budget : new int[] {1, 2000}) {
                 JsonObject source = network(fat, budget);
                 Path experiment = run(source);
@@ -261,6 +263,7 @@ class WorkbenchNetworkConfigIntegrationTest {
                                     .isAvailable());
                 }
             }
+        }
     }
 
     @Test
@@ -285,9 +288,10 @@ class WorkbenchNetworkConfigIntegrationTest {
     private JsonObject network(boolean fat, int budget) {
         JsonObject source = localConfiguration("flow.dax", 2, fat);
         algorithms(source, algorithm("random", null, "RANDOM"));
-        if (!fat)
+        if (!fat) {
             source.getAsJsonObject("simulation")
                     .addProperty("dataMovementModel", "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1");
+        }
         JsonArray seeds = new JsonArray();
         seeds.add(1);
         seeds.add(17);

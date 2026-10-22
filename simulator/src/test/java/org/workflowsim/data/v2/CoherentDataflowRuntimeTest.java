@@ -162,15 +162,20 @@ class CoherentDataflowRuntimeTest {
         for (int budget : new int[] {0, 1, 1000}) {
             CoherentDataflowRuntime r = runtime(true, budget, plan(task(1, in("external", 100))));
             r.requestJob(0, Arrays.asList(1), 7, 0);
-            if (finish == null) finish = r.getNextCompletionTime();
-            else assertEquals(finish, r.getNextCompletionTime());
+            if (finish == null) {
+                finish = r.getNextCompletionTime();
+            } else {
+                assertEquals(finish, r.getNextCompletionTime());
+            }
             r.advance(10);
             assertEquals(Arrays.asList(0), r.drainReadyJobIds());
-            if (budget == 0) assertNull(r.captureEvidence());
-            else
+            if (budget == 0) {
+                assertNull(r.captureEvidence());
+            } else {
                 assertEquals(
                         budget == 1 ? FileLifecycleEvidence.Status.TRUNCATED : FileLifecycleEvidence.Status.COMPLETE,
                         r.captureEvidence().getStatus());
+            }
         }
     }
 
@@ -196,7 +201,11 @@ class CoherentDataflowRuntimeTest {
 
     private static FileLifecycleEvent last(CoherentDataflowRuntime r, FileLifecycleEvent.Type type) {
         List<FileLifecycleEvent> events = r.captureEvidence().getEvents();
-        for (int i = events.size() - 1; i >= 0; i--) if (events.get(i).getType() == type) return events.get(i);
+        for (int i = events.size() - 1; i >= 0; i--) {
+            if (events.get(i).getType() == type) {
+                return events.get(i);
+            }
+        }
         throw new AssertionError("Missing " + type);
     }
 
@@ -226,13 +235,17 @@ class CoherentDataflowRuntimeTest {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 

@@ -83,13 +83,14 @@ class StorageDataflowKernelIntegrationTest {
         assertTrue(shared.getMakespan() > isolated.getMakespan());
         assertEquals(2, events(shared, FileLifecycleEvent.Type.COPY_ADMITTED).size());
         int summaries = 0;
-        for (SimulationEvent event : shared.getEvents())
+        for (SimulationEvent event : shared.getEvents()) {
             if (event.getType() == SimulationEventType.DATA_STAGE_IN_MODELED
                     && "LOGICAL_FILE_STORAGE_V3".equals(event.getAttributes().get("transferUnit"))) {
                 assertEquals(1.0, ((Number) event.getAttributes().get("modeledTransferSeconds")).doubleValue(), 0);
                 assertTrue(((Number) event.getAttributes().get("observedInputPreparationSeconds")).doubleValue() >= 2);
                 summaries++;
             }
+        }
         assertEquals(2, summaries);
     }
 
@@ -220,13 +221,14 @@ class StorageDataflowKernelIntegrationTest {
                             platform(1, false, true));
             retries += report.getMetrics().getRetryJobCreatedCount();
             int outputs = 0;
-            for (FileLifecycleEvent e : events(report, FileLifecycleEvent.Type.COPY_ADMITTED))
+            for (FileLifecycleEvent e : events(report, FileLifecycleEvent.Type.COPY_ADMITTED)) {
                 if (e.getPayload().get("purpose").getAsString().equals("OUTPUT")) {
                     int owner = e.getPayload().get("ownerJobId").getAsInt();
                     assertTrue(report.getJobs().stream()
                             .anyMatch(j -> j.getJobId() == owner && j.getStatus() == Cloudlet.SUCCESS));
                     outputs++;
                 }
+            }
             assertEquals(1, outputs);
         }
         assertTrue(retries > 0);
@@ -269,15 +271,23 @@ class StorageDataflowKernelIntegrationTest {
                     .pinVmToHost(ids[i], host);
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 2000, 4096, 10000, 1000000));
-        if (store) p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 10));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 10));
+        if (store) {
+            p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 10));
+        }
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 10));
+        }
         return p.build();
     }
 
     private static List<FileLifecycleEvent> events(SimulationReport report, FileLifecycleEvent.Type type) {
         List<FileLifecycleEvent> result = new ArrayList<>();
         for (FileLifecycleEvent e :
-                report.getStorageLifecycleEvidence().getCapture().getEvents()) if (e.getType() == type) result.add(e);
+                report.getStorageLifecycleEvidence().getCapture().getEvents()) {
+            if (e.getType() == type) {
+                result.add(e);
+            }
+        }
         return result;
     }
 }

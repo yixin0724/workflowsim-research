@@ -30,17 +30,24 @@ public final class DataflowStateProfile {
     private DataflowStateProfile() {}
     /** @param args scenario, comma-separated sizes, capture mode OFF/TRUNCATED/FULL, repetitions */
     public static void main(String[] args) throws Exception {
-        if (args.length != 4)
+        if (args.length != 4) {
             throw new IllegalArgumentException(
                     "Usage: DataflowStateProfile <FILELESS|FILES_V2|STORE_V3|ONLINE_V3|WIDE_V2> <sizes> "
                             + "<OFF|TRUNCATED|FULL> <repetitions>");
+        }
         String scenario = args[0], capture = args[2];
         int repetitions = Integer.parseInt(args[3]);
-        if (repetitions < 1 || repetitions > 20) throw new IllegalArgumentException("Invalid repetitions");
-        for (int warm = 0; warm < 3; warm++) sample(scenario, 100, capture, false);
+        if (repetitions < 1 || repetitions > 20) {
+            throw new IllegalArgumentException("Invalid repetitions");
+        }
+        for (int warm = 0; warm < 3; warm++) {
+            sample(scenario, 100, capture, false);
+        }
         for (String size : args[1].split(",")) {
             int n = Integer.parseInt(size);
-            if (n < 1 || n > 20000) throw new IllegalArgumentException("Bounded profile task count required");
+            if (n < 1 || n > 20000) {
+                throw new IllegalArgumentException("Bounded profile task count required");
+            }
             for (int trial = 0; trial < repetitions; trial++) {
                 Map<String, Object> row = sample(scenario, n, capture, true);
                 row.put("trial", trial);
@@ -57,13 +64,17 @@ public final class DataflowStateProfile {
                 storage = scenario.equals("STORE_V3") || scenario.equals("ONLINE_V3"),
                 online = scenario.equals("ONLINE_V3"),
                 wide = scenario.equals("WIDE_V2");
-        if (!files && !wide && !scenario.equals("FILELESS")) throw new IllegalArgumentException("Unknown scenario");
+        if (!files && !wide && !scenario.equals("FILELESS")) {
+            throw new IllegalArgumentException("Unknown scenario");
+        }
         int budget = capture.equals("OFF")
                 ? 0
                 : capture.equals("TRUNCATED")
                         ? 1
                         : capture.equals("FULL") ? Math.addExact(Math.multiplyExact(n, 20), 100) : -1;
-        if (budget < 0) throw new IllegalArgumentException("Unknown capture mode");
+        if (budget < 0) {
+            throw new IllegalArgumentException("Unknown capture mode");
+        }
         List<Task> tasks = new ArrayList<>();
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
         for (int i = 1; i <= n; i++) {
@@ -81,15 +92,21 @@ public final class DataflowStateProfile {
         }
         Map<Integer, Double> capacities = new LinkedHashMap<>();
         capacities.put(0, 1000.0);
-        if (online) capacities.put(7, 1000.0);
+        if (online) {
+            capacities.put(7, 1000.0);
+        }
         DataTransferFabric fabric;
         if (storage) {
             Map<Integer, Integer> hosts = new LinkedHashMap<>();
             hosts.put(0, 0);
-            if (online) hosts.put(7, 7);
+            if (online) {
+                hosts.put(7, 7);
+            }
             fabric = DataTransferFabric.withStorage(
                     capacities, hosts, null, DataflowStorageSpec.of(20, .001, .001, .001));
-        } else fabric = DataTransferFabric.endpoints(capacities, Collections.singletonList("source"));
+        } else {
+            fabric = DataTransferFabric.endpoints(capacities, Collections.singletonList("source"));
+        }
         CoherentDataflowRuntime runtime = storage
                 ? CoherentDataflowRuntime.withStorage(true, budget, true)
                 : new CoherentDataflowRuntime(true, budget);
@@ -106,20 +123,30 @@ public final class DataflowStateProfile {
         com.sun.management.ThreadMXBean allocation = null;
         if (ManagementFactory.getThreadMXBean() instanceof com.sun.management.ThreadMXBean) {
             allocation = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-            if (allocation.isThreadAllocatedMemorySupported() && !allocation.isThreadAllocatedMemoryEnabled())
+            if (allocation.isThreadAllocatedMemorySupported() && !allocation.isThreadAllocatedMemoryEnabled()) {
                 allocation.setThreadAllocatedMemoryEnabled(true);
-            if (!allocation.isThreadAllocatedMemoryEnabled()) allocation = null;
+            }
+            if (!allocation.isThreadAllocatedMemoryEnabled()) {
+                allocation = null;
+            }
         }
-        if (measure) System.gc();
+        if (measure) {
+            System.gc();
+        }
         long heapBefore =
                 ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans())
-            if (pool.getType() == MemoryType.HEAP) pool.resetPeakUsage();
+        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {
+            if (pool.getType() == MemoryType.HEAP) {
+                pool.resetPeakUsage();
+            }
+        }
         long thread = Thread.currentThread().getId(),
                 allocatedBefore = allocation == null ? 0 : allocation.getThreadAllocatedBytes(thread),
                 start = System.nanoTime();
         if (wide) {
-            for (int i = 0; i < n; i++) runtime.requestJob(i, one(i + 1), 0, 0);
+            for (int i = 0; i < n; i++) {
+                runtime.requestJob(i, one(i + 1), 0, 0);
+            }
             runtime.drainReadyJobIds();
             for (int i = 0; i < n; i++) {
                 runtime.cpuStarted(i, one(i + 1), 0, i);
@@ -127,7 +154,7 @@ public final class DataflowStateProfile {
                 runtime.observeFiles(Collections.<DataflowFilePlan.FileId>emptyList());
                 runtime.isQuiescent();
             }
-        } else
+        } else {
             for (int i = 0; i < n; i++) {
                 double now = 4.0 * i;
                 int vm = 0;
@@ -138,29 +165,38 @@ public final class DataflowStateProfile {
                     DataflowVmAssigner.Prepared prepared = assigner.prepare(job, now);
                     vm = prepared.getDecision().getVmId();
                     actions.add(prepared.getDecision().getAttributes());
-                } else runtime.requestJob(i, one(i + 1), vm, now);
+                } else {
+                    runtime.requestJob(i, one(i + 1), vm, now);
+                }
                 runtime.advance(now + 1);
                 List<Integer> ready = runtime.drainReadyJobIds();
-                if (!ready.equals(Collections.singletonList(i)))
+                if (!ready.equals(Collections.singletonList(i))) {
                     throw new AssertionError("Readiness trajectory changed");
+                }
                 runtime.cpuStarted(i, one(i + 1), vm, now + 1);
                 runtime.jobFinished(i, one(i + 1), vm, Collections.singletonList(true), now + 2);
                 runtime.advance(now + 3);
                 if (!runtime.isQuiescent()
                         || !runtime.observeFiles(Collections.<DataflowFilePlan.FileId>emptyList())
                                 .getActiveJobs()
-                                .isEmpty()) throw new AssertionError("Terminal state changed");
+                                .isEmpty()) {
+                    throw new AssertionError("Terminal state changed");
+                }
             }
+        }
         long elapsed = System.nanoTime() - start;
         Long allocated = allocation == null ? null : allocation.getThreadAllocatedBytes(thread) - allocatedBefore;
         long peak = 0;
-        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans())
-            if (pool.getType() == MemoryType.HEAP)
+        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {
+            if (pool.getType() == MemoryType.HEAP) {
                 peak = Math.addExact(peak, pool.getPeakUsage().getUsed());
+            }
+        }
         if (!runtime.isQuiescent()
                 || runtime.getActiveCopyCount() != 0
-                || runtime.getAdmittedCopyCount() != (files ? (storage ? 2L * n : n) : 0))
+                || runtime.getAdmittedCopyCount() != (files ? (storage ? 2L * n : n) : 0)) {
             throw new AssertionError("Final copy/state contract changed");
+        }
         MessageDigest state = MessageDigest.getInstance("SHA-256");
         update(state, Double.toHexString(runtime.getCurrentTime()));
         for (int i = 0; i < n; i++) {
@@ -175,9 +211,11 @@ public final class DataflowStateProfile {
                     Double.toHexString(runtime.getObservedInputPreparationSeconds(i)));
         }
         DataReplicaState.Snapshot snapshot = runtime.getReplicaSnapshot();
-        for (DataflowFilePlan.FileDefinition f : runtime.getFilePlan().getFiles())
-            for (DataReplicaState.Replica replica : snapshot.getReplicas(f.getId()))
+        for (DataflowFilePlan.FileDefinition f : runtime.getFilePlan().getFiles()) {
+            for (DataReplicaState.Replica replica : snapshot.getReplicas(f.getId())) {
                 update(state, JSON.toJson(replica));
+            }
+        }
         Object evidence = storage ? runtime.captureStorageEvidence() : runtime.captureEvidence();
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("scenario", scenario);
@@ -217,7 +255,9 @@ public final class DataflowStateProfile {
 
     private static String hex(byte[] value) {
         StringBuilder result = new StringBuilder();
-        for (byte b : value) result.append(String.format("%02x", b & 255));
+        for (byte b : value) {
+            result.append(String.format("%02x", b & 255));
+        }
         return result.toString();
     }
 }

@@ -714,14 +714,18 @@ class PlanningDagReferencePropertyAuditTest {
     }
 
     private static SharedStorageDagPlanTrace trace(BasePlanningAlgorithm planner) {
-        if (planner instanceof SharedStorageHeftPlanningAlgorithm)
+        if (planner instanceof SharedStorageHeftPlanningAlgorithm) {
             return ((SharedStorageHeftPlanningAlgorithm) planner).getLastPlanTrace();
-        if (planner instanceof SharedStorageCpopPlanningAlgorithm)
+        }
+        if (planner instanceof SharedStorageCpopPlanningAlgorithm) {
             return ((SharedStorageCpopPlanningAlgorithm) planner).getLastPlanTrace();
-        if (planner instanceof SharedStorageDlsPlanningAlgorithm)
+        }
+        if (planner instanceof SharedStorageDlsPlanningAlgorithm) {
             return ((SharedStorageDlsPlanningAlgorithm) planner).getLastPlanTrace();
-        if (planner instanceof SharedStorageEtfPlanningAlgorithm)
+        }
+        if (planner instanceof SharedStorageEtfPlanningAlgorithm) {
             return ((SharedStorageEtfPlanningAlgorithm) planner).getLastPlanTrace();
+        }
         return ((SharedStoragePeftPlanningAlgorithm) planner).getLastPlanTrace();
     }
 
@@ -772,7 +776,9 @@ class PlanningDagReferencePropertyAuditTest {
             edge = new boolean[n][n];
             bytes = new long[n][n];
             List<Integer> labels = new ArrayList<Integer>();
-            for (int task = 0; task < n; task++) labels.add(10 + 7 * task);
+            for (int task = 0; task < n; task++) {
+                labels.add(10 + 7 * task);
+            }
             Collections.shuffle(labels, random);
             for (int vm = 0; vm < m; vm++) {
                 vmIds[vm] = 3 + 11 * vm;

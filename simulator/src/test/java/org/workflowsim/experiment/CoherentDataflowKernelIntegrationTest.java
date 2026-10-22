@@ -235,8 +235,12 @@ class CoherentDataflowKernelIntegrationTest {
         for (FileLifecycleEvent e : events(report.getFileLifecycleEvidence(), FileLifecycleEvent.Type.COPY_ADMITTED)) {
             JsonObject payload = e.getPayload();
             String name = payload.getAsJsonObject("fileId").get("name").getAsString();
-            if (name.equals("slow")) slow = e;
-            if (name.equals("fast") && payload.get("destinationVmId").getAsInt() == 3) reuse = e;
+            if (name.equals("slow")) {
+                slow = e;
+            }
+            if (name.equals("fast") && payload.get("destinationVmId").getAsInt() == 3) {
+                reuse = e;
+            }
         }
         assertNotNull(reuse);
         assertNotNull(slow);
@@ -257,8 +261,11 @@ class CoherentDataflowKernelIntegrationTest {
                         .getAsInt());
         long slowId = slow.getPayload().get("copyOrdinal").getAsLong();
         double slowObserved = -1;
-        for (FileLifecycleEvent e : events(report.getFileLifecycleEvidence(), FileLifecycleEvent.Type.COPY_SETTLED))
-            if (e.getPayload().get("copyOrdinal").getAsLong() == slowId) slowObserved = e.getObservedTime();
+        for (FileLifecycleEvent e : events(report.getFileLifecycleEvidence(), FileLifecycleEvent.Type.COPY_SETTLED)) {
+            if (e.getPayload().get("copyOrdinal").getAsLong() == slowId) {
+                slowObserved = e.getObservedTime();
+            }
+        }
         assertTrue(
                 reuse.getObservedTime() < slowObserved,
                 "cached fast file is selected before the first consumer's slow input arrives");
@@ -296,8 +303,11 @@ class CoherentDataflowKernelIntegrationTest {
             assertTrue(events(report.getFileLifecycleEvidence(), FileLifecycleEvent.Type.INPUT_RESOLVED).stream()
                     .anyMatch(
                             e -> e.getPayload().get("resolution").getAsString().equals("JOIN_EXISTING")));
-            if (makespan == null) makespan = report.getMakespan();
-            else assertEquals(makespan, report.getMakespan(), 0);
+            if (makespan == null) {
+                makespan = report.getMakespan();
+            } else {
+                assertEquals(makespan, report.getMakespan(), 0);
+            }
         }
     }
 
@@ -343,7 +353,11 @@ class CoherentDataflowKernelIntegrationTest {
 
     private static List<FileLifecycleEvent> events(FileLifecycleEvidence evidence, FileLifecycleEvent.Type type) {
         List<FileLifecycleEvent> result = new ArrayList<>();
-        for (FileLifecycleEvent event : evidence.getEvents()) if (event.getType() == type) result.add(event);
+        for (FileLifecycleEvent event : evidence.getEvents()) {
+            if (event.getType() == type) {
+                result.add(event);
+            }
+        }
         return result;
     }
 
@@ -386,7 +400,9 @@ class CoherentDataflowKernelIntegrationTest {
                             PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], host);
         }
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        }
         return new SimulationRunner().run(config(path, shared, budget, 2), p.build());
     }
 }

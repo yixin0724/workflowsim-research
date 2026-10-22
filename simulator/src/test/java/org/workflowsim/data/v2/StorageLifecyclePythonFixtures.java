@@ -44,16 +44,20 @@ public final class StorageLifecyclePythonFixtures {
     private StorageLifecyclePythonFixtures() {}
     /** @param args fresh output root */
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) throw new IllegalArgumentException("Usage: StorageLifecyclePythonFixtures <fresh-root>");
+        if (args.length != 1) {
+            throw new IllegalArgumentException("Usage: StorageLifecyclePythonFixtures <fresh-root>");
+        }
         Path root = Paths.get(args[0]).toAbsolutePath().normalize();
-        if (Files.exists(root)) throw new IllegalArgumentException("Fixture root already exists: " + root);
+        if (Files.exists(root)) {
+            throw new IllegalArgumentException("Fixture root already exists: " + root);
+        }
         Files.createDirectories(root);
         Log.disable();
         JsonArray files = new JsonArray(), manifests = new JsonArray();
         Path input = text(root.resolve("inputs/flow.dax"), FLOW);
-        for (boolean storeInputs : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
-                for (boolean fat : new boolean[] {false, true})
+        for (boolean storeInputs : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
+                for (boolean fat : new boolean[] {false, true}) {
                     saveRun(
                             root,
                             (storeInputs ? "shared-input-" : "local-")
@@ -63,6 +67,9 @@ public final class StorageLifecyclePythonFixtures {
                             platform(2, fat),
                             files,
                             manifests);
+                }
+            }
+        }
         saveRun(
                 root,
                 "same-vm-gate",
@@ -79,7 +86,7 @@ public final class StorageLifecyclePythonFixtures {
                 empty = text(root.resolve("inputs/empty.dax"), "<adag><job id=\"e\" runtime=\"1\"/></adag>");
         saveRun(root, "zero-output", configuration(zero, true, true, 1, BUDGET), platform(1, false), files, manifests);
         saveRun(root, "no-files", configuration(empty, false, false, 1, BUDGET), platform(1, true), files, manifests);
-        for (boolean storeInputs : new boolean[] {false, true})
+        for (boolean storeInputs : new boolean[] {false, true}) {
             saveRun(
                     root,
                     "off-" + storeInputs,
@@ -87,6 +94,7 @@ public final class StorageLifecyclePythonFixtures {
                     platform(2, true),
                     files,
                     manifests);
+        }
         Path later = text(root.resolve("inputs/later.dax"), FLOW);
         SimulationConfig staggered = SimulationConfig.builder(Arrays.asList(input.toString(), later.toString()), 2)
                 .workflowArrivalSeconds(Arrays.asList(0.0, 20.0))
@@ -107,7 +115,7 @@ public final class StorageLifecyclePythonFixtures {
                 })
                 .maxTotalRetryJobs(64)
                 .build();
-        for (long seed : new long[] {1, 5, 17, 22})
+        for (long seed : new long[] {1, 5, 17, 22}) {
             saveRun(
                     root,
                     "retry-" + seed,
@@ -118,14 +126,16 @@ public final class StorageLifecyclePythonFixtures {
                     platform(1, false),
                     files,
                     manifests);
+        }
         StringBuilder joined = new StringBuilder(
                 "<adag><job id=\"p\" runtime=\"1\"><uses file=\"x\" link=\"output\" size=\"1000000\"/></job>");
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++) {
             joined.append("<job id=\"c")
                     .append(i)
                     .append("\" runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/></job><child ref=\"c")
                     .append(i)
                     .append("\"><parent ref=\"p\"/></child>");
+        }
         joined.append("</adag>");
         Path join = text(root.resolve("inputs/join.dax"), joined.toString());
         saveRun(
@@ -175,8 +185,9 @@ public final class StorageLifecyclePythonFixtures {
         r.requestJob(1, one(2), 42, 1);
         drain(r);
         if (r.getPreparation(1).getRequiredBytes() != 0x1.0p53
-                || r.getPreparation(1).getIsolatedSeconds() != 0x1.0p53 + 2)
+                || r.getPreparation(1).getIsolatedSeconds() != 0x1.0p53 + 2) {
             throw new AssertionError("Canonical request and resolution-order aggregates lost distinction");
+        }
         savePrefix(root, "generic-deferred-number-order", r, files);
         JsonObject index = new JsonObject();
         index.addProperty("schema", "workflowsim-storage-lifecycle-fixtures-v3");
@@ -196,8 +207,9 @@ public final class StorageLifecyclePythonFixtures {
             JsonArray manifests)
             throws Exception {
         org.workflowsim.experiment.SimulationReport report = new SimulationRunner().run(config, platform);
-        if (!report.isWorkflowCompletedSuccessfully())
+        if (!report.isWorkflowCompletedSuccessfully()) {
             throw new IllegalStateException("Incomplete storage fixture " + name);
+        }
         ExperimentArtifactWriter.ExperimentArtifacts out =
                 ExperimentArtifactWriter.write(report, root.resolve(name), "result");
         ExperimentArtifactValidator.validate(out.getManifest());
@@ -246,7 +258,9 @@ public final class StorageLifecyclePythonFixtures {
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 2000, 4096, 10000, 1000000));
         p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 2));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         return p.build();
     }
 
@@ -258,7 +272,9 @@ public final class StorageLifecyclePythonFixtures {
         caps.put(42, vm);
         hosts.put(7, 10);
         hosts.put(42, 20);
-        for (Task t : tasks) scopes.put(t.getCloudletId(), 0);
+        for (Task t : tasks) {
+            scopes.put(t.getCloudletId(), 0);
+        }
         DataTransferFabric f = DataTransferFabric.withStorage(
                 caps, hosts, null, DataflowStorageSpec.of(30, read / 1e6, write / 1e6, nic / 1e6));
         CoherentDataflowRuntime r = CoherentDataflowRuntime.withStorage(true, BUDGET, store);
@@ -268,7 +284,9 @@ public final class StorageLifecyclePythonFixtures {
     }
 
     private static void drain(CoherentDataflowRuntime r) {
-        while (r.getNextCompletionTime() != null) r.advance(r.getNextCompletionTime());
+        while (r.getNextCompletionTime() != null) {
+            r.advance(r.getNextCompletionTime());
+        }
     }
 
     private static java.util.List<Integer> one(int id) {
@@ -283,7 +301,9 @@ public final class StorageLifecyclePythonFixtures {
 
     private static Task task(int id, FileItem... files) {
         Task t = new Task(id, 1000);
-        for (FileItem f : files) t.addFile(f);
+        for (FileItem f : files) {
+            t.addFile(f);
+        }
         return t;
     }
 

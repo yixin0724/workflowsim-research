@@ -232,8 +232,11 @@ class DataflowVmAssignerTest {
             assertThrows(UnsupportedOperationException.class, () -> policy.getBindings()
                     .clear());
             String actual = JSON.toJson(d.getAttributes());
-            if (expected == null) expected = actual;
-            else assertEquals(expected, actual);
+            if (expected == null) {
+                expected = actual;
+            } else {
+                assertEquals(expected, actual);
+            }
         }
     }
 
@@ -260,8 +263,11 @@ class DataflowVmAssignerTest {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> candidate(DataflowVmAssigner.Decision decision, int vm) {
         for (Map<String, Object> value :
-                (List<Map<String, Object>>) decision.getAttributes().get("candidates"))
-            if (((Integer) value.get("vmId")) == vm) return value;
+                (List<Map<String, Object>>) decision.getAttributes().get("candidates")) {
+            if (((Integer) value.get("vmId")) == vm) {
+                return value;
+            }
+        }
         throw new AssertionError("missing candidate");
     }
 
@@ -282,12 +288,16 @@ class DataflowVmAssignerTest {
             hosts.put(7, 10);
             hosts.put(42, 20);
             f = DataTransferFabric.withStorage(caps, hosts, null, DataflowStorageSpec.of(30, .00002, .00001, .0001));
-        } else f = DataTransferFabric.endpoints(caps, Collections.singletonList("source"));
+        } else {
+            f = DataTransferFabric.endpoints(caps, Collections.singletonList("source"));
+        }
         CoherentDataflowRuntime r = storage
                 ? CoherentDataflowRuntime.withStorage(true, budget, gate)
                 : new CoherentDataflowRuntime(true, budget);
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task t : tasks) scopes.put(t.getCloudletId(), 0);
+        for (Task t : tasks) {
+            scopes.put(t.getCloudletId(), 0);
+        }
         r.initializePlan(DataflowFilePlan.capture(Arrays.asList(tasks), scopes), f.getLocations());
         r.bindFabric(f);
         return r;
@@ -322,7 +332,9 @@ class DataflowVmAssignerTest {
 
     private static Task task(int id, long length, FileItem... files) {
         Task t = new Task(id, length);
-        for (FileItem f : files) t.addFile(f);
+        for (FileItem f : files) {
+            t.addFile(f);
+        }
         return t;
     }
 

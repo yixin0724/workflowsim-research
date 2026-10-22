@@ -64,8 +64,8 @@ class OnlineDataflowKernelIntegrationTest {
                         + "file=\"x\" link=\"output\" size=\"1000000\"/></job><job id=\"c\" runtime=\"1\"><uses "
                         + "file=\"x\" link=\"input\" size=\"1000000\"/></job><child ref=\"c\"><parent "
                         + "ref=\"p\"/></child>");
-        for (boolean storage : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean fat : new boolean[] {false, true}) {
                     SimulationReport report = new SimulationRunner()
                             .run(config(input, storage, shared, 2000), platform(storage, fat, 1000, 2000));
@@ -88,10 +88,14 @@ class OnlineDataflowKernelIntegrationTest {
                                 DataflowAssignmentConfig.POLICY,
                                 decision.getAttributes().get("assignmentPolicy"));
                     }
-                    if (storage)
+                    if (storage) {
                         assertDoesNotThrow(() -> StorageLifecycleCodec.encode(report.getStorageLifecycleEvidence()));
-                    else assertDoesNotThrow(() -> FileLifecycleCodec.encode(report.getFileLifecycleEvidence()));
+                    } else {
+                        assertDoesNotThrow(() -> FileLifecycleCodec.encode(report.getFileLifecycleEvidence()));
+                    }
                 }
+            }
+        }
     }
 
     @Test
@@ -198,7 +202,9 @@ class OnlineDataflowKernelIntegrationTest {
                         i == 0 ? "INITIAL" : "RETRY_REUSE",
                         assigned.get(i).getAttributes().get("binding"));
             }
-            if (retries > 0) break;
+            if (retries > 0) {
+                break;
+            }
         }
         assertTrue(retries > 0);
     }
@@ -214,8 +220,9 @@ class OnlineDataflowKernelIntegrationTest {
         for (int budget : new int[] {0, 1, 2000}) {
             SimulationReport report =
                     new SimulationRunner().run(config(input, true, true, budget), platform(true, false, 1000, 2000));
-            if (reference == null) reference = report;
-            else {
+            if (reference == null) {
+                reference = report;
+            } else {
                 assertEquals(reference.getMakespan(), report.getMakespan(), 0);
                 assertEquals(gson.toJsonTree(reference.getJobs()), gson.toJsonTree(report.getJobs()));
                 assertEquals(gson.toJsonTree(reference.getTasks()), gson.toJsonTree(report.getTasks()));
@@ -302,15 +309,22 @@ class OnlineDataflowKernelIntegrationTest {
                     .pinVmToHost(ids[i], host);
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 4000, 4096, 10000, 1000000));
-        if (storage) p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 2));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (storage) {
+            p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 2));
+        }
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         return p.build();
     }
 
     private static List<SimulationEvent> assigned(SimulationReport report) {
         List<SimulationEvent> events = new ArrayList<>();
-        for (SimulationEvent e : report.getEvents())
-            if (e.getType() == SimulationEventType.DATAFLOW_VM_ASSIGNED) events.add(e);
+        for (SimulationEvent e : report.getEvents()) {
+            if (e.getType() == SimulationEventType.DATAFLOW_VM_ASSIGNED) {
+                events.add(e);
+            }
+        }
         return events;
     }
 }

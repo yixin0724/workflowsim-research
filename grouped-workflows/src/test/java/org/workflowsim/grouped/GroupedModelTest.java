@@ -26,7 +26,9 @@ class GroupedModelTest {
 
     static JsonArray strings(String... values) {
         JsonArray a = new JsonArray();
-        for (String s : values) a.add(s);
+        for (String s : values) {
+            a.add(s);
+        }
         return a;
     }
 
@@ -64,7 +66,9 @@ class GroupedModelTest {
         hs.add(host("L", 2, 16, 100));
         s.add("hosts", hs);
         JsonArray ts = new JsonArray();
-        for (JsonObject t : tasks) ts.add(t);
+        for (JsonObject t : tasks) {
+            ts.add(t);
+        }
         s.add("tasks", ts);
         s.add("files", new JsonArray());
         return s;
@@ -81,7 +85,9 @@ class GroupedModelTest {
 
     static PackagePlan plan(int[][] groups, int... hosts) {
         int[] order = new int[groups.length];
-        for (int i = 0; i < order.length; i++) order[i] = i;
+        for (int i = 0; i < order.length; i++) {
+            order[i] = i;
+        }
         return new PackagePlan(groups, hosts, order);
     }
 
@@ -245,7 +251,9 @@ class GroupedModelTest {
     void repeatedEvaluationsDoNotShareRuntimeState() {
         Scenario s = new Scenario(path(1));
         PackagePlan p = plan(new int[][] {{0}, {1}, {2}, {3}}, 0, 1, 0, 0);
-        for (int i = 0; i < 20; i++) assertEquals(19, GroupedSimulator.evaluate(s, p, i % 2 == 0).makespan, 0);
+        for (int i = 0; i < 20; i++) {
+            assertEquals(19, GroupedSimulator.evaluate(s, p, i % 2 == 0).makespan, 0);
+        }
     }
 
     @Test
@@ -275,8 +283,9 @@ class GroupedModelTest {
     void smallTransfersAfterLongComputationUseClockAwarePrecision() {
         JsonObject input = scenario(task("A", 8, 4, 100000.125), task("B", 2, 4, .25, "A"));
         input.addProperty("storage_bandwidth_bytes_per_second", 1e9);
-        for (JsonElement h : input.getAsJsonArray("hosts"))
+        for (JsonElement h : input.getAsJsonArray("hosts")) {
             h.getAsJsonObject().addProperty("bandwidth_bytes_per_second", 1e9);
+        }
         input.getAsJsonArray("files").add(file("tiny", "A", 3, true, "B"));
         GroupedSimulator.Result r = run(input, plan(new int[][] {{0}, {1}}, 0, 1));
         assertEquals(100000.375 + 6e-9, r.makespan, 2 * Math.ulp(r.makespan));

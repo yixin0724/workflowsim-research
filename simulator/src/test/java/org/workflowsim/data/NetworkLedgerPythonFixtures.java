@@ -28,10 +28,13 @@ public final class NetworkLedgerPythonFixtures {
     private NetworkLedgerPythonFixtures() {}
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 1)
+        if (args.length != 1) {
             throw new IllegalArgumentException("Usage: NetworkLedgerPythonFixtures <new-output-directory>");
+        }
         Path root = Paths.get(args[0]).toAbsolutePath().normalize();
-        if (Files.exists(root)) throw new IllegalArgumentException("Refusing existing fixture root: " + root);
+        if (Files.exists(root)) {
+            throw new IllegalArgumentException("Refusing existing fixture root: " + root);
+        }
         Files.createDirectories(root);
         List<String> inputs = new ArrayList<String>();
         Path data = root.resolve("data.dax"), zero = root.resolve("zero.dax");
@@ -121,8 +124,8 @@ public final class NetworkLedgerPythonFixtures {
     private static void save(Path root, List<String> inputs, String name, TransferContentionEngine engine)
             throws Exception {
         List<NetworkFlowBinding> bindings = new ArrayList<NetworkFlowBinding>();
-        for (TransferTraceEvent e : engine.getTraceSnapshot().getEvents())
-            if (e.getType() == TransferTraceEvent.Type.START)
+        for (TransferTraceEvent e : engine.getTraceSnapshot().getEvents()) {
+            if (e.getType() == TransferTraceEvent.Type.START) {
                 bindings.add(NetworkFlowBinding.of(
                         e.getTransferId(),
                         e.getAdmissionOrdinal(),
@@ -133,6 +136,8 @@ public final class NetworkLedgerPythonFixtures {
                         "source",
                         "VM:fixture",
                         e.getStart().getOccupiedResources()));
+            }
+        }
         NetworkRunEvidence evidence = NetworkRunEvidence.capture(
                 NetworkEvidenceConfig.fluidGroupLedger(BUDGET),
                 DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1,
@@ -155,12 +160,15 @@ public final class NetworkLedgerPythonFixtures {
             throws Exception {
         PlatformProfile.Builder platform = PlatformProfile.builder("independent-network-fixture");
         int[] ids = {7, 42};
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             platform.addHost(new PlatformProfile.HostSpec(10 + 10 * i, 2, 2000, 4096, 100000, 1000000))
                     .addVm(new PlatformProfile.VmSpec(
                             ids[i], 1000, 1, 512, 5, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], 10 + 10 * i);
-        if (fat) platform.networkTopology(topology);
+        }
+        if (fat) {
+            platform.networkTopology(topology);
+        }
         SimulationConfig config = SimulationConfig.builder(dax.toString(), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)

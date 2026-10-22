@@ -79,8 +79,8 @@ class StorageLifecycleCodecTest {
 
     @Test
     void runtimeMatrixRoundTripsInputPoliciesIndependentlyOfSharingAndTopology() {
-        for (boolean storeInputs : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean storeInputs : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean tree : new boolean[] {false, true}) {
                     Task p = task(1, in("external", 100), out("f", 100), out("unused", 50), out("zero", 0));
                     Task c = task(2, in("f", 100), in("f", 100), in("zero", 0));
@@ -132,6 +132,8 @@ class StorageLifecycleCodecTest {
                         assertTrue(admission.has("purpose"));
                     }
                 }
+            }
+        }
     }
 
     @Test
@@ -891,10 +893,13 @@ class StorageLifecycleCodecTest {
                 () -> StorageLifecycleCodec.decode(
                         LITERAL.replaceFirst("\"ownerJobId\":0", "\"ownerJobId\":0,\"ownerJobId\":0")));
         for (String text : Arrays.asList(
-                LITERAL + "{}", LITERAL + " //comment", "{schema:'x'}", "{\"schema\":1,\"\\u0073chema\":2}"))
+                LITERAL + "{}", LITERAL + " //comment", "{schema:'x'}", "{\"schema\":1,\"\\u0073chema\":2}")) {
             assertThrows(IllegalArgumentException.class, () -> StorageLifecycleCodec.decode(text));
+        }
         String nested = "0";
-        for (int i = 0; i < 100; i++) nested = "[" + nested + "]";
+        for (int i = 0; i < 100; i++) {
+            nested = "[" + nested + "]";
+        }
         final String deep = "{\"schema\":" + nested + "}";
         assertThrows(IllegalArgumentException.class, () -> StorageLifecycleCodec.decode(deep));
         for (BigDecimal id : Arrays.asList(
@@ -1497,13 +1502,17 @@ class StorageLifecycleCodecTest {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 
@@ -1535,9 +1544,11 @@ class StorageLifecycleCodecTest {
     }
 
     private static int index(JsonObject root, String type, int occurrence) {
-        for (int i = 0; i < events(root).size(); i++)
-            if (type.equals(events(root).get(i).getAsJsonObject().get("type").getAsString()) && occurrence-- == 0)
+        for (int i = 0; i < events(root).size(); i++) {
+            if (type.equals(events(root).get(i).getAsJsonObject().get("type").getAsString()) && occurrence-- == 0) {
                 return i;
+            }
+        }
         throw new AssertionError("Missing event " + type);
     }
 
@@ -1551,9 +1562,11 @@ class StorageLifecycleCodecTest {
 
     private static List<JsonObject> payloads(JsonObject root, String type) {
         List<JsonObject> result = new ArrayList<>();
-        for (JsonElement e : events(root))
-            if (type.equals(e.getAsJsonObject().get("type").getAsString()))
+        for (JsonElement e : events(root)) {
+            if (type.equals(e.getAsJsonObject().get("type").getAsString())) {
                 result.add(e.getAsJsonObject().getAsJsonObject("payload"));
+            }
+        }
         return result;
     }
 
@@ -1572,8 +1585,11 @@ class StorageLifecycleCodecTest {
     }
 
     private static JsonObject resource(JsonObject root, String key) {
-        for (JsonElement row : root.getAsJsonObject("fabric").getAsJsonArray("resources"))
-            if (key.equals(row.getAsJsonObject().get("key").getAsString())) return row.getAsJsonObject();
+        for (JsonElement row : root.getAsJsonObject("fabric").getAsJsonArray("resources")) {
+            if (key.equals(row.getAsJsonObject().get("key").getAsString())) {
+                return row.getAsJsonObject();
+            }
+        }
         throw new AssertionError("Missing resource " + key);
     }
 
@@ -1587,19 +1603,24 @@ class StorageLifecycleCodecTest {
 
     private static JsonArray arrayOf(String... values) {
         JsonArray result = new JsonArray();
-        for (String value : values) result.add(value);
+        for (String value : values) {
+            result.add(value);
+        }
         return result;
     }
 
     private static List<String> strings(JsonArray values) {
         List<String> result = new ArrayList<>();
-        for (JsonElement value : values) result.add(value.getAsString());
+        for (JsonElement value : values) {
+            result.add(value.getAsString());
+        }
         return result;
     }
 
     private static void recount(JsonObject root) {
-        for (int i = 0; i < events(root).size(); i++)
+        for (int i = 0; i < events(root).size(); i++) {
             events(root).get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        }
         root.getAsJsonObject("capture")
                 .addProperty("retainedRecords", events(root).size());
     }
@@ -1611,8 +1632,9 @@ class StorageLifecycleCodecTest {
 
     private static JsonObject prefix(JsonObject root, int count) {
         JsonObject result = root.deepCopy();
-        while (events(result).size() > count)
+        while (events(result).size() > count) {
             events(result).remove(events(result).size() - 1);
+        }
         recount(result);
         result.getAsJsonObject("capture")
                 .addProperty(
@@ -1639,8 +1661,9 @@ class StorageLifecycleCodecTest {
 
     private static JsonObject settledLiteral(double release, double observed, double effective, double residual) {
         JsonObject root = literal();
-        for (int i = 1; i < events(root).size(); i++)
+        for (int i = 1; i < events(root).size(); i++) {
             events(root).get(i).getAsJsonObject().addProperty("observedTime", release);
+        }
         append(
                 root,
                 "COPY_SETTLED",

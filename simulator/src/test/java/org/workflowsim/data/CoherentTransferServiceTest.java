@@ -157,7 +157,9 @@ class CoherentTransferServiceTest {
     @Test
     void checkedSharingAcceptsOrdinaryThreeWayRoundingWithinDeclaredProfile() {
         TransferContentionEngine e = service(true, 1_000_000);
-        for (int i = 1; i <= 3; i++) e.addTransfer(i, 1_000_000, Arrays.asList("R"), 1_000_000, 0);
+        for (int i = 1; i <= 3; i++) {
+            e.addTransfer(i, 1_000_000, Arrays.asList("R"), 1_000_000, 0);
+        }
         assertEquals(3, e.advance(3).getCompletedTransferIds().size());
     }
 

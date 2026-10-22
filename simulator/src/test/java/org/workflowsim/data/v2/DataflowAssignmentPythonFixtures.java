@@ -34,10 +34,13 @@ public final class DataflowAssignmentPythonFixtures {
     private DataflowAssignmentPythonFixtures() {}
     /** @param args fresh output root */
     public static void main(String[] args) throws Exception {
-        if (args.length != 1)
+        if (args.length != 1) {
             throw new IllegalArgumentException("Usage: DataflowAssignmentPythonFixtures <fresh-root>");
+        }
         Path root = Paths.get(args[0]).toAbsolutePath().normalize();
-        if (Files.exists(root)) throw new IllegalArgumentException("Fixture root exists: " + root);
+        if (Files.exists(root)) {
+            throw new IllegalArgumentException("Fixture root exists: " + root);
+        }
         Files.createDirectories(root);
         Log.disable();
         JsonArray manifests = new JsonArray();
@@ -50,11 +53,13 @@ public final class DataflowAssignmentPythonFixtures {
                         + "runtime=\"1\"><uses file=\"x\" link=\"input\" size=\"1000000\"/><uses file=\"x\" "
                         + "link=\"input\" size=\"1000000\"/><uses file=\"z\" link=\"input\" "
                         + "size=\"0\"/></job><child ref=\"c\"><parent ref=\"p\"/></child>");
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             for (boolean gate : new boolean[] {false, true}) {
-                if (!storage && gate) continue;
-                for (boolean shared : new boolean[] {false, true})
-                    for (boolean fat : new boolean[] {false, true})
+                if (!storage && gate) {
+                    continue;
+                }
+                for (boolean shared : new boolean[] {false, true}) {
+                    for (boolean fat : new boolean[] {false, true}) {
                         save(
                                 root,
                                 (storage ? "v3-" : "v2-")
@@ -64,7 +69,10 @@ public final class DataflowAssignmentPythonFixtures {
                                 config(flow, storage, gate, shared),
                                 platform(storage, fat, 1000, 2000, 2),
                                 manifests);
+                    }
+                }
             }
+        }
         Path
                 zero =
                         input(
@@ -108,13 +116,14 @@ public final class DataflowAssignmentPythonFixtures {
                 + "id=\"q\" runtime=\"0.2\"/><job id=\"c\" runtime=\"1\"><uses file=\"x\" "
                 + "link=\"input\" size=\"10000000\"/></job><child ref=\"c\"><parent ref=\"q\"/></child>";
         Path joined = input(root, "join", join);
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             save(
                     root,
                     "mid-copy-join-" + storage,
                     config(joined, storage, storage, true),
                     platform(storage, false, 1000, 2000, 2),
                     manifests);
+        }
         Path laterFlow = input(
                 root,
                 "later-flow",
@@ -157,7 +166,9 @@ public final class DataflowAssignmentPythonFixtures {
                     break;
                 }
             }
-            if (!found) throw new AssertionError("Fixed seed domain did not cover online retries");
+            if (!found) {
+                throw new AssertionError("Fixed seed domain did not cover online retries");
+            }
         }
         JsonObject index = new JsonObject();
         index.addProperty("schema", "workflowsim-online-dataflow-fixtures-v1");
@@ -175,11 +186,14 @@ public final class DataflowAssignmentPythonFixtures {
 
     private static void saveReport(Path root, String name, SimulationReport report, JsonArray manifests)
             throws Exception {
-        if (!report.isWorkflowCompletedSuccessfully()) throw new IllegalStateException("Incomplete fixture " + name);
+        if (!report.isWorkflowCompletedSuccessfully()) {
+            throw new IllegalStateException("Incomplete fixture " + name);
+        }
         ExperimentArtifactWriter.ExperimentArtifacts out =
                 ExperimentArtifactWriter.write(report, root.resolve(name), "result");
-        if (ExperimentArtifactValidator.validate(out.getManifest()).getDataflowAssignment() == null)
+        if (ExperimentArtifactValidator.validate(out.getManifest()).getDataflowAssignment() == null) {
             throw new AssertionError("Missing checked online action context");
+        }
         manifests.add(root.relativize(out.getManifest()).toString());
     }
 
@@ -231,8 +245,12 @@ public final class DataflowAssignmentPythonFixtures {
                     .pinVmToHost(ids[i], host);
         }
         p.addHost(new PlatformProfile.HostSpec(30, 2, 4000, 4096, 10000, 1000000));
-        if (storage) p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 1));
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        if (storage) {
+            p.sourceStorage(DataflowStorageSpec.of(30, 1, .5, 1));
+        }
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 5));
+        }
         return p.build();
     }
 }

@@ -65,8 +65,9 @@ class DataflowStorageFabricTest {
                 fabric.route(A, SOURCE).getResources());
         assertEquals(2e6, fabric.route(SOURCE, A).getStandaloneRateBytesPerSecond(), 0);
         assertEquals(.5e6, fabric.route(A, SOURCE).getStandaloneRateBytesPerSecond(), 0);
-        for (String key : fabric.route(SOURCE, A).getResources())
+        for (String key : fabric.route(SOURCE, A).getResources()) {
             assertNotNull(fabric.getResourceCapacities().get(key));
+        }
     }
 
     @Test

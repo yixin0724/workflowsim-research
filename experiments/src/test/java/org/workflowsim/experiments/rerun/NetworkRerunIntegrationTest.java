@@ -58,7 +58,7 @@ class NetworkRerunIntegrationTest {
 
     @Test
     void readerRetainsValidatedOptionalLedgerAndRebuilderPreservesModeAndBudget() throws Exception {
-        for (boolean fat : new boolean[] {false, true})
+        for (boolean fat : new boolean[] {false, true}) {
             for (int budget : new int[] {1, 2000}) {
                 Path run = fixture(fat, budget);
                 RerunEvidence evidence = RerunEvidenceReader.read(run);
@@ -75,6 +75,7 @@ class NetworkRerunIntegrationTest {
                         budget, rebuilt.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
                 assertEquals(fat, rebuilt.getConfig().getDataMovementModel().isFatTreeContentionV1());
             }
+        }
     }
 
     @Test
@@ -235,8 +236,9 @@ class NetworkRerunIntegrationTest {
         for (boolean missing : new boolean[] {false, true}) {
             Path run = fixture(false, 2000);
             Path ledger = run.resolve("result.network-ledger.json");
-            if (missing) Files.delete(ledger);
-            else {
+            if (missing) {
+                Files.delete(ledger);
+            } else {
                 JsonObject value = read(ledger);
                 value.getAsJsonObject("metrics")
                         .getAsJsonObject("transferMetrics")
@@ -317,12 +319,15 @@ class NetworkRerunIntegrationTest {
                         .getBytes(StandardCharsets.UTF_8));
         PlatformProfile.Builder platform = PlatformProfile.builder("network-rerun");
         int[] ids = {7, 42};
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             platform.addHost(new PlatformProfile.HostSpec(10 + i * 10, 2, 2000, 2048, 10000, 1000000))
                     .addVm(new PlatformProfile.VmSpec(
                             ids[i], 1000, 1, 512, 1, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], 10 + i * 10);
-        if (fat) platform.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        }
+        if (fat) {
+            platform.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        }
         SimulationConfig config = SimulationConfig.builder(input.toString(), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
@@ -352,7 +357,9 @@ class NetworkRerunIntegrationTest {
                 evidence.getAsJsonObject("traceSnapshot").getAsJsonArray("events")) {
             JsonObject row = element.getAsJsonObject();
             if (!row.get("admissionOrdinal").isJsonNull()
-                    && row.get("admissionOrdinal").getAsLong() == 1) row.addProperty("transferId", value);
+                    && row.get("admissionOrdinal").getAsLong() == 1) {
+                row.addProperty("transferId", value);
+            }
         }
         evidence.getAsJsonArray("bindings").get(0).getAsJsonObject().addProperty("externalTransferId", value);
         NetworkRunEvidence changed = new Gson().fromJson(evidence, NetworkRunEvidence.class);
@@ -366,18 +373,21 @@ class NetworkRerunIntegrationTest {
     private static String hash(Path path) throws Exception {
         byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path));
         StringBuilder text = new StringBuilder();
-        for (byte value : digest) text.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
+        for (byte value : digest) {
+            text.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
+        }
         return text.toString();
     }
 
     private static void rehash(Path run) throws Exception {
         JsonObject manifest = read(run.resolve("result.manifest.json"));
         Path ledger = run.resolve("result.network-ledger.json");
-        for (com.google.gson.JsonElement value : manifest.getAsJsonArray("artifacts"))
+        for (com.google.gson.JsonElement value : manifest.getAsJsonArray("artifacts")) {
             if ("network-ledger".equals(value.getAsJsonObject().get("role").getAsString())) {
                 value.getAsJsonObject().addProperty("sha256", hash(ledger));
                 value.getAsJsonObject().addProperty("sizeBytes", Files.size(ledger));
             }
+        }
         ExperimentArtifactWriter.writeJson(run.resolve("result.manifest.json"), manifest);
     }
 }

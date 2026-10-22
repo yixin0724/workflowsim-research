@@ -269,8 +269,9 @@ class NetworkEvidenceDatacenterTest {
             List<CondorVM> vms = PlatformFactory.createVms(platform, workflow.getSchedulerId(0));
             workflow.submitVmList(vms, 0);
             workflow.bindSchedulerDatacenter(datacenter.getId(), 0);
-            for (CondorVM vm : vms)
+            for (CondorVM vm : vms) {
                 assertTrue(datacenter.getVmAllocationPolicy().allocateHostForVm(vm));
+            }
             ReplicaCatalog.addFileToStorage("replicated.dat", "7");
             ReplicaCatalog.addFileToStorage("replicated.dat", "42");
             Job producer = job(88, 7, 2);
@@ -299,7 +300,9 @@ class NetworkEvidenceDatacenterTest {
             assertEquals(NetworkFlowBinding.SourceScope.MODELED_CONSTRAINED_SOURCE, binding.getSourceScope());
             TransferTraceEvent admission = null;
             for (TransferTraceEvent event : frozen.getTraceSnapshot().getEvents()) {
-                if (event.getType() == TransferTraceEvent.Type.START) admission = event;
+                if (event.getType() == TransferTraceEvent.Type.START) {
+                    admission = event;
+                }
             }
             assertTrue(admission != null);
             assertEquals(
@@ -337,7 +340,9 @@ class NetworkEvidenceDatacenterTest {
         Job result = new Job(jobId, 1000L);
         result.setVmId(vmId);
         result.setClassType(Parameters.ClassType.COMPUTE.value);
-        for (int taskId : taskIds) result.getTaskList().add(new Task(taskId, 1000L));
+        for (int taskId : taskIds) {
+            result.getTaskList().add(new Task(taskId, 1000L));
+        }
         return result;
     }
 

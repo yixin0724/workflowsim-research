@@ -73,10 +73,14 @@ class SimulationSessionAbortTest {
         // must not poison or hang the next test, and cleanup must not run entity callbacks.
         try {
             SimulationSession active = (SimulationSession) staticField(SimulationSession.class, "activeSession");
-            if (active != null) active.close();
+            if (active != null) {
+                active.close();
+            }
         } finally {
             setStatic(SimulationSession.class, "activeSession", null);
-            for (String name : REFERENCE_FIELDS) setStatic(CloudSim.class, name, null);
+            for (String name : REFERENCE_FIELDS) {
+                setStatic(CloudSim.class, name, null);
+            }
             setStatic(CloudSim.class, "clock", 0.0);
             setStatic(CloudSim.class, "running", false);
             setStatic(CloudSim.class, "paused", false);
@@ -282,16 +286,26 @@ class SimulationSessionAbortTest {
     }
 
     private static boolean released(Object value) {
-        if (value == null) return true;
-        if (value instanceof Map) return ((Map<?, ?>) value).isEmpty();
-        if (value instanceof Iterable) return !((Iterable<?>) value).iterator().hasNext();
+        if (value == null) {
+            return true;
+        }
+        if (value instanceof Map) {
+            return ((Map<?, ?>) value).isEmpty();
+        }
+        if (value instanceof Iterable) {
+            return !((Iterable<?>) value).iterator().hasNext();
+        }
         return false;
     }
 
     private static Map<String, Object> captureKernel() throws Exception {
         Map<String, Object> result = new LinkedHashMap<String, Object>();
-        for (String name : REFERENCE_FIELDS) result.put(name, staticField(CloudSim.class, name));
-        for (String name : CONTROL_FIELDS) result.put(name, staticField(CloudSim.class, name));
+        for (String name : REFERENCE_FIELDS) {
+            result.put(name, staticField(CloudSim.class, name));
+        }
+        for (String name : CONTROL_FIELDS) {
+            result.put(name, staticField(CloudSim.class, name));
+        }
         return result;
     }
 
@@ -331,7 +345,9 @@ class SimulationSessionAbortTest {
 
     private static String workflow() throws Exception {
         URL resource = SimulationSessionAbortTest.class.getResource("/dax/reproducibility-workflow.dax");
-        if (resource == null) throw new IllegalStateException("Missing abort/replay workflow fixture");
+        if (resource == null) {
+            throw new IllegalStateException("Missing abort/replay workflow fixture");
+        }
         return Paths.get(resource.toURI()).toString();
     }
 
@@ -340,7 +356,9 @@ class SimulationSessionAbortTest {
         assertEquals(expected.getTotalJobs(), actual.getTotalJobs());
         assertEquals(expected.getSuccessfulJobs(), actual.getSuccessfulJobs());
         Map<Integer, SimulationReport.TaskOutcome> byTask = new LinkedHashMap<Integer, SimulationReport.TaskOutcome>();
-        for (SimulationReport.TaskOutcome task : actual.getTasks()) byTask.put(task.getTaskId(), task);
+        for (SimulationReport.TaskOutcome task : actual.getTasks()) {
+            byTask.put(task.getTaskId(), task);
+        }
         assertEquals(expected.getTasks().size(), byTask.size());
         for (SimulationReport.TaskOutcome first : expected.getTasks()) {
             SimulationReport.TaskOutcome second = byTask.get(first.getTaskId());
@@ -382,7 +400,9 @@ class SimulationSessionAbortTest {
             CloudSim.terminateSimulation(100.0);
             CloudSim.pauseSimulation(50L);
             CloudSim.pauseSimulation();
-            if (markAbrupt) CloudSim.abruptallyTerminate();
+            if (markAbrupt) {
+                CloudSim.abruptallyTerminate();
+            }
             throw new DeliberateAbort();
         }
 

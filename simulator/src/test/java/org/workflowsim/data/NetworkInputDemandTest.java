@@ -116,7 +116,9 @@ class NetworkInputDemandTest {
     @Test
     void repeatedReferencesRemainModelReferencesNotDeduplicatedFileCounts() {
         NetworkInputDemandTracker t = new NetworkInputDemandTracker();
-        for (int i = 0; i < 10000; i++) t.record(.5, i % 2 == 0);
+        for (int i = 0; i < 10000; i++) {
+            t.record(.5, i % 2 == 0);
+        }
         NetworkInputDemandSnapshot s = t.snapshot();
         assertEquals(10000, s.getReferenceCount());
         assertEquals(5000, s.getLocalReferenceCount());

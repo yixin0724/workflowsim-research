@@ -32,8 +32,9 @@ final class NetworkBrowserFixtures {
         // Existing fixture configurations are recording-OFF. Require the new panel's state there too.
         for (Map<String, Object> report : reports) {
             List<Map<String, Object>> expected = new ArrayList<Map<String, Object>>();
-            for (Object state : (List<?>) report.get("statuses"))
+            for (Object state : (List<?>) report.get("statuses")) {
                 expected.add(state("FAILED".equals(state) ? "NO_RESULT" : "OFF"));
+            }
             report.put("network", expected);
         }
         Path data = WorkbenchTestSupport.text(
@@ -45,7 +46,7 @@ final class NetworkBrowserFixtures {
         Path zero = WorkbenchTestSupport.text(
                 output.resolve("network-zero.dax"), "<adag><job id=\"z\" runtime=\"1\"/></adag>");
         Map<String, Path> manifests = new LinkedHashMap<String, Path>();
-        for (boolean fat : new boolean[] {false, true})
+        for (boolean fat : new boolean[] {false, true}) {
             for (String kind : Arrays.asList("full", "prefix", "zero")) {
                 String name = "ledger-" + (fat ? "fat-" : "endpoint-") + kind;
                 int budget = "prefix".equals(kind) ? 1 : 2000;
@@ -55,9 +56,10 @@ final class NetworkBrowserFixtures {
                 JsonArray seeds = new JsonArray();
                 seeds.add(1);
                 config.add("seeds", seeds);
-                if (!fat)
+                if (!fat) {
                     config.getAsJsonObject("simulation")
                             .addProperty("dataMovementModel", "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1");
+                }
                 JsonObject option = new JsonObject();
                 option.addProperty("mode", "FLUID_GROUP_LEDGER_V1");
                 option.addProperty("maxTraceRecords", budget);
@@ -83,6 +85,7 @@ final class NetworkBrowserFixtures {
                         Collections.singletonList(standaloneRow),
                         Collections.singletonList(expected)));
             }
+        }
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>(),
                 expected = new ArrayList<Map<String, Object>>();
         Path full = manifests.get("ledger-endpoint-full"),
@@ -130,13 +133,15 @@ final class NetworkBrowserFixtures {
         String hostile = "</script><img src=x onerror=alert(1)>节点\"'\u2028\u2029";
         TransferContentionEngine many = new TransferContentionEngine(BUDGET);
         List<String> path = Collections.nCopies(NetworkReportView.LIST_LIMIT + 1, hostile);
-        for (int i = 0; i <= NetworkReportView.FLOW_LIMIT; i++)
+        for (int i = 0; i <= NetworkReportView.FLOW_LIMIT; i++) {
             many.addTransfer(i == 0 ? Long.MAX_VALUE : i == 1 ? Long.MIN_VALUE : i, 1, path, 1, 0);
+        }
         many.advance(1);
         typed(rows, expected, cpuManifest, "typed-hostile-capped", decode(many));
         TransferContentionEngine resources = new TransferContentionEngine(BUDGET);
-        for (int i = 0; i <= NetworkReportView.RESOURCE_LIMIT; i++)
+        for (int i = 0; i <= NetworkReportView.RESOURCE_LIMIT; i++) {
             resources.setEndpointCapacity(i == 0 ? hostile : "R:" + i, 1);
+        }
         typed(rows, expected, cpuManifest, "typed-resource-cap", decode(resources));
         TransferContentionEngine reuse = new TransferContentionEngine(BUDGET);
         reuse.addTransfer(Long.MAX_VALUE, 1, Collections.<String>emptyList(), 1, 0);
@@ -167,9 +172,11 @@ final class NetworkBrowserFixtures {
     private static NetworkLedgerCodec.Decoded decode(TransferContentionEngine engine) {
         List<NetworkFlowBinding> bindings = new ArrayList<NetworkFlowBinding>();
         List<Integer> tasks = new ArrayList<Integer>();
-        for (int i = 1; i <= NetworkReportView.LIST_LIMIT + 1; i++) tasks.add(i);
-        for (TransferTraceEvent e : engine.getTraceSnapshot().getEvents())
-            if (e.getType() == TransferTraceEvent.Type.START)
+        for (int i = 1; i <= NetworkReportView.LIST_LIMIT + 1; i++) {
+            tasks.add(i);
+        }
+        for (TransferTraceEvent e : engine.getTraceSnapshot().getEvents()) {
+            if (e.getType() == TransferTraceEvent.Type.START) {
                 bindings.add(NetworkFlowBinding.of(
                         e.getTransferId(),
                         e.getAdmissionOrdinal(),
@@ -182,6 +189,8 @@ final class NetworkBrowserFixtures {
                                 ? "destination"
                                 : e.getStart().getOccupiedResources().get(0),
                         e.getStart().getOccupiedResources()));
+            }
+        }
         NetworkRunEvidence evidence = NetworkRunEvidence.capture(
                 NetworkEvidenceConfig.fluidGroupLedger(BUDGET),
                 DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1,
@@ -215,7 +224,9 @@ final class NetworkBrowserFixtures {
     }
 
     private static Map<String, Object> expect(NetworkLedgerCodec.Decoded decoded, boolean context) {
-        if (decoded == null) return state("OFF");
+        if (decoded == null) {
+            return state("OFF");
+        }
         NetworkRunMetrics run = decoded.getMetrics();
         NetworkTraceMetrics m = run.getTransferMetrics();
         String status =
@@ -242,7 +253,9 @@ final class NetworkBrowserFixtures {
                         NetworkReportView.EVENT_LIMIT, m.getValidation().getRecordCount())));
         List<String> ids = new ArrayList<String>(), ordinals = new ArrayList<String>(), jobs = new ArrayList<String>();
         Map<Long, NetworkFlowBinding> bindings = new LinkedHashMap<Long, NetworkFlowBinding>();
-        for (NetworkFlowBinding b : decoded.getEvidence().getBindings()) bindings.put(b.getAdmissionOrdinal(), b);
+        for (NetworkFlowBinding b : decoded.getEvidence().getBindings()) {
+            bindings.put(b.getAdmissionOrdinal(), b);
+        }
         for (int i = 0; i < Math.min(NetworkReportView.FLOW_LIMIT, m.getFlows().size()); i++) {
             NetworkTraceMetrics.FlowSummary f = m.getFlows().get(i);
             ids.add(Long.toString(f.getExternalTransferId()));

@@ -53,8 +53,8 @@ class WorkbenchStorageLifecycleIntegrationTest {
 
     @Test
     void publicRunAndStandaloneUseOneValidatedStorageProjection() throws Exception {
-        for (boolean inputs : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean inputs : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean fat : new boolean[] {false, true}) {
                     Path experiment = run(configuration(inputs, shared, fat, 2000)),
                             manifest = manifest(experiment),
@@ -87,6 +87,8 @@ class WorkbenchStorageLifecycleIntegrationTest {
                             .has("storageLifecycle"));
                     assertFalse(text(standalone).contains("fetch("));
                 }
+            }
+        }
     }
 
     @Test
@@ -194,22 +196,26 @@ class WorkbenchStorageLifecycleIntegrationTest {
         Path manifest = manifest(run(configuration(true, true, false, 2000))),
                 ledger = manifest.getParent().resolve("result.storage-lifecycle.json");
         JsonObject doc = object(ledger);
-        for (JsonElement row : doc.getAsJsonArray("events"))
+        for (JsonElement row : doc.getAsJsonArray("events")) {
             if (row.getAsJsonObject().get("type").getAsString().equals("COPY_ADMITTED")) {
                 row.getAsJsonObject().getAsJsonObject("payload").addProperty("ownerJobId", 999);
                 break;
             }
+        }
         ExperimentArtifactWriter.writeJson(ledger, doc);
         JsonObject root = object(manifest);
         byte[] bytes = Files.readAllBytes(ledger),
                 digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
         StringBuilder sha = new StringBuilder();
-        for (byte b : digest) sha.append(String.format("%02x", b & 255));
-        for (JsonElement item : root.getAsJsonArray("artifacts"))
+        for (byte b : digest) {
+            sha.append(String.format("%02x", b & 255));
+        }
+        for (JsonElement item : root.getAsJsonArray("artifacts")) {
             if (item.getAsJsonObject().get("role").getAsString().equals("storage-lifecycle")) {
                 item.getAsJsonObject().addProperty("sha256", sha.toString());
                 item.getAsJsonObject().addProperty("sizeBytes", bytes.length);
             }
+        }
         ExperimentArtifactWriter.writeJson(manifest, root);
         Path output = directory.resolve("blocked/report.html");
         assertThrows(

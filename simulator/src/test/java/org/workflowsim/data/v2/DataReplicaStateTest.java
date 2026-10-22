@@ -374,13 +374,17 @@ class DataReplicaStateTest {
         q.addChild(c);
         c.addParent(q);
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (int id = 1; id <= 3; id++) scopes.put(id, 0);
+        for (int id = 1; id <= 3; id++) {
+            scopes.put(id, 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(p, q, c), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 

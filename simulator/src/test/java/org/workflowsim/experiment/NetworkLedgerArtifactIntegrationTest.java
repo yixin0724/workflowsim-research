@@ -167,11 +167,13 @@ class NetworkLedgerArtifactIntegrationTest {
         assertFalse(Files.exists(absent));
         Path existing = Files.createDirectory(temporary.resolve("sentinels"));
         byte[] sentinel = "existing evidence must survive invalid export".getBytes(StandardCharsets.UTF_8);
-        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "network-ledger.json"))
+        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "network-ledger.json")) {
             Files.write(existing.resolve("run." + suffix), sentinel);
+        }
         assertThrows(IOException.class, () -> ExperimentArtifactWriter.write(report, existing, "run"));
-        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "network-ledger.json"))
+        for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl", "network-ledger.json")) {
             assertArrayEquals(sentinel, Files.readAllBytes(existing.resolve("run." + suffix)));
+        }
     }
 
     @Test
@@ -201,12 +203,13 @@ class NetworkLedgerArtifactIntegrationTest {
         JsonArray rows = ledger.getAsJsonObject("evidence")
                 .getAsJsonObject("traceSnapshot")
                 .getAsJsonArray("events");
-        for (int i = 0; i < rows.size(); i++)
+        for (int i = 0; i < rows.size(); i++) {
             if ("SERVICE_SEGMENT"
                     .equals(rows.get(i).getAsJsonObject().get("type").getAsString())) {
                 rows.remove(i);
                 break;
             }
+        }
         renumber(rows);
         replaceLedger(files, ledger);
         assertThrows(IOException.class, () -> ExperimentArtifactValidator.validate(files.getManifest()));
@@ -217,11 +220,13 @@ class NetworkLedgerArtifactIntegrationTest {
         for (boolean remove : Arrays.asList(false, true)) {
             ExperimentArtifactWriter.ExperimentArtifacts files = write(report(false, 2000, true));
             JsonObject manifest = read(files.getManifest());
-            if (remove) manifest.getAsJsonObject("configuration").remove("networkEvidence");
-            else
+            if (remove) {
+                manifest.getAsJsonObject("configuration").remove("networkEvidence");
+            } else {
                 manifest.getAsJsonObject("configuration")
                         .getAsJsonObject("networkEvidence")
                         .addProperty("maxTraceRecords", 2001);
+            }
             ExperimentArtifactWriter.writeJson(files.getManifest(), manifest);
             assertThrows(IOException.class, () -> ExperimentArtifactValidator.validate(files.getManifest()));
         }
@@ -254,8 +259,9 @@ class NetworkLedgerArtifactIntegrationTest {
         JsonObject ledger = read(files.getNetworkLedger());
         for (JsonElement entry : ledger.getAsJsonObject("evidence").getAsJsonArray("bindings")) {
             JsonObject binding = entry.getAsJsonObject();
-            if ("PARENT_GROUP_V1".equals(binding.get("groupKind").getAsString()))
+            if ("PARENT_GROUP_V1".equals(binding.get("groupKind").getAsString())) {
                 binding.addProperty("sourceEndpoint", "VM:999");
+            }
         }
         ledger = recompute(ledger);
         replaceLedger(files, ledger);
@@ -269,19 +275,23 @@ class NetworkLedgerArtifactIntegrationTest {
         JsonObject evidence = ledger.getAsJsonObject("evidence");
         for (JsonElement b : evidence.getAsJsonArray("bindings")) {
             JsonObject binding = b.getAsJsonObject();
-            if (!"PARENT_GROUP_V1".equals(binding.get("groupKind").getAsString())) continue;
+            if (!"PARENT_GROUP_V1".equals(binding.get("groupKind").getAsString())) {
+                continue;
+            }
             long ordinal = binding.get("admissionOrdinal").getAsLong();
             JsonArray resources = binding.getAsJsonArray("occupiedResources");
-            for (int i = 0; i < resources.size(); i++)
+            for (int i = 0; i < resources.size(); i++) {
                 resources.set(
                         i,
                         new com.google.gson.JsonPrimitive(
                                 resources.get(i).getAsString().replace("AGG:0:0", "AGG:0:1")));
+            }
             for (JsonElement r : evidence.getAsJsonObject("traceSnapshot").getAsJsonArray("events")) {
                 JsonObject row = r.getAsJsonObject();
                 if ("START".equals(row.get("type").getAsString())
-                        && row.get("admissionOrdinal").getAsLong() == ordinal)
+                        && row.get("admissionOrdinal").getAsLong() == ordinal) {
                     row.getAsJsonObject("start").add("occupiedResources", resources.deepCopy());
+                }
             }
         }
         ledger = recompute(ledger);
@@ -297,8 +307,9 @@ class NetworkLedgerArtifactIntegrationTest {
         for (JsonElement element : trace.getAsJsonArray("events")) {
             JsonObject row = element.getAsJsonObject();
             String type = row.get("type").getAsString();
-            if ("SERVICE_SEGMENT".equals(type) || "COMPLETE".equals(type) || "RATE_CHANGE".equals(type))
+            if ("SERVICE_SEGMENT".equals(type) || "COMPLETE".equals(type) || "RATE_CHANGE".equals(type)) {
                 row.addProperty("observedTime", row.get("observedTime").getAsDouble() + .2);
+            }
         }
         trace.addProperty("engineTime", trace.get("engineTime").getAsDouble() + .2);
         ledger = recompute(ledger);
@@ -317,7 +328,9 @@ class NetworkLedgerArtifactIntegrationTest {
         extra.getAsJsonObject("capacity").addProperty("resourceKey", "source");
         JsonArray changed = new JsonArray();
         changed.add(extra);
-        for (JsonElement row : rows) changed.add(row);
+        for (JsonElement row : rows) {
+            changed.add(row);
+        }
         renumber(changed);
         ledger.getAsJsonObject("evidence").getAsJsonObject("traceSnapshot").add("events", changed);
         ledger = recompute(ledger);
@@ -382,10 +395,15 @@ class NetworkLedgerArtifactIntegrationTest {
         for (JsonElement item : rows) {
             JsonObject row = item.getAsJsonObject();
             String type = row.get("type").getAsString();
-            if ("CAPACITY".equals(type)) split.add(row.deepCopy());
-            else if ("START".equals(type)) start = row.deepCopy();
-            else if ("SERVICE_SEGMENT".equals(type)) service = row.deepCopy();
-            else if ("COMPLETE".equals(type)) complete = row.deepCopy();
+            if ("CAPACITY".equals(type)) {
+                split.add(row.deepCopy());
+            } else if ("START".equals(type)) {
+                start = row.deepCopy();
+            } else if ("SERVICE_SEGMENT".equals(type)) {
+                service = row.deepCopy();
+            } else if ("COMPLETE".equals(type)) {
+                complete = row.deepCopy();
+            }
         }
         assertNotNull(start);
         assertNotNull(service);
@@ -432,8 +450,9 @@ class NetworkLedgerArtifactIntegrationTest {
         for (String line : Files.readAllLines(files.getEvents(), StandardCharsets.UTF_8)) {
             JsonObject row = JsonParser.parseString(line).getAsJsonObject();
             if ("DATA_STAGE_IN_MODELED".equals(row.get("type").getAsString())
-                    && row.get("classType").getAsInt() == Parameters.ClassType.COMPUTE.value)
+                    && row.get("classType").getAsInt() == Parameters.ClassType.COMPUTE.value) {
                 row.getAsJsonObject("attributes").addProperty("contentionTransferGroupCount", 2.0);
+            }
             eventText.append(row.toString()).append('\n');
         }
         Files.write(files.getEvents(), eventText.toString().getBytes(StandardCharsets.UTF_8));
@@ -446,7 +465,9 @@ class NetworkLedgerArtifactIntegrationTest {
         JsonObject truncated = ledger.deepCopy(),
                 prefixTrace = truncated.getAsJsonObject("evidence").getAsJsonObject("traceSnapshot");
         JsonArray completeRows = prefixTrace.getAsJsonArray("events"), prefixRows = new JsonArray();
-        for (int i = 0; i < 4; i++) prefixRows.add(completeRows.get(i).deepCopy());
+        for (int i = 0; i < 4; i++) {
+            prefixRows.add(completeRows.get(i).deepCopy());
+        }
         prefixTrace.add("events", prefixRows);
         prefixTrace.addProperty("status", "TRUNCATED");
         prefixTrace.addProperty("droppedCount", completeRows.size() - 4);
@@ -465,9 +486,11 @@ class NetworkLedgerArtifactIntegrationTest {
     void coherentNegativeHostIdentityIsNotAValidDeclaredPlatform() throws Exception {
         ExperimentArtifactWriter.ExperimentArtifacts files = write(report(false, 2000, true));
         JsonObject manifest = read(files.getManifest());
-        for (JsonElement host : manifest.getAsJsonObject("platform").getAsJsonArray("hosts"))
-            if (host.getAsJsonObject().get("id").getAsInt() == 10)
+        for (JsonElement host : manifest.getAsJsonObject("platform").getAsJsonArray("hosts")) {
+            if (host.getAsJsonObject().get("id").getAsInt() == 10) {
                 host.getAsJsonObject().addProperty("id", -10);
+            }
+        }
         for (JsonElement vm : manifest.getAsJsonObject("platform").getAsJsonArray("vms")) {
             JsonObject value = vm.getAsJsonObject();
             if (value.get("preflightHostId").getAsInt() == 10) {
@@ -510,8 +533,9 @@ class NetworkLedgerArtifactIntegrationTest {
         ExperimentArtifactWriter.ExperimentArtifacts files = write(report(true, 2000, true));
         Path relocated = Files.createDirectory(temporary.resolve("relocated"));
         for (Path file :
-                Arrays.asList(files.getManifest(), files.getMetrics(), files.getEvents(), files.getNetworkLedger()))
+                Arrays.asList(files.getManifest(), files.getMetrics(), files.getEvents(), files.getNetworkLedger())) {
             Files.copy(file, relocated.resolve(file.getFileName()));
+        }
         ExperimentArtifactValidator.ValidationResult result = ExperimentArtifactValidator.validate(
                 relocated.resolve(files.getManifest().getFileName()));
         assertEquals(relocated.resolve(files.getNetworkLedger().getFileName()), result.getNetworkLedger());
@@ -533,12 +557,15 @@ class NetworkLedgerArtifactIntegrationTest {
         Files.write(dax, ("<adag>" + data + "</adag>").getBytes(StandardCharsets.UTF_8));
         PlatformProfile.Builder platform = PlatformProfile.builder("ledger-artifact-fixture");
         int[] ids = {7, 42};
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             platform.addHost(new PlatformProfile.HostSpec(10 + i * 10, 2, 2000, 2048, 10000, 1000000))
                     .addVm(new PlatformProfile.VmSpec(
                             ids[i], 1000, 1, 512, 1, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], 10 + i * 10);
-        if (fat) platform.networkTopology(topology);
+        }
+        if (fat) {
+            platform.networkTopology(topology);
+        }
         SimulationConfig cfg = SimulationConfig.builder(dax.toString(), 2)
                 .planningAlgorithm(Parameters.PlanningAlgorithm.RANDOM)
                 .schedulingAlgorithm(Parameters.SchedulingAlgorithm.STATIC)
@@ -566,13 +593,18 @@ class NetworkLedgerArtifactIntegrationTest {
     }
 
     private static JsonObject role(JsonObject manifest, String role) {
-        for (JsonElement item : manifest.getAsJsonArray("artifacts"))
-            if (role.equals(item.getAsJsonObject().get("role").getAsString())) return item.getAsJsonObject();
+        for (JsonElement item : manifest.getAsJsonArray("artifacts")) {
+            if (role.equals(item.getAsJsonObject().get("role").getAsString())) {
+                return item.getAsJsonObject();
+            }
+        }
         throw new AssertionError("Missing role " + role);
     }
 
     private static void renumber(JsonArray rows) {
-        for (int i = 0; i < rows.size(); i++) rows.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        for (int i = 0; i < rows.size(); i++) {
+            rows.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        }
     }
 
     private static JsonObject recompute(JsonObject document) {

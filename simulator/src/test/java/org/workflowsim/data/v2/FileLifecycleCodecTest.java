@@ -114,8 +114,9 @@ class FileLifecycleCodecTest {
         assertEquals(0, decoded.getCompletedJobCount());
         assertEquals(1, decoded.getActiveCopyCount());
         JsonObject seedsOnly = literal();
-        while (events(seedsOnly).size() > 1)
+        while (events(seedsOnly).size() > 1) {
             events(seedsOnly).remove(events(seedsOnly).size() - 1);
+        }
         recount(seedsOnly);
         assertTrue(
                 FileLifecycleCodec.decodeDocument(seedsOnly).isQuiescent(),
@@ -428,7 +429,9 @@ class FileLifecycleCodecTest {
     @Test
     void planOnlyLongMultiplicitiesStayExactAndAreNeverMaterialized() {
         JsonObject root = literal();
-        while (events(root).size() > 1) events(root).remove(events(root).size() - 1);
+        while (events(root).size() > 1) {
+            events(root).remove(events(root).size() - 1);
+        }
         recount(root);
         JsonObject input = taskRow(root, 0).getAsJsonArray("inputs").get(0).getAsJsonObject();
         input.addProperty("referenceCount", Long.MAX_VALUE);
@@ -469,8 +472,9 @@ class FileLifecycleCodecTest {
                 IllegalArgumentException.class,
                 () -> FileLifecycleCodec.decode(LITERAL.replaceFirst("\"jobId\":0", "\"jobId\":0,\"jobId\":0")));
         for (String text : Arrays.asList(
-                LITERAL + "{}", LITERAL + " //comment", "{schema:'x'}", "{\"schema\":1,\"\\u0073chema\":2}"))
+                LITERAL + "{}", LITERAL + " //comment", "{schema:'x'}", "{\"schema\":1,\"\\u0073chema\":2}")) {
             assertThrows(IllegalArgumentException.class, () -> FileLifecycleCodec.decode(text));
+        }
         for (BigDecimal id : Arrays.asList(
                 new BigDecimal("9007199254740993"),
                 new BigDecimal("2147483648"),
@@ -562,7 +566,9 @@ class FileLifecycleCodecTest {
         recount(wrong);
         bad(wrong);
         wrong = literal();
-        for (JsonElement e : events(wrong)) e.getAsJsonObject().addProperty("observedTime", 1);
+        for (JsonElement e : events(wrong)) {
+            e.getAsJsonObject().addProperty("observedTime", 1);
+        }
         wrong.getAsJsonObject("capture").addProperty("observedThrough", 1);
         bad(wrong);
         wrong = literal();
@@ -807,13 +813,17 @@ class FileLifecycleCodecTest {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 
@@ -847,7 +857,9 @@ class FileLifecycleCodecTest {
     private static JsonObject event(JsonObject root, String type, int occurrence) {
         for (JsonElement value : events(root)) {
             JsonObject event = value.getAsJsonObject();
-            if (type.equals(event.get("type").getAsString()) && occurrence-- == 0) return event;
+            if (type.equals(event.get("type").getAsString()) && occurrence-- == 0) {
+                return event;
+            }
         }
         throw new AssertionError("Missing event " + type);
     }
@@ -876,19 +888,25 @@ class FileLifecycleCodecTest {
 
     private static JsonArray arrayOf(String... values) {
         JsonArray result = new JsonArray();
-        for (String value : values) result.add(value);
+        for (String value : values) {
+            result.add(value);
+        }
         return result;
     }
 
     private static List<String> strings(JsonArray values) {
         List<String> result = new ArrayList<>();
-        for (JsonElement value : values) result.add(value.getAsString());
+        for (JsonElement value : values) {
+            result.add(value.getAsString());
+        }
         return result;
     }
 
     private static void recount(JsonObject root) {
         JsonArray events = events(root);
-        for (int i = 0; i < events.size(); i++) events.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        for (int i = 0; i < events.size(); i++) {
+            events.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        }
         root.getAsJsonObject("capture").addProperty("retainedRecords", events.size());
     }
 
@@ -910,8 +928,9 @@ class FileLifecycleCodecTest {
 
     private static JsonObject settledLiteral(double release, double observed, double effective, double residual) {
         JsonObject root = literal();
-        for (int i = 1; i < events(root).size(); i++)
+        for (int i = 1; i < events(root).size(); i++) {
             events(root).get(i).getAsJsonObject().addProperty("observedTime", release);
+        }
         append(
                 root,
                 "COPY_SETTLED",

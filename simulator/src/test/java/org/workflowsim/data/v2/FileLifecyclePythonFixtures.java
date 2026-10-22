@@ -44,15 +44,19 @@ public final class FileLifecyclePythonFixtures {
     private FileLifecyclePythonFixtures() {}
     /** @param args fresh output root */
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) throw new IllegalArgumentException("Usage: FileLifecyclePythonFixtures <fresh-root>");
+        if (args.length != 1) {
+            throw new IllegalArgumentException("Usage: FileLifecyclePythonFixtures <fresh-root>");
+        }
         Path root = Paths.get(args[0]).toAbsolutePath().normalize();
-        if (Files.exists(root)) throw new IllegalArgumentException("Fixture root must not exist: " + root);
+        if (Files.exists(root)) {
+            throw new IllegalArgumentException("Fixture root must not exist: " + root);
+        }
         Files.createDirectories(root);
         Log.disable();
         JsonArray standalone = new JsonArray(), manifests = new JsonArray();
         Path input = text(root.resolve("inputs/flow.dax"), FLOW);
-        for (boolean shared : new boolean[] {true, false})
-            for (boolean fat : new boolean[] {false, true})
+        for (boolean shared : new boolean[] {true, false}) {
+            for (boolean fat : new boolean[] {false, true}) {
                 saveRun(
                         root,
                         (shared ? "shared-" : "isolated-") + (fat ? "fat" : "endpoint"),
@@ -60,6 +64,8 @@ public final class FileLifecyclePythonFixtures {
                         platform(fat, 2, 1),
                         standalone,
                         manifests);
+            }
+        }
         Path zero = text(
                 root.resolve("inputs/zero.dax"),
                 "<adag><job id=\"z\" runtime=\"1\"><uses file=\"zero\" link=\"input\" size=\"0\"/><uses "
@@ -95,7 +101,7 @@ public final class FileLifecyclePythonFixtures {
                 })
                 .maxTotalRetryJobs(64)
                 .build();
-        for (long seed : new long[] {1, 5, 17, 22})
+        for (long seed : new long[] {1, 5, 17, 22}) {
             saveRun(
                     root,
                     "retry-" + seed,
@@ -106,6 +112,7 @@ public final class FileLifecyclePythonFixtures {
                     platform(false, 1, 20),
                     standalone,
                     manifests);
+        }
         for (String mode : Arrays.asList("active", "tiny", "huge")) {
             double bytes = mode.equals("tiny") ? Double.MIN_VALUE : mode.equals("huge") ? Double.MAX_VALUE : 100;
             double rate = mode.equals("huge") ? Double.MAX_VALUE : 1;
@@ -117,7 +124,9 @@ public final class FileLifecyclePythonFixtures {
             CoherentDataflowRuntime runtime =
                     runtime(plan, DataTransferFabric.endpoints(caps, Arrays.asList("source")));
             runtime.requestJob(0, Arrays.asList(1), 7, 0);
-            if (mode.equals("huge")) runtime.requestJob(1, Arrays.asList(2), 42, 0);
+            if (mode.equals("huge")) {
+                runtime.requestJob(1, Arrays.asList(2), 42, 0);
+            }
             runtime.advance(mode.equals("tiny") ? Double.MIN_VALUE : mode.equals("huge") ? 1 : .1);
             saveStandalone(root, "generic-" + mode, runtime.captureEvidence(), standalone);
         }
@@ -161,8 +170,9 @@ public final class FileLifecyclePythonFixtures {
             JsonArray manifests)
             throws Exception {
         SimulationReport report = new SimulationRunner().run(config, platform);
-        if (!report.isWorkflowCompletedSuccessfully())
+        if (!report.isWorkflowCompletedSuccessfully()) {
             throw new IllegalStateException("Fixture did not complete: " + name);
+        }
         ExperimentArtifactWriter.ExperimentArtifacts out =
                 ExperimentArtifactWriter.write(report, root.resolve(name), "result");
         ExperimentArtifactValidator.validate(out.getManifest());
@@ -214,7 +224,9 @@ public final class FileLifecyclePythonFixtures {
                             PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], host);
         }
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        }
         return p.build();
     }
 
@@ -233,7 +245,9 @@ public final class FileLifecyclePythonFixtures {
 
     private static Task task(int id, FileItem... files) {
         Task t = new Task(id, 1000);
-        for (FileItem f : files) t.addFile(f);
+        for (FileItem f : files) {
+            t.addFile(f);
+        }
         return t;
     }
 
@@ -253,7 +267,9 @@ public final class FileLifecyclePythonFixtures {
 
     private static DataflowFilePlan plan(Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+        for (Task task : tasks) {
+            scopes.put(task.getCloudletId(), 0);
+        }
         return DataflowFilePlan.capture(Arrays.asList(tasks), scopes);
     }
 }

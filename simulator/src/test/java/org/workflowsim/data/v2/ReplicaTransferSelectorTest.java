@@ -54,8 +54,11 @@ class ReplicaTransferSelectorTest {
         admit(engine, decision, ticket.getOrdinal());
         engine.advance(10.5);
         TransferTraceEvent start = null;
-        for (TransferTraceEvent e : engine.getTraceSnapshot().getEvents())
-            if (e.getType() == TransferTraceEvent.Type.START) start = e;
+        for (TransferTraceEvent e : engine.getTraceSnapshot().getEvents()) {
+            if (e.getType() == TransferTraceEvent.Type.START) {
+                start = e;
+            }
+        }
         assertNotNull(start);
         assertEquals(decision.getRoute().getResources(), start.getStart().getOccupiedResources());
         assertFalse(start.getStart().getOccupiedResources().contains("VM:7"));
@@ -89,8 +92,9 @@ class ReplicaTransferSelectorTest {
         assertEquals(2e6, d.getRoute().getStandaloneRateBytesPerSecond(), 0);
         assertEquals(2.5, d.getIsolatedSeconds(), 0);
         assertEquals(12.5, d.getIsolatedCompletionTime(), 0);
-        for (String key : d.getRoute().getResources())
+        for (String key : d.getRoute().getResources()) {
             assertTrue(fabric.getResourceCapacities().containsKey(key));
+        }
     }
 
     @Test
@@ -224,10 +228,11 @@ class ReplicaTransferSelectorTest {
 
     @Test
     void finiteNumericSupportRejectsBadCapacitiesAndUnrepresentableEstimates() {
-        for (double bad : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY, Double.MIN_VALUE})
+        for (double bad : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY, Double.MIN_VALUE}) {
             assertThrows(
                     IllegalArgumentException.class,
                     () -> DataTransferFabric.endpoints(capacities(bad, 100, 100), Arrays.asList("input-store")));
+        }
         DataReplicaState tiny = state(Double.MIN_VALUE);
         tiny.recordTaskCompletion(1, 1, VM7, true, 0);
         assertThrows(
@@ -378,7 +383,9 @@ class ReplicaTransferSelectorTest {
     @Test
     void singleAndDisjointFrozenFlowsHaveTheSameIsolatedAndSharedTimes() {
         Map<Integer, Double> caps = new LinkedHashMap<>();
-        for (int id = 1; id <= 4; id++) caps.put(id, 10.0);
+        for (int id = 1; id <= 4; id++) {
+            caps.put(id, 10.0);
+        }
         DataTransferFabric fabric = DataTransferFabric.endpoints(caps, Collections.<String>emptyList());
         Task a = task(1, out("a", 100)), b = task(2, out("b", 100));
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
@@ -420,7 +427,9 @@ class ReplicaTransferSelectorTest {
 
     private static Task task(int id, FileItem... files) {
         Task task = new Task(id, 1000);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 
@@ -456,8 +465,9 @@ class ReplicaTransferSelectorTest {
 
     private static TransferContentionEngine engine(DataTransferFabric fabric) {
         TransferContentionEngine engine = new TransferContentionEngine(10000);
-        for (Map.Entry<String, Double> capacity : fabric.getResourceCapacities().entrySet())
+        for (Map.Entry<String, Double> capacity : fabric.getResourceCapacities().entrySet()) {
             engine.setEndpointCapacity(capacity.getKey(), capacity.getValue());
+        }
         return engine;
     }
 

@@ -57,10 +57,12 @@ class WorkbenchDataflowAssignmentIntegrationTest {
 
     @Test
     void normalRunAndStandaloneShareValidatedActionAndPhysicalViews() throws Exception {
-        for (boolean storage : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
             for (boolean gate : new boolean[] {false, true}) {
-                if (!storage && gate) continue;
-                for (boolean shared : new boolean[] {false, true})
+                if (!storage && gate) {
+                    continue;
+                }
+                for (boolean shared : new boolean[] {false, true}) {
                     for (boolean fat : new boolean[] {false, true}) {
                         Path experiment = run(configuration(storage, gate, shared, fat, 2000)),
                                 manifest = manifest(experiment),
@@ -93,7 +95,9 @@ class WorkbenchDataflowAssignmentIntegrationTest {
                         assertTrue(text(standalone).contains("dataflow-assignment-section"));
                         assertFalse(text(standalone).contains("fetch("));
                     }
+                }
             }
+        }
     }
 
     @Test
@@ -218,8 +222,9 @@ class WorkbenchDataflowAssignmentIntegrationTest {
         Files.write(events, changed, StandardCharsets.UTF_8);
         byte[] bytes = Files.readAllBytes(events);
         StringBuilder hash = new StringBuilder();
-        for (byte b : java.security.MessageDigest.getInstance("SHA-256").digest(bytes))
+        for (byte b : java.security.MessageDigest.getInstance("SHA-256").digest(bytes)) {
             hash.append(String.format("%02x", b & 255));
+        }
         JsonObject root = object(path);
         for (JsonElement item : root.getAsJsonArray("artifacts")) {
             JsonObject entry = item.getAsJsonObject();

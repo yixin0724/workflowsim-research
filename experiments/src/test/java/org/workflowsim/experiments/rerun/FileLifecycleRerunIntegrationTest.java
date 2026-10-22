@@ -53,7 +53,7 @@ class FileLifecycleRerunIntegrationTest {
 
     @Test
     void readerAndRebuilderPreserveNewKindsModeBudgetAndDistinctPath() throws Exception {
-        for (boolean shared : new boolean[] {true, false})
+        for (boolean shared : new boolean[] {true, false}) {
             for (boolean fat : new boolean[] {false, true}) {
                 Path run = fixture(shared, fat, 2000);
                 RerunEvidence evidence = RerunEvidenceReader.read(run);
@@ -71,11 +71,12 @@ class FileLifecycleRerunIntegrationTest {
                         2000, rebuilt.getConfig().getNetworkEvidenceConfig().getMaxTraceRecords());
                 assertEquals(fat, rebuilt.getPlatform().getNetworkTopology() != null);
             }
+        }
     }
 
     @Test
     void realEndpointAndFatSharedAndIsolatedRerunsAreIdentical() throws Exception {
-        for (boolean shared : new boolean[] {true, false})
+        for (boolean shared : new boolean[] {true, false}) {
             for (boolean fat : new boolean[] {false, true}) {
                 Path run = fixture(shared, fat, 2000), output = directory.resolve("repeat-" + (serial++));
                 RerunReport result = RerunDiffExecutor.execute(run, output);
@@ -84,6 +85,7 @@ class FileLifecycleRerunIntegrationTest {
                         read(run.resolve("result.file-lifecycle.json")),
                         read(output.resolve("rerun/result.file-lifecycle.json")));
             }
+        }
     }
 
     @Test
@@ -210,7 +212,9 @@ class FileLifecycleRerunIntegrationTest {
                             PlatformProfile.CloudletSchedulerMode.SPACE_SHARED))
                     .pinVmToHost(ids[i], host);
         }
-        if (fat) p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        if (fat) {
+            p.networkTopology(NetworkTopologySpec.fatTree(4, 1));
+        }
         SimulationReport report = new SimulationRunner().run(config, p.build());
         ExperimentArtifactWriter.write(report, run, "result");
         return run;
@@ -224,7 +228,9 @@ class FileLifecycleRerunIntegrationTest {
     private static void rehash(Path run, Path path) throws Exception {
         byte[] bytes = Files.readAllBytes(path);
         StringBuilder sha = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) sha.append(String.format("%02x", b & 255));
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            sha.append(String.format("%02x", b & 255));
+        }
         Path manifest = run.resolve("result.manifest.json");
         JsonObject root = read(manifest);
         for (JsonElement value : root.getAsJsonArray("artifacts")) {

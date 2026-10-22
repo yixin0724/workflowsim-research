@@ -42,7 +42,9 @@ class DataflowAssignmentValidatorTest {
     void handmadeNoInputTieHasOneImmutableFullRecord() {
         Fixture f = literal(false);
         DataflowAssignmentValidator audit = f.audit();
-        for (JsonElement row : f.main) audit.acceptEvent(row.getAsJsonObject());
+        for (JsonElement row : f.main) {
+            audit.acceptEvent(row.getAsJsonObject());
+        }
         DataflowAssignmentValidator.Result result = audit.finish();
         assertEquals(SCOPE, result.getScope());
         assertEquals(1, result.getAssignmentCount());
@@ -71,12 +73,15 @@ class DataflowAssignmentValidatorTest {
         first.addProperty("sequence", 0);
         first.addProperty("simulationTime", 0);
         first.addProperty("type", "WORKFLOW_PARSED");
-        for (String key : new String[] {"jobId", "vmId", "classType"})
+        for (String key : new String[] {"jobId", "vmId", "classType"}) {
             first.add(key, com.google.gson.JsonNull.INSTANCE);
+        }
         first.add("taskIds", new JsonArray());
         first.add("attributes", new JsonObject());
         audit.acceptEvent(first);
-        for (JsonElement event : f.main) audit.acceptEvent(event.getAsJsonObject());
+        for (JsonElement event : f.main) {
+            audit.acceptEvent(event.getAsJsonObject());
+        }
         assertEquals(1, audit.finish().getAssignmentCount());
     }
 
@@ -95,8 +100,8 @@ class DataflowAssignmentValidatorTest {
 
     @Test
     void realAssignerAndRuntimeCoverAllFourKindsAndBothStoragePolicies() {
-        for (boolean storage : new boolean[] {false, true})
-            for (boolean shared : new boolean[] {false, true})
+        for (boolean storage : new boolean[] {false, true}) {
+            for (boolean shared : new boolean[] {false, true}) {
                 for (boolean gate : storage ? new boolean[] {false, true} : new boolean[] {false}) {
                     Task p = task(1, 1000, in("external", 100), out("x", 100), out("zero", 0), out("unused", 50));
                     Task c = task(2, 1000, in("x", 100), in("x", 100), in("zero", 0));
@@ -125,6 +130,8 @@ class DataflowAssignmentValidatorTest {
                             storage ? 2 : 0,
                             observation(f, 20).get("pendingOutputFileCount").getAsInt());
                 }
+            }
+        }
     }
 
     @Test
@@ -277,7 +284,7 @@ class DataflowAssignmentValidatorTest {
 
     @Test
     void storageRetryPublishesOnlyTheSuccessfulAttemptAndKeepsItsBinding() {
-        for (boolean shared : new boolean[] {false, true})
+        for (boolean shared : new boolean[] {false, true}) {
             for (boolean gate : new boolean[] {false, true}) {
                 Task p = task(1, 1000, out("x", 100));
                 Run r = new Run(true, shared, gate, p);
@@ -290,6 +297,7 @@ class DataflowAssignmentValidatorTest {
                         20, lifePayload(f, "COPY_ADMITTED", 0).get("ownerJobId").getAsInt());
                 assertEquals(7, action(f, 20).get("vmId").getAsInt());
             }
+        }
     }
 
     @Test
@@ -513,7 +521,9 @@ class DataflowAssignmentValidatorTest {
     void peCompatibilityChecksBothTaskAndJobRequirementsAndNullRows() {
         for (boolean taskPes : new boolean[] {false, true}) {
             Task t = task(1, 1000);
-            if (taskPes) t.setNumberOfPes(2);
+            if (taskPes) {
+                t.setNumberOfPes(2);
+            }
             Run r = new Run(false, false, false, endpoints(10, 10), 1000, 1000, 1, 2, t);
             Job j = r.prepare(10, t, 0, taskPes ? 1 : 2);
             r.completeReady(j, true);
@@ -525,8 +535,9 @@ class DataflowAssignmentValidatorTest {
                     "computeSeconds",
                     "scoreFinishSeconds",
                     "conditionalStoreWait",
-                    "joinedInputCopies"))
+                    "joinedInputCopies")) {
                 assertTrue(candidate(f, 10, 7).get(field).isJsonNull());
+            }
             assertEquals(42, action(f, 10).get("vmId").getAsInt());
             assertEquals(1, f.validate().getAssignmentCount());
             Fixture wrong = f.copy();
@@ -600,8 +611,9 @@ class DataflowAssignmentValidatorTest {
         request(f, 10).addProperty("lengthMi", 4_611_686_018_428L);
         request(f, 10).addProperty("taskPes", 2);
         taskOutcome(f, 10).addProperty("lengthMi", 4_611_686_018_428L);
-        for (JsonElement vm : f.manifest.getAsJsonObject("platform").getAsJsonArray("vms"))
+        for (JsonElement vm : f.manifest.getAsJsonObject("platform").getAsJsonArray("vms")) {
             vm.getAsJsonObject().addProperty("pes", 2);
+        }
         bad(f);
     }
 
@@ -673,9 +685,12 @@ class DataflowAssignmentValidatorTest {
     void positiveAddsMustAdvanceTheBinary64ScoreClock() {
         Fixture f = literal(false);
         double now = 1e16;
-        for (JsonElement row : f.main) row.getAsJsonObject().addProperty("simulationTime", now);
-        for (JsonElement row : f.life.getAsJsonArray("events"))
+        for (JsonElement row : f.main) {
+            row.getAsJsonObject().addProperty("simulationTime", now);
+        }
+        for (JsonElement row : f.life.getAsJsonArray("events")) {
             row.getAsJsonObject().addProperty("observedTime", now);
+        }
         f.life.getAsJsonObject("capture").addProperty("observedThrough", now);
         f.manifest.getAsJsonObject("result").addProperty("simulationEndSeconds", now);
         observation(f, 10).addProperty("observedThrough", now);
@@ -801,7 +816,9 @@ class DataflowAssignmentValidatorTest {
         r.completeReady(second, true);
         Fixture f = r.fixture();
         JsonArray reversed = array(f.main.get(2), f.main.get(3), f.main.get(0), f.main.get(1));
-        for (int i = 4; i < f.main.size(); i++) reversed.add(f.main.get(i));
+        for (int i = 4; i < f.main.size(); i++) {
+            reversed.add(f.main.get(i));
+        }
         f.main = reversed;
         renumber(f.main);
         attrs(f, 20).addProperty("assignmentSequence", 1);
@@ -1014,7 +1031,9 @@ class DataflowAssignmentValidatorTest {
         JsonObject first = action(f, 10);
         audit.acceptEvent(first);
         first.getAsJsonObject("attributes").addProperty("selectedVmId", 999);
-        for (int i = 1; i < f.main.size(); i++) audit.acceptEvent(f.main.get(i).getAsJsonObject());
+        for (int i = 1; i < f.main.size(); i++) {
+            audit.acceptEvent(f.main.get(i).getAsJsonObject());
+        }
         assertEquals(
                 7,
                 audit.finish()
@@ -1080,7 +1099,9 @@ class DataflowAssignmentValidatorTest {
                 "files",
                 input ? array(row("fileId", file, "bytes", 100, "producerTaskId", null)) : array());
         JsonArray events = new JsonArray();
-        if (input) lifeEvent(events, "EXTERNAL_SEEDED", 0, row("fileId", file, "location", source()));
+        if (input) {
+            lifeEvent(events, "EXTERNAL_SEEDED", 0, row("fileId", file, "location", source()));
+        }
         lifeEvent(events, "JOB_INPUT_REQUESTED", 0, row("jobId", 10, "taskIds", array(1), "destinationVmId", 7));
         if (input) {
             JsonObject replica = row(
@@ -1308,7 +1329,9 @@ class DataflowAssignmentValidatorTest {
 
         DataflowAssignmentValidator.Result validate() {
             DataflowAssignmentValidator audit = audit();
-            for (JsonElement event : main) audit.acceptEvent(event.getAsJsonObject());
+            for (JsonElement event : main) {
+                audit.acceptEvent(event.getAsJsonObject());
+            }
             return audit.finish();
         }
     }
@@ -1357,7 +1380,9 @@ class DataflowAssignmentValidatorTest {
                     ? CoherentDataflowRuntime.withStorage(shared, 4096, gate)
                     : new CoherentDataflowRuntime(shared, 4096);
             Map<Integer, Integer> scopes = new LinkedHashMap<>();
-            for (Task task : tasks) scopes.put(task.getCloudletId(), 0);
+            for (Task task : tasks) {
+                scopes.put(task.getCloudletId(), 0);
+            }
             runtime.initializePlan(DataflowFilePlan.capture(Arrays.asList(tasks), scopes), fabric.getLocations());
             runtime.bindFabric(fabric);
             assigner = new DataflowVmAssigner(
@@ -1375,7 +1400,9 @@ class DataflowAssignmentValidatorTest {
             job.setClassType(Parameters.ClassType.COMPUTE.value);
             job.setTaskList(Collections.singletonList(task));
             job.setNumberOfPes(pes);
-            if (retryParents.containsKey(id)) job.setVmId(task.getVmId());
+            if (retryParents.containsKey(id)) {
+                job.setVmId(task.getVmId());
+            }
             DataflowVmAssigner.Decision decision = assigner.prepare(job, now).getDecision();
             JsonObject attributes = JSON.toJsonTree(decision.getAttributes()).getAsJsonObject();
             assertEquals(
@@ -1385,7 +1412,9 @@ class DataflowAssignmentValidatorTest {
             jobs.put(id, new Info(job, task));
             emit("DATAFLOW_VM_ASSIGNED", job, now, attributes);
             JsonObject ready = row();
-            if (retryParents.containsKey(id)) ready.addProperty("retryOfFailedJobId", retryParents.get(id));
+            if (retryParents.containsKey(id)) {
+                ready.addProperty("retryOfFailedJobId", retryParents.get(id));
+            }
             emit("JOB_READY", job, now, ready);
             return job;
         }
@@ -1421,7 +1450,9 @@ class DataflowAssignmentValidatorTest {
                     at);
             info.status = success ? Cloudlet.SUCCESS : Cloudlet.FAILED;
             emit("JOB_RETURNED", job, at, row("jobStatus", info.status));
-            if (!success) emit("JOB_FAILED", job, at, row());
+            if (!success) {
+                emit("JOB_FAILED", job, at, row());
+            }
         }
 
         void completeReady(Job job, boolean success) {
@@ -1471,9 +1502,9 @@ class DataflowAssignmentValidatorTest {
                 taskOutcomes.add(taskRow(id, task, vm, info.status, info.task.getCloudletLength(), effective));
             }
             JsonArray matrixEntries = new JsonArray();
-            for (Task task : tasks)
-                if (task.hasVmExecutionCostSeconds())
-                    for (int vm : new int[] {7, 42})
+            for (Task task : tasks) {
+                if (task.hasVmExecutionCostSeconds()) {
+                    for (int vm : new int[] {7, 42}) {
                         matrixEntries.add(row(
                                 "taskId",
                                 task.getCloudletId(),
@@ -1481,6 +1512,9 @@ class DataflowAssignmentValidatorTest {
                                 vm,
                                 "executionSeconds",
                                 task.getVmExecutionCostSeconds(vm)));
+                    }
+                }
+            }
             JsonObject matrix = matrixEntries.size() == 0 ? null : matrix(matrixEntries);
             return new Fixture(
                     manifest(
@@ -1669,19 +1703,21 @@ class DataflowAssignmentValidatorTest {
 
     private static JsonObject row(Object... values) {
         JsonObject row = new JsonObject();
-        for (int i = 0; i < values.length; i += 2)
+        for (int i = 0; i < values.length; i += 2) {
             row.add(
                     (String) values[i],
                     values[i + 1] instanceof JsonElement
                             ? (JsonElement) values[i + 1]
                             : JSON.toJsonTree(values[i + 1]));
+        }
         return row;
     }
 
     private static JsonArray array(Object... values) {
         JsonArray array = new JsonArray();
-        for (Object value : values)
+        for (Object value : values) {
             array.add(value instanceof JsonElement ? (JsonElement) value : JSON.toJsonTree(value));
+        }
         return array;
     }
 
@@ -1699,7 +1735,9 @@ class DataflowAssignmentValidatorTest {
 
     private static Task task(int id, long length, FileItem... files) {
         Task task = new Task(id, length);
-        for (FileItem file : files) task.addFile(file);
+        for (FileItem file : files) {
+            task.addFile(file);
+        }
         return task;
     }
 
@@ -1780,7 +1818,9 @@ class DataflowAssignmentValidatorTest {
     private static JsonObject candidate(Fixture f, int job, int vm) {
         for (JsonElement value : attrs(f, job).getAsJsonArray("candidates")) {
             JsonObject row = value.getAsJsonObject();
-            if (row.get("vmId").getAsInt() == vm) return row;
+            if (row.get("vmId").getAsInt() == vm) {
+                return row;
+            }
         }
         throw new AssertionError("Missing candidate " + vm);
     }
@@ -1792,7 +1832,9 @@ class DataflowAssignmentValidatorTest {
     private static int index(JsonArray events, String type, int job) {
         for (int i = 0; i < events.size(); i++) {
             JsonObject row = events.get(i).getAsJsonObject();
-            if (row.get("type").getAsString().equals(type) && row.get("jobId").getAsInt() == job) return i;
+            if (row.get("type").getAsString().equals(type) && row.get("jobId").getAsInt() == job) {
+                return i;
+            }
         }
         throw new AssertionError("Missing " + type + "/" + job);
     }
@@ -1810,15 +1852,20 @@ class DataflowAssignmentValidatorTest {
     }
 
     private static JsonObject byJob(JsonArray rows, int job) {
-        for (JsonElement value : rows)
-            if (value.getAsJsonObject().get("jobId").getAsInt() == job) return value.getAsJsonObject();
+        for (JsonElement value : rows) {
+            if (value.getAsJsonObject().get("jobId").getAsInt() == job) {
+                return value.getAsJsonObject();
+            }
+        }
         throw new AssertionError("Missing Job " + job);
     }
 
     private static JsonObject lifePayload(Fixture f, String type, int ordinal) {
-        for (JsonElement value : f.life.getAsJsonArray("events"))
-            if (value.getAsJsonObject().get("type").getAsString().equals(type) && ordinal-- == 0)
+        for (JsonElement value : f.life.getAsJsonArray("events")) {
+            if (value.getAsJsonObject().get("type").getAsString().equals(type) && ordinal-- == 0) {
                 return value.getAsJsonObject().getAsJsonObject("payload");
+            }
+        }
         throw new AssertionError("Missing lifecycle " + type);
     }
 
@@ -1839,7 +1886,9 @@ class DataflowAssignmentValidatorTest {
     }
 
     private static void renumber(JsonArray events) {
-        for (int i = 0; i < events.size(); i++) events.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        for (int i = 0; i < events.size(); i++) {
+            events.get(i).getAsJsonObject().addProperty("sequence", i + 1);
+        }
     }
 
     private static void removeMain(Fixture f, String type, int job) {
@@ -1855,18 +1904,20 @@ class DataflowAssignmentValidatorTest {
 
     private static void removeLife(Fixture f, String type, int ordinal) {
         JsonArray rows = f.life.getAsJsonArray("events");
-        for (int i = 0; i < rows.size(); i++)
+        for (int i = 0; i < rows.size(); i++) {
             if (rows.get(i).getAsJsonObject().get("type").getAsString().equals(type) && ordinal-- == 0) {
                 rows.remove(i);
                 recount(f.life);
                 return;
             }
+        }
         throw new AssertionError("Missing lifecycle removal");
     }
 
     private static void setVmMips(Fixture f, double mips) {
-        for (JsonElement row : f.manifest.getAsJsonObject("platform").getAsJsonArray("vms"))
+        for (JsonElement row : f.manifest.getAsJsonObject("platform").getAsJsonArray("vms")) {
             row.getAsJsonObject().addProperty("mips", mips);
+        }
     }
 
     private static JsonObject matrix(JsonArray entries) {
@@ -1889,9 +1940,12 @@ class DataflowAssignmentValidatorTest {
     }
 
     private static JsonObject matrixEntry(Fixture f, int task, int vm) {
-        for (JsonElement row : config(f).getAsJsonObject("taskCostMatrix").getAsJsonArray("entries"))
+        for (JsonElement row : config(f).getAsJsonObject("taskCostMatrix").getAsJsonArray("entries")) {
             if (row.getAsJsonObject().get("taskId").getAsInt() == task
-                    && row.getAsJsonObject().get("vmId").getAsInt() == vm) return row.getAsJsonObject();
+                    && row.getAsJsonObject().get("vmId").getAsInt() == vm) {
+                return row.getAsJsonObject();
+            }
+        }
         throw new AssertionError("Missing coordinate");
     }
 
@@ -1899,14 +1953,20 @@ class DataflowAssignmentValidatorTest {
         jobOutcome(f, job).addProperty("vmId", vm);
         taskOutcome(f, job).addProperty("vmId", vm);
         attrs(f, job).addProperty("selectedVmId", vm);
-        for (JsonElement row : f.main)
-            if (row.getAsJsonObject().get("jobId").getAsInt() == job)
+        for (JsonElement row : f.main) {
+            if (row.getAsJsonObject().get("jobId").getAsInt() == job) {
                 row.getAsJsonObject().addProperty("vmId", vm);
+            }
+        }
         for (JsonElement row : f.life.getAsJsonArray("events")) {
             JsonObject p = row.getAsJsonObject().getAsJsonObject("payload");
             if (p.has("jobId") && p.get("jobId").getAsInt() == job) {
-                if (p.has("vmId")) p.addProperty("vmId", vm);
-                if (p.has("destinationVmId")) p.addProperty("destinationVmId", vm);
+                if (p.has("vmId")) {
+                    p.addProperty("vmId", vm);
+                }
+                if (p.has("destinationVmId")) {
+                    p.addProperty("destinationVmId", vm);
+                }
             }
         }
     }

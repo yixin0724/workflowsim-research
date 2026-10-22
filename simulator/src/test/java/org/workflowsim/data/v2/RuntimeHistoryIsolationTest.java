@@ -35,7 +35,9 @@ class RuntimeHistoryIsolationTest {
         List<Task> tasks = new ArrayList<>();
         for (int i = 1; i <= 128; i++) {
             Task task = task(i);
-            if (i > 1) edge(tasks.get(i - 2), task);
+            if (i > 1) {
+                edge(tasks.get(i - 2), task);
+            }
             tasks.add(task);
         }
         CoherentDataflowRuntime r = runtime(false, 0, 100, 100, 100, 100, tasks.toArray(new Task[0]));
@@ -213,9 +215,13 @@ class RuntimeHistoryIsolationTest {
             hosts.put(42, 20);
             f = DataTransferFabric.withStorage(
                     caps, hosts, null, DataflowStorageSpec.of(30, read / 1e6, write / 1e6, nic / 1e6));
-        } else f = DataTransferFabric.endpoints(caps, Collections.singletonList("source"));
+        } else {
+            f = DataTransferFabric.endpoints(caps, Collections.singletonList("source"));
+        }
         Map<Integer, Integer> scopes = new LinkedHashMap<>();
-        for (Task t : tasks) scopes.put(t.getCloudletId(), 0);
+        for (Task t : tasks) {
+            scopes.put(t.getCloudletId(), 0);
+        }
         CoherentDataflowRuntime r = storage
                 ? CoherentDataflowRuntime.withStorage(true, budget, true)
                 : new CoherentDataflowRuntime(true, budget);
@@ -238,7 +244,9 @@ class RuntimeHistoryIsolationTest {
 
     private static Task task(int id, FileItem... files) {
         Task t = new Task(id, 1000);
-        for (FileItem f : files) t.addFile(f);
+        for (FileItem f : files) {
+            t.addFile(f);
+        }
         return t;
     }
 

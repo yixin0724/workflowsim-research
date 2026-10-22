@@ -147,8 +147,9 @@ class WorkbenchNetworkReportIntegrationTest {
         for (int budget : new int[] {0, 2000}) {
             ExperimentArtifactValidator.ValidationResult result =
                     ExperimentArtifactValidator.validate(manifest(run(false, budget, true)));
-            if (budget == 0) assertNull(result.getDecodedNetworkLedger());
-            else {
+            if (budget == 0) {
+                assertNull(result.getDecodedNetworkLedger());
+            } else {
                 assertNotNull(result.getDecodedNetworkLedger());
                 assertSame(result.getDecodedNetworkLedger(), result.getDecodedNetworkLedger());
                 assertEquals(
@@ -170,8 +171,9 @@ class WorkbenchNetworkReportIntegrationTest {
             Path copy = directory.resolve("copy-" + attack);
             Files.createDirectories(copy);
             try (java.util.stream.Stream<Path> stream = Files.list(sourceManifest.getParent())) {
-                for (Path p : (Iterable<Path>) stream.filter(Files::isRegularFile)::iterator)
+                for (Path p : (Iterable<Path>) stream.filter(Files::isRegularFile)::iterator) {
                     Files.copy(p, copy.resolve(p.getFileName()));
+                }
             }
             Path ledger = copy.resolve("result.network-ledger.json");
             JsonObject document = object(ledger);
@@ -184,12 +186,15 @@ class WorkbenchNetworkReportIntegrationTest {
                 document = NetworkLedgerCodec.document(
                         new Gson().fromJson(document.get("evidence"), NetworkRunEvidence.class));
                 NetworkLedgerCodec.decode(document.toString());
-            } else
+            } else {
                 document.getAsJsonObject("metrics")
                         .getAsJsonObject("transferMetrics")
                         .addProperty("admittedPayloadBytes", 123);
+            }
             ExperimentArtifactWriter.writeJson(ledger, document);
-            if (!"hash".equals(attack)) rehash(copy.resolve("result.manifest.json"), ledger);
+            if (!"hash".equals(attack)) {
+                rehash(copy.resolve("result.manifest.json"), ledger);
+            }
             Path target = directory.resolve("must-not-create-" + attack).resolve("report.html");
             assertThrows(
                     IOException.class,
@@ -264,9 +269,10 @@ class WorkbenchNetworkReportIntegrationTest {
         JsonArray seeds = new JsonArray();
         seeds.add(1);
         config.add("seeds", seeds);
-        if (!fat)
+        if (!fat) {
             config.getAsJsonObject("simulation")
                     .addProperty("dataMovementModel", "PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1");
+        }
         if (budget > 0) {
             JsonObject option = new JsonObject();
             option.addProperty("mode", "FLUID_GROUP_LEDGER_V1");
@@ -300,12 +306,15 @@ class WorkbenchNetworkReportIntegrationTest {
         JsonObject manifest = object(path);
         byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(ledger));
         StringBuilder sha = new StringBuilder();
-        for (byte value : digest) sha.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
-        for (JsonElement entry : manifest.getAsJsonArray("artifacts"))
+        for (byte value : digest) {
+            sha.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
+        }
+        for (JsonElement entry : manifest.getAsJsonArray("artifacts")) {
             if ("network-ledger".equals(entry.getAsJsonObject().get("role").getAsString())) {
                 entry.getAsJsonObject().addProperty("sha256", sha.toString());
                 entry.getAsJsonObject().addProperty("sizeBytes", Files.size(ledger));
             }
+        }
         ExperimentArtifactWriter.writeJson(path, manifest);
     }
 }

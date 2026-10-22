@@ -363,7 +363,7 @@ class NetworkEvidenceCaptureIntegrationTest {
     @Test
     void localityCountersObserveActualSkipDecisionsRatherThanServiceShortfalls() throws Exception {
         Path workflow = input("locality-observation.dax", GROUPED_DAX);
-        for (boolean fatTree : Arrays.asList(false, true))
+        for (boolean fatTree : Arrays.asList(false, true)) {
             for (int vmCount : new int[] {1, 2}) {
                 SimulationReport off = run(workflow, fatTree, vmCount, 0),
                         on = run(workflow, fatTree, vmCount, FULL_BUDGET);
@@ -382,6 +382,7 @@ class NetworkEvidenceCaptureIntegrationTest {
                 assertEquals(vmCount == 1 ? 5000000.0 / 5000000.5 : 0, m.getLocalByteFraction(), 1e-15);
                 assertEquals(0, m.getAdmittedMinusTransferableReferenceBytes().signum());
             }
+        }
     }
 
     @Test
@@ -394,8 +395,11 @@ class NetworkEvidenceCaptureIntegrationTest {
             assertEquals(org.workflowsim.data.NetworkRunMetrics.LocalityStatus.AVAILABLE, m.getLocalityStatus());
             assertEquals(Long.valueOf(bytes == null ? 0 : 1), m.getInputReferenceCount());
             assertNull(m.getLocalByteFraction());
-            if (bytes == null) assertNull(m.getLocalReferenceFraction());
-            else assertEquals(0, m.getLocalReferenceFraction(), 0);
+            if (bytes == null) {
+                assertNull(m.getLocalReferenceFraction());
+            } else {
+                assertEquals(0, m.getLocalReferenceFraction(), 0);
+            }
             assertEquals(0, m.getTransferMetrics().getAdmittedPayloadBytes().signum());
         }
     }
@@ -452,8 +456,9 @@ class NetworkEvidenceCaptureIntegrationTest {
             Path directory = temporary.resolve(name);
             if (name.startsWith("replacement")) {
                 Files.createDirectories(directory);
-                for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl"))
+                for (String suffix : Arrays.asList("manifest.json", "metrics.json", "events.jsonl")) {
                     Files.write(directory.resolve("on." + suffix), "old output".getBytes(StandardCharsets.UTF_8));
+                }
             }
             ExperimentArtifactWriter.ExperimentArtifacts artifacts =
                     ExperimentArtifactWriter.write(report, directory, "on", null);
@@ -539,8 +544,9 @@ class NetworkEvidenceCaptureIntegrationTest {
             List<String> eventLines = Files.readAllLines(artifacts.getEvents(), StandardCharsets.UTF_8);
             assertEquals(off.getEvents().size(), eventLines.size());
             Gson eventsJson = new Gson();
-            for (int i = 0; i < eventLines.size(); i++)
+            for (int i = 0; i < eventLines.size(); i++) {
                 assertEquals(eventsJson.toJsonTree(off.getEvents().get(i)), JsonParser.parseString(eventLines.get(i)));
+            }
             assertEquals(
                     off.getEvents().size(),
                     ExperimentArtifactValidator.validate(artifacts.getManifest())
@@ -591,7 +597,9 @@ class NetworkEvidenceCaptureIntegrationTest {
                     ids[i], 1000.0, 1, 512, 1L, 10_000L, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
             builder.pinVmToHost(ids[i], hostId);
         }
-        if (fatTree) builder.networkTopology(NetworkTopologySpec.fatTree(4, 1.0));
+        if (fatTree) {
+            builder.networkTopology(NetworkTopologySpec.fatTree(4, 1.0));
+        }
         return builder.build();
     }
 
@@ -664,41 +672,60 @@ class NetworkEvidenceCaptureIntegrationTest {
     private static List<TransferTraceEvent> traceEvents(SimulationReport report, TransferTraceEvent.Type type) {
         List<TransferTraceEvent> result = new ArrayList<TransferTraceEvent>();
         for (TransferTraceEvent event :
-                report.getNetworkEvidence().getTraceSnapshot().getEvents())
-            if (event.getType() == type) result.add(event);
+                report.getNetworkEvidence().getTraceSnapshot().getEvents()) {
+            if (event.getType() == type) {
+                result.add(event);
+            }
+        }
         return result;
     }
 
     private static NetworkFlowBinding bindingForJob(SimulationReport report, int jobId) {
         List<NetworkFlowBinding> matches = new ArrayList<NetworkFlowBinding>();
-        for (NetworkFlowBinding binding : report.getNetworkEvidence().getBindings())
-            if (binding.getJobId() == jobId) matches.add(binding);
+        for (NetworkFlowBinding binding : report.getNetworkEvidence().getBindings()) {
+            if (binding.getJobId() == jobId) {
+                matches.add(binding);
+            }
+        }
         assertEquals(1, matches.size());
         return matches.get(0);
     }
 
     private static TransferTraceEvent startForBinding(SimulationReport report, NetworkFlowBinding binding) {
-        for (TransferTraceEvent event : traceEvents(report, TransferTraceEvent.Type.START))
-            if (event.getAdmissionOrdinal().longValue() == binding.getAdmissionOrdinal()) return event;
+        for (TransferTraceEvent event : traceEvents(report, TransferTraceEvent.Type.START)) {
+            if (event.getAdmissionOrdinal().longValue() == binding.getAdmissionOrdinal()) {
+                return event;
+            }
+        }
         throw new AssertionError("Missing START for admission " + binding.getAdmissionOrdinal());
     }
 
     private static SimulationReport.JobOutcome computeJob(SimulationReport report, int taskId) {
-        for (SimulationReport.JobOutcome job : report.getJobs())
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
             if (job.getClassType() == Parameters.ClassType.COMPUTE.value
-                    && job.getTaskIds().contains(taskId)) return job;
+                    && job.getTaskIds().contains(taskId)) {
+                return job;
+            }
+        }
         throw new AssertionError("Missing compute Job for Task " + taskId);
     }
 
     private static SimulationReport.JobOutcome jobById(SimulationReport report, int jobId) {
-        for (SimulationReport.JobOutcome job : report.getJobs()) if (job.getJobId() == jobId) return job;
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            if (job.getJobId() == jobId) {
+                return job;
+            }
+        }
         throw new AssertionError("Missing Job " + jobId);
     }
 
     private static SimulationEvent onlyEvent(SimulationReport report, SimulationEventType type, int jobId) {
         List<SimulationEvent> matches = new ArrayList<SimulationEvent>();
-        for (SimulationEvent event : report.getEvents())
-            if (event.getType() == type && Integer.valueOf(jobId).equals(event.getJobId())) matches.add(event);
+        for (SimulationEvent event : report.getEvents()) {
+            if (event.getType() == type && Integer.valueOf(jobId).equals(event.getJobId())) {
+                matches.add(event);
+            }
+        }
         assertEquals(1, matches.size(), "Expected one " + type + " for Job " + jobId);
         return matches.get(0);
     }

@@ -201,12 +201,14 @@ class StorageDataflowRuntimeTest {
             assertTrue(r.isQuiescent());
             assertEquals(11, r.getReplicaSnapshot().getReplica(fid("x"), STORE).getVisibleAt(), 0);
             assertNull(r.captureEvidence());
-            if (budget == 0) assertNull(r.captureStorageEvidence());
-            else
+            if (budget == 0) {
+                assertNull(r.captureStorageEvidence());
+            } else {
                 assertThrows(
                         IllegalArgumentException.class,
                         () -> FileLifecycleCodec.document(
                                 r.captureStorageEvidence().getCapture()));
+            }
         }
     }
 
@@ -228,7 +230,9 @@ class StorageDataflowRuntimeTest {
             boolean storeInputs, int budget, double vmRate, double read, double write, double nic, Task... tasks) {
         Map<Integer, Integer> scopes = new LinkedHashMap<>(), hosts = new LinkedHashMap<>();
         Map<Integer, Double> caps = new LinkedHashMap<>();
-        for (Task t : tasks) scopes.put(t.getCloudletId(), 0);
+        for (Task t : tasks) {
+            scopes.put(t.getCloudletId(), 0);
+        }
         for (int i = 0; i < 2; i++) {
             hosts.put(i, i);
             caps.put(i, vmRate);
@@ -251,7 +255,9 @@ class StorageDataflowRuntimeTest {
 
     private static Task task(int id, FileItem... files) {
         Task t = new Task(id, 1000);
-        for (FileItem f : files) t.addFile(f);
+        for (FileItem f : files) {
+            t.addFile(f);
+        }
         return t;
     }
 
