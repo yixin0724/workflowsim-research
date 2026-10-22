@@ -31,7 +31,9 @@ final class DataflowAssignmentReportView {
 
     /** Null means that the enclosing run has no validated online-assignment evidence. */
     static Map<String, Object> fromValidated(DataflowAssignmentValidator.Result checked) {
-        if (checked == null) return null;
+        if (checked == null) {
+            return null;
+        }
         // Exactly one defensive, already-validated snapshot; never expose its JSON nodes.
         JsonArray assignments = checked.getAssignments();
         long conditionalStoreCount = 0;
@@ -39,7 +41,9 @@ final class DataflowAssignmentReportView {
         // Summaries cover every assignment and its actual selected candidate, before either cap.
         for (JsonElement value : assignments) {
             JsonObject selected = selected(value.getAsJsonObject().getAsJsonObject("attributes"));
-            if (selected.get("conditionalStoreWait").getAsBoolean()) conditionalStoreCount++;
+            if (selected.get("conditionalStoreWait").getAsBoolean()) {
+                conditionalStoreCount++;
+            }
             joinedInputCopyCount = joinedInputCopyCount.add(exact(selected.get("joinedInputCopies")));
         }
 
@@ -133,7 +137,9 @@ final class DataflowAssignmentReportView {
         int vm = attrs.get("selectedVmId").getAsInt();
         for (JsonElement value : attrs.getAsJsonArray("candidates")) {
             JsonObject candidate = value.getAsJsonObject();
-            if (candidate.get("vmId").getAsInt() == vm) return candidate;
+            if (candidate.get("vmId").getAsInt() == vm) {
+                return candidate;
+            }
         }
         // The public validator's Result guarantees this invariant; this is not a second audit.
         throw new IllegalStateException("Validated assignment has no selected candidate");
@@ -142,7 +148,9 @@ final class DataflowAssignmentReportView {
     /** Explicit field lists keep raw main/lifecycle history and workflow labels out of the view. */
     private static Map<String, Object> fields(JsonObject source, String... names) {
         Map<String, Object> row = map();
-        for (String name : names) row.put(name, scalar(source.get(name)));
+        for (String name : names) {
+            row.put(name, scalar(source.get(name)));
+        }
         return freeze(row);
     }
 
@@ -157,10 +165,16 @@ final class DataflowAssignmentReportView {
     }
 
     private static Object scalar(JsonElement value) {
-        if (value.isJsonNull()) return null;
+        if (value.isJsonNull()) {
+            return null;
+        }
         JsonPrimitive primitive = value.getAsJsonPrimitive();
-        if (primitive.isBoolean()) return primitive.getAsBoolean();
-        if (primitive.isNumber()) return decimal(exact(primitive));
+        if (primitive.isBoolean()) {
+            return primitive.getAsBoolean();
+        }
+        if (primitive.isNumber()) {
+            return decimal(exact(primitive));
+        }
         return primitive.getAsString();
     }
 

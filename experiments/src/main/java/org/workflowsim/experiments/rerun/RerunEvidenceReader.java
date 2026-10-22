@@ -73,8 +73,9 @@ public final class RerunEvidenceReader {
             throw fail("Evidence structure validation failed: " + e.getMessage(), e);
         }
         JsonObject snapshot = validated.getManifestSnapshot();
-        if (!SCHEMA_V4.equals(schemaOf(snapshot)))
+        if (!SCHEMA_V4.equals(schemaOf(snapshot))) {
             throw fail("Validated manifest snapshot is not v4; evidence may have changed during reading");
+        }
         return new RerunEvidence(
                 directory,
                 validated.getManifest(),

@@ -60,9 +60,11 @@ final class NetworkReportView {
         Map<String, Object> locality = localitySection(run);
         root.put("locality", freeze(locality));
         Map<Long, NetworkFlowBinding> bindings = new HashMap<Long, NetworkFlowBinding>();
-        for (NetworkFlowBinding b : evidence.getBindings())
-            if (bindings.put(b.getAdmissionOrdinal(), b) != null)
+        for (NetworkFlowBinding b : evidence.getBindings()) {
+            if (bindings.put(b.getAdmissionOrdinal(), b) != null) {
                 throw new IllegalArgumentException("Duplicate display admission binding");
+            }
+        }
         List<Map<String, Object>> flows = flowRows(metrics, bindings);
         root.put("flows", preview(metrics.isAvailable() ? metrics.getFlows().size() : null, FLOW_LIMIT, flows));
         List<Map<String, Object>> resources = resourceRows(metrics);
@@ -126,7 +128,9 @@ final class NetworkReportView {
         for (int index = 0; index < Math.min(FLOW_LIMIT, metrics.getFlows().size()); index++) {
             NetworkTraceMetrics.FlowSummary f = metrics.getFlows().get(index);
             NetworkFlowBinding b = bindings.get(f.getAdmissionOrdinal());
-            if (b == null) throw new IllegalArgumentException("Display flow has no validated admission binding");
+            if (b == null) {
+                throw new IllegalArgumentException("Display flow has no validated admission binding");
+            }
             Map<String, Object> row = map();
             row.put("externalTransferId", number(f.getExternalTransferId()));
             row.put("admissionOrdinal", number(f.getAdmissionOrdinal()));
@@ -230,23 +234,31 @@ final class NetworkReportView {
     }
 
     private String label(String value) {
-        if (value.length() <= LABEL_LIMIT) return value;
+        if (value.length() <= LABEL_LIMIT) {
+            return value;
+        }
         labelsClipped++;
         int end = LABEL_LIMIT;
-        if (Character.isHighSurrogate(value.charAt(end - 1))) end--;
+        if (Character.isHighSurrogate(value.charAt(end - 1))) {
+            end--;
+        }
         return value.substring(0, end) + "…";
     }
 
     private List<String> labels(List<String> values) {
         List<String> shown = new ArrayList<String>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) shown.add(label(values.get(i)));
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) {
+            shown.add(label(values.get(i)));
+        }
         nestedItemsOmitted += Math.max(0, values.size() - LIST_LIMIT);
         return Collections.unmodifiableList(shown);
     }
 
     private List<String> ids(List<Integer> values) {
         List<String> shown = new ArrayList<String>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) shown.add(number(values.get(i)));
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) {
+            shown.add(number(values.get(i)));
+        }
         nestedItemsOmitted += Math.max(0, values.size() - LIST_LIMIT);
         return Collections.unmodifiableList(shown);
     }

@@ -81,13 +81,15 @@ public final class ManifestConfigRebuilder {
             PlatformProfile platform = rebuildPlatform(platformSection);
             SimulationConfig config = rebuildConfiguration(configSection, inputs);
             verifyPreflightAssignments(platformSection, platform);
-            if (config.getDataMovementModel().isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null))
+            if (config.getDataMovementModel().isCoherentStorageDataflowV3() != (platform.getSourceStorage() != null)) {
                 throw new IllegalArgumentException("sourceStorage does not match reconstructed model");
+            }
             if (config.getDataMovementModel().usesCoherentDataflowRuntime() && platform.getNetworkTopology() != null) {
                 int k = platform.getNetworkTopology().getK();
                 double capacity = platform.getNetworkTopology().getLinkBandwidthMbPerSecond() * 1_000_000.0;
-                if (k > 32 || !Double.isFinite(capacity) || capacity < Double.MIN_NORMAL)
+                if (k > 32 || !Double.isFinite(capacity) || capacity < Double.MIN_NORMAL) {
                     throw new IllegalArgumentException("Unsupported V2 topology or converted capacity");
+                }
             }
             return new RebuiltConfiguration(config, platform);
         } catch (IllegalArgumentException
@@ -268,9 +270,10 @@ public final class ManifestConfigRebuilder {
             builder.networkEvidence(
                     org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(config.get("networkEvidence")));
         }
-        if (config.has("dataflowAssignment"))
+        if (config.has("dataflowAssignment")) {
             builder.dataflowAssignment(
                     org.workflowsim.data.v2.DataflowAssignmentConfig.decodeConfig(config.get("dataflowAssignment")));
+        }
         JsonElement taskCostMatrix = config.get("taskCostMatrix");
         if (taskCostMatrix != null && !taskCostMatrix.isJsonNull()) {
             builder.taskCostMatrix(rebuildTaskCostMatrix(taskCostMatrix.getAsJsonObject()));

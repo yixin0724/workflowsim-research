@@ -130,10 +130,13 @@ public final class RerunReport {
 
     /** 机器可读JSON；旧字段保留null，网络覆盖说明只在截断时增加。 */
     public String toJson() {
-        if (networkEvidenceCoverageNote == null) return JSON.toJson(this);
+        if (networkEvidenceCoverageNote == null) {
+            return JSON.toJson(this);
+        }
         JsonObject document = JSON.toJsonTree(this).getAsJsonObject();
-        if (networkEvidenceCoverageNote != null)
+        if (networkEvidenceCoverageNote != null) {
             document.addProperty("networkEvidenceCoverageNote", networkEvidenceCoverageNote);
+        }
         return JSON.toJson(document);
     }
 

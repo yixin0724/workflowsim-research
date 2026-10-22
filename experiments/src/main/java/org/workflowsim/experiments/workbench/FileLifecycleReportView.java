@@ -131,7 +131,9 @@ final class FileLifecycleReportView {
     private List<Map<String, Object>> copiesRows(FileLifecycleCodec.Decoded decoded, LifecycleScan scan) {
         List<Map<String, Object>> copies = new ArrayList<>();
         for (Map.Entry<Long, JsonObject> entry : scan.admissions.entrySet()) {
-            if (copies.size() == COPY_LIMIT) break;
+            if (copies.size() == COPY_LIMIT) {
+                break;
+            }
             copies.add(copyRow(entry.getValue(), scan.settlements.get(entry.getKey())));
         }
         return copies;
@@ -296,24 +298,31 @@ final class FileLifecycleReportView {
     }
 
     private String label(String value) {
-        if (value.length() <= LABEL_LIMIT) return value;
+        if (value.length() <= LABEL_LIMIT) {
+            return value;
+        }
         labelsClipped++;
         int end = LABEL_LIMIT;
-        if (Character.isHighSurrogate(value.charAt(end - 1))) end--;
+        if (Character.isHighSurrogate(value.charAt(end - 1))) {
+            end--;
+        }
         return value.substring(0, end) + "…";
     }
 
     private List<String> labels(JsonArray values) {
         List<String> shown = new ArrayList<>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++)
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) {
             shown.add(label(values.get(i).getAsString()));
+        }
         nestedItemsOmitted += omitted(values);
         return immutableList(shown);
     }
 
     private List<String> ids(JsonArray values) {
         List<String> shown = new ArrayList<>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) shown.add(integer(values.get(i)));
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) {
+            shown.add(integer(values.get(i)));
+        }
         nestedItemsOmitted += omitted(values);
         return immutableList(shown);
     }

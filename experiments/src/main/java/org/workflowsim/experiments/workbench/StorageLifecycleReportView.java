@@ -113,9 +113,11 @@ final class StorageLifecycleReportView {
             switch (event.get("type").getAsString()) {
                 case "COPY_ADMITTED":
                     scan.admissions.put(payload.get("copyOrdinal").getAsLong(), event);
-                    if (isOutput(payload))
+                    if (isOutput(payload)) {
                         scan.totals.admittedOutput = scan.totals.admittedOutput.add(exact(payload.get("bytes")));
-                    else scan.totals.admittedInput = scan.totals.admittedInput.add(exact(payload.get("bytes")));
+                    } else {
+                        scan.totals.admittedInput = scan.totals.admittedInput.add(exact(payload.get("bytes")));
+                    }
                     break;
                 case "COPY_SETTLED":
                     applyCopySettled(event, payload, scan);
@@ -164,7 +166,9 @@ final class StorageLifecycleReportView {
         if (isOutput(admitted)) {
             scan.totals.settledOutput = scan.totals.settledOutput.add(bytes);
             scan.lastStoreCommit = maximum(scan.lastStoreCommit, exact(event.get("observedTime")));
-        } else scan.totals.settledInput = scan.totals.settledInput.add(bytes);
+        } else {
+            scan.totals.settledInput = scan.totals.settledInput.add(bytes);
+        }
         scan.totals.residual = scan.totals.residual.add(exact(payload.get("remainingAfterService")));
     }
 
@@ -223,7 +227,9 @@ final class StorageLifecycleReportView {
     private List<Map<String, Object>> copiesRows(StorageLifecycleCodec.Decoded decoded, StorageScan scan) {
         List<Map<String, Object>> copies = new ArrayList<>();
         for (Map.Entry<Long, JsonObject> entry : scan.admissions.entrySet()) {
-            if (copies.size() == COPY_LIMIT) break;
+            if (copies.size() == COPY_LIMIT) {
+                break;
+            }
             copies.add(copyRow(entry.getValue(), scan.settlements.get(entry.getKey())));
         }
         return copies;
@@ -255,7 +261,9 @@ final class StorageLifecycleReportView {
     private List<Map<String, Object>> jobRows(StorageScan scan) {
         List<Map<String, Object>> jobRows = new ArrayList<>();
         for (Job job : scan.jobs.values()) {
-            if (jobRows.size() == JOB_LIMIT) break;
+            if (jobRows.size() == JOB_LIMIT) {
+                break;
+            }
             jobRows.add(job.display());
         }
         return jobRows;
@@ -442,24 +450,31 @@ final class StorageLifecycleReportView {
     }
 
     private String label(String value) {
-        if (value.length() <= LABEL_LIMIT) return value;
+        if (value.length() <= LABEL_LIMIT) {
+            return value;
+        }
         labelsClipped++;
         int end = LABEL_LIMIT;
-        if (Character.isHighSurrogate(value.charAt(end - 1))) end--;
+        if (Character.isHighSurrogate(value.charAt(end - 1))) {
+            end--;
+        }
         return value.substring(0, end) + "…";
     }
 
     private List<String> labels(JsonArray values) {
         List<String> shown = new ArrayList<>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++)
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) {
             shown.add(label(values.get(i).getAsString()));
+        }
         nestedItemsOmitted += omitted(values);
         return immutableList(shown);
     }
 
     private List<String> ids(JsonArray values) {
         List<String> shown = new ArrayList<>();
-        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) shown.add(integer(values.get(i)));
+        for (int i = 0; i < Math.min(LIST_LIMIT, values.size()); i++) {
+            shown.add(integer(values.get(i)));
+        }
         nestedItemsOmitted += omitted(values);
         return immutableList(shown);
     }

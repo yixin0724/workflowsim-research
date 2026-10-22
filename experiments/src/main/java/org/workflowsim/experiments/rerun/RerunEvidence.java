@@ -112,9 +112,10 @@ public final class RerunEvidence {
         org.workflowsim.data.NetworkEvidenceConfig option = org.workflowsim.data.NetworkEvidenceConfig.off();
         if (manifest.has("configuration")
                 && manifest.get("configuration").isJsonObject()
-                && manifest.getAsJsonObject("configuration").has("networkEvidence"))
+                && manifest.getAsJsonObject("configuration").has("networkEvidence")) {
             option = org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(
                     manifest.getAsJsonObject("configuration").get("networkEvidence"));
+        }
         boolean group = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,
                 file = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,
                 storage = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;

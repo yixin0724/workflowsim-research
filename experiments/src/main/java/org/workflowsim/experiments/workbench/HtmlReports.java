@@ -111,14 +111,26 @@ public final class HtmlReports {
 
         void attachTo(Map<String, Object> row) {
             row.put("manifest", manifest);
-            if (network == null) row.remove("networkEvidence");
-            else row.put("networkEvidence", network);
-            if (fileLifecycle == null) row.remove("fileLifecycle");
-            else row.put("fileLifecycle", fileLifecycle);
-            if (storageLifecycle == null) row.remove("storageLifecycle");
-            else row.put("storageLifecycle", storageLifecycle);
-            if (dataflowAssignment == null) row.remove("dataflowAssignment");
-            else row.put("dataflowAssignment", dataflowAssignment);
+            if (network == null) {
+                row.remove("networkEvidence");
+            } else {
+                row.put("networkEvidence", network);
+            }
+            if (fileLifecycle == null) {
+                row.remove("fileLifecycle");
+            } else {
+                row.put("fileLifecycle", fileLifecycle);
+            }
+            if (storageLifecycle == null) {
+                row.remove("storageLifecycle");
+            } else {
+                row.put("storageLifecycle", storageLifecycle);
+            }
+            if (dataflowAssignment == null) {
+                row.remove("dataflowAssignment");
+            } else {
+                row.put("dataflowAssignment", dataflowAssignment);
+            }
         }
     }
 
