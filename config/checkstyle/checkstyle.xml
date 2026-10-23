@@ -118,8 +118,17 @@
 
         <!-- 空白机械项（约 2.6 万条基线，Phase 4 formatter 主力） -->
         <module name="WhitespaceAfter"/>
+        <!-- Tier-A promote（2026-10-23，三支柱裁决批）：158 处尾款定性为
+             `private Foo() {}` 工具类构造卫语句（79 类恰好一对）；另有 4 处空方法族。
+             Palantir 正典格式器对一切空体恒输出 `{}`——与 allowEmptyTypes 同族血统，
+             补齐 allowEmptyConstructors/allowEmptyMethods/allowEmptyLambdas 后全树清零晋级。
+             非空体的空白环绕仍零容忍，新违例即拦；空体家族再增需同步本台账。 -->
         <module name="WhitespaceAround">
+            <property name="severity" value="error"/>
             <property name="allowEmptyTypes" value="true"/>
+            <property name="allowEmptyConstructors" value="true"/>
+            <property name="allowEmptyMethods" value="true"/>
+            <property name="allowEmptyLambdas" value="true"/>
         </module>
         <module name="MethodParamPad"/>
         <module name="ParenPad"/>

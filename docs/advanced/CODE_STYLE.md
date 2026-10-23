@@ -39,6 +39,7 @@ python3 -B scripts/check-docs.py
 - 规则台账与分级定义唯一维护点：[checkstyle 配置](<../../config/checkstyle/checkstyle.xml>)；测试豁免面见[豁免清单](<../../config/checkstyle/suppressions.xml>)。
 - 分级：**Tier-A（error 级）**为一票否决的语义/正确性规则（命名契约、重复导入、空语句、`equals/hashCode` 契约、字符串`==`、`default`不居末），由 `mvn validate` 起的 `checkstyle:check` 门禁强制失败；**Tier-B（warning 级）**为格式/长度/复杂度建议规则，存量以基线报告在册。
 - ratchet 纪律：规则只增不减。Tier-B 某项存量清零后晋级为 error（阈值与豁免面只能收紧，任何放宽视同契约变更须人工评审）；formatter 归一与存量修复记录见 Git 历史，规范落地进度不在此页复制（避免易变数值成为文档债）。
+- 契约修订备案（2026-10-23，用户裁决批准）：WhitespaceAround 补齐空体族属性 `allowEmptyConstructors` / `allowEmptyMethods` / `allowEmptyLambdas` 后全树清零并晋级 Tier-A。性质为与 Palantir 正典格式器（空体恒输出 `{}`）的边界对齐，同族先例 `allowEmptyTypes` 一脉；非空体空白环绕仍零容忍。该阈值放宽按上条纪律完成人工评审（裁决包 2026-10-23 整体批准）。
 - 分层豁免：`org.cloudbus` 上游代码整体退出门禁（不为其引入格式债务）；测试代码豁免体量/复杂度类指标但**不豁免语义防护类**。
 - 修复提交纪律：格式/导入/命名整形一律 `format-only:` 前缀提交，与逻辑变更永不同一 commit；巨方法拆分先全测试绿后提交。
 - 独立验证：`mvn -q validate`（门禁）；`make audit` 或 CI 的 `mvn -B -Pjavadoc verify` 全链路生效。
