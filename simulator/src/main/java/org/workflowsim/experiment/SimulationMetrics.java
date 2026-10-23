@@ -19,6 +19,13 @@ import org.workflowsim.utils.SimulationConfig;
 /**
  * 从不可变 {@link SimulationReport} 推导出的、名称明确的模型层指标。
  * 这些值描述的是本次模拟器运行，不是生产工作流执行的实测数据。
+ *
+ * <p><b>MethodLength 判例（2026-10-23）。</b>本类唯二的超限段落——
+ * 构造器与 {@code assembleMetrics(...)}——是结构性不可约：一个
+ * ~77 字段不可变指标账本的逐一赋值构造 + 单一 77 参数原子快照调用。任何"提取"
+ * 只会制造人工碎片、破坏快照组装的内聚性，且经逐字段核对不存在可分组的语义簇。
+ * 依据 MethodLength Tier-B 判例账，此两处登记为 documented irreducible，不强制清零；
+ * 清该判例的唯一正当路径是指标字段的契约性重组（属于 schema 提案，非风格重构）。</p>
  */
 public final class SimulationMetrics {
 

@@ -216,39 +216,16 @@ public final class TransferTraceValidator {
                 TransferTraceEvent e = events.get(index);
                 switch (e.getType()) {
                     case CAPACITY:
-                        require(active.isEmpty(), at("Capacity changed while flows active"));
-                        require(e.getEffectiveTime() >= cursor, at("Capacity precedes engine cursor"));
-                        cursor = e.getEffectiveTime();
-                        capacities.put(
-                                e.getCapacity().getResourceKey(),
-                                e.getCapacity().getCapacityBytesPerSecond());
-                        index++;
-                        certified = index;
+                        applyCapacityEvent(e);
                         break;
                     case START:
-                        if (active.isEmpty()) {
-                            require(e.getEffectiveTime() >= cursor, at("Admission precedes cursor"));
-                            cursor = e.getEffectiveTime();
-                        } else {
-                            same(cursor, e.getEffectiveTime(), at("Unexplained active time gap before admission"));
-                        }
-                        require(e.getAdmissionOrdinal() == nextOrdinal, at("Admission ordinal gap or reuse"));
-                        require(!externalIds.containsKey(e.getTransferId()), at("External ID reused while active"));
-                        Flow admitted = new Flow(e);
-                        active.put(admitted.ordinal, admitted);
-                        externalIds.put(admitted.externalId, admitted.ordinal);
-                        nextOrdinal++;
-                        index++;
-                        if (!rates(admitted.ordinal, e.getObservedTime(), "ADMISSION_RATE_CHANGES")) {
+                        if (!applyAdmissionEvent(e)) {
                             break;
                         }
                         break;
                     case SERVICE_SEGMENT:
                     case COMPLETE:
-                        require(!active.isEmpty(), at("Service/settlement without active flows"));
-                        require(e.getObservedTime() > cursor, at("Advance must observe a later time"));
-                        horizon = e.getObservedTime();
-                        if (!step()) {
+                        if (!applyServiceEvent(e)) {
                             break;
                         }
                         break;
@@ -280,6 +257,55 @@ public final class TransferTraceValidator {
             }
             require(snapshot.getEngineTime() >= cursor, "Snapshot watermark precedes validated cursor");
             tail = truncated ? "PREFIX_AT_BOUNDARY" : "READY";
+        }
+
+        /**
+         * Capacity-transition handler extracted from {@link #run()} (2026-10-23; statements
+         * verbatim): capacity may only change with no active flows, must not precede the
+         * engine cursor, and always advances the certified prefix.
+         */
+        private void applyCapacityEvent(TransferTraceEvent e) {
+            require(active.isEmpty(), at("Capacity changed while flows active"));
+            require(e.getEffectiveTime() >= cursor, at("Capacity precedes engine cursor"));
+            cursor = e.getEffectiveTime();
+            capacities.put(e.getCapacity().getResourceKey(), e.getCapacity().getCapacityBytesPerSecond());
+            index++;
+            certified = index;
+        }
+
+        /**
+         * Admission handler extracted from {@link #run()} (2026-10-23; statements verbatim).
+         * Returns the admission-rate revaluation result: {@code false} stops the replay loop
+         * at this event, exactly as the former inline {@code break}.
+         */
+        private boolean applyAdmissionEvent(TransferTraceEvent e) {
+            if (active.isEmpty()) {
+                require(e.getEffectiveTime() >= cursor, at("Admission precedes cursor"));
+                cursor = e.getEffectiveTime();
+            } else {
+                same(cursor, e.getEffectiveTime(), at("Unexplained active time gap before admission"));
+            }
+            require(e.getAdmissionOrdinal() == nextOrdinal, at("Admission ordinal gap or reuse"));
+            require(!externalIds.containsKey(e.getTransferId()), at("External ID reused while active"));
+            Flow admitted = new Flow(e);
+            active.put(admitted.ordinal, admitted);
+            externalIds.put(admitted.externalId, admitted.ordinal);
+            nextOrdinal++;
+            index++;
+            return rates(admitted.ordinal, e.getObservedTime(), "ADMISSION_RATE_CHANGES");
+        }
+
+        /**
+         * Service/settlement handler extracted from {@link #run()} (2026-10-23; statements
+         * verbatim). Sets the observed horizon and reports whether the following allocation
+         * step succeeded; {@code false} stops the replay loop exactly as the former inline
+         * {@code break}.
+         */
+        private boolean applyServiceEvent(TransferTraceEvent e) {
+            require(!active.isEmpty(), at("Service/settlement without active flows"));
+            require(e.getObservedTime() > cursor, at("Advance must observe a later time"));
+            horizon = e.getObservedTime();
+            return step();
         }
 
         boolean rates(Long excluded, double observed, String phase) {
@@ -388,27 +414,8 @@ public final class TransferTraceValidator {
             }
             long continuation = end < observed ? before.size() - settled.size() : 0L;
             if (elapsed > 0) {
-                for (int i = 0; i < before.size(); i++) {
-                    if (index == events.size()) {
-                        cut("SERVICE_BATCH", before.size() - i + settled.size() + continuation);
-                        return false;
-                    }
-                    TransferTraceEvent e = events.get(index);
-                    Flow f = before.get(i);
-                    require(
-                            e.getType() == TransferTraceEvent.Type.SERVICE_SEGMENT,
-                            at("Missing SERVICE in active-flow batch"));
-                    identity(e, f);
-                    TransferTraceEvent.ServiceSegment s = e.getServiceSegment();
-                    same(cursor, s.getIntervalStart(), at("Service start mismatch"));
-                    same(end, s.getIntervalEnd(), at("Service end mismatch"));
-                    same(end, e.getEffectiveTime(), at("Service effective-time mismatch"));
-                    same(observed, e.getObservedTime(), at("Service observation horizon mismatch"));
-                    same(elapsed, s.getElapsed(), at("Service elapsed mismatch"));
-                    same(f.rate, s.getRateBytesPerSecond(), at("Service rate mismatch"));
-                    same(f.remaining, s.getRemainingBefore(), at("Service balance discontinuity"));
-                    same(after.get(f.ordinal), s.getRemainingAfter(), at("Service subtraction/clamp mismatch"));
-                    index++;
+                if (!validateServiceBatch(before, settled, after, continuation, end, observed, elapsed)) {
+                    return false;
                 }
             } else {
                 require(
@@ -420,6 +427,60 @@ public final class TransferTraceValidator {
             }
             cursor = end;
             require(elapsed != 0.0 || !settled.isEmpty(), at("Zero step made no progress"));
+            if (!validateCompletionCohort(settled, continuation, observed)) {
+                return false;
+            }
+            if (!settled.isEmpty()) {
+                return rates(null, observed, "COMPLETION_RATE_CHANGES");
+            }
+            certified = index;
+            return true;
+        }
+
+        /**
+         * SERVICE_SEGMENT emission batch extracted from {@link #step()} (2026-10-23;
+         * statements verbatim, shares the replay cursor's state). Returns {@code false} when
+         * the truncated cut fires, exactly like the former inline early return.
+         */
+        private boolean validateServiceBatch(
+                List<Flow> before,
+                List<Flow> settled,
+                Map<Long, Double> after,
+                long continuation,
+                double end,
+                double observed,
+                double elapsed) {
+            for (int i = 0; i < before.size(); i++) {
+                if (index == events.size()) {
+                    cut("SERVICE_BATCH", before.size() - i + settled.size() + continuation);
+                    return false;
+                }
+                TransferTraceEvent e = events.get(index);
+                Flow f = before.get(i);
+                require(
+                        e.getType() == TransferTraceEvent.Type.SERVICE_SEGMENT,
+                        at("Missing SERVICE in active-flow batch"));
+                identity(e, f);
+                TransferTraceEvent.ServiceSegment s = e.getServiceSegment();
+                same(cursor, s.getIntervalStart(), at("Service start mismatch"));
+                same(end, s.getIntervalEnd(), at("Service end mismatch"));
+                same(end, e.getEffectiveTime(), at("Service effective-time mismatch"));
+                same(observed, e.getObservedTime(), at("Service observation horizon mismatch"));
+                same(elapsed, s.getElapsed(), at("Service elapsed mismatch"));
+                same(f.rate, s.getRateBytesPerSecond(), at("Service rate mismatch"));
+                same(f.remaining, s.getRemainingBefore(), at("Service balance discontinuity"));
+                same(after.get(f.ordinal), s.getRemainingAfter(), at("Service subtraction/clamp mismatch"));
+                index++;
+            }
+            return true;
+        }
+
+        /**
+         * COMPLETE emission cohort extracted from {@link #step()} (2026-10-23; statements
+         * verbatim). Returns {@code false} when the truncated cut fires, exactly like the
+         * former inline early return; consummates removal bookkeeping per settled flow.
+         */
+        private boolean validateCompletionCohort(List<Flow> settled, long continuation, double observed) {
             for (int i = 0; i < settled.size(); i++) {
                 if (index == events.size()) {
                     cut("COMPLETION_COHORT", settled.size() - i + continuation);
@@ -440,10 +501,6 @@ public final class TransferTraceValidator {
                 completed++;
                 index++;
             }
-            if (!settled.isEmpty()) {
-                return rates(null, observed, "COMPLETION_RATE_CHANGES");
-            }
-            certified = index;
             return true;
         }
 
@@ -473,29 +530,7 @@ public final class TransferTraceValidator {
                         r.load.subtract(decimal(r.capacity)).compareTo(ulpBudget(r.capacity, r.terms)) <= 0,
                         at("Already-fixed prefix allocation exceeds resource capacity"));
             }
-            Map<Long, BigDecimal> variableUpper = new HashMap<Long, BigDecimal>();
-            for (Flow flow : active.values()) {
-                if (variable.contains(flow.ordinal)) {
-                    BigDecimal upper = decimal(flow.nominal);
-                    Map<String, Long> multiplicity = new HashMap<String, Long>();
-                    for (String key : flow.resources) {
-                        multiplicity.put(key, multiplicity.containsKey(key) ? multiplicity.get(key) + 1L : 1L);
-                    }
-                    for (Map.Entry<String, Long> entry : multiplicity.entrySet()) {
-                        Resource r = fixed.get(entry.getKey());
-                        if (r == null) {
-                            continue;
-                        }
-                        BigDecimal available = decimal(r.capacity)
-                                .add(ulpBudget(r.capacity, r.terms))
-                                .subtract(r.load);
-                        require(available.signum() > 0, at("No positive capacity remains for a variable prefix flow"));
-                        upper = upper.min(available.divide(
-                                BigDecimal.valueOf(entry.getValue()), new MathContext(40, RoundingMode.CEILING)));
-                    }
-                    variableUpper.put(flow.ordinal, upper);
-                }
-            }
+            Map<Long, BigDecimal> variableUpper = variableUpperBounds(variable, fixed);
             for (Flow flow : active.values()) {
                 if (variable.contains(flow.ordinal) || near(flow.rate, flow.nominal, active.size())) {
                     continue;
@@ -537,6 +572,39 @@ public final class TransferTraceValidator {
                 }
                 require(possible, at("Fixed prefix rate cannot acquire any max-min bottleneck certificate"));
             }
+        }
+
+        /**
+         * Upper bounds for still-variable prefix flows extracted from
+         * {@link #fixedAllocationBounds(Set)} (2026-10-23; statements verbatim): each variable
+         * flow's nominal rate capped by remaining shareable capacity on every fixed resource,
+         * with ceiling division against its resource multiplicity.
+         */
+        private Map<Long, BigDecimal> variableUpperBounds(Set<Long> variable, Map<String, Resource> fixed) {
+            Map<Long, BigDecimal> variableUpper = new HashMap<Long, BigDecimal>();
+            for (Flow flow : active.values()) {
+                if (variable.contains(flow.ordinal)) {
+                    BigDecimal upper = decimal(flow.nominal);
+                    Map<String, Long> multiplicity = new HashMap<String, Long>();
+                    for (String key : flow.resources) {
+                        multiplicity.put(key, multiplicity.containsKey(key) ? multiplicity.get(key) + 1L : 1L);
+                    }
+                    for (Map.Entry<String, Long> entry : multiplicity.entrySet()) {
+                        Resource r = fixed.get(entry.getKey());
+                        if (r == null) {
+                            continue;
+                        }
+                        BigDecimal available = decimal(r.capacity)
+                                .add(ulpBudget(r.capacity, r.terms))
+                                .subtract(r.load);
+                        require(available.signum() > 0, at("No positive capacity remains for a variable prefix flow"));
+                        upper = upper.min(available.divide(
+                                BigDecimal.valueOf(entry.getValue()), new MathContext(40, RoundingMode.CEILING)));
+                    }
+                    variableUpper.put(flow.ordinal, upper);
+                }
+            }
+            return variableUpper;
         }
 
         void allocation() {

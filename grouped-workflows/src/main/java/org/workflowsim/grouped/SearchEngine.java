@@ -975,30 +975,14 @@ public final class SearchEngine {
      */
     private void jointGenetic() {
         operator = "pooled_initialization";
-        List<Value> population = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        for (Value seed : seeds) {
-            if (seen.add(seed.key)) {
-                population.add(seed);
-            }
-        }
-        while (population.size() < cfg.population && available()) {
-            int[][] partition = partitions.get(random.nextInt(partitions.size()));
-            Value value = evaluate(InitialPlans.construct(s, partition, "random", random));
-            if (value == null) {
-                break;
-            }
-            population.add(value);
-        }
+        List<Value> population = initialPopulation();
         if (population.size() < 2) {
             return;
         }
         while (available()) {
             operator = "order_evolution";
-            int ia = tournament(population), ib = tournament(population);
-            if (ia == ib) {
-                ib = (ib + 1) % population.size();
-            }
+            int[] pair = parentPair(population);
+            int ia = pair[0], ib = pair[1];
             Value a = population.get(ia), b = population.get(ib);
             List<Value> family = new ArrayList<>(Arrays.asList(a, b));
             for (int direction = 0; direction < 2 && available(); direction++) {
@@ -1068,6 +1052,41 @@ public final class SearchEngine {
             population.set(ib, family.get(1));
             iterations++;
         }
+    }
+
+    /** Initial pooled population (2026-10-23 extraction; statements verbatim from
+     * jointGenetic): seed values deduplicated by key, then random legal constructions fill
+     * the configured size while budget remains. Stops early when a construction fails.
+     */
+    private List<Value> initialPopulation() {
+        List<Value> population = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Value seed : seeds) {
+            if (seen.add(seed.key)) {
+                population.add(seed);
+            }
+        }
+        while (population.size() < cfg.population && available()) {
+            int[][] partition = partitions.get(random.nextInt(partitions.size()));
+            Value value = evaluate(InitialPlans.construct(s, partition, "random", random));
+            if (value == null) {
+                break;
+            }
+            population.add(value);
+        }
+        return population;
+    }
+
+    /** Tournament-selected parent pair (2026-10-23 extraction; statements verbatim from
+     * jointGenetic): two independent tournament draws; same-index collisions advance by one
+     * modulo the population size so a and b always differ.
+     */
+    private int[] parentPair(List<Value> population) {
+        int ia = tournament(population), ib = tournament(population);
+        if (ia == ib) {
+            ib = (ib + 1) % population.size();
+        }
+        return new int[] {ia, ib};
     }
 
     private int[] transport(Value from, PackageCompiler.Compiled to) {

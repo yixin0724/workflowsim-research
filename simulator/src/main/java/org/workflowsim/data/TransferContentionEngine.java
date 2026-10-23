@@ -770,6 +770,24 @@ public final class TransferContentionEngine {
                 }
             }
         }
+        fillProgressively(growing, resources);
+        for (Transfer transfer : activeTransfers.values()) {
+            if (!(transfer.rateBytesPerSecond > 0.0) || !Double.isFinite(transfer.rateBytesPerSecond)) {
+                throw new IllegalStateException("Effective transfer rate must remain positive and finite");
+            }
+        }
+        if (coherentChecked) {
+            checkCoherentState();
+        }
+    }
+
+    /**
+     * Progressive-filling max-min allocation loop (F-2026-10-23 extraction; statement order and
+     * iteration order are preserved verbatim from the former inline loop body of
+     * {@link #recomputeRates()}). Terminates only when every remaining transfer freezes; no
+     * progress is a solver contract violation and fails fast.
+     */
+    private void fillProgressively(List<Transfer> growing, Map<String, FillResource> resources) {
         while (!growing.isEmpty()) {
             for (FillResource resource : resources.values()) {
                 resource.growingOccupancy = 0L;
@@ -813,14 +831,6 @@ public final class TransferContentionEngine {
                 throw new IllegalStateException("Max-min solver made no progress");
             }
             growing = survivors;
-        }
-        for (Transfer transfer : activeTransfers.values()) {
-            if (!(transfer.rateBytesPerSecond > 0.0) || !Double.isFinite(transfer.rateBytesPerSecond)) {
-                throw new IllegalStateException("Effective transfer rate must remain positive and finite");
-            }
-        }
-        if (coherentChecked) {
-            checkCoherentState();
         }
     }
 

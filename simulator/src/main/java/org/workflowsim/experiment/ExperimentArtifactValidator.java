@@ -43,43 +43,9 @@ public final class ExperimentArtifactValidator {
      * @throws IllegalArgumentException 当 {@code manifestPath} 为空时抛出
      */
     public static ValidationResult validate(Path manifestPath) throws IOException {
-        if (manifestPath == null) {
-            throw new IllegalArgumentException("Manifest path is required");
-        }
-        Path manifest = manifestPath.toAbsolutePath().normalize();
-        if (!Files.isRegularFile(manifest)) {
-            throw new IOException("Experiment manifest does not exist: " + manifest);
-        }
-        byte[] manifestBytes = Files.readAllBytes(manifest);
-        JsonObject root = object(manifestBytes, "experiment manifest");
-        if (isCoherentManifest(root)) {
-            try {
-                root = org.workflowsim.data.NetworkLedgerCodec.parseDocument(strictUtf8(manifestBytes));
-            } catch (IllegalArgumentException invalid) {
-                throw new IOException("Invalid strict V2 manifest JSON", invalid);
-            }
-        }
+        JsonObject root = openManifest(manifestPath);
         String schema = requireString(root, "schema", "experiment manifest");
-        if (!MANIFEST_SCHEMA_V2.equals(schema)
-                && !MANIFEST_SCHEMA_V3.equals(schema)
-                && !MANIFEST_SCHEMA_V4.equals(schema)) {
-            throw new IOException("Unsupported experiment manifest schema: " + schema);
-        }
-        if ((isCoherentManifest(root)
-                        || root.has("dataflowPlan")
-                        || (root.has("platform")
-                                && root.get("platform").isJsonObject()
-                                && root.getAsJsonObject("platform").has("sourceStorage")))
-                && !MANIFEST_SCHEMA_V4.equals(schema)) {
-            throw new IOException("Coherent V2 dataflow requires manifest v4");
-        }
-        validateManifestTopLevelShape(root);
-        if (MANIFEST_SCHEMA_V3.equals(schema) || MANIFEST_SCHEMA_V4.equals(schema)) {
-            validateV3Provenance(requireObject(root, "provenance", "experiment manifest"));
-        }
-        if (MANIFEST_SCHEMA_V4.equals(schema)) {
-            ManifestV4Validator.validate(root);
-        }
+        Path manifest = manifestPath.toAbsolutePath().normalize();
         JsonObject eventSummary = requireObject(root, "events", "experiment manifest");
         int expectedEvents = requireInt(eventSummary, "eventCount", "manifest events");
         JsonObject manifestMetrics = requireObject(root, "metrics", "experiment manifest");
@@ -126,6 +92,53 @@ public final class ExperimentArtifactValidator {
                 storageDecoded,
                 root,
                 fileContext);
+    }
+
+    /**
+     * Manifest opening and schema gate extracted from
+     * {@link #validate(Path)} (2026-10-23; statement order verbatim including the coherent
+     * strict re-parse): null/regular-file checks, the supported-schema whitelist, the
+     * coherent-requires-v4 gate, top-level shape validation, and v3/v4 provenance gates.
+     */
+    private static JsonObject openManifest(Path manifestPath) throws IOException {
+        if (manifestPath == null) {
+            throw new IllegalArgumentException("Manifest path is required");
+        }
+        Path manifest = manifestPath.toAbsolutePath().normalize();
+        if (!Files.isRegularFile(manifest)) {
+            throw new IOException("Experiment manifest does not exist: " + manifest);
+        }
+        byte[] manifestBytes = Files.readAllBytes(manifest);
+        JsonObject root = object(manifestBytes, "experiment manifest");
+        if (isCoherentManifest(root)) {
+            try {
+                root = org.workflowsim.data.NetworkLedgerCodec.parseDocument(strictUtf8(manifestBytes));
+            } catch (IllegalArgumentException invalid) {
+                throw new IOException("Invalid strict V2 manifest JSON", invalid);
+            }
+        }
+        String schema = requireString(root, "schema", "experiment manifest");
+        if (!MANIFEST_SCHEMA_V2.equals(schema)
+                && !MANIFEST_SCHEMA_V3.equals(schema)
+                && !MANIFEST_SCHEMA_V4.equals(schema)) {
+            throw new IOException("Unsupported experiment manifest schema: " + schema);
+        }
+        if ((isCoherentManifest(root)
+                        || root.has("dataflowPlan")
+                        || (root.has("platform")
+                                && root.get("platform").isJsonObject()
+                                && root.getAsJsonObject("platform").has("sourceStorage")))
+                && !MANIFEST_SCHEMA_V4.equals(schema)) {
+            throw new IOException("Coherent V2 dataflow requires manifest v4");
+        }
+        validateManifestTopLevelShape(root);
+        if (MANIFEST_SCHEMA_V3.equals(schema) || MANIFEST_SCHEMA_V4.equals(schema)) {
+            validateV3Provenance(requireObject(root, "provenance", "experiment manifest"));
+        }
+        if (MANIFEST_SCHEMA_V4.equals(schema)) {
+            ManifestV4Validator.validate(root);
+        }
+        return root;
     }
 
     /** validate() 的结果装配阶段（逐字搬运转写）。 */

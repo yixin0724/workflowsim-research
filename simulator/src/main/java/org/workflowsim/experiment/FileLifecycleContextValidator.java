@@ -166,6 +166,17 @@ final class FileLifecycleContextValidator {
                 throw fail("V2 plan control parents differ from workflowGraph");
             }
         }
+        validateWorkflowScopeMapping(config, root, tasks);
+    }
+
+    /**
+     * Workflow-scope mapping check extracted from {@link #validatePlanContext(JsonObject)}
+     * (2026-10-23; statement order preserved verbatim): the declared arrival vector, the
+     * observed workflow outcomes, and the plan's per-Task input indexation must describe one
+     * contiguous, non-overlapping Task-id partition.
+     */
+    private static void validateWorkflowScopeMapping(JsonObject config, JsonObject root, Map<Integer, JsonObject> tasks)
+            throws IOException {
         JsonArray inputs = arr(config, "workflowArrivalSeconds"),
                 outcomes = arr(obj(root, "result"), "workflowOutcomes");
         if (inputs.size() != outcomes.size()) {
@@ -637,16 +648,7 @@ final class FileLifecycleContextValidator {
             throw fail("V3 observed preparation latency differs");
         }
         requireText(stageAttrs, "dataMovementModel", text(decoded.getDocument(), "modelKind"));
-        ReferenceTotals totals = referenceTotals.get(id);
-        if (totals == null
-                || whole(need(stageAttrs, "modeledTransferFileCount")) != totals.references
-                || number(need(stageAttrs, "requiredFileBytes")) != totals.bytes
-                || number(need(stageAttrs, "modeledTransferSeconds")) != totals.seconds
-                || integer(need(stageAttrs, "newFileCopies")) != totals.created
-                || integer(need(stageAttrs, "joinedFileCopies")) != totals.joined
-                || stageAttrs.has("contentionTransferGroupCount")) {
-            throw fail("V2 stage-in main quantities disagree with file lifecycle references");
-        }
+        verifyStageInReferenceTotals(id, stageAttrs);
         JsonObject readyAttrs = obj(ready, "attributes");
         if (retries.containsKey(id)) {
             if (integer(need(readyAttrs, "retryOfFailedJobId")) != retries.get(id)) {
@@ -672,6 +674,26 @@ final class FileLifecycleContextValidator {
         }
         if (!retries.containsKey(id) && !initialTasks.add(job.task)) {
             throw fail("Multiple initial Job attempts for one logical Task");
+        }
+    }
+
+    /**
+     * Stage-in main-quantity cross-check extracted from
+     * {@link #verifyJobLifecycleAnchors(Map.Entry, Set, Set)} (2026-10-23; statement order
+     * preserved verbatim): the stage-in event's transfer file count, byte volume, modeled
+     * seconds, and copy counters must equal the audited file-lifecycle reference totals, and
+     * the coherent stage-in path must never carry contention-group fields.
+     */
+    private void verifyStageInReferenceTotals(int id, JsonObject stageAttrs) throws IOException {
+        ReferenceTotals totals = referenceTotals.get(id);
+        if (totals == null
+                || whole(need(stageAttrs, "modeledTransferFileCount")) != totals.references
+                || number(need(stageAttrs, "requiredFileBytes")) != totals.bytes
+                || number(need(stageAttrs, "modeledTransferSeconds")) != totals.seconds
+                || integer(need(stageAttrs, "newFileCopies")) != totals.created
+                || integer(need(stageAttrs, "joinedFileCopies")) != totals.joined
+                || stageAttrs.has("contentionTransferGroupCount")) {
+            throw fail("V2 stage-in main quantities disagree with file lifecycle references");
         }
     }
 
@@ -753,6 +775,22 @@ final class FileLifecycleContextValidator {
         } else if (platform.has("sourceStorage") || fabric.has("sourceStorage")) {
             throw fail("V2 cannot declare bounded storage");
         }
+        validateFabricTopology(platform, fabric, vms, hosts, actual);
+    }
+
+    /**
+     * Topology cross-check extracted from {@link #validateFabric(JsonObject, JsonObject, JsonObject, boolean)}
+     * (2026-10-23; statement order preserved verbatim): fat-tree sizing parameters, link
+     * bandwidth, host coverage, actual-VM host usage, and default or explicit host edge
+     * placements must match declared platform placement rules.
+     */
+    private static void validateFabricTopology(
+            JsonObject platform,
+            JsonObject fabric,
+            Map<Integer, JsonObject> vms,
+            Map<Integer, JsonObject> hosts,
+            JsonObject actual)
+            throws IOException {
         JsonElement declared = need(platform, "networkTopology"), observed = need(fabric, "topology");
         if (declared.isJsonNull() != observed.isJsonNull()) {
             throw fail("V2 topology presence differs");

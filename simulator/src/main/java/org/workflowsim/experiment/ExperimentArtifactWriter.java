@@ -101,20 +101,7 @@ public final class ExperimentArtifactWriter {
         } catch (IllegalArgumentException | IllegalStateException invalid) {
             throw new IOException("Invalid versioned network evidence before export", invalid);
         }
-        if (group) {
-            NetworkLedgerContextValidator.validateReport(report);
-        }
-        if (file) {
-            FileLifecycleContextValidator.validateReport(
-                    report, org.workflowsim.data.v2.FileLifecycleCodec.decodeDocument(fileDocument));
-        } else if (storage) {
-            FileLifecycleContextValidator.validateReport(
-                    report, org.workflowsim.data.v2.StorageLifecycleCodec.decodeDocument(storageDocument));
-        } else if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime()) {
-            FileLifecycleContextValidator.validatePlanContext(
-                    GSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report))
-                            .getAsJsonObject());
-        }
+        validateSidecarContexts(report, group, file, storage, networkDocument, fileDocument, storageDocument);
         Path directory = outputDirectory.toAbsolutePath().normalize();
         Files.createDirectories(directory);
 
@@ -147,6 +134,38 @@ public final class ExperimentArtifactWriter {
         }
         ExperimentManifestWriter.writeJson(report, manifest, artifacts, evidenceContext);
         return new ExperimentArtifacts(manifest, metrics, events, networkLedger, fileLifecycle, storageLifecycle);
+    }
+
+    /**
+     * Sidecar context-validation chain extracted from
+     * {@link #write(SimulationReport, Path, String, ExperimentEvidenceContext)}
+     * (2026-10-23; statement order verbatim): the group ledger cross-check, the encoded V2/V3
+     * lifecycle round-trip validation, or — for coherent runtime without a sidecar mode —
+     * the plan-only context validation of the manifest snapshot.
+     */
+    private static void validateSidecarContexts(
+            SimulationReport report,
+            boolean group,
+            boolean file,
+            boolean storage,
+            com.google.gson.JsonObject networkDocument,
+            com.google.gson.JsonObject fileDocument,
+            com.google.gson.JsonObject storageDocument)
+            throws IOException {
+        if (group) {
+            NetworkLedgerContextValidator.validateReport(report);
+        }
+        if (file) {
+            FileLifecycleContextValidator.validateReport(
+                    report, org.workflowsim.data.v2.FileLifecycleCodec.decodeDocument(fileDocument));
+        } else if (storage) {
+            FileLifecycleContextValidator.validateReport(
+                    report, org.workflowsim.data.v2.StorageLifecycleCodec.decodeDocument(storageDocument));
+        } else if (report.getConfig().getDataMovementModel().usesCoherentDataflowRuntime()) {
+            FileLifecycleContextValidator.validatePlanContext(
+                    GSON.toJsonTree(ExperimentManifestWriter.fileLifecycleContextSnapshot(report))
+                            .getAsJsonObject());
+        }
     }
 
     /**
