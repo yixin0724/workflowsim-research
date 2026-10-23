@@ -127,4 +127,4 @@ Workbench 的接入 Host 从其已建的 `0..VM数−1` Host 中选择；Java �
 
 重建保留模式、核心计划和物理存储；侧车全字段在 `/storageLifecycle/...` 精确比较，没有新易变量豁免。正常与独立报告复用同一已验证快照，使用 `getStorageLifecycle()/getDecodedStorageLifecycle()` 的独立路径，不复用 V1/V2 getter。显示数值为精确文本；复制/资源/Job/事件预览分别最多 **64/64/64/128** 条，嵌套列表最多 12 项、标签最多 256 字符。OFF、零正复制、完整运行前缀、缺失投影和无有效结果分别处理，不请求额外侧车。
 
-参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)、[Workbench](<../getting-started/WORKBENCH.zh.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)及[构建与检查](<../getting-started/BUILD.zh.md>)。
+参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)、[Workbench](<../getting-started/WORKBENCH.zh.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)及[构建与检查](<../getting-started/BUILD.zh.md>)。

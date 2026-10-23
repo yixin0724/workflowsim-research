@@ -119,4 +119,4 @@ Java codec、[Python 生命周期检查](<../../scripts/_file_lifecycle_audit.py
 
 侧车全字段在 `/fileLifecycle/...`进入精确 rerun 比较，无新增易变量豁免。报告复用同一个已验证快照，以精确文本显示数值；复制/资源/事件预览上限为 **64/64/128**，嵌套列表 12 项、标签 256 字符。OFF、预算不足、零正复制、合法运行前缀及无已验证结果分别处理，不读取额外侧车。
 
-参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)、[Workbench](<../getting-started/WORKBENCH.zh.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)、[状态复制性能](<DATAFLOW_STATE_COPY_PERFORMANCE.zh.md>)及[构建检查](<../getting-started/BUILD.zh.md>)。
+参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)、[Workbench](<../getting-started/WORKBENCH.zh.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)、[状态复制性能](<DATAFLOW_STATE_COPY_PERFORMANCE.zh.md>)及[构建检查](<../getting-started/BUILD.zh.md>)。

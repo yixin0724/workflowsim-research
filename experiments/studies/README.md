@@ -1,46 +1,106 @@
-# 研究协议与保留证据
+# Study Protocols and Retained Evidence
 
-本目录保存研究特定的协议和来源说明，不是另一个 Maven 模块，也不是平台能力清单。研究驱动和测试位于实验模块的标准源码目录；通用运行操作见[Workbench](<../../docs/getting-started/WORKBENCH.md>)。
+**English** · [简体中文](<README.zh.md>)
 
-## 当前可执行协议
+This directory holds study-specific protocols and provenance notes; it is not another Maven
+module and not a platform capability list. Research drivers and tests live in the
+experiment module's standard source directories; general run operations are described in
+[Workbench](<../../docs/getting-started/WORKBENCH.md>).
 
-[协议修订与认证范围](<../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)是运行、注册矩阵和验证规则的维护入口。[NetworkStudyPlan](<../src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)为以下三个变体注册不同身份；相同参数矩阵不代表相同执行模型。
+## Currently executable protocols
 
-| CLI 变体 | 当前协议 ID | full / smoke 运行单元 |
+[Protocol revisions and certification scope](<../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)
+is the maintained entry point for runs, registered matrices, and validation rules.
+[NetworkStudyPlan](<../src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)
+registers distinct identities for the three variants below; an identical parameter matrix
+does not mean an identical execution model.
+
+| CLI variant | Current protocol ID | full / smoke run units |
 |---|---|---:|
-| `r10`（默认） | `network-limited-r10-v3` | 504 / 36 |
+| `r10` (default) | `network-limited-r10-v3` | 504 / 36 |
 | `peft-comparison` | `peft-comparison-r12-v2` | 126 / 18 |
 | `sensitivity-r13` | `sensitivity-response-r13-v2` | 546 / 30 |
 
-当前执行使用 `WORK_CONSERVING_TASK_EXECUTION_V2`；两个 PEFT 研究使用后继成本、出口 OCT 为零的标准递推。完整研究须显式执行到新目录，不是将 smoke 改名；旧协议身份只用于只读历史完整性检查。修正模型的保留研究及影响分析见[研究影响复验](<correctness-repair/RESULTS.md>)，不是对每次后续代码变更的重新认证。
+Current execution uses `WORK_CONSERVING_TASK_EXECUTION_V2`; the two PEFT studies use the
+standard recurrence with successor costs and a zero exit OCT. A complete study must be
+executed explicitly into a new directory — renaming a smoke run is not a study; old
+protocol identities serve only read-only historical integrity checks. The retained
+post-correction studies and impact analysis are documented in the
+[correctness-repair results](<correctness-repair/RESULTS.md>) and are not a
+re-certification of every later code change.
 
-## 历史材料与可选证据位置
+## Historical material and optional evidence locations
 
-以下记录描述各自当时的实现。**完整性校验通过不代表当前模型数值相同，也不是算法正确性或真实平台校准证明。** 表中的 `output/...` 均是相对于项目根的原工作区保留位置，不随普通检出提供，不保证当前机器存在；不要用新的运行覆盖它们。
+The records below describe their respective implementations at the time. **Passing an
+integrity check does not mean the current model produces the same numbers, and it is not a
+proof of algorithmic correctness or of real-platform calibration.** The `output/...` entries
+are original workspace retention locations relative to the project root; they are not
+provided with a normal checkout, are not guaranteed to exist on the current machine, and
+must never be overwritten by new runs.
 
-| 历史记录 | 身份与范围 | 保留材料 / 可选位置 |
+| Historical record | Identity and scope | Retained material / optional location |
 |---|---|---|
-| Fat-tree campaign | R8 再标定版本；360 个单元，seed 91 | [来源与参数](<fattree-scheduling-campaign/RETENTION.md>)；仓库内保留 [JSON](<fattree-scheduling-campaign/campaign-results.json>) 和 [数值表](<fattree-scheduling-campaign/campaign-results.md>) |
-| R10 首次试点 | 576 个单元；其中 12 个不兼容运行失败，未认证为完整比较 | `output/network-study-r10-pilot.tar.gz`（已压为 tar 正本）；[资格排除说明](<network-limited-r10/PROTOCOL.md>) |
-| R10 合格矩阵 | `network-limited-r10-v2`；504 个单元 | [历史来源说明](<network-limited-r10/PROTOCOL.md>)；`output/network-study-r10-final/`；`output/network-study-r10-evidence.tar.gz` |
-| R12 / S5 PEFT 比较 | `peft-comparison-r12-v1`；126 个单元；旧 PEFT 非标准 | `output/peft-comparison-r12/`；`output/peft-comparison-r12-evidence.tar.gz`；修正身份为 `peft-comparison-r12-v2` |
-| R13 敏感性响应面 | `sensitivity-response-r13-v1`；546 个单元；旧 PEFT 非标准 | 原[预注册协议](<sensitivity-r13/PROTOCOL.md>)和[评估记录](<sensitivity-r13/RESULTS.md>)原地归档；`output/sensitivity-r13/`；`output/sensitivity-r13-evidence.tar.gz` |
-| 正确性修复后复验 | 当前三种协议的冻结实现研究，Java 提交 `8681f9c` | [来源、数值变化与保留说明](<correctness-repair/RESULTS.md>)；`output/workbench-correctness-repair-97c66a0/studies/` |
-| R13 v2 现任重认证 | `sensitivity-response-r13-v2`；546 单元；HEAD `f00ff69` 执行（2026-10-23），与 `8681f9c` 影响层逐位一致 | [协议](<sensitivity-r13-v2/PROTOCOL.md>)与[结果](<sensitivity-r13-v2/RESULTS.md>)（英文）；`output/sensitivity-r13-v2/`；`output/sensitivity-r13-v2-evidence.tar.gz` |
+| Fat-tree campaign | R8 recalibrated version; 360 cells, seed 91 | [sources and parameters](<fattree-scheduling-campaign/RETENTION.md>); the repository retains the [JSON](<fattree-scheduling-campaign/campaign-results.json>) and the [numeric tables](<fattree-scheduling-campaign/campaign-results.md>) |
+| R10 first pilot | 576 cells; 12 incompatible runs failed, not certified as a complete comparison | `output/network-study-r10-pilot.tar.gz` (compressed tar original); [exclusion notes](<network-limited-r10/PROTOCOL.md>) |
+| R10 qualified matrix | `network-limited-r10-v2`; 504 cells | [historical provenance](<network-limited-r10/PROTOCOL.md>); `output/network-study-r10-final/`; `output/network-study-r10-evidence.tar.gz` |
+| R12 / S5 PEFT comparison | `peft-comparison-r12-v1`; 126 cells; legacy PEFT non-standard | `output/peft-comparison-r12/`; `output/peft-comparison-r12-evidence.tar.gz`; corrected identity is `peft-comparison-r12-v2` |
+| R13 sensitivity response surface | `sensitivity-response-r13-v1`; 546 cells; legacy PEFT non-standard | original [preregistered protocol](<sensitivity-r13/PROTOCOL.md>) and [assessment record](<sensitivity-r13/RESULTS.md>) archived in place; `output/sensitivity-r13/`; `output/sensitivity-r13-evidence.tar.gz` |
+| Post-correctness-repair recheck | frozen-implementation study of the current three protocols at Java commit `8681f9c` | [sources, numeric changes, and retention notes](<correctness-repair/RESULTS.md>); `output/workbench-correctness-repair-97c66a0/studies/` |
+| R13 v2 current recertification | `sensitivity-response-r13-v2`; 546 cells; executed at HEAD `f00ff69` (2026-10-23), bit-identical to the `8681f9c` impact layer | [protocol](<sensitivity-r13-v2/PROTOCOL.md>) and [results](<sensitivity-r13-v2/RESULTS.md>) (English); `output/sensitivity-r13-v2/`; `output/sensitivity-r13-v2-evidence.tar.gz` |
 
-### R12 来源与比较边界
+### R12 provenance and comparison boundary
 
-旧 R12 使用与 R10 相同的 7 个合格输入（5 个经典 DAX、2 个合成 DAG），4/16 台同构 1000 MIPS VM，端点争用与 0.125/1.25 MB/s Fat-tree 三种网络；三个列表规划器 `LOCAL_HEFT`、`LOCAL_CPOP`、`LOCAL_PEFT` 每条件一次，seed 11：`7 × 2 × 3 × 3 = 126`。沿用对所有规划器一致的 Inspiral1000 排除规则，LOCAL/STATIC/SPACE_SHARED、无故障/开销，一 Host 一 VM；没有把 R10 的 RANDOM/PSO 重跑混入它。
+Legacy R12 used the same seven qualified inputs as R10 (five classic DAXs, two synthetic
+DAGs), 4/16 homogeneous 1000-MIPS VMs, and three networks — endpoint contention plus
+0.125/1.25 MB/s Fat-tree — with the three list planners `LOCAL_HEFT`, `LOCAL_CPOP`, and
+`LOCAL_PEFT` once per condition, seed 11: `7 × 2 × 3 × 3 = 126`. It applies the same
+planner-uniform Inspiral1000 exclusion rule, LOCAL/STATIC/SPACE_SHARED, no
+failure/overhead, one VM per Host; R10's RANDOM/PSO were rerun separately and never mixed
+in.
 
-旧 R12/R13 的 `LOCAL_PEFT` 错把自身计算成本计入 OCT，并将出口设为平均计算成本；ready-list 修复没有修正该公式。旧数值、“同构退化/异构激活”与论文正确性叙述只记录那个非标准实现，不能直接评价标准 PEFT。新的协议与历史记录之间的关系见[协议修订](<../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)；标准算法来源见[原文夹具说明](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>)。
+Legacy R12/R13's `LOCAL_PEFT` incorrectly counted the task's own compute cost inside OCT
+and set the exit to the average compute cost; the ready-list fix did not correct that
+formula. The legacy numbers, the "homogeneous degeneration / heterogeneous activation"
+narratives, and the correctness account of the time record only that non-standard
+implementation and cannot directly evaluate standard PEFT. How the current protocol relates
+to these records is defined in the
+[protocol revisions](<../../docs/experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>); the
+primary-source fixture note for the standard algorithm is
+[here](<../../simulator/src/test/resources/dax/peft-paper-example.SOURCE.md>).
 
-三个历史网络研究的原始输出目录各自保存 `protocol.json`、`network-study.json`、自动结果表、生成输入和逐运行 manifest/metrics/events。R12 的旧结果表位于可选路径 `output/peft-comparison-r12/results.md`，不是当前数值基准。保留压缩包及原始协议字节；删除重复解释文档不应删除或重新标记这些证据。
+The three historical network studies' original output directories each preserve
+`protocol.json`, `network-study.json`, the automated result tables, generated inputs, and
+per-run manifest/metrics/events. R12's legacy result table is at the optional path
+`output/peft-comparison-r12/results.md` and is not the current numeric baseline. The
+retained tars and original protocol bytes stay as-is; deleting duplicate explanatory
+documents must not delete or relabel this evidence.
 
-## 新研究与交接要求
+**Language policy (added 2026-10-23):** the archive documents under
+`network-limited-r10/`, `sensitivity-r13/`, `fattree-scheduling-campaign/`,
+`correctness-repair/`, and `peft-comparison` results are **historical originals preserved
+in Chinese and deliberately not translated** — their value is being period-accurate
+records, and translation is a rewriting act. The current-layer study (sensitivity-r13-v2)
+is maintained in English. Retention semantics and integrity checks are
+language-independent.
 
-- 执行前声明研究问题、同一决策层的算法、输入哈希、平台/模型、种子设计、指标、统计单位、停止条件及保留规则；可在一份协议中说明，不要求机械拆成多份重复文档。
-- 输入位置明确，输出使用新目录。保留失败与排除原因，不按算法效果事后挑选输入；共享根种子不自动构成事件键控共同随机数。
-- 交接完整协议原字节、索引、全部引用 bundle 与生成输入，不能仅交汇总表。原始实验数据、归档、夹具和黄金值不属于可随文档清理删除的临时文件。
-- 先在 DAG 内汇总随机种子，再按声明来源和条件比较；不把重复条件当独立样本，也不由不显著推出等价。通用统计口径见[campaign 指南](<../../docs/experiments/CAMPAIGNS.md>)；独立检查工具见[研究审计工具](<../../scripts/STUDY_AUDIT.md>)。
+## Requirements for new studies and handover
 
-历史材料仅从本地研究目录追溯，不作为当前入门导航。
+- Before execution, declare the research question, the same-decision-layer algorithm set,
+  input hashes, platform/model, seed design, metrics, statistical unit, stopping
+  conditions, and retention rules; one protocol document suffices — no mechanical
+  splitting into duplicated files.
+- Input locations must be explicit, and outputs must use a new directory. Retain failures
+  and exclusion reasons; do not select inputs after observing algorithm outcomes; sharing
+  a root seed does not automatically constitute event-keyed common random numbers.
+- Hand over the complete protocol bytes, the index, every referenced bundle, and the
+  generated inputs — a summary table alone is not a handover. Original experiment data,
+  archives, fixtures, and golden values are not disposable files to clean up with
+  documentation passes.
+- Aggregate random seeds within a DAG first, then compare across declared sources and
+  conditions; repeated conditions are not independent samples, and non-significance does
+  not imply equivalence. General statistical conventions are in the
+  [campaign guide](<../../docs/experiments/CAMPAIGNS.md>); independent checking tools are
+  described in the [audit tooling notes](<../../scripts/STUDY_AUDIT.md>).
+
+Historical material is traceable only from the local study directory and is not part of
+current onboarding navigation.

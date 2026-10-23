@@ -1,18 +1,20 @@
-# 独立研究证据与统计检查
+# Independent Study Evidence and Statistics Checks
 
-以下工具仅依赖 **Python 3.9+ 标准库**，不调用 Java 生产算法，不启动仿真，也不重放网络。输入只读；审计报告必须写到新的、独立的位置。
+The tools below depend only on the **Python 3.9+ standard library**; they invoke no Java production algorithm, launch no simulation, and replay no network. Inputs are read-only; audit reports must be written to a new, independent location.
 
-| 工具 | 输入 | 检查范围 |
+**English** · [简体中文](<STUDY_AUDIT.zh.md>)
+
+| Tool | Inputs | Scope of checks |
 | --- | --- | --- |
-| [证据检查器](<verify-study-evidence.py>) | 一个或多个研究索引、Workbench 实验索引或单个 manifest v4 | 原始输入、Job/Task 尝试、时序、工件哈希和可独立复算的指标 |
-| [统计检查器](<verify-study-statistics.py>) | 一个或多个已注册的网络研究索引 | 注册矩阵、协议绑定、逐 DAG 效果、符号检验和 Holm 校正 |
-| [网络与生命周期检查器](<verify-network-ledger.py>) | V1/V2/V3 侧车或对应 manifest v4 bundle | 版本化网络/生命周期语义和适用的在线动作上下文，范围由报告明确给出 |
+| [Evidence checker](<verify-study-evidence.py>) | one or more study indexes, Workbench experiment indexes, or a single manifest v4 | raw inputs, Job/Task attempts, timing, artifact hashes, and independently recomputable metrics |
+| [Statistics checker](<verify-study-statistics.py>) | one or more registered network study indexes | the registered matrix, protocol bindings, per-DAG effects, sign tests, and Holm correction |
+| [Network and lifecycle checker](<verify-network-ledger.py>) | V1/V2/V3 sidecars or the corresponding manifest v4 bundles | versioned network/lifecycle semantics and the applicable online-action context, with the scope stated explicitly by the report |
 
-前两个工具共享[独立解析与注册定义](<_study_audit.py>)。基础证据检查器即使核对了侧车的 SHA-256，也不等于验证了侧车内容；它和网络检查器不能互相替代。任何一个工具通过都不证明算法最优、标准论文复现或真实平台校准。
+The first two tools share [independent parsing and registration definitions](<_study_audit.py>). Even when the basic evidence checker verifies a sidecar's SHA-256, that does not amount to validating the sidecar's content; it and the network checker cannot substitute for one another. No tool passing proves algorithmic optimality, reproduction of the canonical paper, or calibration on a real platform.
 
-## 调用与输出保护
+## Invocation and Output Protection
 
-以下命令从项目根运行。也可在任意目录使用脚本和输入的绝对路径；相对输入路径以调用工作目录为基准，不猜测仓库位置。
+The commands below run from the project root. You can also use absolute paths for the scripts and inputs from any directory; relative input paths resolve against the invoking working directory, without guessing the repository location.
 
 ```bash
 # 单个完整运行包
@@ -34,29 +36,29 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-network-ledger.py \
   /absolute/experiment/runs/fcfs-s42/result.manifest.json --json
 ```
 
-替换占位路径；最后一条仅适用于对应网络/生命周期证据包。`--output` 是全新的 JSON **文件路径**，不是已有文件或目录，也不能位于任一输入的研究/bundle 根内。父目录可新建，已有报告不会被覆盖；输入、协议、索引和证据不会被改写。
+Replace the placeholder paths; the last command applies only to the corresponding network/lifecycle evidence bundles. `--output` is a brand-new JSON **file path**, not an existing file or directory, and it may not lie inside the study/bundle root of any input. Parent directories may be created, existing reports are never overwritten, and inputs, protocols, indexes, and evidence are never rewritten.
 
-前两个工具的退出码：
+Exit codes of the first two tools:
 
-| 退出码 | 含义 |
+| Exit code | Meaning |
 | ---: | --- |
-| 0 | 所请求、明确声明的检查范围内未发现问题 |
-| 1 | 检查发现问题或无法完成所请求的覆盖；报告保留诊断 |
-| 2 | 用法、输出保护或写报告失败 |
+| 0 | No problems found within the requested, explicitly declared scope of checks |
+| 1 | The checks found problems or could not complete the requested coverage; the report keeps the diagnostics |
+| 2 | Usage, output-protection, or report-writing failure |
 
-同时检查退出码、`status`、`issueCount` 和覆盖说明，不以“报告文件已生成”判断成功。`--max-issues` 默认 200，只限制保存的诊断明细，不减少问题总数或改变失败状态。网络检查器的状态与完整捕获解释见[独立网络校验说明](<../docs/advanced/NETWORK_LEDGER_PYTHON.md>)。
+Check the exit code, `status`, `issueCount`, and the coverage statement together; do not treat "the report file was generated" as success. `--max-issues` defaults to 200 and only caps the saved diagnostic details; it does not reduce the issue count or change the failure status. For the network checker's statuses and the full interpretation of what it captures, see the [independent network verification notes](<../docs/advanced/NETWORK_LEDGER_PYTHON.md>).
 
-## 注册研究身份与兼容模式
+## Registered Study Identities and Compatibility Modes
 
-统计检查器只支持明确注册的 `protocol` 和 `full/smoke` 矩阵，不从索引自述推断完整性，也不是通用任意实验统计器。
+The statistics checker supports only explicitly registered `protocol` and `full/smoke` matrices; it infers no completeness from an index's self-description and is not a general statistics engine for arbitrary experiments.
 
-| 注册研究 | 当前身份 | 需要 `--historical` 的兼容身份 |
+| Registered study | Current identity | Compatibility identities that require `--historical` |
 | --- | --- | --- |
-| 网络受限比较 | `network-limited-r10-v3` | `network-limited-r10-v2` |
-| 规划器比较 | `peft-comparison-r12-v2` | `peft-comparison-r12-v1` |
-| 敏感性比较 | `sensitivity-response-r13-v2` | `sensitivity-response-r13-v1` |
+| Network-limited comparison | `network-limited-r10-v3` | `network-limited-r10-v2` |
+| Planner comparison | `peft-comparison-r12-v2` | `peft-comparison-r12-v1` |
+| Sensitivity comparison | `sensitivity-response-r13-v2` | `sensitivity-response-r13-v1` |
 
-这些字符串是[可执行注册表](<_study_audit.py>)的协议标识，不能为了整理文档而重命名保留证据。基础证据检查器要求 manifest v4；缺少当前执行语义声明的旧 v4 证据也须显式启用兼容模式，`--historical` 不会把 v2/v3 manifest 升级为 v4。
+These strings are protocol identifiers in the [executable registry](<_study_audit.py>); retained evidence cannot be renamed just to tidy the documentation. The basic evidence checker requires manifest v4; older v4 evidence that lacks the current execution-semantics declarations must also explicitly enable the compatibility mode, and `--historical` does not upgrade v2/v3 manifests into v4.
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-study-evidence.py \
@@ -65,40 +67,40 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-study-evidence.py \
   --output /absolute/new-audit/historical-evidence.json
 ```
 
-`--input-root` 仅用于证据检查器，可重复提供。原始输入依次尝试保留研究中的 `inputs/同名文件`、记录路径、依据原 workingDirectory 或 dataset root 的显式重定位。找到文件后仍检查 SHA/大小，不因哈希不符偷偷换输入。找不到或不能解析原始输入时报告覆盖缺口并非零退出。
+`--input-root` serves the evidence checker only and may be supplied repeatedly. For each raw input it tries, in order, the same-named file under the study's retained `inputs/` tree, the recorded path, and explicit relocation based on the original workingDirectory or dataset root. When a file is found, its SHA/size are still checked; inputs are never silently swapped because a hash mismatches. A raw input that cannot be found or parsed is reported as a coverage gap with a nonzero exit, not a silent pass.
 
-允许读取兼容格式不表示认可旧物理/时序或非标准 PEFT 递推；统计数字重算一致也不是标准算法正确性背书。不同执行模型不作共享条件数值相等断言。
+Reading compatibility formats is permitted without endorsing the older physics/timing or the non-standard PEFT recursion; recomputed statistics agreeing is not an endorsement of standard-algorithm correctness either. Across different execution models, no assertion is made that values are numerically equal under shared conditions.
 
-## 基础证据覆盖
+## Basic Evidence Coverage
 
-支持标准运行器的 NONE 聚类、SPACE_SHARED、每 VM 一个活动 Job 的基础投影，包括已返回的成功、失败和重试尝试：
+Supports the standard runner's basic projection — NONE clustering, SPACE_SHARED, and one active Job per VM — including returned success, failure, and retry attempts:
 
-- 检查工件角色唯一、相对路径包含性、SHA-256/大小以及 manifest/metrics 一致性。
-- 检查事件序号、有限非负时间、关键事件唯一性、Job/Task 身份和 retry 谱系。
-- 从实际 DAX/WfFormat 输入重新解析 runtime、DAG 和文件声明；核对原始 MI、需求与计费字节。多输入保持独立命名空间，DAX 保留首次 INPUT 尺寸优先规则。
-- 显式成本矩阵优先于原始 MI，使用独立 Java round 语义核对有效 MI、Task 窗口和 CPU 下界，不以源长度替代当前尝试的工作量。
-- 复算所覆盖的完成/重试计数、等待、bounded slowdown、最近秩中位数/P95、吞吐、VM 繁忙区间并集、CV/Jain 和抽象成本；失败/重试按相应指标口径计入。
+- Checks artifact-role uniqueness, relative-path containment, SHA-256/size, and manifest/metrics consistency.
+- Checks event sequence numbers, finite non-negative times, key-event uniqueness, Job/Task identity, and retry lineage.
+- Re-parses runtimes, DAGs, and file declarations from the actual DAX/WfFormat inputs; cross-checks raw MI, requirements, and billed bytes. Multiple inputs keep separate namespaces, and DAX keeps the first-INPUT-size precedence rule.
+- The explicit cost matrix takes precedence over raw MI; effective MI, Task windows, and CPU lower bounds are checked under independent Java round semantics, and the current attempt's work is never replaced by the source length.
+- Recomputes the covered completion/retry counts, waiting, bounded slowdown, nearest-rank median/P95, throughput, VM busy-interval unions, CV/Jain, and abstract cost; failures/retries are counted per the corresponding metric's rules.
 
-证据检查器的 `--rel-tol` 默认 `1e-10`、`--abs-tol` 默认 `1e-8`，相对容差只用于指标/成本汇总。物理时序使用 `abs_tol + 4 * ulp(最大绝对时间戳)`，CPU 下界另加 `1 / MIPS`；不会随绝对时钟按比例放宽缺失工作量。整数计数和 ID 必须精确。
+The evidence checker defaults to `1e-10` for `--rel-tol` and `1e-8` for `--abs-tol`; the relative tolerance applies only to metric/cost aggregates. Physical timing uses `abs_tol + 4 * ulp(largest absolute timestamp)`, and CPU lower bounds add a further `1 / MIPS`; missing work is never relaxed in proportion to the absolute clock. Integer counts and IDs must be exact.
 
-每个 bundle 的 `coverage.checkedMetrics` 列出实际复算项，缺失必需项会报错；`outsideMetricScope` 列出未认证字段。墙钟性能、deadline/critical-path 参考值及未列出的新指标不能因整个报告成功而被视为已认证。
+Each bundle's `coverage.checkedMetrics` lists the items actually recomputed, and a missing required item is an error; `outsideMetricScope` lists uncertified fields. Wall-clock performance, deadline/critical-path reference values, and new metrics not listed there cannot be treated as certified just because the whole report succeeded.
 
-基础工具不独立重放 max-min 速率分段、Fat-tree 网络服务或在线策略选择。V2/V3 生命周期和在线动作需另用网络检查器；即使该检查器通过，仍须遵守其 `fluidServiceAccountingCertified`、`liveProgressReplayed` 等范围声明，不能宣称完整流体服务或未来争用已被证明。
+The basic tools do not independently replay max-min rate segmentation, Fat-tree network service, or online policy selection. V2/V3 lifecycle and online actions require the network checker separately; even when that checker passes, its scope declarations — `fluidServiceAccountingCertified`, `liveProgressReplayed`, and the like — still bind, and complete fluid service or future contention cannot be declared proven.
 
-## 统计覆盖
+## Statistics Coverage
 
-统计检查器独立构造注册矩阵，核查输入 ID/指纹、算法、条件、种子、完成状态，以及协议原字节 SHA 与逐运行 manifest 的绑定。
+The statistics checker constructs the registered matrix independently, verifying input IDs/fingerprints, algorithms, conditions, seeds, completion statuses, and the binding of the protocol's verbatim-byte SHA to each run's manifest.
 
-先汇总同 DAG 的种子，再按来源、VM、网络和异构度配对；不把种子当作独立 DAG，也不合并经典与合成负载总体。符号检验与 Holm 使用精确分数，全平局时 p 值未定义。报告保留逐 DAG 效果、完整向量、胜平负及尾部信息，不仅报告中位数。
+Seeds are pooled per DAG first and then paired by source, VM, network, and heterogeneity; a seed is never treated as an independent DAG, and the classic and synthetic workload populations are never merged. Sign tests and Holm use exact fractions; the p value is undefined when all results tie. The report retains per-DAG effects, the complete vectors, win/tie/loss and tail information, not just the reported medians.
 
-多个索引还会核对同执行模型下共享条件的指标；不一致时非零退出。统计检查不是完整证据物理验证，应结合基础证据和所需生命周期报告。小样本、家族相关性和随机流可比性限制仍须在研究结论中说明。
+With multiple indexes, the checker also cross-checks metrics for shared conditions under the same execution model; any inconsistency exits nonzero. A statistics check is not a full verification of the evidence physics; combine it with basic evidence and the needed lifecycle reports. The small-sample, family-correlation, and random-stream-comparability limitations must still be stated in the study conclusions.
 
-## 自测与保留
+## Self-Test and Retention
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
 ```
 
-[自测](<test-study-verifiers.py>)使用手写小型夹具验证健康输入、缺字段、MI/区间伪造、输出保护、注册矩阵和统计反例，不代表真实 full 研究已通过。其余独立检查器套件与跨语言验证见[构建指南](<../docs/getting-started/BUILD.md>)。
+The [self-test](<test-study-verifiers.py>) uses small hand-written fixtures to verify healthy inputs, missing fields, MI/interval forgery, output protection, registered matrices, and statistics counterexamples; it does not show that any real full study has passed. The remaining independent checker suites and cross-language verification are described in the [build guide](<../docs/getting-started/BUILD.md>).
 
-报告应与输入索引、工具版本和命令一起保留。不要通过删除问题记录、重写原始研究或改变协议身份来迎合检查器。
+Keep reports together with their input indexes, tool versions, and commands. Do not appease the checkers by deleting issue records, rewriting the original studies, or changing protocol identities.

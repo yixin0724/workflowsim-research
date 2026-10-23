@@ -4,7 +4,7 @@
 
 ## 范围与接口
 
-V1组级账本的Java语义校验不调用生产端progressive-filling求解器计算“期望速率”；[Python检查器](<NETWORK_LEDGER_PYTHON.zh.md>)独立实现同一契约。正式导出需完整bundle，包含捕获、绑定、输入聚合观察和派生指标；OFF不产生网络角色。格式见[编解码契约](<NETWORK_LEDGER_FORMAT.zh.md>)，展示与重放分别见[离线报告](<NETWORK_REPORT_DISPLAY.zh.md>)、[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
+V1组级账本的Java语义校验不调用生产端progressive-filling求解器计算“期望速率”；[Python检查器](<NETWORK_LEDGER_PYTHON.zh.md>)独立实现同一契约。正式导出需完整bundle，包含捕获、绑定、输入聚合观察和派生指标；OFF不产生网络角色。格式见[编解码契约](<NETWORK_LEDGER_FORMAT.zh.md>)，展示与重放分别见[离线报告](<NETWORK_REPORT_DISPLAY.zh.md>)、[重放契约](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)。
 
 ```java
 NetworkRunEvidence evidence = report.getNetworkEvidence(); // OFF为null

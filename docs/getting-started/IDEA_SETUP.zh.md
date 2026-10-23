@@ -47,5 +47,5 @@ JUnit 测试放在对应模块的 `src/test/java/`，用 JUnit 配置运行。�
 
 - **实验模块未出现**：确认导入根 POM，而非仅导入[核心 POM](<../../simulator/pom.xml>)；取消 Maven 工具窗口中的 Ignored 标记，再重新加载。
 - **依赖报红或找不到类**：先核对 Maven 同步结果、构建 JDK、源码位置和运行 classpath；这些均正确后才考虑重建 IDE 索引。
-- **找不到输入**：核对 Working directory，以及配置内部的相对路径基准；可用输入见[数据集说明](<../../datasets/README.md>)。
+- **找不到输入**：核对 Working directory，以及配置内部的相对路径基准；可用输入见[数据集说明](<../../datasets/README.zh.md>)。
 - **命令行成功但 IDE 失败**：逐项比较 JDK、模块、工作目录和 Program arguments；用[快速开始](<QUICK_START.zh.md>)中的相同配置对照。

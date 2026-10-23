@@ -66,4 +66,4 @@ Fat-tree结构、确定性路由和共享机制见[拓扑说明](<../research/FA
 
 V2使用独立`FILE_LIFECYCLE_V2`侧车。它检查逐文件身份、出处、请求、复制、可见性及CPU因果，**不认证未记录的逐区间流体服务会计**。V1组级账本不能重新贴标成为逐文件证明。
 
-完整工件导出需要完整捕获；预算不足会在工件I/O前拒绝，但不改变物理执行。默认非在线绑定模式的记录OFF仍保留核心文件计划，不意味着零网络。详见[生命周期格式](<FILE_LIFECYCLE_V2_FORMAT.zh.md>)、[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)及[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)。
+完整工件导出需要完整捕获；预算不足会在工件I/O前拒绝，但不改变物理执行。默认非在线绑定模式的记录OFF仍保留核心文件计划，不意味着零网络。详见[生命周期格式](<FILE_LIFECYCLE_V2_FORMAT.zh.md>)、[重放契约](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)及[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)。

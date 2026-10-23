@@ -1,12 +1,14 @@
-# 复跑与精确差异比对
+# Rerun and Exact Difference Comparison
 
-本能力回答：**一份有效的 manifest v4 证据，在当前代码下重新运行后，非豁免 JSON 核心量是否一致？** 它是单次运行的重建、重新仿真和差异检查，不是事件回放、断点续跑、缓存命中或整项研究的自动重跑。
+This capability answers: **for a valid piece of manifest v4 evidence, once it has been re-run under the current code, do the non-exempt JSON core quantities agree?** It is the rebuilding, re-simulation, and diff checking of a single run — not event replay, checkpoint resumption, a cache hit, or the automatic re-execution of an entire study.
 
-报告再生与复跑也不同：Workbench 的 `report` 只从校验证据生成 HTML，不执行模拟器；这里的复跑会重新执行标准 `SimulationRunner`。模型适用性见[算法契约](<../algorithms/CONTRACTS.md>)，记录要求见[可复现性指南](<REPRODUCIBILITY.md>)。
+Report regeneration is also distinct from the rerun: Workbench's `report` only generates HTML from validated evidence and does not execute the simulator, while the rerun here re-executes the standard `SimulationRunner`. Model applicability is covered in the [algorithm contract](<../algorithms/CONTRACTS.md>) and the recording requirements in the [reproducibility guide](<REPRODUCIBILITY.md>).
 
-## 命令与输入约定
+**English** · [简体中文](<RERUN_DIFF_CONTRACT.zh.md>)
 
-从项目根执行，替换占位路径：
+## Command and Input Conventions
+
+Run from the project root, replacing the placeholder paths:
 
 ```bash
 mvn -pl :workflowsim-workbench -am compile exec:java \
@@ -14,13 +16,13 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
   '-Dexec.args="/absolute/original-run" "/absolute/new-rerun-output"'
 ```
 
-[CLI](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/RerunDiffExecutor.java>)接受且仅接受原 run 目录和输出目录。输出必须不存在或为空，应独立于原始证据；不把新产物写回原 run。
+The [CLI](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/RerunDiffExecutor.java>) accepts, and only accepts, the original run directory and an output directory. The output must not exist or must be empty and should be independent of the original evidence; no new artifacts are written back into the original run.
 
-[证据读取器](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/RerunEvidenceReader.java>)优先使用 `result.manifest.json`；若不存在，则接受目录内唯一的 `*.manifest.json`，没有或有多个候选时拒绝。metrics、events 和已声明的可选侧车按 manifest 引用定位，不靠猜文件名补齐。
+The [evidence reader](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/RerunEvidenceReader.java>) prefers `result.manifest.json`; if that is absent, it accepts the single `*.manifest.json` in the directory and refuses when no candidate or more than one candidate exists. Metrics, events, and the declared optional sidecars are located through manifest references, not by guessing file names to fill the gaps.
 
-只支持 manifest v4。v2/v3 可以由相应完整性校验器读取，但不能在这里静默升级后复跑。独立 manifest 不能代替完整 bundle，已声明侧车缺失或无效会导致 `EVIDENCE_INVALID`。
+Only manifest v4 is supported. v2/v3 can be read by the corresponding integrity validators but cannot be silently upgraded here for a rerun. A standalone manifest does not replace a complete bundle; a declared sidecar that is missing or invalid results in `EVIDENCE_INVALID`.
 
-## 执行与快照边界
+## Execution and Snapshot Boundaries
 
 ```text
 读取原包并校验
@@ -32,88 +34,88 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
   → 输出 JSON 与 Markdown 判定
 ```
 
-读取器使用校验器返回的 manifest 快照，不把未校验的预读树当作重建依据。此快照不是 CloudSim checkpoint，也不是文件系统快照：`RerunEvidence` 的 manifest 树按只读约定使用，metrics/events/侧车在后续比较时仍会从路径读取。调用方不得修改树，校验和复跑期间原目录内容也必须保持不变；本工具不提供并发写入隔离或归档认证。
+The reader uses the manifest snapshot returned by the validator; the unvalidated pre-read tree is not taken as the basis for rebuilding. This snapshot is not a CloudSim checkpoint and not a filesystem snapshot: the manifest tree of `RerunEvidence` is used under a read-only convention, while metrics/events/sidecars are still read from their paths at comparison time. Callers must not modify the tree, and the contents of the original directory must also remain unchanged during validation and the rerun; this tool provides no concurrent-write isolation or archival attestation.
 
-## 输入定位规则
+## Input Resolution Rules
 
-[RerunInputResolver](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/RerunInputResolver.java>)保持以下顺序：
+[RerunInputResolver](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/RerunInputResolver.java>) preserves the following order:
 
-1. 若 run 位于 `<study>/runs/<run>`，尝试 `<study>/inputs/<原文件名>`。
-2. 尝试 manifest 记录的输入路径。
-3. 若路径能按原 `provenance.execution.workingDirectory` 相对化，将其重定位到**当前进程工作目录**。这不是自动发现仓库根，因此本指南要求从项目根启动。
+1. If the run sits at `<study>/runs/<run>`, try `<study>/inputs/<original file name>`.
+2. Try the input path recorded in the manifest.
+3. If the path can be re-based on the original `provenance.execution.workingDirectory`, it is relocated to the **current process working directory**. This is not automatic discovery of the repository root; that is why this guide requires launching from the project root.
 
-任一级找到普通文件后，立即核对 SHA-256 和字节数；不符即 `INPUT_HASH_MISMATCH`，不得继续尝试其他文件来掩盖不一致。全部候选未命中时为 `INPUT_UNRESOLVED`，报告保留尝试过的候选。此 CLI 没有额外的 `--input-root` 参数，不能照搬独立 Python 审计器的选项。
+As soon as a regular file is found at any level, its SHA-256 and byte count are verified immediately; on mismatch the result is `INPUT_HASH_MISMATCH`, and no other candidate file may be probed to paper over the inconsistency. If every candidate misses, the result is `INPUT_UNRESOLVED`, and the report keeps the candidates that were tried. This CLI has no additional `--input-root` option; the options of the standalone Python auditors cannot be carried over.
 
-输入顺序、哈希、大小、格式、版本和规范化信息仍参与核心比较。路径文本豁免只能在这条身份核对链路之后使用，不是任意替换输入的许可。
+Input order, hashes, sizes, formats, versions, and normalization information still take part in the core comparison. The path-text exemption can only be applied after this identity-verification chain; it is not a license to substitute inputs at will.
 
-## 配置重建规则
+## Configuration Rebuilding Rules
 
-[ManifestConfigRebuilder](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/ManifestConfigRebuilder.java>)翻译保留的配置和平台：算法、文件系统、种子、runtime 转换、内核节拍、到达表、deadline、矩阵、故障/开销、Host/VM/价格、拓扑和存储。输入路径改用已核对身份的定位结果；空值和可选字段按 schema/兼容规则处理，不凭当前用户环境猜新的研究参数。
+[ManifestConfigRebuilder](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/ManifestConfigRebuilder.java>) translates the preserved configuration and platform: algorithms, file systems, seeds, runtime conversion, the kernel tick, the arrival table, deadline, matrices, failures/overheads, Host/VM/prices, topology, and storage. Input paths switch to the identity-verified resolution result; nulls and optional fields follow the schema/compatibility rules, and no new study parameters are guessed from the current user environment.
 
-- 九种物理模型按其记录的 kind 和参数重建，不能把 V2/V3 改为 V1 或用无记录运行替代已启用捕获。
-- 缺省 `networkEvidence` 明确表示 OFF；存在时恢复 mode 与预算。存在的 `dataflowAssignment` 也完整恢复，不因算法契约说明属于身份信息而忽略它。
-- V3 的 `sourceStorage` 必须存在且与模型匹配；coherent 拓扑还须满足数值域。重建后的 VM→Host 预检映射须等于记录值。
-- 参数、枚举或组合不再被当前代码接受时，报告 `RECONSTRUCTION_REJECTED`，不偷偷换算法、模型或容量。manifest 不会恢复未记录的外部策略进程或任意 Java 对象。
-- 当前执行会生成当前 `executionSemantics`。旧 v4 缺少这个标识仍可能进入重建，但不是恢复旧引擎；新旧声明不同会作为核心分歧，即使部分数值碰巧相同。
+- The nine physical models are rebuilt from their recorded kind and parameters; V2/V3 must not be rewritten as V1, and an unrecorded run must not replace an enabled capture.
+- Absent `networkEvidence` explicitly means OFF; when present, its mode and budget are restored. A present `dataflowAssignment` is likewise restored in full, not ignored on the grounds that the algorithm contract declares it identity information.
+- The V3 `sourceStorage` must be present and match the model; a coherent topology must additionally satisfy the numeric domain. The rebuilt VM→Host pre-check mapping must equal the recorded values.
+- When a parameter, enum, or combination is no longer accepted by the current code, the report is `RECONSTRUCTION_REJECTED`; algorithms, models, or capacities are never swapped in silently. Unrecorded external-policy processes or arbitrary Java objects are not restored from the manifest.
+- The current execution generates the current `executionSemantics`. An old v4 that lacks this identifier may still enter rebuilding, but this is not restoring an old engine; differing old/new declarations are reported as core divergences even when some numeric values happen to coincide.
 
-输入、重建或运行失败不能被当作一致性成功。已分类的模拟执行异常和重试预算耗尽也映射为 `RECONSTRUCTION_REJECTED`，原因注明执行阶段；它是需要暴露的不兼容结果。
+Input, rebuilding, or run failures must not be treated as consistency success. Classified simulation-execution exceptions and exhausted retry budgets also map to `RECONSTRUCTION_REJECTED`, with the cause noting the execution phase; this is an incompatible result that needs to be exposed.
 
-## 网络、生命周期与在线动作
+## Network, Lifecycle, and Online Actions
 
-| 记录模式 | 验证与捕获要求 | 精确比较命名空间 |
+| Recording mode | Validation and capture requirements | Exact-comparison namespace |
 | --- | --- | --- |
-| OFF | 无可选侧车；coherent 的文件计划及 V3 存储声明仍保留 | 相应 manifest 核心字段 |
-| `FLUID_GROUP_LEDGER_V1` | V1 组账本的角色、哈希、内容和运行上下文；可明确标记截断前缀 | `/networkLedger/...` 全部内容 |
-| `FILE_LIFECYCLE_V2` | V2 文件生命周期与运行上下文；只接受完整捕获 | `/fileLifecycle/...` 全部内容 |
-| `FILE_STORAGE_LIFECYCLE_V3` | V3 存储生命周期、提交/输出义务及运行上下文；只接受完整捕获 | `/storageLifecycle/...` 全部内容 |
+| OFF | No optional sidecars; the coherent file plan and the V3 storage declarations still remain | The corresponding manifest core fields |
+| `FLUID_GROUP_LEDGER_V1` | The roles, hashes, contents, and run context of the V1 group ledger; a truncated prefix may be explicitly marked | Everything under `/networkLedger/...` |
+| `FILE_LIFECYCLE_V2` | The V2 file lifecycle and run context; only complete captures are accepted | Everything under `/fileLifecycle/...` |
+| `FILE_STORAGE_LIFECYCLE_V3` | The V3 storage lifecycle, commit/output obligations, and run context; only complete captures are accepted | Everything under `/storageLifecycle/...` |
 
-三种侧车角色互斥，不能互相替代。V2/V3 OFF 的 `dataflowPlan`、V3 的 `platform.sourceStorage` 仍属核心量。存储验证区分 CPU 返回与全部输出提交，包含零字节及 unused sink，并检查适用的故障/重试因果，不据此声称概率故障过程或随机数已被独立重放。
+The three sidecar roles are mutually exclusive and cannot substitute for one another. The `dataflowPlan` of V2/V3-OFF runs and V3's `platform.sourceStorage` are still core quantities. Storage validation distinguishes the CPU return from the commitment of all outputs, including zero-byte files and unused sinks, and checks the applicable failure/retry causality; it does not thereby claim that the probabilistic failure process or the random numbers have been independently replayed.
 
-在线绑定的配置、`dataflowComputeRequests`、`DATAFLOW_VM_ASSIGNED` 事件及其全部动作属性都是核心量。在线认证要求完整的匹配 V2/V3 生命周期；其范围是绑定、名义边界和记录分数，不是精确活动流余额、未来争用或全局最优。即使一次分数改动仍能通过边界校验，实际复跑仍须精确比较并报告差异。
+The online-assignment configuration, the `dataflowComputeRequests`, the `DATAFLOW_VM_ASSIGNED` events, and all their action attributes are core quantities. Online attestation requires the complete matching V2/V3 lifecycles; its scope is the assignment, the nominal bounds, and the recorded scores — not exact live-flow balances, future contention, or global optimality. Even if a changed score would still pass the boundary checks, the actual rerun must still compare exactly and report the diff.
 
-任一侧 V1 账本为 TRUNCATED 时，报告加入 `networkEvidenceCoverageNote`：即使 `IDENTICAL_CORE`，也只说明保留记录及聚合观察一致，不能认证未知后缀。两侧 OFF 或完整捕获不增加此占位字段。V2/V3 的完整生命周期同样不是逐区间流体服务面积证书。
+When the V1 ledger on either side is TRUNCATED, the report adds `networkEvidenceCoverageNote`: even an `IDENTICAL_CORE` only says that the retained records and the aggregated observations agree; an unknown suffix cannot be attested. When both sides are OFF or the capture is complete, this placeholder field is not added. The complete V2/V3 lifecycle is likewise not a per-interval fluid service-area certificate.
 
-格式与认证范围见[V1 账本](<../advanced/NETWORK_LEDGER_FORMAT.md>)、[V2 生命周期](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)、[V3 存储](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)和[在线绑定](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+Format and certification scope are in the [V1 ledger](<../advanced/NETWORK_LEDGER_FORMAT.md>), [V2 lifecycle](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>), [V3 storage](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>), and [online assignment](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) documents.
 
-## 比对规则
+## Comparison Rules
 
-[EvidenceCoreDiffer](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/EvidenceCoreDiffer.java>)默认把**所有非白名单字段**视为核心，不仅比较 makespan：
+[EvidenceCoreDiffer](<../../experiments/src/main/java/org/workflowsim/experiments/rerun/EvidenceCoreDiffer.java>) treats **all non-whitelisted fields** as core by default; it does not merely compare makespan:
 
-- manifest 的配置、平台、输入身份、工作流 profile/graph、Job/Task/VM/工作流结果、实际放置，以及存在的文件计划和在线计算请求。
-- metrics 的全部非豁免字段；events 的条数、顺序、全部事件字段和非豁免 attributes。
-- 工件角色、引用路径、数组顺序与完整性声明；可选侧车的全部内容。
+- The manifest's configuration, platform, input identity, workflow profile/graph, Job/Task/VM/workflow results, actual placement, and the file plan and online compute requests where present.
+- All non-exempt metrics fields; the entry count and order of events, all event fields, and the non-exempt attributes.
+- Artifact roles, reference paths, array order, and integrity declarations; the complete contents of the optional sidecars.
 
-比较的是 **JSON 值的精确相等**，不是文件文本字节相等：对象键顺序无关，数组顺序和长度保留；数值按精确十进制值比较，`1000`、`1000.0`、`1e3` 等值，但不先转换成 double，也不使用 epsilon。字符串、布尔值、null 和缺失成员保持区别。实现见 [ExactJsonValues](<../../experiments/src/main/java/org/workflowsim/experiments/common/ExactJsonValues.java>)。
+What is compared is the **exact equality of JSON values**, not byte equality of the file text: object key order is irrelevant, while array order and length are preserved; numbers are compared by their exact decimal values, so `1000`, `1000.0`, and `1e3` are equal, but values are not first converted to double and no epsilon is used. Strings, booleans, null, and missing members remain distinct. The implementation is [ExactJsonValues](<../../experiments/src/main/java/org/workflowsim/experiments/common/ExactJsonValues.java>).
 
-网络/生命周期内容通过严格词法读取保留数值类型，长数值不能退化为字符串或因 double 舍入丢失差异。大于 2^53 的相邻整数、真实的极小十进制变化和浮点相邻值不获得容差。统计分析中的平局阈值不能拿来放宽这里的比较。
+Network/lifecycle content preserves numeric types through strict lexical reading; long numbers must not degrade into strings or lose diffs to double rounding. Adjacent integers above 2^53, genuinely tiny decimal changes, and adjacent floating-point values receive no tolerance. Tie thresholds from statistical analysis must not be borrowed to loosen the comparison here.
 
-### 固定易变量白名单
+### Fixed Volatile-Field Whitelist
 
-仅以下真实路径被豁免并记录差异；`<i>` 表示数组索引：
+Only the following actual paths are exempted and have their diffs recorded; `<i>` denotes an array index:
 
-| 范围 | 豁免字段 |
+| Scope | Exempted fields |
 | --- | --- |
-| 根身份/环境子树 | `/provenance`、`/runtime` 的全部子树 |
-| 算法说明身份 | `/configuration/algorithmContract` |
-| 输入路径文本 | `/configuration/workflowPaths/<i>`、`/inputs/<i>/path` |
-| 工作流结果路径文本 | `/result/workflowOutcomes/<i>/path` |
-| 工件字节摘要 | `/artifacts/<i>/sha256`、`/artifacts/<i>/sizeBytes` |
-| metrics 墙钟总量 | `/metrics/totalSchedulingDecisionWallClockNanos`、`/metrics/totalPlanningDecisionWallClockNanos` |
-| 事件墙钟属性 | `/events/<i>/attributes/decisionElapsedNanos`、`/events/<i>/attributes/planningDecisionElapsedNanos` |
+| Root identity/environment subtrees | All subtrees of `/provenance` and `/runtime` |
+| Algorithm-description identity | `/configuration/algorithmContract` |
+| Input path text | `/configuration/workflowPaths/<i>`, `/inputs/<i>/path` |
+| Workflow-result path text | `/result/workflowOutcomes/<i>/path` |
+| Artifact byte digests | `/artifacts/<i>/sha256`, `/artifacts/<i>/sizeBytes` |
+| Metrics wall-clock totals | `/metrics/totalSchedulingDecisionWallClockNanos`, `/metrics/totalPlanningDecisionWallClockNanos` |
+| Event wall-clock attributes | `/events/<i>/attributes/decisionElapsedNanos`, `/events/<i>/attributes/planningDecisionElapsedNanos` |
 
-输入/结果等核心数组的长度、输入身份、配置中的 `schedulingAlgorithm` / `planningAlgorithm`、`executionSemantics`、物理参数和记录预算不在白名单内。侧车命名空间不继承根 `/runtime`、`/provenance` 豁免；工件哈希/大小豁免也不能使侧车内容漏比。新增字段默认核心，不能随手加入易变量规则。
+The lengths of core arrays such as inputs and results, the input identity, the `schedulingAlgorithm` / `planningAlgorithm` in the configuration, `executionSemantics`, the physical parameters, and the recorded budgets are not whitelisted. Sidecar namespaces do not inherit the root `/runtime` and `/provenance` exemptions; the artifact hash/size exemption does not let sidecar contents escape comparison either. New fields are core by default and cannot be added to the volatile rules casually.
 
-本契约定义的逐位比较以 manifest/metrics 工件为域；makespan 等字段在其中的精确相等即构成复跑一致性。事件级独立重算的覆盖边界已由 2026-10-23 的 events v1 追加修订关闭（`SIMULATION_TERMINATED` 与 `JOB_EXECUTION_STARTED`，见[可复现性契约](<REPRODUCIBILITY.md>)），不能借此在任何方向新增豁免。新事件类型属于核心数据：同一代码树的复跑两侧都携带新事件，判等不受影响；**跨修订边界的复跑**（修订前证据 × 修订后代码）在事件数组上合法差异——事件条数、顺序与字段均按核心比较报告差异，正确处置是按新树重新生成证据，而不是为旧事件形状添加白名单。
+The bit-exact comparison defined by this contract takes the manifest/metrics artifacts as its domain; exact equality of fields such as makespan within that domain already constitutes rerun consistency. The coverage boundary of event-level independent recomputation has been closed by the additive 2026-10-23 revision of events v1 (`SIMULATION_TERMINATED` and `JOB_EXECUTION_STARTED`; see the [reproducibility contract](<REPRODUCIBILITY.md>)), and this must not be used to introduce new exemptions in any direction. The new event types are core data: a rerun on the same code tree carries the new events on both sides and the equality verdict is unaffected; a **rerun across the revision boundary** (pre-revision evidence × post-revision code) legitimately differs in the event array — event counts, order, and fields all report diffs under the core comparison. The correct disposition is to regenerate the evidence under the new tree, not to add a whitelist for the old event shapes.
 
-对象成员名先按 RFC 6901 编码（`~`→`~0`，`/`→`~1`），再拼接指针、判定白名单。字面键 `configuration/algorithmContract` 的路径为 `/configuration~1algorithmContract`，不是嵌套的身份对象；`provenance/extra` 同理，不能借名称骗过分类。
+Object member names are first encoded per RFC 6901 (`~`→`~0`, `/`→`~1`); the pointers are then assembled and classified against the whitelist. The literal key `configuration/algorithmContract` has the path `/configuration~1algorithmContract`, not a nested identity object; `provenance/extra` works the same way — names must not be used to sneak past the classification.
 
-读取器可接受非 `result` 命名的原包，但新复跑固定写 `result.*`；因此原包的工件引用路径可能产生合法核心分歧。**工件 path 没有额外豁免**，不能为获得 `IDENTICAL_CORE` 而忽略这种差异。
+The reader may accept an original bundle not named `result`, but the new rerun always writes `result.*`; artifact reference paths of the original bundle can therefore produce a legitimate core divergence. **Artifact paths carry no additional exemption**, and such diffs must not be ignored to obtain `IDENTICAL_CORE`.
 
-### 身份信息单独报告
+### Identity Information Reported Separately
 
-报告保留两侧 `sourceTreeSha256` 和 `algorithmContract`。已知源树哈希不同时醒目提示代码身份变化，但这不代替输入/配置/结果比较。核心一致只说明该次证据在本比较范围内一致，不证明其他输入、平台或未来版本也相同；身份不可获得时不能推定一致。
+The report retains both sides' `sourceTreeSha256` and `algorithmContract`. When the source-tree hashes are known to differ, a prominent notice flags the code-identity change, but this does not substitute for the input/configuration/result comparison. An identical core only says that this piece of evidence is consistent within the scope of this comparison; it does not prove that other inputs, platforms, or future versions agree as well, and consistency must not be presumed when identity is unavailable.
 
-## 报告与退出码
+## Report and Exit Codes
 
 ```text
 rerun-output/
@@ -126,19 +128,19 @@ rerun-output/
     ...已声明的匹配侧车
 ```
 
-报告包含 `verdict`、输入定位、核心分歧的 JSON 指针和双侧值、`volatileFieldsNoted`、身份信息，以及适用的覆盖提示。分歧比较使用完整值；显示值超过 120 字符时截断并标注原长度，不因此把差异改为相等。manifest 与 metrics 侧车的重复指标分歧会去重。
+The report contains the `verdict`, the input resolution, JSON pointers and both-side values for the core divergences, `volatileFieldsNoted`, identity information, and applicable coverage notes. Divergences are compared on their full values; displayed values longer than 120 characters are truncated and annotated with the original length, without turning a diff into equality. Metric divergences duplicated between the manifest and the metrics sidecar are deduplicated.
 
-| verdict | CLI 退出码 | 含义 |
+| verdict | CLI exit code | Meaning |
 | --- | ---: | --- |
-| `IDENTICAL_CORE` | 0 | 全部非豁免 JSON 核心量精确一致，仍受捕获/模型范围限制 |
-| `DIVERGED` | 1 | 至少一个核心差异，分歧清单非空 |
-| `INPUT_UNRESOLVED` | 2 | 输入无法定位 |
-| `INPUT_HASH_MISMATCH` | 3 | 命中输入但 SHA/大小不符 |
-| `RECONSTRUCTION_REJECTED` | 4 | 当前代码拒绝重建或已分类的模拟执行 |
-| `EVIDENCE_INVALID` | 5 | 原包无效、已声明侧车无效或不是 v4 |
+| `IDENTICAL_CORE` | 0 | All non-exempt JSON core quantities are exactly identical, still subject to capture/model scope limits |
+| `DIVERGED` | 1 | At least one core diff; the divergence list is non-empty |
+| `INPUT_UNRESOLVED` | 2 | The input cannot be resolved |
+| `INPUT_HASH_MISMATCH` | 3 | An input matched but its SHA/size does not |
+| `RECONSTRUCTION_REJECTED` | 4 | The current code rejects the rebuilding or a classified simulation execution |
+| `EVIDENCE_INVALID` | 5 | The original bundle is invalid, a declared sidecar is invalid, or it is not v4 |
 
-用法/输出目录错误为 64，未预期异常为 70。已分类失败仍写诊断报告，但没有成功的新运行证据；用法错误或意外 I/O 失败不保证报告完整，也不能把留下的部分文件当作有效 bundle。Maven 编译阶段失败则尚未进入该 CLI 判定。
+Usage/output-directory errors are 64, unexpected exceptions are 70. Classified failures still write a diagnostic report but yield no successful new-run evidence; usage errors or unexpected I/O failures do not guarantee a complete report, and any files left behind must not be taken as a valid bundle. A failure of the Maven compile phase means this CLI verdict was never reached.
 
-当前链路的验证覆盖见[核心比较测试](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/EvidenceCoreDifferTest.java>)、[复跑集成测试](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/RerunDiffExecutorIntegrationTest.java>)及[在线动作复跑测试](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/DataflowAssignmentRerunIntegrationTest.java>)。它们使用明确夹具验证行为，不把可选本地历史输出作为当前运行已成功的证明。
+Validation coverage of the current chain is in the [core comparison tests](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/EvidenceCoreDifferTest.java>), the [rerun integration tests](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/RerunDiffExecutorIntegrationTest.java>), and the [online-action rerun tests](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/DataflowAssignmentRerunIntegrationTest.java>). They verify behavior with explicit fixtures and do not take optional local historical outputs as proof that the current run succeeded.
 
-研究协议完整性与实际复跑是不同检查，见[协议身份说明](<NETWORK_STUDY_PROTOCOL_REVISIONS.md>)。保留原证据、新运行和差异报告，不修改旧字段、协议身份或黄金值来消除真实分歧。
+Study-protocol integrity and the actual rerun are different checks; see the [protocol identity notes](<NETWORK_STUDY_PROTOCOL_REVISIONS.md>). Retain the original evidence, the new run, and the diff report; old fields, protocol identity, or golden values must not be modified to erase a genuine divergence.

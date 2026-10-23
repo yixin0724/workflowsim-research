@@ -2,7 +2,7 @@
 
 [English](<CODE_CONFIG_EXPERIMENTS.md>) · **简体中文**
 
-只需修改输入、资源和内置算法时，优先使用 [Workbench](<WORKBENCH.zh.md>)。本指南用于自定义 Java 实验、故障模型或外部策略；算法选择统一见[算法目录](<../algorithms/CATALOG.zh.md>)，输入选择见[数据集说明](<../../datasets/README.md>)。
+只需修改输入、资源和内置算法时，优先使用 [Workbench](<WORKBENCH.zh.md>)。本指南用于自定义 Java 实验、故障模型或外部策略；算法选择统一见[算法目录](<../algorithms/CATALOG.zh.md>)，输入选择见[数据集说明](<../../datasets/README.zh.md>)。
 
 ## 一个完整示例
 

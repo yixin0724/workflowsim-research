@@ -39,7 +39,7 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 | 模拟有限SOURCE和必要输出写回 | [受限存储数据流V3](<experiments/configs/storage-dataflow-v3.json>) |
 | 在控制就绪时选择VM，再传输输入 | [在线目标绑定与受限存储](<experiments/configs/online-storage-dataflow-v1.json>) |
 
-示例使用不同支持矩阵，不能通过任意混合算法、文件系统和网络选项来构造实验。完整范围见[数据流能力矩阵](<docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md>)及[算法目录](<docs/algorithms/CATALOG.md>)。
+示例使用不同支持矩阵，不能通过任意混合算法、文件系统和网络选项来构造实验。完整范围见[数据流能力矩阵](<docs/advanced/DATAFLOW_CAPABILITY_MATRIX.zh.md>)及[算法目录](<docs/algorithms/CATALOG.zh.md>)。
 
 ## 主要能力
 
@@ -68,7 +68,7 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 
 - `simulator/`：仿真核心、平台、算法、网络、策略接口及测试。
 - `experiments/`：统一入口、示例、实验执行器和报告；默认参与Maven reactor。
-- `datasets/`：工作流输入及[数据说明](<datasets/README.md>)。
+- `datasets/`：工作流输入及[数据说明](<datasets/README.zh.md>)。
 - `scripts/`：独立证据校验、浏览器验收和性能比较工具。
 - `docs/`：当前使用指南、模型契约和维护说明。
 
@@ -80,7 +80,7 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 
 - 生命周期证据证明其声明范围内的来源、路径、输入/输出及CPU因果，不自动构成逐区间流体服务会计。
 - 在线动作证据验证绑定、计算声明、名义输入边界和已记录分数，不证明精确实时余额、未来争用或全局最优性。
-- 文件引用量不等于网络流量，抽象成本不等于账单，运行器墙钟耗时不等于模拟时间。具体统计口径见[可复现性契约](<docs/experiments/REPRODUCIBILITY.md>)与[重放契约](<docs/experiments/RERUN_DIFF_CONTRACT.md>)。
+- 文件引用量不等于网络流量，抽象成本不等于账单，运行器墙钟耗时不等于模拟时间。具体统计口径见[可复现性契约](<docs/experiments/REPRODUCIBILITY.zh.md>)与[重放契约](<docs/experiments/RERUN_DIFF_CONTRACT.zh.md>)。
 - 论文夹具和兼容性数据只验证对应版本/条件，不能直接替代当前代码的实验结论。
 
 ## 开发与验证
@@ -89,4 +89,4 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 mvn -Pjavadoc clean verify
 ```
 
-联合门禁包含单元、语义、集成、覆盖率与核心API文档；独立Python及离线浏览器检查见[构建指南](<docs/getting-started/BUILD.zh.md>)。性能比较先检查状态、捕获和动作指纹一致，再报告耗时及分配量，方法见[状态复制性能说明](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)。
+联合门禁包含单元、语义、集成、覆盖率与核心API文档；独立Python及离线浏览器检查见[构建指南](<docs/getting-started/BUILD.zh.md>)。性能比较先检查状态、捕获和动作指纹一致，再报告耗时及分配量，方法见[状态复制性能说明](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.zh.md>)。

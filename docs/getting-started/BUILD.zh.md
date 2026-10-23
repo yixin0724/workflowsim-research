@@ -53,7 +53,7 @@ mvn -pl :workflowsim -Dit.test=SimulationEvidenceIntegrationTest verify
 
 报告位于各模块的 `target/surefire-reports/`、`target/failsafe-reports/`、`target/site/jacoco/` 和 `target/site/jacoco-it/`。以实际退出状态和报告为准，不用固定测试数量判断成功。JaCoCo 门槛由[核心 POM](<../../simulator/pom.xml>)与[实验 POM](<../../experiments/pom.xml>)维护。
 
-标准检出包含门禁必需的小型输入，缺失时测试失败；完整大型语料不是默认前提，见[数据集说明](<../../datasets/README.md>)。`mvn clean` 只清理构建目录，不清理自定义实验输出或保留证据。
+标准检出包含门禁必需的小型输入，缺失时测试失败；完整大型语料不是默认前提，见[数据集说明](<../../datasets/README.zh.md>)。`mvn clean` 只清理构建目录，不清理自定义实验输出或保留证据。
 
 ## Python 独立检查器自测
 
@@ -159,7 +159,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-network-ledger.py \
   /absolute/output/run.manifest.json --json
 ```
 
-独立网络检查器用于已启用匹配网络/生命周期记录的证据包，不应把普通 OFF 证据包当作其完整捕获输入。校验器只读目标证据，但命令中的 Maven 编译仍会写构建输出。校验成功只证明声明范围内的结构、哈希、上下文或语义约束，不证明算法最优或真实平台校准。研究指标与统计检查另见[独立审计工具](<../../scripts/STUDY_AUDIT.md>)。
+独立网络检查器用于已启用匹配网络/生命周期记录的证据包，不应把普通 OFF 证据包当作其完整捕获输入。校验器只读目标证据，但命令中的 Maven 编译仍会写构建输出。校验成功只证明声明范围内的结构、哈希、上下文或语义约束，不证明算法最优或真实平台校准。研究指标与统计检查另见[独立审计工具](<../../scripts/STUDY_AUDIT.zh.md>)。
 
 ## API 文档与环境排查
 

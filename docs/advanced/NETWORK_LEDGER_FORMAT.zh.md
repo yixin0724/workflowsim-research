@@ -4,7 +4,7 @@
 
 ## 作用与接口
 
-`NetworkLedgerCodec`负责V1组级账本的严格JSON编解码与不可变重建；`ExperimentArtifactWriter`写出完整工件，`ExperimentArtifactValidator`核对账本内容及运行上下文。[独立Python检查器](<NETWORK_LEDGER_PYTHON.zh.md>)不调用Java。[重放工具](<../experiments/RERUN_DIFF_CONTRACT.md>)比较完整账本的科学字段，[Workbench](<../getting-started/WORKBENCH.zh.md>)只显示已验证的有界投影。
+`NetworkLedgerCodec`负责V1组级账本的严格JSON编解码与不可变重建；`ExperimentArtifactWriter`写出完整工件，`ExperimentArtifactValidator`核对账本内容及运行上下文。[独立Python检查器](<NETWORK_LEDGER_PYTHON.zh.md>)不调用Java。[重放工具](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)比较完整账本的科学字段，[Workbench](<../getting-started/WORKBENCH.zh.md>)只显示已验证的有界投影。
 
 本文仅定义V1组级账本。逐文件V2、存储V3及在线动作使用各自契约，见[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)，不能按同一语义互相替换。
 

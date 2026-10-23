@@ -1,20 +1,22 @@
-# 批量实验与研究矩阵
+# Campaigns and the Research Matrix
 
-批量运行之前，先明确比较单位、基线、输入和模型。不同入口承担不同职责：
+Before batch runs, first make the comparison units, baselines, inputs, and models explicit. Different entry points carry different responsibilities:
 
-| 入口 | 适用场景 |
+| Entry point | Applicable scenario |
 | --- | --- |
-| [Workbench](<../getting-started/WORKBENCH.md>) | 用 JSON 比较同一决策层的算法，查看离线报告 |
-| 核心 `ExperimentPlan` / `ExperimentCampaignExecutor` | 在 Java 中声明比较组、基线和种子设计，生成通用 campaign 证据 |
-| `NetworkStudyExecutor` | 执行已注册的网络研究矩阵，不是任意配置的通用 CLI |
+| [Workbench](<../getting-started/WORKBENCH.md>) | Compare algorithms within the same decision layer with JSON, and view offline reports |
+| Core `ExperimentPlan` / `ExperimentCampaignExecutor` | Declare comparison groups, baselines, and seed designs in Java, and produce generic campaign evidence |
+| `NetworkStudyExecutor` | Execute the registered network study matrices; not a generic CLI for arbitrary configurations |
 
-通用 API 位于核心模块，研究专用驱动位于实验模块。新研究的协议和保留要求见[研究目录约定](<../../experiments/studies/README.md>)；算法与物理模型的组合以[算法目录](<../algorithms/CATALOG.md>)为准。
+The generic API lives in the core module; research-specific drivers live in the experiments module. Protocols and retention requirements for new studies are covered by the [studies directory conventions](<../../experiments/studies/README.md>); the [algorithm catalog](<../algorithms/CATALOG.md>) is authoritative for algorithm and physical-model combinations.
 
-## 通用 campaign API
+**English** · [简体中文](<CAMPAIGNS.zh.md>)
 
-[ExperimentPlan](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentPlan.java>)的每个 `Cell` 声明：cell ID、comparison group、candidate ID、是否基线、`SimulationConfig`、`PlatformProfile`、`SeedPlan` 和可选字符串标签。
+## Generic Campaign API
 
-以下是放入自建 Java 实验类的 API 片段，不是独立程序。`config`、`platform` 可沿用[Java API 指南](<../getting-started/CODE_CONFIG_EXPERIMENTS.md>)的普通在线示例；`outputDirectory` 是新建或为空的 `Path`，并需导入所用的 `org.workflowsim.experiment` 类型。
+Each `Cell` of [ExperimentPlan](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentPlan.java>) declares: the cell ID, the comparison group, the candidate ID, whether it is the baseline, `SimulationConfig`, `PlatformProfile`, `SeedPlan`, and an optional string tag.
+
+The snippet below is an API fragment meant to be embedded in your own Java experiment class, not a standalone program. `config` and `platform` can reuse the ordinary online example from the [Java API guide](<../getting-started/CODE_CONFIG_EXPERIMENTS.md>); `outputDirectory` is a newly created or empty `Path`, and the `org.workflowsim.experiment` types it uses must be imported.
 
 ```java
 ExperimentPlan plan = ExperimentPlan.builder("scheduler-comparison")
@@ -31,48 +33,48 @@ ExperimentCampaignArtifactWriter.CampaignArtifacts artifacts =
 System.out.println(artifacts.getIndex());
 ```
 
-构造阶段检查 cell ID 唯一、组内 candidate ID 唯一、每组恰有一个基线、组内随机化设计一致，以及配置/平台 VM 数一致。[SeedPlan](<../../simulator/src/main/java/org/workflowsim/experiment/SeedPlan.java>)保存实际种子列表；可显式给定，也可从记录的根经 SplitMix64 派生。确定性计划只能包含一个种子。
+The construction phase checks that cell IDs are unique, that candidate IDs are unique within each group, that every group has exactly one baseline, that the randomization design is consistent within a group, and that the configuration and platform VM counts agree. [SeedPlan](<../../simulator/src/main/java/org/workflowsim/experiment/SeedPlan.java>) holds the list of actual seeds; the list can be given explicitly or derived from a recorded root via SplitMix64. A deterministic plan may contain only one seed.
 
-这些结构检查**不自动证明实验可比**：研究者仍须固定输入、平台、文件系统、成本与数据移动模型、到达表、故障/开销和指标样本范围。不要因为两个 cell 能放进一组，就混合普通在线、静态独立任务、静态 DAG 和在线数据流绑定。
+These structural checks **do not automatically prove experimental comparability**: the researcher must still pin down the inputs, the platform, the file system, the cost and data movement models, the arrival tables, the failure/overhead settings, and the metric sample scope. Do not mix ordinary-online, static independent-task, static DAG, and online dataflow-binding cells in one group just because two cells can be placed together.
 
-[执行器](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignExecutor.java>)按 cell 和种子声明顺序串行调用 `SimulationRunner`；不支持同 JVM 并发。解析、配置、执行或重试预算异常会中止，不能被悄悄转为一个普通失败工作流样本。需要并行研究时使用独立进程和独立输出，并另外声明合并方式。
+The [executor](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignExecutor.java>) invokes `SimulationRunner` serially over cells and seeds in declaration order; concurrency within the same JVM is not supported. A parsing, configuration, execution, or retry-budget exception aborts the run; it must not be quietly converted into one ordinary failed-workflow sample. When parallel research is needed, use separate processes with separate outputs, and declare the merging method separately.
 
-## 种子设计与统计解释
+## Seed Design and Statistical Interpretation
 
-[RandomizationDesign](<../../simulator/src/main/java/org/workflowsim/experiment/RandomizationDesign.java>)是统计解释声明，不改变模拟器物理或随机模型。
+[RandomizationDesign](<../../simulator/src/main/java/org/workflowsim/experiment/RandomizationDesign.java>) is a declaration of statistical interpretation; it changes neither the simulator's physics nor its random model.
 
-| 设计 | 可用解释 |
+| Design | Available interpretation |
 | --- | --- |
-| `DETERMINISTIC` | 单次确定性模型结果和描述性差值，不给抽样置信区间 |
-| `INDEPENDENT_REPLICATIONS` | 每 cell 的均值、样本标准差和范围；至少两个样本时有双侧 95% Student-t 均值区间，合格工作流运行成功率有 cell 内 Wilson 区间 |
-| `COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN` | 按相同根种子匹配的描述性差值及可用的配对 Wilcoxon 检验；不是事件键控 CRN，也没有 CRN 处理效应区间 |
+| `DETERMINISTIC` | A single deterministic model result and descriptive differences; no sampling confidence intervals |
+| `INDEPENDENT_REPLICATIONS` | Per-cell mean, sample standard deviation, and range; a two-sided 95% Student-t interval for the mean when there are at least two samples, and a within-cell Wilson interval for the success rate of qualified workflow runs |
+| `COMMON_ROOT_SEEDS_NOT_EVENT_KEYED_CRN` | Descriptive differences matched by identical root seeds plus the paired Wilcoxon test where applicable; not event-keyed CRN, and no CRN treatment-effect intervals |
 
-相同根种子不保证两种算法消耗相同逻辑随机事件。命名随机流隔离了组件，但调度、批次或重试变化仍可改变组件内消费顺序。必须查看实际种子与 `matchedRootSeedCount`，不能只凭设计标签认定所有运行均已配对。
+Identical root seeds do not guarantee that the two algorithms consume the same logical random events. Named random streams isolate the components, but changes to scheduling, batching, or retries can still change the consumption order inside a component. You must inspect the actual seeds and `matchedRootSeedCount`; do not conclude from the design label alone that all runs are paired.
 
-[Campaign 汇总](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignSummary.java>)先计算每次运行的指标，再在 cell 内汇总，不把全部 Job 合并成一个样本。主要边界：
+The [campaign summary](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignSummary.java>) computes the metrics of each run first and then aggregates within cells; it does not pool all Jobs into a single sample. Principal boundaries:
 
-- 有至少一个逻辑 Task 的运行才进入 workflow-run 完成率；只有全部逻辑 Task 成功才记为成功。
-- `successfulWorkflowLogicalCompletionSeconds` 只汇总成功工作流。无成功运行时不可用，不能用失败运行的模拟结束时间代替，也不能脱离完成率单独比较。
-- 无真实减速比观察的运行不进入该指标的 campaign 样本；其他指标保留各自 API 的零值/退化约定，需结合单运行观察数解释。
-- 连续指标区间与 Wilson 区间都是 cell 内量；没有自动的算法差值置信区间、成功率差检验、风险比或普遍优越性证明。
-- 比率是 candidate mean / baseline mean；描述性 speedup 是 baseline mean / candidate mean；改善百分比为 `100 * (baseline-candidate) / baseline`。分母为零时相应量不可用，不是串行加速比或并行效率。
+- Only runs with at least one logical Task enter the workflow-run completion rate; a run counts as successful only when every logical Task succeeds.
+- `successfulWorkflowLogicalCompletionSeconds` summarizes successful workflows only. When no run succeeds it is unavailable; the simulation end time of failed runs must not stand in for it, and it must not be compared in isolation from the completion rate.
+- Runs without an observed true slowdown ratio do not enter that metric's campaign sample; the other metrics keep the zero-value/degenerate conventions of their own APIs and must be interpreted together with the per-run observation counts.
+- Continuous-metric intervals and Wilson intervals are within-cell quantities; there are no automatic confidence intervals for algorithm differences, no success-rate difference tests, no hazard ratios, and no proof of universal superiority.
+- Ratios are candidate mean / baseline mean; descriptive speedup is baseline mean / candidate mean; the improvement percentage is `100 * (baseline-candidate) / baseline`. When a denominator is zero, the corresponding quantity is unavailable; these are not serial speedup or parallel efficiency.
 
-[PairedWilcoxonSignificance](<../../simulator/src/main/java/org/workflowsim/experiment/PairedWilcoxonSignificance.java>)比较 candidate−baseline 的匹配 makespan 差值。零差值不进入秩统计，但配对总数、有效样本数和中位差分别保留；不足两个配对、全零、仅一个非零差值或独立重复设计会返回相应 `UNAVAILABLE_*` 状态。有效非零数不超过 25 时走精确分布，更多时走库的正态近似；并列秩与连续性校正的实现限制见源码，不能把“非参数”理解为无需统计假设。
+[PairedWilcoxonSignificance](<../../simulator/src/main/java/org/workflowsim/experiment/PairedWilcoxonSignificance.java>) compares the matched makespan differences candidate−baseline. Zero differences do not enter the rank statistic, but the total pair count, the valid sample count, and the median difference are retained; fewer than two pairs, all-zero differences, only one non-zero difference, or an independent-replications design returns the corresponding `UNAVAILABLE_*` status. With no more than 25 valid non-zero differences the exact distribution is used; beyond that, the library's normal approximation. Implementation limits for tied ranks and continuity correction are documented in the source; "non-parametric" must not be read as requiring no statistical assumptions.
 
-执行前冻结主要指标、实际意义阈值、重复数或预先定义的精度/预算停止规则、多重比较方法。当前执行器没有自适应停止实现，不应因中途结果有利而停止。
+Before execution, freeze the primary metric, the practical-significance threshold, the number of replications or a pre-defined precision/budget stopping rule, and the multiple-comparison method. The current executor implements no adaptive stopping; do not stop midway because the results look favorable.
 
-### 参数与调参公平性（审查工程链 D 声明，2026-10-20）
+### Parameters and Tuning Fairness (Review-Project Chain D Declaration, 2026-10-20)
 
-带内部超参的随机基线（如 PSO 的代数/粒子数/认知系数；`RANDOM` 的种子流）与确定性算法不同——比较结论对“超参从何而来”敏感。披露规则：
+Randomized baselines with internal hyperparameters (such as PSO's generation count / particle count / cognitive coefficient, or the seed streams of `RANDOM`) differ from deterministic algorithms — the comparison conclusions are sensitive to "where the hyperparameters came from". Disclosure rules:
 
-- 与基线/candidate 相关的超参**必须随协议记录**（cell 配置的 planner/scheduler 标签 + 配置工件已含的算法契约字段），包括数值与其来源（预设值/网格/外部调参数据）。
-- 不做<b>事后选择性调参</b>：candidate 与 baseline 的超参在同一 campaign 内必须以相同的预设规则立项；一方网格化而另一方用默认值的比较，其不对称性须在报告中显式声明。
-- 平局规则并非调参：基线决策超参中的平局/浮点敏感参数（如 PI 配准中的 tie-break 语义）的确定行为即协议的一部分：改变即重注册，不可视作隐式调参自由度。
-- 随机基线的种子流遵循 [SeedPlan](<../../simulator/src/main/java/org/workflowsim/experiment/SeedPlan.java>) 设计（确定性算法多种子只是重复，见可复现性契约在本目录的声明）。
+- Hyperparameters tied to a baseline/candidate **must be recorded with the protocol** (the planner/scheduler tags of the cell configuration + the algorithm contract fields already contained in the configuration artifact), including the values and their origin (preset values / a grid / external tuning data).
+- No <b>post-hoc selective tuning</b>: within the same campaign, the hyperparameters of candidates and baselines must be established under the same preset rules; when one side is grid-searched while the other uses default values, that asymmetry must be stated explicitly in the report.
+- Tie-break rules are not tuning: for tie-break/floating-point-sensitive parameters among a baseline's decision hyperparameters (such as the tie-break semantics in PI alignment), the deterministic behavior is itself part of the protocol — changing it means re-registration, and it must not be treated as an implicit degree of tuning freedom.
+- The seed streams of randomized baselines follow the [SeedPlan](<../../simulator/src/main/java/org/workflowsim/experiment/SeedPlan.java>) design (multiple seeds for a deterministic algorithm are mere repetition; see the reproducibility contract's declaration in this directory).
 
-## 通用 campaign 证据
+## Generic Campaign Evidence
 
-[Campaign 写器](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignArtifactWriter.java>)只接受新建或为空的目录，为每个 cell/replication 写出证据，再写索引并校验：
+The [campaign writer](<../../simulator/src/main/java/org/workflowsim/experiment/ExperimentCampaignArtifactWriter.java>) accepts only a newly created or empty directory, writes evidence for every cell/replication, and then writes and validates the index:
 
 ```text
 campaign-output/
@@ -84,15 +86,15 @@ campaign-output/
     ...匹配记录模式的可选网络或生命周期侧车
 ```
 
-索引保存计划种子、比较身份、相对路径、运行摘要和逻辑工作流 profile。`ExperimentCampaignValidator` 核对引用、逐运行证据、种子和主要摘要，但不独立复算所有 campaign 聚合字段；它不证明选样代表性或算法组合的研究意义。命令集中在[构建与验证](<../getting-started/BUILD.md>)，指标定义见[语义契约](<../algorithms/CONTRACTS.md>)。
+The index stores the planned seeds, the comparison identities, the relative paths, the run summaries, and the logical workflow profiles. `ExperimentCampaignValidator` cross-checks the references, the per-run evidence, the seeds, and the primary summaries, but it does not independently recompute every campaign aggregate field; it proves neither the representativeness of the sampling nor the research significance of an algorithm combination. Commands are concentrated in [build and verification](<../getting-started/BUILD.md>); metric definitions are in the [semantic contracts](<../algorithms/CONTRACTS.md>).
 
-通用运行可使用当前合法的九种物理模型及显式在线绑定，但须满足各自配置/捕获前提；支持某模型不表示每个 planner 都可用。外部 RL 策略通过专用 Java episode 接口接入，不由 campaign 自动训练或注册。
+A generic run may use the nine currently legal physical models plus explicit online binding, subject to each model's configuration/capture prerequisites; support for a model does not mean that every planner can use it. External RL policies attach through a dedicated Java episode interface; the campaign neither trains nor registers them automatically.
 
-## 执行注册网络研究
+## Executing the Registered Network Study
 
-[NetworkStudyExecutor](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyExecutor.java>)接受 `smoke|full`、数据集根、必须尚不存在的输出目录，以及可选变体 `r10`、`peft-comparison`、`sensitivity-r13`。省略变体等于 `r10`。
+[NetworkStudyExecutor](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyExecutor.java>) accepts `smoke|full`, a dataset root, an output directory that must not exist yet, and the optional variants `r10`, `peft-comparison`, and `sensitivity-r13`. Omitting the variant is equivalent to `r10`.
 
-从项目根运行一个当前 smoke 研究；替换绝对路径占位符：
+Run one current smoke study from the project root, replacing the absolute-path placeholders:
 
 ```bash
 mvn -pl :workflowsim-workbench -am compile exec:java \
@@ -104,34 +106,34 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
   '-Dexec.args="/absolute/new-network-study/network-study.json"'
 ```
 
-执行器将 [NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)的实际声明冻结到输出的 `protocol.json`，不是读取旧 Markdown 来决定实验。输出还包含生成输入、逐运行证据、`network-study.json` 和自动结果表。当前与只读兼容身份见[协议身份说明](<NETWORK_STUDY_PROTOCOL_REVISIONS.md>)；不能修改条件后继续使用同一注册 ID。
+The executor freezes the actual declaration of [NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>) into the output's `protocol.json`; it does not read old Markdown to decide what gets run. The output additionally contains the generated inputs, the per-run evidence, `network-study.json`, and an automatic results table. The current and read-only-compatible identities are listed in the [protocol identity note](<NETWORK_STUDY_PROTOCOL_REVISIONS.md>); conditions must not be modified while continuing to use the same registered ID.
 
-### 输入与资格
+### Inputs and Eligibility
 
-- full 从六个经典 DAX 候选统一排除同名文件尺寸冲突的 Inspiral1000，最终使用 Epigenomics100/997、CyberShake100/1000、Inspiral100，以及确定性生成的 layered-32/128。
-- smoke 使用 HEFT 来源的十任务输入与 layered-16。它不是 PEFT 一级来源算法证明，也不是任意裁剪的 full。
-- 排除发生在观察算法效果之前，并对所有规划器一致；输入顺序、哈希与排除原因必须匹配注册声明。资格失败或输入变化不能靠换文件、漏跑或改名绕过。
+- full uniformly excludes Inspiral1000 — its file sizes conflict with a same-named file — from the six classic DAX candidates, and finally uses Epigenomics100/997, CyberShake100/1000, and Inspiral100, plus the deterministically generated layered-32/128.
+- smoke uses the ten-task input of HEFT provenance together with layered-16. It is not a primary-source proof of the PEFT algorithm, nor an arbitrarily pruned full.
+- Exclusion happens before any algorithm effect is observed and is uniform for all planners; the input order, hashes, and exclusion reasons must match the registered declaration. An eligibility failure or an input change must not be bypassed by swapping files, skipping runs, or renaming.
 
-### 固定条件
+### Fixed Conditions
 
-这些注册研究使用 **LOCAL/STATIC、NONE 聚类、SPACE_SHARED、无故障/开销、无任务成本矩阵、端点 1 MB/s**，每台 VM 固定一个 Host。网络是 V1 端点争用和 Fat-tree 争用，均从 Job 就绪时开始传输；它们不是 coherent V2/V3 的覆盖矩阵。
+These registered studies use **LOCAL/STATIC, NONE clustering, SPACE_SHARED, no failures/overheads, no task cost matrix, 1 MB/s endpoints**, with one fixed Host per VM. The networks are V1 endpoint contention and Fat-tree contention, both starting transfers when a Job becomes ready; they are not a coverage matrix of coherent V2/V3.
 
-| 变体 | full 条件 | 规划器与实际种子 |
+| Variant | full conditions | Planners and actual seeds |
 | --- | --- | --- |
-| `r10` | VM 4/16 × endpoint、fat-tree-constrained、fat-tree-wide | `LOCAL_HEFT`、`LOCAL_CPOP` 各 seed 11 一次；`RANDOM`、`PSO` 各 11/29/47/71/101 |
-| `peft-comparison` | 与上一行相同 | `LOCAL_HEFT`、`LOCAL_CPOP`、`LOCAL_PEFT`，各 seed 11 一次 |
-| `sensitivity-r13` | 同构主块 VM 4/8/16/32 × 五个网络档；另在 VM 8/16、constrained 下加三种异构模式 | `LOCAL_HEFT`、`LOCAL_CPOP`、`LOCAL_PEFT`，各 seed 11 一次 |
+| `r10` | VM 4/16 × endpoint, fat-tree-constrained, fat-tree-wide | `LOCAL_HEFT`, `LOCAL_CPOP` once each at seed 11; `RANDOM`, `PSO` at 11/29/47/71/101 |
+| `peft-comparison` | same as the row above | `LOCAL_HEFT`, `LOCAL_CPOP`, `LOCAL_PEFT`, once each at seed 11 |
+| `sensitivity-r13` | homogeneous main block VM 4/8/16/32 × the five network tiers; plus three heterogeneity modes at VM 8/16 under constrained | `LOCAL_HEFT`, `LOCAL_CPOP`, `LOCAL_PEFT`, once each at seed 11 |
 
-constrained/mid/wide/fast 的 Fat-tree 链路为 0.125/0.5/1.25/5 MB/s；前两个变体只用 constrained/wide。默认同构 VM 为 1000 MIPS；异构循环模式为 `[1000,500]`、`[2000,1000,500]`、`[2000,500]`。VM 不超过 16 时 k=4，VM32 时 k=8。改变 VM 数同时可能改变拓扑，异构度也改变总算力，不能把所有效果归因于单一因素。
+The Fat-tree links of constrained/mid/wide/fast are 0.125/0.5/1.25/5 MB/s; the first two variants use constrained/wide only. The default homogeneous VMs are 1000 MIPS; the heterogeneous cycle modes are `[1000,500]`, `[2000,1000,500]`, `[2000,500]`. k=4 when VMs do not exceed 16, and k=8 at VM32. Changing the VM count may also change the topology, and heterogeneity changes the total capacity as well; do not attribute all effects to a single factor.
 
-前两个 smoke 变体只用 VM4；随机规划器种子为 11/29。敏感性 smoke 使用 VM4 的 endpoint/constrained 同构条件，以及 constrained 下三种异构模式。具体计划单元数以注册声明为准，不表示这些运行已经执行。
+The first two smoke variants use VM4 only; the randomized planners use seeds 11/29. The sensitivity smoke uses the VM4 endpoint/constrained homogeneous conditions plus the three heterogeneity modes under constrained. The authoritative plan-unit counts are those of the registered declaration; they do not mean these runs have already been executed.
 
-### 网络研究统计与失败处理
+### Network-Study Statistics and Failure Handling
 
-[NetworkStudySummary](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudySummary.java>)先在每个 DAG 内平均种子，再按来源、VM、网络和适用的异构度分层，与 LOCAL_HEFT 配对。它使用**双侧符号检验**，不是通用 campaign 的 Wilcoxon；Holm 在同一分层的候选族内调整。胜平负阈值是注册的 `1e-9 * max(1, baseline, candidate)`，不是 rerun 的数值容差。
+[NetworkStudySummary](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudySummary.java>) first averages the seeds within each DAG, then stratifies by source, VM, network, and applicable heterogeneity, pairing against LOCAL_HEFT. It uses a **two-sided sign test**, not the generic campaign's Wilcoxon; Holm corrects within the candidate family of the same stratum. The win/tie/loss threshold is the registered `1e-9 * max(1, baseline, candidate)`, not the rerun numeric tolerance.
 
-经典与合成总体分开，不把种子当作额外 DAG。经典 full 只有五个 DAG 对，即使全部同向，双侧符号检验最小原始 p 也为 0.0625；不显著不能证明等价。应报告效果幅度、逐 DAG 分布和失败状态，不把固定语料的探索结果外推到真实云。
+The classic and synthetic populations are kept separate; seeds are not treated as additional DAGs. The classic full has only five DAG pairs; even if every pair points the same way, the minimum raw p of the two-sided sign test is 0.0625, so non-significance does not prove equivalence. Report the effect sizes, the per-DAG distributions, and the failure states; do not extrapolate exploratory findings from a fixed corpus to real clouds.
 
-研究执行器会保留单次失败并继续其他单元，但失败研究不输出有效推断，最终完整性校验不通过。中断索引标记 `RUNNING_OR_INTERRUPTED`；已有聚合不能冒充完整矩阵。只读验证会核对注册矩阵、协议原字节哈希、完整运行配置/平台、输入身份、完成状态、索引指标及重新计算的汇总；独立统计与物理检查见[审计工具](<../../scripts/STUDY_AUDIT.md>)。
+The study executor keeps an individual failure on record and continues with the other units, but a failed study produces no valid inference and fails the final integrity validation. An interrupted index is marked `RUNNING_OR_INTERRUPTED`; existing aggregates must not pass themselves off as the full matrix. Read-only validation checks the registered matrix, the original-byte hash of the protocol, the complete run configurations/platforms, the input identities, the completion states, the index metrics, and the recomputed summaries; independent statistical and physical checks are covered by the [audit tooling](<../../scripts/STUDY_AUDIT.md>).
 
-保留协议原字节、索引、全部引用证据和生成输入，不只保留结果表。来源和历史材料通过[研究目录](<../../experiments/studies/README.md>)追溯；当前代码实际复跑是否一致由[复跑差异契约](<RERUN_DIFF_CONTRACT.md>)另行判断。
+Retain the original bytes of the protocol, the index, all referenced evidence, and the generated inputs — not only the results tables. The provenance of sources and historical material is traced through the [studies directory](<../../experiments/studies/README.md>); whether the current code actually reruns consistently is judged separately by the [rerun difference contract](<RERUN_DIFF_CONTRACT.md>).

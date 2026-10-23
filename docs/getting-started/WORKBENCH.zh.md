@@ -136,7 +136,7 @@ Workbench 在线证据必须启用匹配的完整生命周期记录。Java API �
 
 预算耗尽不截断仿真。三种侧车角色互斥，不能把 V2/V3 侧车当作 V1 账本。coherent 模型即使 OFF，manifest 仍保留核心 `dataflowPlan`，V3 还保留存储配置。V2/V3 是生命周期证书，不是逐区间服务面积、链路利用率或 TCP 协议认证。
 
-格式与独立校验见[V1 账本](<../advanced/NETWORK_LEDGER_FORMAT.zh.md>)、[V2 生命周期](<../advanced/FILE_LIFECYCLE_V2_FORMAT.zh.md>)、[V3 存储](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)及[Python 检查器](<../../scripts/verify-network-ledger.py>)。rerun 将 `/fileLifecycle/...`、`/storageLifecycle/...` 和在线动作相关核心量纳入比较，见[复跑差异契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
+格式与独立校验见[V1 账本](<../advanced/NETWORK_LEDGER_FORMAT.zh.md>)、[V2 生命周期](<../advanced/FILE_LIFECYCLE_V2_FORMAT.zh.md>)、[V3 存储](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)及[Python 检查器](<../../scripts/verify-network-ledger.py>)。rerun 将 `/fileLifecycle/...`、`/storageLifecycle/...` 和在线动作相关核心量纳入比较，见[复跑差异契约](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)。
 
 ## 输出、失败与恢复
 

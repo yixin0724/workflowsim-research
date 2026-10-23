@@ -1,51 +1,53 @@
-# 网络研究协议身份与兼容性
+# Network Study Protocol Identity and Compatibility
 
-注册身份同时包括 **protocol ID 和 mode**。相同参数矩阵不等于相同执行模型；只读完整性检查也不等于在当前代码下重新执行。
+Registered identity covers both the **protocol ID and the mode**. An identical parameter matrix is not an identical execution model; a read-only integrity check is not a re-execution under the current code.
 
-## 当前与历史身份
+**English** · [简体中文](<NETWORK_STUDY_PROTOCOL_REVISIONS.zh.md>)
 
-以下字符串来自 [NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>)，是实际协议标识，不应因文档整理而重命名。
+## Current and Historical Identities
 
-| CLI 变体 | 当前执行协议 | 接受的历史协议 | full / smoke 计划单元 |
+The strings below come from [NetworkStudyPlan](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyPlan.java>); they are the actual protocol identifiers and must not be renamed during documentation reorganization.
+
+| CLI variant | Current execution protocol | Accepted historical protocol | full / smoke plan units |
 | --- | --- | --- | ---: |
-| `r10`，也是默认变体 | `network-limited-r10-v3` | `network-limited-r10-v2` | 504 / 36 |
+| `r10`, also the default variant | `network-limited-r10-v3` | `network-limited-r10-v2` | 504 / 36 |
 | `peft-comparison` | `peft-comparison-r12-v2` | `peft-comparison-r12-v1` | 126 / 18 |
 | `sensitivity-r13` | `sensitivity-response-r13-v2` | `sensitivity-response-r13-v1` | 546 / 30 |
 
-表中数量是注册矩阵的计划规模，不是已完成运行或测试通过数。smoke 有自己的输入、条件和种子，不是任意裁剪的 full；仅修改 mode 不能取得完整研究身份。
+The counts in the table are the plan sizes of the registered matrices, not numbers of completed runs or passing tests. smoke has its own inputs, conditions, and seeds; it is not an arbitrarily pruned full, and changing only the mode does not obtain the full-study identity.
 
-执行器只产生当前协议，没有用当前代码伪装旧执行身份的开关。当前协议和运行配置均须声明 `WORK_CONSERVING_TASK_EXECUTION_V2`；接受的旧协议保持其原 v4 形状，不得补上当前执行标识后继续冒认历史身份。
+The executor produces only the current protocols; there is no switch that disguises an old execution identity under current code. Both the current protocols and the run configurations must declare `WORK_CONSERVING_TASK_EXECUTION_V2`; the accepted older protocols keep their original v4 shape and must not adopt the current execution label and then keep impersonating a historical identity.
 
-运行命令、当前矩阵条件与统计范围集中在 [campaign 指南](<CAMPAIGNS.md>)。原始研究及历史数字的来源通过[研究目录](<../../experiments/studies/README.md>)追溯，不作为新用户入口或当前黄金值。
+Run commands, the current matrix conditions, and the statistical scope are concentrated in the [campaign guide](<CAMPAIGNS.md>). The provenance of the original studies and their historical numbers is traced through the [studies directory](<../../experiments/studies/README.md>) and serves neither as an entry point for new users nor as current golden values.
 
-## 注册声明如何形成
+## How the Registered Declaration Is Formed
 
-[NetworkStudyExecutor](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyExecutor.java>)先构造并核对计划，将实际 `NetworkStudyPlan.asMap()` 保存为输出目录的 `protocol.json`，随后生成逐运行证据和索引。这个生成的 JSON 是保留协议工件；不是以旧 Markdown 正文决定当前运行矩阵。
+[NetworkStudyExecutor](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyExecutor.java>) first constructs and checks the plan, saves the actual `NetworkStudyPlan.asMap()` as the output directory's `protocol.json`, and then produces the per-run evidence and the index. This generated JSON is the retained protocol artifact; the current run matrix is not decided by the body of old Markdown.
 
-注册声明固定输入 ID、顺序、来源、哈希、资格排除、条件、规划器及实际种子。合成输入由确定性生成器产生；输入资格在观察算法效果之前对所有规划器一致检查。变更输入内容、候选、种子或条件需要新的注册协议，不能继续沿用旧 ID。
+The registered declaration fixes the input IDs, the order, the sources, the hashes, the eligibility exclusions, the conditions, the planners, and the actual seeds. Synthetic inputs come from deterministic generators; input eligibility is checked uniformly for all planners before any algorithm effect is observed. Changing the input content, the candidates, the seeds, or the conditions requires a new registered protocol; the old ID must not be kept.
 
-运行前的输入资格与只读验证使用不同路径：执行器读取并解析本地输入；验证器从无文件 I/O 的注册声明核对保留记录，不从待验证索引反推“应该执行什么”。保留的输入绝对路径须对应注册逻辑路径和声明的数据集根，但完整性检查不要求原机器输入文件在当前机器上存在；实际复跑仍必须定位并核对原始输入。
+Pre-run input eligibility and read-only validation use different paths: the executor reads and parses the local inputs; the validator checks the retained records against the registered declaration, which involves no file I/O, and does not infer backwards "what should have been run" from the index under validation. The retained absolute input paths must correspond to the registered logical paths and the declared dataset root, but the integrity check does not require the original machine's input files to exist on the current machine; an actual rerun must still locate and verify the original inputs.
 
-## 完整性检查的范围
+## Scope of the Integrity Check
 
-[NetworkStudyValidator](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyValidator.java>)接受表中的当前和历史身份，并执行：
+[NetworkStudyValidator](<../../experiments/src/main/java/org/workflowsim/experiments/network/NetworkStudyValidator.java>) accepts both the current and the historical identities in the table above, and performs:
 
-1. 核对索引 plan 与保留协议 JSON 的值一致，并匹配注册的完整矩阵；拒绝协调裁剪、重复、遗漏、未声明条件或模式变化。
-2. 对 `protocol.json` 的**原始字节**计算 SHA-256，绑定逐运行 study ID、protocol logical ID、available 标志、协议哈希和驱动构件身份。
-3. 校验逐运行 bundle，并核对标准配置、平台资源/价格/存储/拓扑、pin/preflight/actual 放置。新旧协议的执行标识不能互换。
-4. 核对输入身份、算法标签及完整成功状态；索引的成功标记不能覆盖证据中的未完成工作流。
-5. 核对发布的 makespan、逻辑完成、平均/P95 等待、平均 VM 利用率，并重新计算汇总。指标须是有限非负 JSON 数值，该研究的利用率须在 `[0,1]`；符号与上界按精确十进制判断，不靠 double 舍入放行。
+1. Checks that the index plan's values agree with the retained protocol JSON and that it matches the registered full matrix; rejects coordinated pruning, duplication, omission, undeclared conditions, or mode changes.
+2. Computes SHA-256 over the **raw bytes** of `protocol.json`, binding the per-run study IDs, the protocol logical ID, the available flags, the protocol hash, and the driver artifact identity.
+3. Validates each per-run bundle and checks the standard configuration, the platform resources/prices/storage/topology, and the pin/preflight/actual placements. The execution labels of new and old protocols are not interchangeable.
+4. Checks the input identities, the algorithm labels, and the complete success states; a success mark in the index cannot override an unfinished workflow in the evidence.
+5. Checks the published makespan, logical completion, mean/P95 waiting, and mean VM utilization, and recomputes the summaries. Metrics must be finite, non-negative JSON numbers, and this study's utilization must lie in `[0,1]`; signs and upper bounds are judged by exact decimal semantics, not waved through by double rounding.
 
-历史 source/binary hashes 不要求等于当前代码，算法契约说明文本也不是按当前文案逐字认证；算法标签和固定条件仍须匹配。协议 SHA 只是内容一致性绑定，不是数字签名或作者身份认证。
+The historical source/binary hashes are not required to equal the current code, and the algorithm-contract explanatory text is not certified verbatim against the current wording; the algorithm labels and the fixed conditions must still match. The protocol SHA is only a content-consistency binding, not a digital signature or an attestation of authorship.
 
-CLI 成功输出包含协议、mode 和 `HISTORICAL_PROTOCOL_INTEGRITY` 或 `DECLARED_PROTOCOL_INTEGRITY`，并明确标记 `NOT_A_CURRENT_CODE_RERUN`。Java 验证器按协议 ID 识别兼容身份；独立 Python 工具的 `--historical` 要求见[审计工具说明](<../../scripts/STUDY_AUDIT.md>)，不要混淆两个 CLI。
+A successful CLI output names the protocol, the mode, and `HISTORICAL_PROTOCOL_INTEGRITY` or `DECLARED_PROTOCOL_INTEGRITY`, and is explicitly marked `NOT_A_CURRENT_CODE_RERUN`. The Java validator recognizes compatible identities by protocol ID; for the standalone Python tool's `--historical` requirements see the [audit tooling note](<../../scripts/STUDY_AUDIT.md>) — do not confuse the two CLIs.
 
-## 为什么旧数字不能证明当前算法
+## Why Old Numbers Do Not Prove Current Algorithms
 
-旧 `peft-comparison-r12-v1` 与 `sensitivity-response-r13-v1` 使用的 LOCAL_PEFT 将当前任务自身成本计入 OCT，并把出口设为平均计算成本。它不是原 PEFT 的后继成本、出口零递推；仅修正 ready-list 或重算统计不能使旧数字成为标准 PEFT 证据。
+The LOCAL_PEFT used by the old `peft-comparison-r12-v1` and `sensitivity-response-r13-v1` counts the current task's own cost into OCT and sets the exit to the average computation cost. That is not the original PEFT's successor-cost, exit-zero recurrence; fixing only the ready-list or recomputing the statistics cannot turn the old numbers into standard-PEFT evidence.
 
-当前协议使用维护中的执行与算法语义，但协议 ID、测试或完整性校验通过并不自动产生新的效果结论。PEFT 递推、来源夹具与模型边界见[算法契约](<../algorithms/CONTRACTS.md>)。应按完整当前矩阵重新评估，同时保留旧证据身份，不复制旧机制解释或把旧结果改名为新结果。
+The current protocols use the maintained execution and algorithm semantics, but a passing protocol ID, test, or integrity check does not automatically yield a new effect conclusion. The PEFT recurrence, its source fixtures, and the model boundaries are documented in the [algorithm contracts](<../algorithms/CONTRACTS.md>). Re-evaluate on the complete current matrix, keep the old evidence identities, and neither copy the old mechanistic explanations nor rename old results as new ones.
 
-执行模型也会改变有效 MI、计算窗口、故障重试、数据就绪和终止时刻。即使参数相同或部分数值恰好一致，也不能据此断言旧模型被逐位重放。需要实际运行比较时使用[复跑差异契约](<RERUN_DIFF_CONTRACT.md>)，保留 `DIVERGED`、重建拒绝等有意义的结果。
+The execution model also changes the effective MI, the computation windows, the failure retries, the data readiness, and the termination instants. Even if the parameters are identical, or some values happen to coincide, that does not allow asserting that the old model has been reproduced bit for bit. When a comparison requires actual runs, use the [rerun difference contract](<RERUN_DIFF_CONTRACT.md>) and keep meaningful outcomes such as `DIVERGED` and rebuild refusals.
 
-交接应包含协议原字节、索引、全部引用证据和生成输入；只交汇总表不足以复核。原证据保持只读，新执行和审计使用独立输出，不为迎合当前验证器而重写历史研究。
+A handover should include the original bytes of the protocol, the index, all the referenced evidence, and the generated inputs; a summary table alone is not enough for re-verification. The original evidence stays read-only, new executions and audits use separate outputs, and historical studies are not rewritten to please the current validator.

@@ -103,4 +103,4 @@ scoreFinish = max(now + inputDelay, cpuAvailable) + executableComputeSeconds
 
 报告只读取同一个已验证快照。动作预览最多 **64** 条，每条候选最多 **12** 条；选中项即使不在预览内，也从完整候选集合提取。数值为精确文本，缺失投影、未配置、无有效结果分别处理；物理 V2/V3 面板同时保留，不重新读取侧车。
 
-参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)、[Workbench](<../getting-started/WORKBENCH.zh.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)与[构建检查](<../getting-started/BUILD.zh.md>)。
+参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.zh.md>)、[Workbench](<../getting-started/WORKBENCH.zh.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)与[构建检查](<../getting-started/BUILD.zh.md>)。
