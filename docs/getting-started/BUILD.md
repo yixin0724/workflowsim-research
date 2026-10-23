@@ -1,44 +1,46 @@
-# 构建、测试与验证
+# Build, Test, and Verification
 
-以下命令从仓库根目录执行。日常运行实验从[快速开始](<QUICK_START.zh.md>)进入；本文集中说明开发与验证工具，不要求新用户先执行全部质量检查。
+The commands below run from the repository root. For day-to-day experiment runs, start from [Quick start](<QUICK_START.md>); this document concentrates on the development and verification tooling and does not require new users to run every quality check first.
 
-## 环境与模块
+**English** · [简体中文](<BUILD.zh.md>)
 
-| 工具 | 要求 | 用途 |
+## Environment and modules
+
+| Tool | Requirement | Purpose |
 | --- | --- | --- |
-| JDK | 17+ | Maven 构建和 Java 仿真 |
-| Maven | 3.6.3+ | 编译、测试、Javadoc、运行入口 |
-| Python | 3.9+，标准库即可 | 独立证据检查器及自测；CI 使用 3.12 |
-| Node.js | 20+ | 离线报告浏览器验收；CI 使用 22 |
-| Chrome 或 Playwright Chromium | 已安装的兼容浏览器 | 浏览器验收，不是仿真依赖 |
+| JDK | 17+ | Maven builds and the Java simulation |
+| Maven | 3.6.3+ | Compilation, tests, Javadoc, and run entry points |
+| Python | 3.9+, standard library only | Independent evidence checkers and their self-tests; CI uses 3.12 |
+| Node.js | 20+ | Offline report browser acceptance; CI uses 22 |
+| Chrome or Playwright Chromium | an installed compatible browser | Browser acceptance, not a simulation dependency |
 
-[根 POM](<../../pom.xml>)默认包含两个模块，无需启用 `experiments` profile：
+The [root POM](<../../pom.xml>) includes both modules by default; no `experiments` profile needs to be enabled:
 
-| 模块 | Maven 坐标 | 职责 |
+| Module | Maven coordinates | Responsibility |
 | --- | --- | --- |
-| 核心模拟器 | `org.workflowsim:workflowsim:1.0` | 模型、运行器、指标和通用证据 API |
-| 实验模块 | `org.workflowsim:workflowsim-workbench:1.0` | Workbench、示例和研究驱动 |
+| core simulator | `org.workflowsim:workflowsim:1.0` | Models, runners, metrics, and the common evidence API |
+| experiments module | `org.workflowsim:workflowsim-workbench:1.0` | Workbench, examples, and research drivers |
 
-编译使用 `--release 8`，产物保持 Java 8 API 兼容；这不降低构建 JDK 的要求。
+Compilation uses `--release 8`, so artifacts stay compatible with the Java 8 API; this does not lower the JDK requirement for building.
 
 ```bash
 java -version
 mvn -v
 ```
 
-## Java 构建与测试
+## Java build and tests
 
-| 任务 | 命令 |
+| Task | Command |
 | --- | --- |
-| 编译两个模块 | `mvn compile` |
-| 两个模块的单元/语义测试 | `mvn test` |
-| 两个模块的单元、集成及覆盖率门禁 | `mvn verify` |
-| 清理后验证，包含核心 API 文档 | `mvn -Pjavadoc clean verify`，或 `make audit` |
-| 仅验证核心 | `mvn -pl :workflowsim verify` |
-| 仅编译核心 | `mvn -pl :workflowsim compile` |
-| 清理两个模块的构建输出 | `mvn clean` |
+| Compile both modules | `mvn compile` |
+| Unit/semantic tests of both modules | `mvn test` |
+| Unit, integration, and coverage gates of both modules | `mvn verify` |
+| Verify after a clean build, including core API documentation | `mvn -Pjavadoc clean verify`, or `make audit` |
+| Verify the core only | `mvn -pl :workflowsim verify` |
+| Compile the core only | `mvn -pl :workflowsim compile` |
+| Clean the build output of both modules | `mvn clean` |
 
-Surefire 在 `test` 阶段执行单元/语义测试，排除 `*IntegrationTest.java`；Failsafe 在 `integration-test`/`verify` 阶段执行集成测试。定向检查示例：
+Surefire runs the unit/semantic tests in the `test` phase and excludes `*IntegrationTest.java`; Failsafe runs the integration tests in the `integration-test`/`verify` phases. Examples of targeted checks:
 
 ```bash
 mvn -pl :workflowsim -Dtest=TaskCostMatrixTest test
@@ -47,15 +49,15 @@ mvn -pl :workflowsim \
 mvn -pl :workflowsim -Dit.test=SimulationEvidenceIntegrationTest verify
 ```
 
-最后一条命令仍执行核心单元测试与 `verify` 门禁，只限定集成测试选择。定向测试不能代替完整验证。
+The last command still runs the core unit tests and the `verify` gate; it only restricts the integration test selection. Targeted tests are not a substitute for full verification.
 
-报告位于各模块的 `target/surefire-reports/`、`target/failsafe-reports/`、`target/site/jacoco/` 和 `target/site/jacoco-it/`。以实际退出状态和报告为准，不用固定测试数量判断成功。JaCoCo 门槛由[核心 POM](<../../simulator/pom.xml>)与[实验 POM](<../../experiments/pom.xml>)维护。
+Reports are located in each module's `target/surefire-reports/`, `target/failsafe-reports/`, `target/site/jacoco/`, and `target/site/jacoco-it/`. Judge success by the actual exit status and the reports, not by a fixed test count. The JaCoCo thresholds are maintained in the [core POM](<../../simulator/pom.xml>) and the [experiments POM](<../../experiments/pom.xml>).
 
-标准检出包含门禁必需的小型输入，缺失时测试失败；完整大型语料不是默认前提，见[数据集说明](<../../datasets/README.md>)。`mvn clean` 只清理构建目录，不清理自定义实验输出或保留证据。
+A standard checkout contains the small inputs the gates require; tests fail when they are missing. The full large corpora are not a default prerequisite — see the [dataset notes](<../../datasets/README.md>). `mvn clean` removes only build directories; it does not remove custom experiment outputs or retained evidence.
 
-## Python 独立检查器自测
+## Python independent checker self-tests
 
-这些测试不导入 Java 生产算法，也不以 Maven 测试替代。完整运行以下八个套件：
+These tests do not import the Java production algorithms and are not a substitute for the Maven tests. Run all eight suites in full:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
@@ -68,11 +70,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-assignment.py
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-profile.py
 ```
 
-自测验证检查器的正例与反例，不证明任意真实研究已通过审计。[CI 配置](<../../.github/workflows/ci.yml>)另外生成 Java 的 V1 网络、V2 文件、V3 存储和在线绑定证据，再用 Python 检查实际产物；对应生产夹具和跨语言验收命令以该文件为准。`mvn verify` 只覆盖 Java 门禁，不包含这些 Python 检查。
+The self-tests verify the checkers on positive and negative cases; they do not prove that any real study has passed an audit. The [CI configuration](<../../.github/workflows/ci.yml>) additionally generates Java V1 network, V2 file, V3 storage, and online assignment evidence, then checks the actual artifacts with Python; that file is authoritative for the corresponding production fixtures and cross-language acceptance commands. `mvn verify` covers the Java gates only and does not include these Python checks.
 
-## 变异门禁
+## Mutation gate
 
-注册变异零存活门禁验证测试集对已知语义破坏的杀伤力（注册表、运行方式与扩表规则见[变异门禁](<../advanced/MUTATION-GATE.md>)，英文）。全量约 3–5 分钟，需干净工作树并独占运行（不与其余 Maven 构建并发）：
+The registered-mutation zero-survival gate verifies the test battery's killing power against known semantic breaks (the registry, how to run it, and the rules for extending the table are documented in [Mutation gate](<../advanced/MUTATION-GATE.md>), in English). A full run takes about 3–5 minutes, requires a clean working tree, and must run exclusively (not concurrently with other Maven builds):
 
 ```bash
 python3 -B scripts/mutation-gate.py --output <新报告.json>
@@ -80,9 +82,9 @@ python3 -B scripts/mutation-gate.py --output <新报告.json> --dry-run
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-mutation-gate.py
 ```
 
-退出码：0 全杀；1 有存活或构建故障；2 锚点漂移（台账需先修复）。空跑模式和自测不调用 Maven。
+Exit codes: 0, all mutants killed; 1, survivors or a build failure; 2, anchor drift (the ledger must be fixed first). Dry-run mode and the self-test do not invoke Maven.
 
-## 文档检查
+## Documentation checks
 
 ```bash
 python3 -B scripts/test-check-docs.py
@@ -91,11 +93,11 @@ python3 -B scripts/check-docs.py
 python3 -B scripts/check-docs.py --json
 ```
 
-检查器通过Git元数据发现现有项目Markdown，排除依赖、构建输出和本地实验结果；验证本地目标、Markdown锚点及来源文本行号，不访问外网。缺失目标、错误锚点或不支持的引用形式会产生带文件/行号的诊断并以非零退出。语义和命令仍需对照源码，规范见[文档与源码注释要求](<../advanced/CODE_STYLE.md>)。
+The checker discovers existing project Markdown through Git metadata, excluding dependencies, build outputs, and local experiment results; it validates local targets, Markdown anchors, and source-text line numbers, and it does not access the network. Missing targets, wrong anchors, or unsupported reference forms produce diagnostics with file/line positions and a non-zero exit. Semantics and commands must still be checked against the source code; the rules are in [documentation and source-comment requirements](<../advanced/CODE_STYLE.md>).
 
-## 离线报告浏览器验收
+## Offline report browser acceptance
 
-检查器通过 `file://` 打开真实生成的报告，不启动服务。依赖版本固定在[浏览器依赖清单](<../../scripts/package.json>)与[锁文件](<../../scripts/package-lock.json>)。
+The checker opens genuinely generated reports via `file://`; no server is started. Dependency versions are pinned in the [browser dependency manifest](<../../scripts/package.json>) and the [lock file](<../../scripts/package-lock.json>).
 
 ```bash
 npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
@@ -112,24 +114,24 @@ node scripts/verify-report.cjs /absolute/new-browser-output/browser-fixtures.jso
 node scripts/test-report-checker.cjs /absolute/new-browser-output/browser-fixtures.json
 ```
 
-替换两个绝对路径占位符，输出目录必须尚不存在。该测试入口在测试源码中，因此需要 `test-compile` 和 `-Dexec.classpathScope=test`。
+Replace the two absolute-path placeholders; the output directory must not already exist. This test entry point lives in test sources, so it needs `test-compile` and `-Dexec.classpathScope=test`.
 
-矩阵覆盖算法/种子标签、多种子、单报告再生、失败状态、大图，以及 V1/V2/V3 和在线动作面板。检查运行选择、VM/任务筛选、依赖聚焦、图形截断、390px 布局、精确数字、无浏览器错误和无额外网络/文件读取；反例脚本确认这些检查确实能失败。Java 测试不执行浏览器 JavaScript，不能替代此步骤。
+The matrix covers algorithm/seed tags, multiple seeds, single-report regeneration, failure states, and large graphs, plus the V1/V2/V3 and online action panels. It checks run selection, VM/task filtering, dependency focus, graph truncation, the 390px layout, exact numbers, no browser errors, and no extra network or file reads; counterexample scripts confirm that these checks can actually fail. Java tests do not execute browser JavaScript and cannot replace this step.
 
-macOS 优先使用已安装的 Google Chrome；否则使用 Playwright Chromium。任意系统均可通过 `WORKFLOWSIM_CHROME` 指定浏览器可执行文件：
+On macOS, an installed Google Chrome is preferred; otherwise Playwright Chromium is used. On any system, the browser executable can be specified via `WORKFLOWSIM_CHROME`:
 
 ```bash
 WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
   node scripts/verify-report.cjs /absolute/experiment/report.html
 ```
 
-[报告检查器](<../../scripts/verify-report.cjs>)还接受可选截图参数：单报告传截图文件路径，矩阵传截图目录。Node 和浏览器只用于验收，不是生成报告的必需依赖；阅读报告只需普通浏览器。
+The [report checker](<../../scripts/verify-report.cjs>) also accepts an optional screenshot argument: a screenshot file path for a single report, or a screenshot directory for the matrix. Node and the browser are used only for acceptance; they are not required for generating reports, and reading a report needs only an ordinary browser.
 
-## 运行 Java 入口
+## Running Java entry points
 
-实验入口使用 `-pl :workflowsim-workbench -am compile exec:java`，由Reactor先构建当前核心依赖再执行。不要省略`compile`直接调用`exec:java`：它可能解析本地Maven仓库中的旧核心JAR，导致当前源码已有的模型枚举在运行时仍不被识别。遇到这种情况应重建正确的模块/类路径，而不是改写证据中的模型标签。Workbench的四个命令见[操作指南](<WORKBENCH.md>)；自建Java类见[代码指南](<CODE_CONFIG_EXPERIMENTS.md>)。
+Experiment entry points use `-pl :workflowsim-workbench -am compile exec:java`, with the Reactor building the current core dependency first and then executing. Do not omit `compile` and call `exec:java` directly: it may resolve a stale core JAR from the local Maven repository, leaving model enums that already exist in the current source unrecognized at run time. If that happens, rebuild the correct module/classpath instead of rewriting model labels in the evidence. For the four Workbench commands, see the [Workbench guide](<WORKBENCH.md>); for writing your own Java classes, see the [Java API guide](<CODE_CONFIG_EXPERIMENTS.md>).
 
-使用仓库自带 JSON 输入的示例：
+An example using one of the JSON inputs bundled with the repository:
 
 ```bash
 mvn -pl :workflowsim-workbench -am compile exec:java \
@@ -137,9 +139,9 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.args="datasets/wfformat/montage/n100/montage-100-000.json"
 ```
 
-## 证据校验命令
+## Evidence verification commands
 
-核心模块默认跳过 `exec:java`；运行核心校验器时启用 `core-exec`：
+The core module skips `exec:java` by default; enable `core-exec` to run the core validators:
 
 ```bash
 # 单次运行证据包
@@ -157,9 +159,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-network-ledger.py \
   /absolute/output/run.manifest.json --json
 ```
 
-独立网络检查器用于已启用匹配网络/生命周期记录的证据包，不应把普通 OFF 证据包当作其完整捕获输入。校验器只读目标证据，但命令中的 Maven 编译仍会写构建输出。校验成功只证明声明范围内的结构、哈希、上下文或语义约束，不证明算法最优或真实平台校准。研究指标与统计检查另见[独立审计工具](<../../scripts/STUDY_AUDIT.md>)。
+The independent network checker is meant for evidence packages with matching network/lifecycle records enabled; a plain OFF evidence package should not be treated as a complete capture input for it. The validators only read the target evidence, but the Maven compilation in these commands still writes build output. A successful verification proves only the structural, hash, context, or semantic constraints within its declared scope; it does not prove algorithmic optimality or calibration to a real platform. For study metrics and statistical checks, see also the [independent audit tooling](<../../scripts/STUDY_AUDIT.md>).
 
-## API 文档与环境排查
+## API documentation and environment troubleshooting
 
 ```bash
 mvn -pl :workflowsim -Pjavadoc verify
@@ -167,4 +169,4 @@ mvn -pl :workflowsim -Pjavadoc verify
 open simulator/target/reports/apidocs/index.html
 ```
 
-Javadoc 检查维护中的 WorkflowSim API，不包含上游 CloudSim 注释。IDE 类路径或导入问题见[IDEA 配置](<IDEA_SETUP.md>)。输入不存在时，先区分 Java 入口的工作目录与 Workbench 配置文件的相对路径基准；不要通过切换未声明的模型或跳过校验来消除错误。
+Javadoc checks the maintained WorkflowSim API and does not include upstream CloudSim comments. For IDE classpath or import problems, see the [IDEA setup](<IDEA_SETUP.md>). When an input does not exist, first distinguish the Java entry point's working directory from the relative-path base of the Workbench configuration file; do not silence the error by switching to an undeclared model or skipping validation.

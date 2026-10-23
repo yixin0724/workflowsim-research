@@ -1,61 +1,69 @@
-# WorkflowSim文档中心
+# WorkflowSim Documentation Center
 
-这里维护当前使用方法、模型契约和验证规则。首次使用按“快速开始 → Workbench”阅读；需要自定义Java实验时再看代码配置指南。开发轮次、完成清单和被替代的审计稿不作为长期入口。
+**English** · [简体中文](<README.zh.md>)
 
-## 开始使用
+This center maintains the current usage guides, model contracts, and verification rules.
+First-time users should read quick start → Workbench in order; consult the code-configuration
+guide only when custom Java experiments are needed. Development rounds, completion lists,
+and superseded audit drafts are not long-term entry points.
 
-| 需要 | 文档 |
+## Getting started
+
+| Need | Document |
 |---|---|
-| 跑通已有配置并打开报告 | [快速开始（中文）](<getting-started/QUICK_START.zh.md>) · [Quick Start (EN)](<getting-started/QUICK_START.md>) |
-| 配置、验证、运行和重建离线报告 | [Workbench指南](<getting-started/WORKBENCH.md>) |
-| 在Java中构建配置、平台及实验 | [代码配置指南](<getting-started/CODE_CONFIG_EXPERIMENTS.md>) |
-| Maven、Python、浏览器和Javadoc检查 | [构建与验证](<getting-started/BUILD.md>) |
-| 配置IDEA模块、类路径和工作目录 | [IDEA设置](<getting-started/IDEA_SETUP.md>) |
+| Run an existing configuration and open its report | [Quick start (EN)](<getting-started/QUICK_START.md>) · [快速开始（中文）](<getting-started/QUICK_START.zh.md>) |
+| Configure, validate, run, and rebuild offline reports | [Workbench guide](<getting-started/WORKBENCH.md>) |
+| Build configurations, platforms, and experiments in Java | [Code-configuration guide](<getting-started/CODE_CONFIG_EXPERIMENTS.md>) |
+| Maven, Python, browser, and Javadoc checks | [Build and verification](<getting-started/BUILD.md>) |
+| Configure IDEA modules, classpaths, and working directories | [IDEA setup](<getting-started/IDEA_SETUP.md>) |
 
-## 选择算法、输入和模型
+## Choosing algorithms, inputs, and models
 
-- [算法目录](<algorithms/CATALOG.md>)：决策层、可选标签、组合限制及旧名称迁移。
-- [算法与指标契约](<algorithms/CONTRACTS.md>)：计算量、通信、顺序、原论文对照、指标口径及验证边界。
-- [论文指标口径卡](<algorithms/METRICS_CARD.md>)：逐指标的文献口径差异与论文引用建议。
-- [工作流输入与数据集](<../datasets/README.md>)：随仓库输入、可选语料、来源、转换和格式约束。
-- [数据流与网络能力矩阵](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>)：物理模型、存储、在线绑定及未实现能力。
-- [Fat-tree拓扑与共享模型](<research/FAT_TREE_DESIGN.md>)：结构、放置、确定性路径和容量分配边界。
+- [Algorithm catalog](<algorithms/CATALOG.md>): decision layers, available labels, combination limits, and legacy-name migration.
+- [Algorithm and metrics contracts](<algorithms/CONTRACTS.md>): computation volume, communication, ordering, primary-paper correspondence, metric conventions, and verification boundaries.
+- [Paper-metrics conventions card](<algorithms/METRICS_CARD.md>): per-metric literature-convention differences and citation advice.
+- [Workflow inputs and datasets](<../datasets/README.md>): repository-bundled inputs, optional corpora, provenance, conversion, and format constraints.
+- [Dataflow and network capability matrix](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>): physical models, storage, online assignment, and unimplemented capabilities.
+- [Fat-tree topology and shared model](<research/FAT_TREE_DESIGN.md>): structure, placement, deterministic routing, and capacity-allocation boundaries.
 
-## 数据流与证据参考
+## Dataflow and evidence reference
 
-| 主题 | 文档 |
+| Topic | Document |
 |---|---|
-| 文件身份、真实来源、副本可见性和CPU输入屏障 | [一致文件数据流V2](<advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>) |
-| 有限SOURCE、提交后读取和必要输出写回 | [存储数据流V3](<advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>) |
-| 控制就绪时选VM、名义分数和动作认证范围 | [在线目标绑定](<advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
-| 逐文件侧车的精确字段与验证规则 | [文件生命周期格式](<advanced/FILE_LIFECYCLE_V2_FORMAT.md>) |
-| V1组级账本的格式、角色及严格读取 | [网络账本格式](<advanced/NETWORK_LEDGER_FORMAT.md>) |
-| V1稳定分配证书、精确会计和截断前缀 | [账本校验与指标](<advanced/NETWORK_LEDGER_VALIDATION.md>) |
-| 不依赖Java的V1/V2/V3及在线检查入口 | [独立Python证据校验](<advanced/NETWORK_LEDGER_PYTHON.md>) |
-| 同一验证快照、精确文本和有界预览 | [离线网络与动作报告](<advanced/NETWORK_REPORT_DISPLAY.md>) |
+| File identity, true sources, replica visibility, and the CPU input barrier | [Coherent file dataflow V2](<advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>) |
+| Bounded SOURCE, post-commit reads, and required output write-back | [Storage dataflow V3](<advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>) |
+| VM selection at control-ready, nominal scores, and action certification scope | [Online target assignment](<advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
+| Exact fields and validation rules of the per-file sidecar | [File lifecycle format](<advanced/FILE_LIFECYCLE_V2_FORMAT.md>) |
+| Format, roles, and strict reading of the V1 group ledger | [Network ledger format](<advanced/NETWORK_LEDGER_FORMAT.md>) |
+| V1 stable-allocation certificates, exact accounting, and truncated prefixes | [Ledger validation and metrics](<advanced/NETWORK_LEDGER_VALIDATION.md>) |
+| Java-independent V1/V2/V3 and online check entry points | [Independent Python evidence verification](<advanced/NETWORK_LEDGER_PYTHON.md>) |
+| Same verified snapshot, exact text, and bounded previews | [Offline network and action reports](<advanced/NETWORK_REPORT_DISPLAY.md>) |
 
-## 实验、重放与统计
+## Experiments, replay, and statistics
 
-- [可复现性契约](<experiments/REPRODUCIBILITY.md>)：随机性、时间/工作量、成本、参考值和deadline语义。
-- [批量实验与网络研究](<experiments/CAMPAIGNS.md>)：场景矩阵、种子、参数控制、运行和统计方法。
-- [证据重放与差异比较](<experiments/RERUN_DIFF_CONTRACT.md>)：配置重建、判定、精确核心量与少量易变字段。
-- [协议身份与历史证据边界](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>)：哪些旧身份仍可读取，为什么旧结果不等于当前实现的结论。
-- [独立研究检查工具](<../scripts/STUDY_AUDIT.md>)：一般证据/统计校验的实际范围，与数据流专用证书区分。
+- [Reproducibility contract](<experiments/REPRODUCIBILITY.md>): randomness, time/work, cost, reference values, and deadline semantics.
+- [Campaign experiments and network studies](<experiments/CAMPAIGNS.md>): scenario matrices, seeds, parameter control, execution, and statistical methods.
+- [Evidence replay and difference comparison](<experiments/RERUN_DIFF_CONTRACT.md>): configuration rebuilding, verdicts, exact core quantities, and the small set of volatile fields.
+- [Protocol identity and historical-evidence boundaries](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>): which legacy identities remain readable and why legacy results are not conclusions about the current implementation.
+- [Independent study-audit tooling](<../scripts/STUDY_AUDIT.md>): the actual scope of general evidence/statistics checks, distinguished from dataflow-specific certificates.
 
-## 研究定位与质量
+## Research positioning and quality
 
-- [科学定位声明](<SCIENCE-POSITION.md>)：研究身份、真实性标准（内部效度）、竞争定位、威胁效度。
-- [审查与科学性工程摘要](<quality/AUDIT-2026-10.md>)：两轮成果、关键数字与方法论沉淀。
+- [Science position statement](<SCIENCE-POSITION.md>): research identity, validity standard (internal validity), competitive positioning, and threats to validity.
+- [Review and scientific-engineering summary](<quality/AUDIT-2026-10.md>): two-round results, key numbers, and methodology lessons.
 
-- [科学定位声明](<SCIENCE-POSITION.md>)：研究身份、真实性标准（内部效度）、竞争定位、威胁效度。
+## Maintenance
 
-## 维护
+- [Documentation and source-comment conventions](<advanced/CODE_STYLE.md>): content layering, link/example requirements, source protection, and the document check command.
+- [Mutation gate](<advanced/MUTATION-GATE.md>): registered-mutant zero-survival gate, killer-test ledger, and growth rules.
+- [Dataflow state and performance measurement](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>): immutable history/active working set, measurement conventions, and repeatable comparisons.
+- [Experiment module notes](<../experiments/README.md>): module responsibilities and maintenance entry point.
 
-- [文档与源码注释规范](<advanced/CODE_STYLE.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
-- [变异门禁](<advanced/MUTATION-GATE.md>)：注册变异零存活检查、杀手测试台账与扩表规则（英文）。
-- [数据流状态与性能测量](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)：不可变历史/活动工作集、测量口径及可重复比较。
-- [实验模块说明](<../experiments/README.md>)：模块职责和维护入口。
+## Retention policy for historical material
 
-## 历史资料的保留原则
-
-历史实验的原始数值、预注册、输入来源与必要兼容协议保留在对应数据/参考目录，并明确版本与局限；它们不构成当前用户指南或新的科学结论。需要识别已保留研究时查看[研究数据说明](<../experiments/studies/README.md>)。其余开发过程可从Git历史查阅，不在当前导航中重复陈列。
+Original numbers, preregistrations, input provenance, and necessary compatibility protocols
+of historical experiments are retained in their data/reference directories with explicit
+versions and limitations; they are neither current user guidance nor new scientific
+conclusions. To identify retained studies, see the
+[study data notes](<../experiments/studies/README.md>); the rest of the development history
+is available from Git and is not repeated in this navigation.

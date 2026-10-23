@@ -33,6 +33,6 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 mvn -Pjavadoc clean verify
 ```
 
-该命令验证两个 Java 模块及核心 Javadoc。Python 独立检查和[离线报告浏览器验收](<../docs/getting-started/BUILD.md#离线报告浏览器验收>)另行执行，完整工具要求见[构建与验证](<../docs/getting-started/BUILD.md>)。
+该命令验证两个 Java 模块及核心 Javadoc。Python 独立检查和[离线报告浏览器验收](<../docs/getting-started/BUILD.zh.md#离线报告浏览器验收>)另行执行，完整工具要求见[构建与验证](<../docs/getting-started/BUILD.zh.md>)。
 
 输入来源及标准检出范围见[数据集说明](<../datasets/README.md>)。构建输出和实验产物不是源码；只有按研究协议明确保留、记录来源和验证命令的证据才应作为长期交付物。

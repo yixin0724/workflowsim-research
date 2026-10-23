@@ -24,10 +24,10 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 
 打开输出根目录的 `index.html` 查看实验历史，进入实验目录的 `report.html` 查看方案比较、任务时间线、等待和资源利用率。每次运行使用独立输出目录，失败原因与已完成结果均会保留。
 
-- 使用配置文件运行、查看报告：[Workbench指南](<docs/getting-started/WORKBENCH.md>)
-- 使用Java API构建实验：[代码配置指南](<docs/getting-started/CODE_CONFIG_EXPERIMENTS.md>)
-- 构建、测试与工具命令：[构建指南](<docs/getting-started/BUILD.md>)
-- 按主题查找：[文档中心](<docs/README.md>)
+- 使用配置文件运行、查看报告：[Workbench指南](<docs/getting-started/WORKBENCH.zh.md>)
+- 使用Java API构建实验：[代码配置指南](<docs/getting-started/CODE_CONFIG_EXPERIMENTS.zh.md>)
+- 构建、测试与工具命令：[构建指南](<docs/getting-started/BUILD.zh.md>)
+- 按主题查找：[文档中心](<docs/README.zh.md>)
 
 ## 选择示例
 
@@ -89,4 +89,4 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
 mvn -Pjavadoc clean verify
 ```
 
-联合门禁包含单元、语义、集成、覆盖率与核心API文档；独立Python及离线浏览器检查见[构建指南](<docs/getting-started/BUILD.md>)。性能比较先检查状态、捕获和动作指纹一致，再报告耗时及分配量，方法见[状态复制性能说明](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)。
+联合门禁包含单元、语义、集成、覆盖率与核心API文档；独立Python及离线浏览器检查见[构建指南](<docs/getting-started/BUILD.zh.md>)。性能比较先检查状态、捕获和动作指纹一致，再报告耗时及分配量，方法见[状态复制性能说明](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)。

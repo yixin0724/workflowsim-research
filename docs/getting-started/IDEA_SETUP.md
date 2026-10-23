@@ -1,49 +1,67 @@
-# IntelliJ IDEA 配置
+# IntelliJ IDEA Setup
 
-## 导入 Maven 工程
+**English** · [简体中文](<IDEA_SETUP.zh.md>)
 
-1. 打开仓库根目录或[根 POM](<../../pom.xml>)，以 Maven 工程导入。
-2. 在 Maven 工具窗口执行 **Reload All Maven Projects**。
-3. 确认存在 `workflowsim` 与 `workflowsim-workbench` 两个模块。它们属于默认 Reactor，无需额外的 `experiments` profile。
-4. 确认各模块的 `src/main/java`、`src/test/java` 被识别为源码和测试源码目录。
+## Importing the Maven project
 
-图标颜色因 IDEA 版本和主题而异；以 Maven 同步、依赖解析、代码补全和 Run 操作为准，不手动标记目录来替代正确导入。
+1. Open the repository root or the [root POM](<../../pom.xml>) and import it as a Maven project.
+2. Run **Reload All Maven Projects** in the Maven tool window.
+3. Confirm that the two modules `workflowsim` and `workflowsim-workbench` are present. They belong to the default reactor; no additional `experiments` profile is required.
+4. Confirm that each module's `src/main/java` and `src/test/java` are recognized as source and test source roots.
 
-## 设置 JDK 与 Maven
+Icon colors vary with IDEA version and theme; judge the import by Maven synchronization, dependency resolution, code completion, and Run actions — do not mark directories manually as a substitute for a correct import.
 
-- Project SDK、Maven importer 和 Maven runner 使用 **JDK 17+**。
-- Maven 使用 **3.6.3+** 的本地安装或满足要求的 IDE 内置版本。
-- POM 的 `release=8` 表示编译产物兼容 Java 8 API，不表示可以用 JDK 8 构建。
+## Configuring the JDK and Maven
 
-## 运行 Workbench
+- The Project SDK, the Maven importer, and the Maven runner use **JDK 17+**.
+- Maven uses a **3.6.3+** local installation or a bundled IDE version that satisfies this requirement.
+- The POM's `release=8` means the build output is compatible with the Java 8 API; it does not mean the project can be built with JDK 8.
 
-打开 [Workbench](<../../experiments/src/main/java/org/workflowsim/experiments/workbench/Workbench.java>)，在 **Run → Edit Configurations → Application** 中设置：
+## Running the Workbench
 
-| 配置项 | 值 |
+Open [Workbench](<../../experiments/src/main/java/org/workflowsim/experiments/workbench/Workbench.java>) and configure __Run → Edit Configurations → Application__ as:
+
+| Setting | Value |
 | --- | --- |
 | Main class | `org.workflowsim.experiments.workbench.Workbench` |
 | Use classpath of module | `workflowsim-workbench` |
-| Working directory | `$PROJECT_DIR$`，即仓库根目录 |
+| Working directory | `$PROJECT_DIR$`, i.e. the repository root |
 | JRE | JDK 17+ |
 | Program arguments | `validate experiments/configs/online-comparison.json` |
 
-预检成功后，把 Program arguments 改为：
+After the validation succeeds, change Program arguments to:
 
 ```text
 run experiments/configs/online-comparison.json output/workbench
 ```
 
-命令参数中的配置和输出路径相对于工作目录；配置内部的 `workflowPaths` 相对于配置文件所在目录。运行及报告规则见[Workbench 指南](<WORKBENCH.md>)。
+The configuration and output paths in the command arguments are relative to the working
+directory; the `workflowPaths` inside a configuration resolve relative to the directory
+containing that configuration file. Run and report rules are described in the
+[Workbench guide](<WORKBENCH.md>).
 
-## 运行自建类与测试
+## Running your own classes and tests
 
-[Java API 指南](<CODE_CONFIG_EXPERIMENTS.md>)提供完整自建类示例。创建后，Application 的主类改为 `org.workflowsim.mystudy.MyExperiment`，仍选择实验模块 classpath 和项目根工作目录；也可右键 `main` 运行。
+The [Java API guide](<CODE_CONFIG_EXPERIMENTS.md>) provides complete examples of custom
+classes. Once created, set the Application main class to
+`org.workflowsim.mystudy.MyExperiment`, keeping the experiment module classpath and the
+project-root working directory; you may also right-click `main` and run it.
 
-JUnit 测试放在对应模块的 `src/test/java/`，用 JUnit 配置运行。测试源码中的辅助入口不在 `compile exec:java` 默认类路径内，命令行使用方式见[构建与验证](<BUILD.md>)。
+JUnit tests live in the corresponding module's `src/test/java/` and run via JUnit
+configurations. Helper entries in test sources are not on the default `compile exec:java`
+classpath; see [build and verification](<BUILD.md>) for the command-line usage.
 
-## 排查
+## Troubleshooting
 
-- **实验模块未出现**：确认导入根 POM，而非仅导入[核心 POM](<../../simulator/pom.xml>)；取消 Maven 工具窗口中的 Ignored 标记，再重新加载。
-- **依赖报红或找不到类**：先核对 Maven 同步结果、构建 JDK、源码位置和运行 classpath；这些均正确后才考虑重建 IDE 索引。
-- **找不到输入**：核对 Working directory，以及配置内部的相对路径基准；可用输入见[数据集说明](<../../datasets/README.md>)。
-- **命令行成功但 IDE 失败**：逐项比较 JDK、模块、工作目录和 Program arguments；用[快速开始](<QUICK_START.zh.md>)中的相同配置对照。
+- **The experiment module is missing**: confirm you imported the root POM, not just the
+  [core POM](<../../simulator/pom.xml>); clear the module's Ignored marker in the Maven tool
+  window, then reload.
+- **Dependencies show red or classes cannot be found**: first check the Maven sync result,
+  build JDK, source locations, and runtime classpath; only after these are correct consider
+  rebuilding IDE indexes.
+- **Inputs not found**: check the working directory and the relative-path base inside the
+  configuration; available inputs are listed in the
+  [dataset notes](<../../datasets/README.md>).
+- **The command line succeeds but the IDE fails**: compare JDK, module, working directory,
+  and Program arguments item by item against the same configuration used in the
+  [Quick start](<QUICK_START.md>).

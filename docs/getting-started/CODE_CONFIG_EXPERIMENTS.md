@@ -1,10 +1,16 @@
-# Java API 实验指南
+# Java API Experiment Guide
 
-只需修改输入、资源和内置算法时，优先使用 [Workbench](<WORKBENCH.md>)。本指南用于自定义 Java 实验、故障模型或外部策略；算法选择统一见[算法目录](<../algorithms/CATALOG.md>)，输入选择见[数据集说明](<../../datasets/README.md>)。
+**English** · [简体中文](<CODE_CONFIG_EXPERIMENTS.zh.md>)
 
-## 一个完整示例
+When you only need to change inputs, resources, or built-in algorithms, prefer the
+[Workbench](<WORKBENCH.md>). This guide is for custom Java experiments, failure models, or
+external policies; see the [algorithm catalog](<../algorithms/CATALOG.md>) for algorithm
+selection and the [dataset notes](<../../datasets/README.md>) for input selection.
 
-在实验模块中新建以下文件。这是你创建的入口，不是仓库预置类：
+## A complete example
+
+Create the following file in the experiment module. It is your own entry point, not a
+repository-provided class:
 
 ```text
 experiments/src/main/java/org/workflowsim/mystudy/MyExperiment.java
@@ -63,30 +69,48 @@ public final class MyExperiment {
 }
 ```
 
-从仓库根目录运行：
+Run from the repository root:
 
 ```bash
 mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.mystudy.MyExperiment
 ```
 
-IDEA 运行时选择实验模块 classpath，工作目录为 `$PROJECT_DIR$`，见[IDEA 配置](<IDEA_SETUP.md>)。Java API 的相对输入/输出路径以进程工作目录为基准，不采用 Workbench 的配置文件相对路径规则。
+In IDEA, choose the experiment-module classpath with working directory `$PROJECT_DIR$`; see
+the [IDEA setup](<IDEA_SETUP.md>). The Java API's relative input/output paths resolve against
+the process working directory; they do not follow Workbench's
+relative-to-configuration-file rule.
 
-## 配置与模型边界
+## Configuration and model boundaries
 
-- [SimulationConfig](<../../simulator/src/main/java/org/workflowsim/utils/SimulationConfig.java>)是不可变配置；`build()` 校验组合，运行器继续校验输入、平台、成本覆盖和执行前提。默认使用 FCFS、无规划、SHARED 和 legacy 数据移动，故障与开销关闭；种子应显式声明。
-- 标准运行器要求 NONE 聚类、SPACE_SHARED VM、PE 兼容放置；每台 VM 同时最多派发一个 Job，不等于所有任务永远只使用一个 PE。
-- `PlatformProfiles.homogeneousLocal` 创建一台 VM 对应一台 Host、每 VM 1000 MIPS/1 PE/512 MB 的平台；名称中的 Local 不设置文件系统。配置中的 VM 数必须与平台一致。
-- 离线规划必须配合 STATIC 派发。coherent V2/V3 的显式在线绑定是独立决策层，可使用 INVALID/STATIC，不能把它与普通 CPU 在线调度混为一谈。
-- V1、coherent V2 和受限存储 V3 的数据就绪、输出提交和记录语义不同。不要只替换一个枚举而忽略文件系统、拓扑、SOURCE 存储或证据模式要求，见[能力与组合说明](<../advanced/DATAFLOW_CAPABILITY_MATRIX.md>)。
+- [SimulationConfig](<../../simulator/src/main/java/org/workflowsim/utils/SimulationConfig.java>)
+  is an immutable configuration; `build()` validates the combination, and the runner
+  continues to validate inputs, platform, cost coverage, and execution prerequisites.
+  Defaults are FCFS, no planning, SHARED, and legacy data movement with failure and overhead
+  disabled; the seed should be declared explicitly.
+- The standard runner requires NONE clustering, SPACE_SHARED VMs, and PE-compatible
+  placement; each VM dispatches at most one Job at a time, which does not mean every task
+  forever uses a single PE.
+- `PlatformProfiles.homogeneousLocal` creates a platform with one VM per Host, each VM at
+  1000 MIPS / 1 PE / 512 MB; the `Local` in the name does not configure the file system. The
+  VM count in the configuration must match the platform.
+- Offline planning requires STATIC dispatch. The explicit online assignment of coherent
+  V2/V3 is a separate decision layer that may use INVALID/STATIC and must not be conflated
+  with ordinary online CPU scheduling.
+- V1, coherent V2, and bounded-storage V3 differ in data readiness, output commit, and
+  recording semantics. Do not swap one enum while ignoring the file-system, topology, SOURCE
+  storage, or evidence-mode requirements; see the
+  [capability and combination matrix](<../advanced/DATAFLOW_CAPABILITY_MATRIX.md>).
 
-## 常用配方
+## Common recipes
 
-以下配方独立应用于基础示例，不能无条件叠加。片段不是独立程序；所示 import 放在文件头，其余代码放在 `main` 中、调用运行器之前。
+The recipes below apply to the base example independently and must not be stacked
+unconditionally. The snippets are not standalone programs; put the shown imports at the file
+head and the remaining code inside `main`, before invoking the runner.
 
-### 共享存储静态规划
+### Shared-storage static planning
 
-增加 import，并替换基础示例的 `config` 定义：
+Add the import and replace the base example's `config` definition:
 
 ```java
 import org.workflowsim.utils.Parameters.PlanningAlgorithm;
@@ -100,26 +124,43 @@ SimulationConfig config = SimulationConfig.builder(workflow, vmCount)
         .build();
 ```
 
-共享存储规划器要求无故障/开销、NONE 聚类和 SPACE_SHARED，且不接受任务成本矩阵。LOCAL 规划器使用不同的 V1 pre-execution 模型，不能作为 coherent V2/V3 估计器。完整组合和论文适配范围见[算法契约](<../algorithms/CONTRACTS.md>)。
+Shared-storage planners require no failure/overhead, NONE clustering, and SPACE_SHARED, and
+they reject task-cost matrices. LOCAL planners use a different V1 pre-execution model and
+are not estimators for coherent V2/V3. See the
+[algorithm contracts](<../algorithms/CONTRACTS.md>) for complete combinations and paper
+adaptation scope.
 
-### 异构资源、到达与截止时间
+### Heterogeneous resources, arrivals, and deadlines
 
-替换平台定义，可声明四台计算能力不同的异构 VM：
+Replace the platform definition to declare four heterogeneous VMs with different compute
+capabilities:
 
 ```java
 PlatformProfile platform = PlatformProfiles.heterogeneousLocal("heterogeneous",
         java.util.Arrays.asList(500.0, 1000.0, 2000.0, 1000.0));
 ```
 
-更细的平台、VM→Host 绑定及抽象定价使用 [PlatformProfile](<../../simulator/src/main/java/org/workflowsim/platform/PlatformProfile.java>)。VM 级成本模式要求每台 VM 显式定价；成本不是校准后的云货币价格。
+Finer platforms, VM-to-Host binding, and abstract pricing use
+[PlatformProfile](<../../simulator/src/main/java/org/workflowsim/platform/PlatformProfile.java>).
+The VM-level cost mode requires an explicit price per VM; the cost is not a calibrated cloud
+currency price.
 
-多工作流通过 `SimulationConfig.builder(List<String>, vmCount)` 声明，随后用 `workflowArrivalSeconds(List<Double>)` 指定同长度的非负秒数列表。输入及到达表启动前已知，运行期按时刻释放。
+Multiple workflows are declared through `SimulationConfig.builder(List<String>, vmCount)`
+followed by `workflowArrivalSeconds(List<Double>)` with an equally long list of non-negative
+seconds. Inputs and the arrival table are known before the run starts and released at their
+declared times during execution.
 
-`deadline(long)` 从仿真零时刻起算，0 表示未请求；它只用于事后 SLA 观察，不改变调度、重试或仿真终止。`config.withRandomSeed(...)` 可生成仅种子变化的新配置；确定性算法的多种子重复不自动成为独立统计样本。
+`deadline(long)` counts from simulation time zero, with 0 meaning not requested; it only
+feeds post-hoc SLA observation and does not alter scheduling, retries, or termination.
+`config.withRandomSeed(...)` produces a new configuration differing only in the seed;
+repeating deterministic algorithms over multiple seeds does not automatically produce
+independent statistical samples.
 
-### 显式故障与重试预算
+### Explicit failure and retry budget
 
-以下配置按基础平台的实际 VM ID 0 至 3 声明抽象故障流。使用 VM-ID 键控行时，生成器模式必须是 `FAILURE_VM` 或 `FAILURE_VM_JOB`，不能配 `FAILURE_ALL`。
+The following configuration declares abstract failure streams keyed by the actual VM IDs 0
+through 3 of the base platform. When rows are keyed by VM ID, the generator mode must be
+`FAILURE_VM` or `FAILURE_VM_JOB`, not `FAILURE_ALL`.
 
 ```java
 import org.workflowsim.failure.FailureModelConfig;
@@ -144,18 +185,45 @@ FailureModelConfig failure = FailureModelConfig.builder()
 config = config.toBuilder().failureModel(failure).build();
 ```
 
-参数只是模型输入，不是现网故障校准；单次运行也不保证必然出现失败。标准运行器支持 NOOP 重试，预算必须为正，耗尽会显式失败。故障在尝试完成边界判定，失败输出不成为可读副本。只有允许故障的模型/算法组合才能采用此配方，约束以 [FailureModelConfig](<../../simulator/src/main/java/org/workflowsim/failure/FailureModelConfig.java>)及[算法契约](<../algorithms/CONTRACTS.md>)为准。
+The parameters are model inputs, not calibrated production failures; a single run is also
+not guaranteed to contain any failure. The standard runner supports NOOP retries; the budget
+must be positive and exhaustion fails explicitly. Failures are decided at attempt-completion
+boundaries, and failed outputs do not become readable replicas. This recipe applies only to
+model/algorithm combinations that allow failure; the authoritative constraints are
+[FailureModelConfig](<../../simulator/src/main/java/org/workflowsim/failure/FailureModelConfig.java>)
+and the [algorithm contracts](<../algorithms/CONTRACTS.md>).
 
-### 接入外部策略
+### Plugging in an external policy
 
-`RL_POLICY` 通过 [RlEnvironment](<../../simulator/src/main/java/org/workflowsim/rl/RlEnvironment.java>)的 `runEpisode(config, platform, policy)` 注册策略并运行 episode，提供观测、动作、轨迹与奖励，不提供学习算法。coherent 模型的在线目标绑定不是这个 RL 接口，详见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+`RL_POLICY` registers a policy and runs an episode via
+[RlEnvironment](<../../simulator/src/main/java/org/workflowsim/rl/RlEnvironment.java>)'s
+`runEpisode(config, platform, policy)`, providing observations, actions, trajectories, and
+rewards — not a learning algorithm. The online target assignment of coherent models is a
+different interface from this RL hook; see the
+[online assignment contract](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>).
 
-## 读取与保存结果
+## Reading and saving results
 
-- `getMakespan()` 是模拟结束时刻；`getLogicalTaskCompletionSeconds()` 仅在全部逻辑任务成功时可用，二者可能因输出写回等生命周期尾部而不同。
-- 成功/失败 Job 数统计尝试，含模型生成的 stage-in Job；不要当作逻辑任务数。等待、减速比、成本和利用率有各自样本范围，见[指标契约](<../algorithms/CONTRACTS.md>)和 [SimulationMetrics](<../../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java>)。
-- `ExperimentArtifactWriter.write(...)` 写出 manifest v4、metrics v2、events v1，manifest 内 provenance 为 v3；启用记录时另有匹配的网络/生命周期侧车。仅写独立 manifest 不等于完整证据包。
-- 同一目录与 runId 会替换同名工件。单文件采用临时写入后替换，支持时为原子替换；整个证据包不是跨文件事务，写出后必须校验。需要保留多次运行时使用不同 runId 或目录。
-- Workbench 可从校验后的 manifest 生成自包含 HTML；Java 写器本身负责证据而不是报告界面。命令见[Workbench 指南](<WORKBENCH.md>)。
+- `getMakespan()` is the simulation end time; `getLogicalTaskCompletionSeconds()` is only
+  available when every logical task succeeds, and the two can differ by lifecycle tails such
+  as output write-back.
+- The successful/failed Job counts count attempts, including modeled stage-in Jobs; do not
+  read them as logical-task counts. Waiting, slowdown, cost, and utilization each carry
+  their own observation scope; see the [metrics contracts](<../algorithms/CONTRACTS.md>) and
+  [SimulationMetrics](<../../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java>).
+- `ExperimentArtifactWriter.write(...)` writes manifest v4, metrics v2, and events v1, with
+  v3 provenance inside the manifest; matching network/lifecycle sidecars are written when
+  recording is enabled. A manifest alone is not a complete evidence bundle.
+- The same directory and runId replace artifacts of the same name. Individual files are
+  written via temporary-then-replace, atomic where supported; the whole evidence bundle is
+  not a cross-file transaction — validate after writing. Use distinct runIds or directories
+  to retain multiple runs.
+- Workbench can produce self-contained HTML from a validated manifest; the Java writer
+  itself owns the evidence, not the reporting interface. Commands are in the
+  [Workbench guide](<WORKBENCH.md>).
 
-记录输入哈希、配置、平台、种子与实现版本，不把墙钟耗时当作可逐位重现的模拟时间。实验证据是否保留应显式决定；[忽略规则](<../../.gitignore>)并不忽略整个 `output/`。构建和独立验证命令集中在[构建指南](<BUILD.md>)。
+Record input hashes, configuration, platform, seed, and implementation version; do not treat
+wall-clock durations as bit-reproducible simulation time. Whether experiment evidence is
+retained must be decided explicitly; the [ignore rules](<../../.gitignore>) do not ignore
+the entire `output/`. Build and independent verification commands are consolidated in the
+[build guide](<BUILD.md>).

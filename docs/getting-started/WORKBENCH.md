@@ -1,10 +1,11 @@
-# Workbench：配置、运行与离线报告
+# Workbench: Configuration, Runs, and Offline Reports
 
-Workbench 是维护中的统一实验入口。它读取 JSON 配置，运行同一决策层的算法，保存可校验证据并生成自包含 HTML；不启动 Web 服务、不加载 CDN。首次运行见[快速开始](<QUICK_START.zh.md>)。
+Workbench is the maintained, unified experiment entry point. It reads JSON configuration, runs algorithms within the same decision layer, saves verifiable evidence, and generates self-contained HTML; it starts no web service and loads no CDN. For a first run, see [Quick Start](<QUICK_START.md>).
+**English** · [简体中文](<WORKBENCH.zh.md>)
 
-## 命令与路径
+## Commands and Paths
 
-使用 JDK 17+、Maven 3.6.3+，从项目根目录执行：
+Use JDK 17+ and Maven 3.6.3+, and run from the project root:
 
 ```bash
 # 预检：解析输入并检查配置组合，不运行仿真
@@ -28,75 +29,75 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
   '-Dexec.args=report "/absolute/run/result.manifest.json" "/absolute/new-report.html"'
 ```
 
-CLI 参数中的相对路径以工作目录为基准；配置内部的 `workflowPaths` 相对于**配置文件所在目录**，也接受绝对路径。Maven 编译会写构建输出，`validate` 不是整个命令的零写入保证。
+Relative paths in CLI arguments are resolved against the working directory; inside the configuration, `workflowPaths` is resolved relative to **the directory containing the configuration file**, and absolute paths are also accepted. Maven compilation writes build output, so `validate` is not a zero-write guarantee for the whole command.
 
-## 选择示例
+## Choosing an Example
 
-| 研究对象 | 配置 |
+| Research subject | Configuration |
 | --- | --- |
-| 普通 CPU 在线调度 | [在线比较](<../../experiments/configs/online-comparison.json>) |
-| V1 Fat-tree 与静态映射 | [网络比较](<../../experiments/configs/network-comparison.json>)、[启用组级账本](<../../experiments/configs/network-ledger-comparison.json>) |
-| V2 逐文件数据流 | [共享资源](<../../experiments/configs/coherent-file-dataflow-v2.json>)、[独立路径瓶颈](<../../experiments/configs/coherent-file-dataflow-isolated-v2.json>) |
-| V3 受限存储与输出写回 | [共享资源](<../../experiments/configs/storage-dataflow-v3.json>)、[独立路径瓶颈](<../../experiments/configs/storage-dataflow-isolated-v3.json>) |
-| 控制就绪后的在线目标绑定 | [V2 文件](<../../experiments/configs/online-file-dataflow-v1.json>)、[V3 存储](<../../experiments/configs/online-storage-dataflow-v1.json>) |
+| Plain CPU online scheduling | [online comparison](<../../experiments/configs/online-comparison.json>) |
+| V1 Fat-tree and static mapping | [network comparison](<../../experiments/configs/network-comparison.json>), [enabling the group-level ledger](<../../experiments/configs/network-ledger-comparison.json>) |
+| V2 per-file dataflow | [shared resources](<../../experiments/configs/coherent-file-dataflow-v2.json>), [isolated-path bottleneck](<../../experiments/configs/coherent-file-dataflow-isolated-v2.json>) |
+| V3 constrained storage and output write-back | [shared resources](<../../experiments/configs/storage-dataflow-v3.json>), [isolated-path bottleneck](<../../experiments/configs/storage-dataflow-isolated-v3.json>) |
+| Online target binding after control readiness | [V2 file](<../../experiments/configs/online-file-dataflow-v1.json>), [V3 storage](<../../experiments/configs/online-storage-dataflow-v1.json>) |
 
-把 `run` 的配置参数替换为所选文件即可。V2/V3 的成对示例固定输入、容量、路径和生命周期规则，只改变跨流资源共享；独立路径瓶颈并不表示传输免费。
+Simply replace the configuration argument of `run` with the chosen file. The paired V2/V3 examples fix the inputs, capacities, paths, and lifecycle rules and vary only cross-flow resource sharing; the isolated-path bottleneck does not mean that transfers are free.
 
-## JSON 配置
+## JSON Configuration
 
-| 字段 | 约束与默认值 |
+| Field | Constraints and defaults |
 | --- | --- |
-| `schema` | 固定为 `workflowsim-workbench-v1` |
-| `name` | 显示名称，最多 128 字符；省略时使用默认名称 |
-| `workflowPaths` | 1–32 个 DAX/XML 或 WfFormat JSON 输入 |
-| `workflowArrivalSeconds` | 可选非负秒数列表，与输入等长，默认全零；从仿真零时刻起算 |
-| `platform.vmMips` | 1–64 个正有限值，每个不超过 `1e12`；每台 VM 固定到独立 Host，1 PE、SPACE_SHARED |
-| `platform.bandwidthMbPerSecond` | 正整数端点带宽，默认 1000；十进制 MB/s |
-| `platform.cpuCostPerSecond` | 非负抽象 CPU 单价，默认 3，不是校准后的云价格 |
-| `platform.storageTransferMbPerSecond` | 正整数共享存储传输率，默认 15；不同数据移动模型对存储有不同解释 |
-| `platform.networkTopology` | 可选 Fat-tree 声明：`k`、`linkBandwidthMbPerSecond`、`coreSwitchCount`、`hostEdgePlacements`；Workbench 的偶数 k 范围为 2–16 |
-| `platform.sourceStorage` | 仅 V3 必须声明的受限 SOURCE，字段见下文 |
-| `simulation.fileSystem` | `SHARED` 或 `LOCAL`，默认 SHARED；仍须满足模型/算法约束 |
-| `simulation.dataMovementModel` | 下表完整枚举名，默认 `LEGACY_WORKFLOWSIM_V1` |
-| `simulation.runtimeScale` / `runtimeReferenceMips` | 正有限值，默认 1 / 1000；输入 runtime 到模型 MI 的转换参数 |
-| `simulation.minEventIntervalSeconds` | 正有限值，默认 0.1 |
-| `simulation.deadlineSeconds` | 可选非负 signed-long 整数，0 为未请求；只作事后观察，不改变调度或终止 |
-| `simulation.taskCostMatrix` | 可选 `{taskId, vmId, executionSeconds}` 数组，覆盖全部逻辑任务×VM；要求 STATIC 路径，且不能与 SHARED_STORAGE 规划器组合 |
-| `simulation.networkEvidence` | 可选记录对象，模式和预算必须同时存在，见记录表 |
-| `algorithms` | 每项唯一 `id`，满足 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`；可声明 `scheduler`、`planner`、`dataflowAssignment` |
-| `seeds` | 1–100 个互不重复的 signed-long 整数，默认 `[42]`；算法数×种子数不超过 500 |
+| `schema` | Fixed as `workflowsim-workbench-v1` |
+| `name` | Display name, at most 128 characters; a default name is used when omitted |
+| `workflowPaths` | 1–32 DAX/XML or WfFormat JSON inputs |
+| `workflowArrivalSeconds` | Optional list of non-negative seconds, equal in length to the inputs, all zeros by default; counted from simulation time zero |
+| `platform.vmMips` | 1–64 positive finite values, each not exceeding `1e12`; every VM is pinned to a dedicated Host, 1 PE, SPACE_SHARED |
+| `platform.bandwidthMbPerSecond` | Positive integer endpoint bandwidth, default 1000; decimal MB/s |
+| `platform.cpuCostPerSecond` | Non-negative abstract CPU unit price, default 3; not a calibrated cloud price |
+| `platform.storageTransferMbPerSecond` | Positive integer shared-storage transfer rate, default 15; different data movement models interpret storage differently |
+| `platform.networkTopology` | Optional Fat-tree declaration: `k`, `linkBandwidthMbPerSecond`, `coreSwitchCount`, `hostEdgePlacements`; Workbench supports even k in the range 2–16 |
+| `platform.sourceStorage` | Constrained SOURCE, required only for V3; fields are described below |
+| `simulation.fileSystem` | `SHARED` or `LOCAL`, default SHARED; model/algorithm constraints still apply |
+| `simulation.dataMovementModel` | The exact enumeration name from the table below, default `LEGACY_WORKFLOWSIM_V1` |
+| `simulation.runtimeScale` / `runtimeReferenceMips` | Positive finite values, defaults 1 / 1000; conversion parameters from input runtime to model MI |
+| `simulation.minEventIntervalSeconds` | Positive finite value, default 0.1 |
+| `simulation.deadlineSeconds` | Optional non-negative signed-long integer, 0 means not requested; post-hoc observation only, it changes neither scheduling nor termination |
+| `simulation.taskCostMatrix` | Optional `{taskId, vmId, executionSeconds}` array covering all logical tasks × VMs; requires a STATIC path and cannot be combined with the SHARED_STORAGE planner |
+| `simulation.networkEvidence` | Optional recording object; mode and budget must be present together, see the recording table |
+| `algorithms` | Each entry carries a unique `id` matching `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; `scheduler`, `planner`, `dataflowAssignment` may be declared |
+| `seeds` | 1–100 mutually distinct signed-long integers, default `[42]`; algorithms × seeds must not exceed 500 |
 
-没有 planner 时默认 INVALID/FCFS；声明非 INVALID planner 时默认 STATIC；显式在线绑定的默认派发器也是 STATIC。算法具体前提见[算法目录](<../algorithms/CATALOG.md>)，不能仅凭 JSON 字段可解析就认定所有组合有效。
+Without a planner the default is INVALID/FCFS; with a non-INVALID planner declared the default is STATIC; the default dispatcher for explicit online binding is also STATIC. See the [algorithm catalog](<../algorithms/CATALOG.md>) for each algorithm's specific prerequisites; the fact that the JSON fields parse does not by itself make every combination valid.
 
-未知或重复字段、字符串冒充数字、不合法整数、重复算法 ID、跨决策层混比、缺失输入和无效模型组合会被拒绝；独立任务映射器不接受含依赖边的输入。Workbench 固定无故障、无额外开销；这类研究需使用[Java API](<CODE_CONFIG_EXPERIMENTS.md>)。`RL_POLICY` 也通过 Java `RlEnvironment` 接入外部策略，不由 Workbench 训练模型。
+Unknown or duplicate fields, strings posing as numbers, invalid integers, duplicate algorithm IDs, cross-decision-layer mixed comparisons, missing inputs, and invalid model combinations are rejected; the independent task mapper does not accept inputs containing dependency edges. Workbench is fixed to no failures and no overhead; such research must use the [Java API](<CODE_CONFIG_EXPERIMENTS.md>). `RL_POLICY` also connects external policies through the Java `RlEnvironment`; Workbench does not train the model.
 
-## 九种数据移动模型
+## The Nine Data Movement Models
 
-所有 Workbench 运行均使用 NONE 聚类、SPACE_SHARED VM；完整算法约束仍适用。
+All Workbench runs use NONE clustering and SPACE_SHARED VMs; the full algorithm constraints still apply.
 
-| `dataMovementModel` | 文件系统 | 物理模型与额外条件 |
+| `dataMovementModel` | File system | Physical model and additional conditions |
 | --- | --- | --- |
-| `LEGACY_WORKFLOWSIM_V1` | SHARED / LOCAL | 保留 legacy 传输计算；默认模型 |
-| `FIXED_ENDPOINT_NO_CONTENTION_V1` | SHARED / LOCAL | 固定端点、逐文件延迟，无跨流争用；必须提供 `simulation.fixedEndpoint` |
-| `PRE_EXECUTION_TRANSFER_DELAY_V1` | SHARED / LOCAL | 静态目标映射；无争用输入 hold，传输不计入计算信封 |
-| `PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1` | SHARED / LOCAL | 静态目标映射；Job 就绪时启动传输组，VM 端点 max-min 共享 |
-| `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1` | LOCAL | 静态目标映射；端点与确定性 Fat-tree 路径共享，必须声明拓扑 |
-| `COHERENT_FILE_DATAFLOW_V2` | LOCAL | 逐文件可见性、实际源副本与路径，跨流共享容量 |
-| `COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2` | LOCAL | 同一文件生命周期，每条路径独立受瓶颈容量约束 |
-| `COHERENT_STORAGE_DATAFLOW_V3` | SHARED / LOCAL | 受限 SOURCE、共享存储提交门控和必需输出写回，跨流共享容量 |
-| `COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3` | SHARED / LOCAL | 同一存储生命周期，每条路径独立受瓶颈容量约束 |
+| `LEGACY_WORKFLOWSIM_V1` | SHARED / LOCAL | Preserves the legacy transfer computation; default model |
+| `FIXED_ENDPOINT_NO_CONTENTION_V1` | SHARED / LOCAL | Fixed endpoints, per-file latency, no cross-flow contention; `simulation.fixedEndpoint` must be provided |
+| `PRE_EXECUTION_TRANSFER_DELAY_V1` | SHARED / LOCAL | Static target mapping; contention-free input hold, transfers are not counted toward the computation envelope |
+| `PRE_EXECUTION_TRANSFER_DELAY_WITH_CONTENTION_V1` | SHARED / LOCAL | Static target mapping; the transfer group starts when the Job becomes ready, VM endpoints use max-min sharing |
+| `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1` | LOCAL | Static target mapping; endpoint and deterministic Fat-tree path sharing, the topology must be declared |
+| `COHERENT_FILE_DATAFLOW_V2` | LOCAL | Per-file visibility, actual source replicas and paths, cross-flow shared capacity |
+| `COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2` | LOCAL | Same file lifecycle, each path independently constrained by the bottleneck capacity |
+| `COHERENT_STORAGE_DATAFLOW_V3` | SHARED / LOCAL | Constrained SOURCE, shared-storage commit gating, and mandatory output write-back, cross-flow shared capacity |
+| `COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3` | SHARED / LOCAL | Same storage lifecycle, each path independently constrained by the bottleneck capacity |
 
-固定端点对象使用 `accessBandwidth`、`latencySeconds`、`sourceBandwidth`；仅固定端点模型可声明。带宽为正有限 MB/s，延迟为非负有限秒数。
+The fixed-endpoint object uses `accessBandwidth`, `latencySeconds`, and `sourceBandwidth`; it may only be declared for the fixed-endpoint models. Bandwidth is a positive finite MB/s value, and latency a non-negative finite number of seconds.
 
-coherent V2/V3 在未启用在线绑定时要求显式 **RANDOM/STATIC**，可选 Fat-tree 拓扑；现有 LOCAL 规划器不是 coherent 模型的估计器。启用拓扑不能用于不消费拓扑的其他模型。容量换算须保持在模型支持的有限数值域内。
+coherent V2/V3 with online binding not enabled requires an explicit **RANDOM/STATIC**; a Fat-tree topology is optional. The existing LOCAL planner is not an estimator for the coherent models. Enabling a topology cannot be applied to other models that do not consume the topology. Capacity conversions must stay within the finite numeric domain supported by the model.
 
-V1 Fat-tree 和 V2 的外部 SOURCE 流量绕过 fabric，SOURCE 不设有限汇聚容量。V3 不沿用这个假设：`sourceStorage` 必须同时声明 `attachmentHostId`、`readBandwidthMbPerSecond`、`writeBandwidthMbPerSecond`、`networkBandwidthMbPerSecond`。Host ID 从 0 起，与 `vmMips` 条目对应；不接受未知 Host、缺省猜测容量或非正/非有限及不能换算为正 normal 有限 B/s 的容量。
+In V1 Fat-tree and V2, external SOURCE traffic bypasses the fabric, and no finite aggregation capacity is set for SOURCE. V3 does not carry over this assumption: `sourceStorage` must declare `attachmentHostId`, `readBandwidthMbPerSecond`, `writeBandwidthMbPerSecond`, and `networkBandwidthMbPerSecond` together. Host IDs start at 0 and correspond to the `vmMips` entries; unknown Hosts are not accepted, nor are capacities guessed as defaults, non-positive or non-finite capacities, or capacities that cannot be converted into a positive normal finite B/s.
 
-V3 的 **LOCAL** 可读取已可见 VM 副本，但所有成功输出仍异步写回 SOURCE；**SHARED** 必须先等 SOURCE 提交，再使用目标缓存或从 SOURCE 读取，同 VM 缓存也不能绕过提交。unused sink 和零字节输出同样有提交义务；CPU 返回不等待写回，但仿真结束须等义务完成。完整边界见[V2 契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)与[V3 契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)。
+V3 **LOCAL** can read VM replicas that have already become visible, but all successful outputs are still written back to SOURCE asynchronously; **SHARED** must first wait for the SOURCE commit before using the destination cache or reading from SOURCE, and a same-VM cache cannot bypass the commit either. unused sinks and zero-byte outputs carry the same commit obligation; CPU return does not wait for the write-back, but the simulation must not end before the obligations are completed. For the complete boundaries see the [V2 contract](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>) and the [V3 contract](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>).
 
-## 在线目标绑定
+## Online Target Binding
 
-在算法对象上显式声明：
+Declare it explicitly on an algorithm object:
 
 ```json
 {
@@ -110,34 +111,34 @@ V3 的 **LOCAL** 可读取已可见 VM 副本，但所有成功输出仍异步�
 }
 ```
 
-该策略在控制依赖就绪后绑定实际兼容 VM，随后准备输入；STATIC 只派发已绑定且数据就绪的 Job。V2 仍要求 LOCAL，V3 可选 LOCAL/SHARED；它不能与 RANDOM 预规划并用，也不能与普通 CPU 在线调度或离线映射放进同一比较矩阵。
+The policy binds an actually compatible VM once the control dependencies are ready, and then prepares the inputs; STATIC dispatches only Jobs that are already bound and data-ready. V2 still requires LOCAL, V3 allows LOCAL/SHARED; it cannot be used together with RANDOM pre-planning, and it cannot be placed in the same comparison matrix as plain CPU online scheduling or offline mapping.
 
-Workbench 在线证据必须启用匹配的完整生命周期记录。Java API 可以关闭捕获而保持动作与物理行为，但不能导出无记录的在线动作认证；NOOP 重试复用原逻辑绑定，不重新选 VM。
+Workbench online evidence must enable the matching full-lifecycle recording. The Java API can disable capture while keeping the actions and the physical behavior, but it cannot export online-action attestations without recording; a NOOP retry reuses the original logical binding and does not reselect the VM.
 
-认证检查绑定、PE、有效 MI、CPU 预留、名义输入边界和记录分数，不认证精确在途余额或未来争用。报告明确显示 `liveProgressReplayed=false`；边界内估计变化仍会在实际 rerun 中作为核心差异。完整状态、公式与范围见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+The attestation checks the binding, the PE, the valid MI, the CPU reservation, the nominal input boundary, and the recorded score; it does not attest exact in-flight balances or future contention. The report explicitly displays `liveProgressReplayed=false`; estimate changes within the boundaries still surface as core differences in an actual rerun. For the complete states, formulas, and scope see the [online binding contract](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>).
 
-## 记录与证据完整性
+## Evidence Recording and Integrity
 
-在 `simulation` 中增加记录对象，例如：
+Add a recording object inside `simulation`, for example:
 
 ```json
 "networkEvidence": {"mode": "FILE_STORAGE_LIFECYCLE_V3", "maxTraceRecords": 20000}
 ```
 
-预算必须是 1–2147483647 的精确数值整数。省略对象表示 OFF，不能用 null、false、显式 OFF 对象或预算 0 代替。
+The budget must be an exact numeric integer in the range 1–2147483647. Omitting the object means OFF; null, false, an explicit OFF object, or a budget of 0 cannot be used in its place.
 
-| 模式 | 适用模型 | 侧车角色 | 捕获不完整时 |
+| Mode | Applicable models | Sidecar role | When capture is incomplete |
 | --- | --- | --- | --- |
-| 省略（OFF） | 各物理模型；Workbench 在线绑定除外 | 无 | 不提供网络/生命周期捕获；不代表零网络 |
-| `FLUID_GROUP_LEDGER_V1` | 两种 V1 争用模型 | `network-ledger` | 可导出明确标记的截断前缀；不能冒充完整账本 |
-| `FILE_LIFECYCLE_V2` | 两种 coherent 文件 V2 模型 | `file-lifecycle` | 在工件 I/O 前拒绝导出；Workbench 记录失败 |
-| `FILE_STORAGE_LIFECYCLE_V3` | 两种 coherent 存储 V3 模型 | `storage-lifecycle` | 在工件 I/O 前拒绝导出；Workbench 记录失败 |
+| Omitted (OFF) | The physical models; Workbench online binding excepted | None | Provides no network/lifecycle capture; does not mean zero network |
+| `FLUID_GROUP_LEDGER_V1` | The two V1 contention models | `network-ledger` | Can export a clearly marked truncated prefix; must not be passed off as a complete ledger |
+| `FILE_LIFECYCLE_V2` | The two coherent file V2 models | `file-lifecycle` | Rejects export before artifact I/O; Workbench records the failure |
+| `FILE_STORAGE_LIFECYCLE_V3` | The two coherent storage V3 models | `storage-lifecycle` | Rejects export before artifact I/O; Workbench records the failure |
 
-预算耗尽不截断仿真。三种侧车角色互斥，不能把 V2/V3 侧车当作 V1 账本。coherent 模型即使 OFF，manifest 仍保留核心 `dataflowPlan`，V3 还保留存储配置。V2/V3 是生命周期证书，不是逐区间服务面积、链路利用率或 TCP 协议认证。
+Budget exhaustion does not truncate the simulation. The three sidecar roles are mutually exclusive; a V2/V3 sidecar must not be treated as the V1 ledger. Even when OFF, the manifest of a coherent model still retains the core `dataflowPlan`, and V3 additionally retains the storage configuration. V2/V3 are lifecycle certificates, not per-interval service areas, link utilization, or TCP protocol attestations.
 
-格式与独立校验见[V1 账本](<../advanced/NETWORK_LEDGER_FORMAT.md>)、[V2 生命周期](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)、[V3 存储](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)及[Python 检查器](<../../scripts/verify-network-ledger.py>)。rerun 将 `/fileLifecycle/...`、`/storageLifecycle/...` 和在线动作相关核心量纳入比较，见[复跑差异契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
+For the formats and independent validation see the [V1 ledger](<../advanced/NETWORK_LEDGER_FORMAT.md>), the [V2 lifecycle](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>), [V3 storage](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>), and the [Python checker](<../../scripts/verify-network-ledger.py>). The rerun includes `/fileLifecycle/...`, `/storageLifecycle/...`, and the online-action-related core quantities in the comparison; see the [rerun difference contract](<../experiments/RERUN_DIFF_CONTRACT.md>).
 
-## 输出、失败与恢复
+## Output, Failures, and Recovery
 
 ```text
 output-root/
@@ -156,18 +157,18 @@ output-root/
       result.storage-lifecycle.json # 仅 V3 存储记录；三种侧车互斥
 ```
 
-manifest 为 v4，provenance 为 v3，metrics 为 v2，events 为 v1。写出后校验证据，再据同一验证快照生成报告。单个运行失败会记录根因并继续其他方案，失败不进入完成时间排行榜；有失败或未完成运行时，`run` 命令非零退出。
+The manifest is v4, provenance is v3, metrics are v2, and events are v1. After the files are written, the evidence is validated, and the report is then generated from that same validation snapshot. A single run failure records its root cause and the other schemes continue; failures do not enter the completion-time ranking; the `run` command exits non-zero when there are failed or unfinished runs.
 
-强制中断可能留下 RUNNING 状态和已完成的证据；通过历史页检查，不把它当成成功。`history` 显示损坏记录，不静默忽略。多进程写同一输出根时，应等进程全部结束后重建历史；同一 JVM 内仿真串行。
+A forced interruption can leave a RUNNING state together with completed evidence; check it through the history page and do not treat it as a success. `history` shows corrupted records and does not silently ignore them. When multiple processes write the same output root, you should rebuild the history only after all processes have ended; simulations inside the same JVM are serial.
 
-文件采用同目录临时写入后替换，支持时使用原子替换；整个证据包不是跨文件事务，以最终校验通过为完整标准。独立 `report` 拒绝覆盖已有目标，普通在线运行以 scheduler 命名，静态运行以 planner 命名，绑定轨道标为 `DATAFLOW_BINDING_V1`。
+Files are written as same-directory temporaries followed by replacement, using atomic replacement where supported; the evidence package as a whole is not a cross-file transaction, and passing the final validation is the criterion of completeness. The standalone `report` refuses to overwrite an existing target; ordinary online runs are named by scheduler, static runs by planner, and the binding track is labeled `DATAFLOW_BINDING_V1`.
 
-## 报告显示与验收
+## Report Display and Acceptance
 
-报告支持运行、VM/任务筛选、执行时间线和依赖聚焦。依赖概览最多 80 个节点，时间线最多同时绘制 250 个 Job，表格保留全部计算 Job。网络预览中，V1 流/V2-V3 复制与资源各最多 64 条，事件最多 128 条；V3 Job 预览最多 64 条。在线动作最多 64 条、每条候选最多 12 条，实际选择仍来自完整候选集。
+The report supports runs, VM/task filtering, the execution timeline, and dependency focus. The dependency overview holds at most 80 nodes, the timeline draws at most 250 Jobs at once, and the tables retain all computational Jobs. In the network preview, V1 flows / V2-V3 replications and resources are each capped at 64 entries and events at 128; the V3 Job preview holds at most 64 entries. Online actions are capped at 64 entries with at most 12 candidates each; the actual selection still comes from the full candidate set.
 
-网络与动作数值使用精确文本；种子显示为完整十进制字符串，不把大于 2^53 的相邻整数合并，原配置与 manifest 数值不被改写。捕获截断与界面预览省略分别计数，OFF、完整、零流、失败状态分别显示；切换运行清空旧面板，不另行请求侧车。
+Network and action numbers use exact text; seeds are displayed as full decimal strings, adjacent integers greater than 2^53 are not merged, and the values in the original configuration and the manifest are not rewritten. Capture truncation and interface-preview omission are counted separately; OFF, complete, zero-flow, and failed states are displayed separately; switching runs clears the old panels and does not request the sidecars again.
 
-确定性算法的多种子结果仅作重复性观察，不当作独立统计样本。指标不等于真实平台测量；模型不包含 TCP、丢包/ECN、包级队列或自适应路由。
+Multi-seed results of deterministic algorithms serve only as repeatability observations and are not treated as independent statistical samples. Metrics are not measurements of a real platform; the models contain no TCP, loss/ECN, packet-level queuing, or adaptive routing.
 
-浏览器验收统一见[构建指南](<BUILD.md#离线报告浏览器验收>)；网络显示边界见[离线网络报告说明](<../advanced/NETWORK_REPORT_DISPLAY.md>)。
+Browser acceptance is covered uniformly in the [build guide](<BUILD.md#offline-report-browser-acceptance>); for network display boundaries see the [offline network report notes](<../advanced/NETWORK_REPORT_DISPLAY.md>).
