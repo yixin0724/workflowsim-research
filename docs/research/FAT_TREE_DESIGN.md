@@ -1,23 +1,25 @@
-# Fat-tree拓扑、路由与共享模型
+# Fat-tree Topology, Routing, and Sharing Model
 
-## 结构与适用范围
+**English** · [简体中文](<FAT_TREE_DESIGN.zh.md>)
 
-[NetworkTopologySpec](<../../simulator/src/main/java/org/workflowsim/network/NetworkTopologySpec.java>)描述平台拓扑，[FatTreeTopology](<../../simulator/src/main/java/org/workflowsim/network/FatTreeTopology.java>)负责结构、主机放置、固定路由和有向链路容量。传输服务由[TransferContentionEngine](<../../simulator/src/main/java/org/workflowsim/data/TransferContentionEngine.java>)计算，不在路由层实现。
+## Structure and Scope
 
-结构采用Al-Fares等人的k-Pod Fat-tree思想，背景文献为[A Scalable, Commodity Data Center Network Architecture](<https://doi.org/10.1145/1402958.1402967>)。这里实现的是声明式流级模型，不是该论文交换机协议或实际数据中心的完整重建。
+[NetworkTopologySpec](<../../simulator/src/main/java/org/workflowsim/network/NetworkTopologySpec.java>) describes the platform topology, and [FatTreeTopology](<../../simulator/src/main/java/org/workflowsim/network/FatTreeTopology.java>) implements the structure, host placement, fixed routing, and directed-link capacities. The transfer service is computed by [TransferContentionEngine](<../../simulator/src/main/java/org/workflowsim/data/TransferContentionEngine.java>), not implemented in the routing layer.
 
-| 数量 | 满配结构 |
+The structure follows the k-Pod Fat-tree idea of Al-Fares et al., with [A Scalable, Commodity Data Center Network Architecture](<https://doi.org/10.1145/1402958.1402967>) as the background literature. What is implemented here is a declarative flow-level model, not a complete reconstruction of the paper's switch protocols or of an actual data center.
+
+| Quantity | Full configuration |
 |---|---|
-| Pod | k，k为不小于2的偶数 |
-| 每Pod的edge / aggregate交换机 | 各k/2 |
-| core交换机 | k²/4；可显式减为1≤m≤k²/4 |
-| 主机容量 | k³/4，每edge最多k/2个主机 |
-| 交换机总数 | 满配时5k²/4 |
-| edge–aggregate、aggregate–core无向链路 | 满配时每层各k³/4 |
+| Pod | k, an even number of at least 2 |
+| Edge / aggregate switches per pod | k/2 each |
+| Core switches | k²/4; may be explicitly reduced to 1≤m≤k²/4 |
+| Host capacity | k³/4, with at most k/2 hosts per edge switch |
+| Total switches | 5k²/4 in the full configuration |
+| Undirected edge–aggregate and aggregate–core links | k³/4 per level in the full configuration |
 
-同Pod的edge与aggregate全二部连接；core `(a,j)`连接所有Pod的第a个aggregate。满配结构提供相应的聚合路径容量，但**不保证本实现的固定选路对任意通信排列都无阻塞**。减少core的结构比率`(k²/4)/m`不是任意工作负载吞吐的等比例预测。
+Within a pod, the edge and aggregate switches are fully bipartitely connected; core `(a,j)` connects to the a-th aggregate of every pod. The full configuration provides the corresponding aggregated path capacity, but **it is not guaranteed that this implementation's fixed routing is non-blocking for arbitrary communication permutations**. The structural ratio `(k²/4)/m` of a reduced core count is not a proportional prediction of throughput for arbitrary workloads.
 
-## 声明与主机放置
+## Declaration and Host Placement
 
 ```java
 NetworkTopologySpec.fatTree(k, linkBandwidthMbPerSecond);
@@ -26,24 +28,24 @@ NetworkTopologySpec.fatTree(k, linkBandwidthMbPerSecond,
         coreSwitchCount, hostEdgePlacements);
 ```
 
-- `hostEdgePlacements`为Host ID到全局edge索引的映射，索引为`pod*(k/2)+edge`，范围`[0,k²/2)`。显式映射须覆盖全部Host且不能超出每edge容量。
-- 默认把Host ID升序排列后轮转放置到edge，而不是把相邻Host都填入同一edge。
-- VM路径基于运行时实际VM→Host放置，不用VM编号猜测Host。
-- 链路声明单位为十进制MB/s，服务单位为B/s，换算因子为1,000,000，不额外除以8。
-- Workbench限定偶数`k=2..16`；coherent V2/V3运行器还对Java入口限定`k=2..32`及正normal有限的换算后B/s。低层工厂不是任意巨大拓扑都可安全构造的承诺。
+- `hostEdgePlacements` maps Host IDs to global edge indices, the index being `pod*(k/2)+edge` in the range `[0,k²/2)`. An explicit map must cover every Host and must not exceed the per-edge capacity.
+- By default, Hosts are placed round-robin over the edge switches in ascending Host-ID order, rather than packing adjacent Hosts onto the same edge switch.
+- VM paths are based on the actual runtime VM→Host placement; the Host is not guessed from the VM number.
+- Links are declared in decimal MB/s and served in B/s; the conversion factor is 1,000,000, with no additional division by 8.
+- Workbench restricts k=2..16, even; the coherent V2/V3 runners additionally restrict the Java entry points to `k=2..32` and to converted B/s values that are positive, finite, and normal. The low-level factories are not a promise that arbitrarily huge topologies can be constructed safely.
 
-## 路由与有向资源
+## Routing and Directed Resources
 
-`route(srcHostId,dstHostId)`返回确定性的有序链路资源列表：
+`route(srcHostId,dstHostId)` returns a deterministic, ordered list of link resources:
 
-1. 同Host返回空拓扑路径；不同VM仍按各自端点约束处理，不等于零VM通信。
-2. 同edge经过两条Host接入链路。
-3. 同Pod不同edge经过源/目的接入与edge–aggregate路径。
-4. 跨Pod再经过aggregate–core及目的Pod下行路径。
+1. The same Host returns an empty topological path; different VMs are still handled under their own endpoint constraints, which is not zero-VM communication.
+2. Within the same edge switch, the two Host access links are traversed.
+3. Within the same pod but a different edge switch, the source/destination access links and the edge–aggregate paths are traversed.
+4. Across pods, the aggregate–core path and the destination pod's downlink path are additionally traversed.
 
-aggregate选择为`a=srcEdge mod availA`，其中`availA=ceil(2m/k)`；跨Pod从该aggregate的可用core中按`(srcEdge+dstEdge+srcPod+dstPod) mod jCount`选定一条路径。下行由选定core和目的位置确定。该规则没有ECMP哈希、动态负载感知或自适应改路。减少core还会改变可选aggregate及固定路由，不能只根据一层结构推导整个DAG的性能变化。
+The aggregate is chosen as `a=srcEdge mod availA` with `availA=ceil(2m/k)`; across pods, one path is selected from that aggregate's available cores by `(srcEdge+dstEdge+srcPod+dstPod) mod jCount`. The downlink is fixed by the chosen core and the destination position. There is no ECMP hashing, dynamic load sensing, or adaptive re-routing. Reducing the core count also changes which aggregates are available and what the fixed routes are; the performance change of an entire DAG must not be deduced from one layer's structure alone.
 
-双工链路的两个方向是独立资源，例如：
+The two directions of a duplex link are independent resources, for example:
 
 ```text
 LINK:ACC:h->EDGE:p:e       LINK:EDGE:p:e->ACC:h
@@ -51,27 +53,27 @@ LINK:EDGE:p:e->AGG:p:a     LINK:AGG:p:a->EDGE:p:e
 LINK:AGG:p:a->CORE:c       LINK:CORE:c->AGG:p:a
 ```
 
-流同时占用其端点与路径资源。资源键的重复出现按占用次数计费，不能在验证或显示时随意去重。
+A flow occupies its endpoint and path resources simultaneously. Repeated occurrences of a resource key are charged by the number of occupations and must not be deduplicated at will in validation or display.
 
-## 共享服务
+## Shared Service
 
-分配器采用max-min progressive filling，同时满足每流名义上限和全部占用资源的加权容量约束。某流被其他瓶颈或名义上限限制时，其未使用份额可回分给其他流；只有对称、没有额外瓶颈的情况才简化为`capacity / 流数`，一般情况不能套用该近似。
+The allocator applies max-min progressive filling, jointly satisfying each flow's nominal cap and the weighted-capacity constraints of all occupied resources. When a flow is limited by another bottleneck or by its nominal cap, its unused share can be returned to the other flows; only in the symmetric case without additional bottlenecks does this simplify to `capacity / flow count`, and the approximation must not be applied in the general case.
 
-在准入、完成等内部边界分段积分与重分配。内部有效完成和外部观察可以不同；物理可见性遵守对应模型契约，不由显示刷新时间替代。添加约束可能改变份额回收、缓存可见性或后续来源选择，不能保证整个DAG完成时间跨模型单调。
+Segment-wise integration and reallocation happen at internal boundaries such as admission and completion. An internally effective completion and an externally observed one can differ; physical visibility follows the corresponding model contract and is not replaced by the display refresh time. Adding constraints may change share reclamation, cache visibility, or subsequent source selection; monotonicity of whole-DAG completion time across models is not guaranteed.
 
-## 与数据流模型的组合
+## Composition with the Dataflow Models
 
-| 分支 | 拓扑声明 | SOURCE与执行边界 |
+| Branch | Topology declaration | SOURCE and execution boundary |
 |---|---|---|
-| `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1` | 必需 | LOCAL、预先静态映射及其配置边界；父组/外部组级输入准备，外部SOURCE组不经过拓扑 |
-| 文件数据流V2共享/独立对照 | 可选 | LOCAL；实际逐文件VM路径；外部SOURCE仍明确无限/绕过fabric |
-| 存储数据流V3共享/独立对照 | 可选 | LOCAL或SHARED提交后读取；SOURCE有实际接入Host和读/写/NIC约束，输入和必要输出使用相应路径 |
-| 不使用拓扑的模型 | 不允许多余声明 | 避免平台声明被静默忽略 |
+| `PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1` | Required | LOCAL, the pre-placed static mapping, and its configuration boundary; parent-group/external group-level input preparation, with external SOURCE groups bypassing the topology |
+| File dataflow V2 shared/independent controls | Optional | LOCAL; actual per-file VM paths; the external SOURCE still aggregates explicitly without limit and bypasses the fabric |
+| Storage dataflow V3 shared/independent controls | Optional | LOCAL, or SHARED reads after the commit; SOURCE has an actual access Host and read/write/NIC bounds, with inputs and required outputs using the corresponding paths |
+| Models that do not use the topology | No surplus declaration allowed | Avoids the platform declaration being silently ignored |
 
-V2/V3可使用默认RANDOM/STATIC，或显式控制就绪在线目标绑定＋STATIC。它们不是把旧CPU在线调度器直接接到争用模型上。详见[V2契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)、[V3契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)和[在线绑定](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+V2/V3 may use the default RANDOM/STATIC, or explicit control-ready online target assignment + STATIC. They are not the old CPU online schedulers wired directly onto a contention model. See the [V2 contract](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>), the [V3 contract](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>), and [online assignment](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) for details.
 
-## 不包含的能力
+## Capabilities Not Included
 
-没有包级TCP/重传、丢包、ECN、交换机队列细节、链路传播时延、交换机内部转发容量、链路故障或自适应路由。流级模型适合所声明抽象下的调度研究，但不声称没有信息损失，也不能替代真实网络校准。
+There is no packet-level TCP/retransmission, packet loss, ECN, switch-queue detail, link propagation delay, intra-switch forwarding capacity, link failure, or adaptive routing. The flow-level model suits scheduling research under the declared abstraction, but it does not claim to be lossless in information and cannot replace real-network calibration.
 
-拓扑、源选择、容量服务和证据分别测试。校验范围见[V1账本校验](<../advanced/NETWORK_LEDGER_VALIDATION.md>)、[逐文件生命周期格式](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)；运行命令见[构建指南](<../getting-started/BUILD.md>)。历史campaign数值只在其[数据来源说明](<../../experiments/studies/fattree-scheduling-campaign/RETENTION.md>)中解释，不作为当前实现的普遍黄金值。
+The topology, source selection, capacity service, and evidence are tested separately. For the validation scope see the [V1 ledger validation](<../advanced/NETWORK_LEDGER_VALIDATION.md>) and the [per-file lifecycle format](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>); for run commands see the [build guide](<../getting-started/BUILD.md>). Historical campaign figures are interpreted only in their [data-source description](<../../experiments/studies/fattree-scheduling-campaign/RETENTION.md>) and are not universal golden values of the current implementation.

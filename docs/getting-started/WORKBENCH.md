@@ -39,7 +39,7 @@ Relative paths in CLI arguments are resolved against the working directory; insi
 | V1 Fat-tree and static mapping | [network comparison](<../../experiments/configs/network-comparison.json>), [enabling the group-level ledger](<../../experiments/configs/network-ledger-comparison.json>) |
 | V2 per-file dataflow | [shared resources](<../../experiments/configs/coherent-file-dataflow-v2.json>), [isolated-path bottleneck](<../../experiments/configs/coherent-file-dataflow-isolated-v2.json>) |
 | V3 constrained storage and output write-back | [shared resources](<../../experiments/configs/storage-dataflow-v3.json>), [isolated-path bottleneck](<../../experiments/configs/storage-dataflow-isolated-v3.json>) |
-| Online target binding after control readiness | [V2 file](<../../experiments/configs/online-file-dataflow-v1.json>), [V3 storage](<../../experiments/configs/online-storage-dataflow-v1.json>) |
+| Online target assignment after control readiness | [V2 file](<../../experiments/configs/online-file-dataflow-v1.json>), [V3 storage](<../../experiments/configs/online-storage-dataflow-v1.json>) |
 
 Simply replace the configuration argument of `run` with the chosen file. The paired V2/V3 examples fix the inputs, capacities, paths, and lifecycle rules and vary only cross-flow resource sharing; the isolated-path bottleneck does not mean that transfers are free.
 

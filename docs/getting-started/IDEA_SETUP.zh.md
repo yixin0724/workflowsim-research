@@ -39,9 +39,9 @@ run experiments/configs/online-comparison.json output/workbench
 
 ## 运行自建类与测试
 
-[Java API 指南](<CODE_CONFIG_EXPERIMENTS.md>)提供完整自建类示例。创建后，Application 的主类改为 `org.workflowsim.mystudy.MyExperiment`，仍选择实验模块 classpath 和项目根工作目录；也可右键 `main` 运行。
+[Java API 指南](<CODE_CONFIG_EXPERIMENTS.zh.md>)提供完整自建类示例。创建后，Application 的主类改为 `org.workflowsim.mystudy.MyExperiment`，仍选择实验模块 classpath 和项目根工作目录；也可右键 `main` 运行。
 
-JUnit 测试放在对应模块的 `src/test/java/`，用 JUnit 配置运行。测试源码中的辅助入口不在 `compile exec:java` 默认类路径内，命令行使用方式见[构建与验证](<BUILD.md>)。
+JUnit 测试放在对应模块的 `src/test/java/`，用 JUnit 配置运行。测试源码中的辅助入口不在 `compile exec:java` 默认类路径内，命令行使用方式见[构建与验证](<BUILD.zh.md>)。
 
 ## 排查
 

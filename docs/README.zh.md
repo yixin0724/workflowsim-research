@@ -8,7 +8,7 @@
 
 | 需要 | 文档 |
 |---|---|
-| 跑通已有配置并打开报告 | [快速开始（中文）](<getting-started/QUICK_START.zh.md>) · [Quick Start (EN)](<getting-started/QUICK_START.md>) |
+| 跑通已有配置并打开报告 | [快速开始（中文）](<getting-started/QUICK_START.zh.md>) · [Quick Start (EN)](<getting-started/QUICK_START.zh.md>) |
 | 配置、验证、运行和重建离线报告 | [Workbench指南](<getting-started/WORKBENCH.zh.md>) |
 | 在Java中构建配置、平台及实验 | [代码配置指南](<getting-started/CODE_CONFIG_EXPERIMENTS.zh.md>) |
 | Maven、Python、浏览器和Javadoc检查 | [构建与验证](<getting-started/BUILD.zh.md>) |
@@ -20,21 +20,21 @@
 - [算法与指标契约](<algorithms/CONTRACTS.zh.md>)：计算量、通信、顺序、原论文对照、指标口径及验证边界。
 - [论文指标口径卡](<algorithms/METRICS_CARD.zh.md>)：逐指标的文献口径差异与论文引用建议。
 - [工作流输入与数据集](<../datasets/README.md>)：随仓库输入、可选语料、来源、转换和格式约束。
-- [数据流与网络能力矩阵](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>)：物理模型、存储、在线绑定及未实现能力。
-- [Fat-tree拓扑与共享模型](<research/FAT_TREE_DESIGN.md>)：结构、放置、确定性路径和容量分配边界。
+- [数据流与网络能力矩阵](<advanced/DATAFLOW_CAPABILITY_MATRIX.zh.md>)：物理模型、存储、在线绑定及未实现能力。
+- [Fat-tree拓扑与共享模型](<research/FAT_TREE_DESIGN.zh.md>)：结构、放置、确定性路径和容量分配边界。
 
 ## 数据流与证据参考
 
 | 主题 | 文档 |
 |---|---|
-| 文件身份、真实来源、副本可见性和CPU输入屏障 | [一致文件数据流V2](<advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>) |
-| 有限SOURCE、提交后读取和必要输出写回 | [存储数据流V3](<advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>) |
-| 控制就绪时选VM、名义分数和动作认证范围 | [在线目标绑定](<advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
-| 逐文件侧车的精确字段与验证规则 | [文件生命周期格式](<advanced/FILE_LIFECYCLE_V2_FORMAT.md>) |
-| V1组级账本的格式、角色及严格读取 | [网络账本格式](<advanced/NETWORK_LEDGER_FORMAT.md>) |
-| V1稳定分配证书、精确会计和截断前缀 | [账本校验与指标](<advanced/NETWORK_LEDGER_VALIDATION.md>) |
-| 不依赖Java的V1/V2/V3及在线检查入口 | [独立Python证据校验](<advanced/NETWORK_LEDGER_PYTHON.md>) |
-| 同一验证快照、精确文本和有界预览 | [离线网络与动作报告](<advanced/NETWORK_REPORT_DISPLAY.md>) |
+| 文件身份、真实来源、副本可见性和CPU输入屏障 | [一致文件数据流V2](<advanced/COHERENT_DATAFLOW_V2_CONTRACT.zh.md>) |
+| 有限SOURCE、提交后读取和必要输出写回 | [存储数据流V3](<advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>) |
+| 控制就绪时选VM、名义分数和动作认证范围 | [在线目标绑定](<advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>) |
+| 逐文件侧车的精确字段与验证规则 | [文件生命周期格式](<advanced/FILE_LIFECYCLE_V2_FORMAT.zh.md>) |
+| V1组级账本的格式、角色及严格读取 | [网络账本格式](<advanced/NETWORK_LEDGER_FORMAT.zh.md>) |
+| V1稳定分配证书、精确会计和截断前缀 | [账本校验与指标](<advanced/NETWORK_LEDGER_VALIDATION.zh.md>) |
+| 不依赖Java的V1/V2/V3及在线检查入口 | [独立Python证据校验](<advanced/NETWORK_LEDGER_PYTHON.zh.md>) |
+| 同一验证快照、精确文本和有界预览 | [离线网络与动作报告](<advanced/NETWORK_REPORT_DISPLAY.zh.md>) |
 
 ## 实验、重放与统计
 
@@ -51,9 +51,9 @@
 
 ## 维护
 
-- [文档与源码注释规范](<advanced/CODE_STYLE.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
+- [文档与源码注释规范](<advanced/CODE_STYLE.zh.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
 - [变异门禁](<advanced/MUTATION-GATE.md>)：注册变异零存活检查、杀手测试台账与扩表规则（英文）。
-- [数据流状态与性能测量](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)：不可变历史/活动工作集、测量口径及可重复比较。
+- [数据流状态与性能测量](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.zh.md>)：不可变历史/活动工作集、测量口径及可重复比较。
 - [实验模块说明](<../experiments/README.md>)：模块职责和维护入口。
 
 ## 历史资料的保留原则

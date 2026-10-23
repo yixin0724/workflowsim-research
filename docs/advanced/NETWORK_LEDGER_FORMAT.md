@@ -1,10 +1,12 @@
-# 网络账本V1编解码契约
+# Network Ledger V1 Codec Contract
 
-## 作用与接口
+**English** · [简体中文](<NETWORK_LEDGER_FORMAT.zh.md>)
 
-`NetworkLedgerCodec`负责V1组级账本的严格JSON编解码与不可变重建；`ExperimentArtifactWriter`写出完整工件，`ExperimentArtifactValidator`核对账本内容及运行上下文。[独立Python检查器](<NETWORK_LEDGER_PYTHON.md>)不调用Java。[重放工具](<../experiments/RERUN_DIFF_CONTRACT.md>)比较完整账本的科学字段，[Workbench](<../getting-started/WORKBENCH.md>)只显示已验证的有界投影。
+## Purpose and Interfaces
 
-本文仅定义V1组级账本。逐文件V2、存储V3及在线动作使用各自契约，见[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.md>)，不能按同一语义互相替换。
+`NetworkLedgerCodec` performs the strict JSON encoding/decoding and the immutable reconstruction of the V1 group ledger; `ExperimentArtifactWriter` writes the complete artifacts, and `ExperimentArtifactValidator` checks the ledger content and the run context. The [independent Python checker](<NETWORK_LEDGER_PYTHON.md>) invokes no Java. The [rerun tooling](<../experiments/RERUN_DIFF_CONTRACT.md>) compares the scientific fields of the complete ledger, and [Workbench](<../getting-started/WORKBENCH.md>) displays only the verified bounded projection.
+
+This document defines only the V1 group ledger. Per-file V2, Storage V3, and online actions each use their own contracts, as shown in the [capability matrix](<DATAFLOW_CAPABILITY_MATRIX.md>), and must not be treated as interchangeable under one semantics.
 
 ```java
 String json = NetworkLedgerCodec.encode(report.getNetworkEvidence());
@@ -13,7 +15,7 @@ NetworkRunEvidence frozen = checked.getEvidence();
 NetworkRunMetrics recomputed = checked.getMetrics();
 ```
 
-## 正式导出和验证
+## Formal Export and Validation
 
 ```java
 // config已选择受支持的流体模型、静态mapper/dispatch和对应平台。
@@ -27,51 +29,51 @@ ExperimentArtifactValidator.ValidationResult checked =
 Path ledger = checked.getNetworkLedger(); // OFF为null，不凭目录中的旧文件猜测
 ```
 
-ON写出原metrics/events及新增`run.network-ledger.json`，随后以manifest登记role/hash/size并最后提交。OFF仍写原三件套，不添加networkEvidence字段或网络角色。复用目录时旧的未引用账本不会被擅自删除，读取器只认manifest角色。
+ON writes the original metrics/events plus the new `run.network-ledger.json`, then registers its role/hash/size in the manifest and commits last. OFF still writes the original three files, adding no networkEvidence field and no network role. When a directory is reused, old unreferenced ledgers are not arbitrarily deleted; readers trust only manifest roles.
 
-- 任何网络语义或上下文错误必须在创建目录/修改既有文件前失败。
-- 每个文件单独原子替换，manifest最后写；这不是跨多个文件的文件系统事务。中途I/O失败会被后续哈希/内容校验发现。
-- 独立`ExperimentManifestWriter.writeJson`仍不能丢弃ON账本，必须使用完整bundle导出。
-- v4的networkEvidence对象必须与network-ledger角色同时存在；null、false、OFF对象或非法预算不能被当成缺省OFF。
-- 工件大小与事件序号按精确long校验，不接受小数截断或越界转换。
+- Any network semantic or context error must fail before the directory is created or any existing file is modified.
+- Every file is atomically replaced on its own, and the manifest is written last; this is not a filesystem transaction across multiple files. A mid-way I/O failure is caught by the later hash/content checks.
+- A standalone `ExperimentManifestWriter.writeJson` still must not drop the ON ledger; the full-bundle export must be used.
+- The v4 networkEvidence object must coexist with the network-ledger role; null, false, an OFF object, or an illegal budget must not be treated as the default OFF.
+- Artifact sizes and event sequence numbers are checked as exact longs; decimal truncation or out-of-range conversion is not accepted.
 
-拓扑验证覆盖同edge、跨Pod、显式放置和缩减core，不为不可信的大`k`分配整张拓扑。
+Topology validation covers same-edge, cross-pod, explicit placement, and reduced-core cases and does not allocate an entire topology for an untrustworthy large `k`.
 
-## 文档头
+## Document Header
 
-- schema：`workflowsim-network-ledger-v1`
-- 工件role：`network-ledger`，文件名`<runId>.network-ledger.json`
-- flowUnit：`V1_PARENT_OR_EXTERNAL_GROUP`
-- units：time=`SIMULATION_SECONDS`，bytes=`MODELED_BYTES`，rate=`BYTES_PER_SECOND`
-- numericProfile：`BINARY64_SCALAR_MAXMIN_8ULP_CAPPED_1E_MINUS12_V1`
-- accountingVersion：`EXACT_BINARY64_INPUT_DECIMAL_V1`
-- evidence：配置、现有模型kind、原始traceSnapshot、不可变bindings、engineCreated、可选原始inputDemand聚合观察。
-- metrics：从重建证据重新计算的NetworkRunMetrics，不信任文档提交的摘要。
+- schema: `workflowsim-network-ledger-v1`
+- Artifact role: `network-ledger`, file name `<runId>.network-ledger.json`
+- flowUnit: `V1_PARENT_OR_EXTERNAL_GROUP`
+- units: time=`SIMULATION_SECONDS`, bytes=`MODELED_BYTES`, rate=`BYTES_PER_SECOND`
+- numericProfile: `BINARY64_SCALAR_MAXMIN_8ULP_CAPPED_1E_MINUS12_V1`
+- accountingVersion: `EXACT_BINARY64_INPUT_DECIMAL_V1`
+- evidence: the configuration, the existing model kind, the raw traceSnapshot, immutable bindings, engineCreated, and optionally the raw inputDemand aggregation observations.
+- metrics: NetworkRunMetrics recomputed from the reconstructed evidence; the summary submitted in the document is not trusted.
 
-本schema不包含工作目录、源码路径或墙钟测量。它不升级或改变旧manifest-v4、metrics-v2、events-v1格式。
+This schema contains no working directory, source-code paths, or wall-clock measurements. It neither upgrades nor changes the legacy manifest-v4, metrics-v2, and events-v1 formats.
 
-## 严格读取
+## Strict Reading
 
-1. 拒绝重复JSON键、宽松JSON形式、尾随文档、缺失或未知字段、错误枚举、字符串/布尔值冒充数字。
-2. 所有nullable字段必须显式存在。CAPACITY身份为空；其他事件身份必需，且恰好一种匹配type的payload非空。
-3. int/long身份与预算按精确整数读取，不能先转换为double；预算必须正且模式必须为`FLUID_GROUP_LEDGER_V1`。
-4. trace的binary64字段必须有限且可表示；非零值下溢到0不能被静默接受。不同运行时将同一个最小double拼写为`4.9e-324`或`5e-324`时按binary64值比较，不以某个JDK的最短字符串作为唯一格式。
-5. BigDecimal聚合值按精确十进制比较，可以超过Double.MAX_VALUE；有符号会计差不能被当作非法负流量或取绝对值。
-6. JSON嵌套深度上限64，数字token长度、精度和绝对scale上限4096。写出端也检查相同边界，不能产生自身无法读取的文档。这不是整个trace的字节内存上限。
-7. 显式调用各不可变DTO工厂，禁止依赖Gson绕过private构造器后的默认0/null字段。
-8. 运行独立trace语义/容量证书校验，精确关联保留START与bindings，核对输入计数分区，重新计算并比较所有metrics字段。
-9. 截断证据中的额外未保留binding不能被读取器静默过滤。engineCreated=false不能掩盖非空记录、时间或输入观察。
+1. Reject duplicate JSON keys, lenient JSON forms, trailing document content, missing or unknown fields, wrong enums, and string/boolean values masquerading as numbers.
+2. All nullable fields must appear explicitly. The CAPACITY identity is empty; other event identities are required, and exactly one payload matching the type is non-null.
+3. int/long identities and budgets are read as exact integers and must not be converted to double first; the budget must be positive, and the mode must be `FLUID_GROUP_LEDGER_V1`.
+4. The trace's binary64 fields must be finite and representable; non-zero values that underflow to 0 must not be silently accepted. When different runtimes spell the same smallest double as `4.9e-324` or `5e-324`, comparison goes by binary64 value; no particular JDK's shortest string is taken as the only accepted form.
+5. BigDecimal aggregates compare as exact decimals and may exceed Double.MAX_VALUE; a signed accounting difference must not be treated as an illegal negative flow, nor must its absolute value be taken.
+6. JSON nesting depth is capped at 64, and number token length, precision, and absolute scale at 4096. The writer checks the same limits, so it cannot produce documents that it cannot itself read. This is not a byte-memory cap on the whole trace.
+7. The immutable DTO factories are invoked explicitly; relying on the default 0/null fields left behind after Gson bypasses private constructors is prohibited.
+8. Independent trace semantic/capacity certificate validation runs; retained STARTs are exactly correlated with bindings, input-count partitions are checked, and every metrics field is recomputed and compared.
+9. Extra unretained bindings in truncated evidence are not silently filtered out by the reader. engineCreated=false must not mask non-empty records, times, or input observations.
 
-`parseDocument(String)`提供严格的有界词法JSON树，保留超过Gson流缓冲区长度的精确数值类型；它不替代`decode`的语义/指标校验。数字原始长度、Unicode转义、解码后重复键与JSON深度均检查，绝不靠宽松模式把长数字当字符串。
+`parseDocument(String)` provides a strict, bounded, lexical JSON tree, preserving exact numeric types beyond the length of Gson's streaming buffer; it does not replace `decode`'s semantic/metrics validation. Raw number lengths, Unicode escapes, duplicate keys after decoding, and JSON depth are all checked; long numbers are never treated as strings by resorting to a lenient mode.
 
-对象成员顺序不影响语义；事件、路径、Task列表等数组顺序保留。binary64字段按数值比较，精确整数与十进制聚合字段不会通过有损浮点比较。
+Object member order does not affect semantics; the order of arrays such as events, paths, and Task lists is preserved. binary64 fields compare by value; exact integer and decimal aggregate fields never pass through lossy floating-point comparison.
 
-## 保证与非保证
+## Guarantees and Non-Guarantees
 
-- `Decoded`仅返回不可变证据和重新计算的不可变指标；修改源JSON树不影响它们。
-- COMPLETE、TRUNCATED、无引擎零观察、缺失输入计数等状态保持不同含义。
-- 纯codec不持有manifest中的Job结果、VM放置或主事件；正式工件校验另核对配置、实际VM放置、Job/Task身份、来源/确定性路径、平台容量、Job-ready/输入完成/Job开始时间和每Job组计数。输入引用数与主事件一致，正传输组数不得超过非本地引用数，每个Job尝试至多一个V1外部输入组（也约束已保留前缀）。精确引用字节与原double归组量在明确累加误差边界内核对，不能把允许的±1归组舍入差当作局部性。
-- v4旧工具可能只验证额外角色的哈希而不理解这些网络语义。ON证据必须使用升级后的校验/重放链路；专用rerun已升级并逐字段比较sidecar；Workbench正常与独立报告均内嵌有界的已验证网络显示投影。
-- 内部一致性不等于密码学真实性，也不证明未知截断后缀存在。
+- `Decoded` returns only the immutable evidence and the recomputed immutable metrics; modifying the source JSON tree does not affect them.
+- COMPLETE, TRUNCATED, zero observations without an engine, missing input counts, and similar states keep distinct meanings.
+- The pure codec holds no Job results, VM placements, or main events from the manifest; formal artifact validation additionally checks the configuration, the actual VM placements, Job/Task identities, source/deterministic paths, platform capacity, Job-ready/input-completion/Job-start times, and per-Job group counts. Input reference counts agree with the main events; the number of positively-transferring groups must not exceed the number of non-local references; each Job attempt carries at most one V1 external-input group (this also binds retained prefixes). Exact referenced bytes are checked against the original double grouping quantities within explicit accumulation-error bounds; the permitted ±1 grouping-rounding difference must not be taken as evidence of locality.
+- Legacy v4 tools may verify only the extra role's hash without understanding these network semantics. ON evidence must use the upgraded validation/rerun chain; the dedicated rerun is upgraded and compares the sidecar field by field; both the normal and the standalone Workbench reports embed the bounded, verified network display projection.
+- Internal consistency is not cryptographic authenticity and does not prove the existence of an unknown truncated suffix.
 
-服务语法、max-min证书与派生指标的定义见[独立校验规则](<NETWORK_LEDGER_VALIDATION.md>)；运行测试命令统一见[构建指南](<../getting-started/BUILD.md>)。
+The definitions of the service grammar, the max-min certificate, and the derived metrics are in the [independent validation rules](<NETWORK_LEDGER_VALIDATION.md>); the unified commands for running the tests are in the [build guide](<../getting-started/BUILD.md>).

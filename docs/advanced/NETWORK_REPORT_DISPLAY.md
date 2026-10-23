@@ -1,51 +1,53 @@
-# 离线网络与动作报告
+# Offline Network and Action Report
 
-## 同一验证来源
+**English** · [简体中文](<NETWORK_REPORT_DISPLAY.zh.md>)
 
-Workbench正常运行报告与`Workbench report <manifest> <new-report.html>`使用同一加载链：先校验工件引用、内容、生命周期/账本与运行上下文，再从冻结结果构造显示投影。原manifest和experiment索引不被显示字段污染。
+## A Single Validation Source
 
-浏览器不读取相邻JSON文件，不启动仿真，不依赖服务或CDN。篡改或不一致工件在独立报告目标创建前拒绝；未被manifest引用的旧侧车不会把OFF变成ON。操作命令见[Workbench指南](<../getting-started/WORKBENCH.md>)。
+Workbench's regular run report and `Workbench report <manifest> <new-report.html>` use the same loading chain: artifact references, content, lifecycle/ledger, and run context are validated first, and the display projections are then built from the frozen results. The original manifest and experiment index are not polluted by display fields.
 
-## 面板与状态
+The browser reads no neighboring JSON files, starts no simulation, and depends on no services or CDNs. Tampered or inconsistent artifacts are rejected before the standalone report target is created; a stale sidecar not referenced by the manifest cannot turn OFF into ON. Operating commands are in the [Workbench guide](<../getting-started/WORKBENCH.md>).
 
-| 面板 | 数据及含义 |
+## Panels and Statuses
+
+| Panel | Data and meaning |
 |---|---|
-| V1网络账本 | 父组/外部组级服务、有效/观察FCT、通知滞后、资源会计及局部性；不是逐文件副本证明 |
-| 文件生命周期V2 | 实际文件来源、固定路径、合并、结算和可见性；不是逐区间服务面积 |
-| 存储生命周期V3 | 输入读取、SOURCE等待、成功输出写回、CPU与输出尾部；同VM缓存不能越过SHARED提交屏障 |
-| 在线目标绑定 | 每次尝试的INITIAL/RETRY_REUSE、选定VM、候选分数及观察摘要；与对应V2/V3物理面板同时存在 |
+| V1 network ledger | Parent/external-group-level service, effective/observed FCT, notification lag, resource accounting, and locality; not a per-file replica proof |
+| File lifecycle V2 | Actual file sources, fixed paths, merges, settlement, and visibility; not per-interval service areas |
+| Storage lifecycle V3 | Input reads, SOURCE waiting, successful-output write-back, CPU and output tails; same-VM caching cannot cross the SHARED commit barrier |
+| Online target assignment | INITIAL/RETRY_REUSE per attempt, the selected VM, candidate scores, and observation summaries; coexists with the matching V2/V3 physical panel |
 
-状态必须明确区分：
+The statuses must be told apart explicitly:
 
-- **未记录：**不是认证零流量。默认非在线模式可有合法OFF报告。
-- **完整且零正复制：**记录完整，但没有相应正载荷复制；仍可能存在零字节引用、存储提交或声明资源。
-- **完整捕获：**所有记录保留；组件级捕获可能是仍有活动工作的快照，不等于整个仿真结束。正式bundle还须通过终态上下文检查。
-- **V1截断前缀：**只显示前缀及诊断，完整字节/FCT/利用率摘要不可用，不以零代替。V2/V3和在线认证要求完整捕获，预算不足的正式运行记为导出失败。
-- **无有效结果或投影缺失：**先清理旧表和选择项。已声明在线模式但没有匹配投影必须显示无效，不能伪装成OFF或零动作。
+- **Unrecorded:** not certified zero traffic. Non-online default modes may legitimately end up with an OFF report.
+- **Complete with zero positive replication:** the records are complete but no corresponding positive-payload replication occurred; zero-byte references, storage commits, or declared resources may still be present.
+- **Complete capture:** all records are retained; a component-level capture may be a snapshot with work still active, which does not mean the whole simulation has ended. The formal bundle must additionally pass the final-state context check.
+- **V1 truncated prefix:** only the prefix and its diagnostics are displayed; whole-run byte/FCT/utilization summaries are unavailable and are not replaced with zeros. V2/V3 and online certification require a complete capture, and formal runs with insufficient budget are recorded as export failures.
+- **No valid result, or projection missing:** old tables and selections are cleared first. A declared online mode without a matching projection must display as invalid and must not be dressed up as OFF or as zero actions.
 
-## 精确文本与有界预览
+## Exact Text and Bounded Previews
 
-显示数据只含字符串、结构性布尔值、null和深不可变集合。身份、序号、计数、时间、速率、比例和精确会计量在进入JSON.parse前转换为精确字符串；不得用JavaScript `Number`、`parseFloat`或本地化格式截断这些值。
+Display data consists only of strings, structural booleans, null, and deeply immutable collections. Identities, ordinals, counts, times, rates, ratios, and exact accounting quantities are converted into exact strings before entering `JSON.parse`; JavaScript `Number`, `parseFloat`, or localized formatting must not truncate these values.
 
-| 投影 | 上限 |
+| Projection | Cap |
 |---|---|
-| V1 | 流/资源各64，事件128 |
-| V2 | 复制/资源各64，事件128 |
-| V3 | 复制/资源/Job各64，事件128 |
-| 在线动作 | 动作64，每条候选预览12 |
-| 文件/资源详情 | 嵌套Task/路径列表每处12；需要裁剪的标签最多256个UTF-16单元，避免切断代理对 |
+| V1 | 64 flows/resources each, 128 events |
+| V2 | 64 replications/resources each, 128 events |
+| V3 | 64 replications/resources/Job each, 128 events |
+| Online actions | 64 actions, 12 candidates previewed per action |
+| File/resource details | 12 entries at each nested Task/path-list location; trimmed labels are at most 256 UTF-16 units, avoiding split surrogate pairs |
 
-每个预览保留总数、显示数和省略数；界面裁剪不改变COMPLETE/TRUNCATED捕获状态。精确数字文本不截短，完整原始历史不重复嵌入HTML。选中候选必须从完整候选集合查找，即使它位于预览上限之外。
+Every preview retains the total, the shown count, and the omitted count; UI trimming never changes the COMPLETE/TRUNCATED capture status. Exact numeric text is never truncated, and the full raw history is not embedded into the HTML a second time. A selected candidate must be looked up in the complete candidate set even when it lies beyond the preview cap.
 
-## 防止误读和不安全内容
+## Preventing Misreads and Unsafe Content
 
-- 余额差、速率面积、数值残余、未结余额、路径重复占用和引用局部性分别显示；不能混称交付流量。
-- 有效完成、观察完成、CPU完成和输出尾部使用各自的时刻口径。实际时序不由名义候选分数反推。
-- 在线面板明确显示`BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1`与`liveProgressReplayed=false`，不得宣称已认证精确余额、未来争用或全局最优。
-- 组件级投影若仅通过内部检查，必须保留`contextValidated=false`；不能冒充正式bundle上下文验证。
-- 内嵌JSON保留HTML字符和U+2028/U+2029转义；DOM内容使用`textContent`。标签不能变成图片、脚本或事件处理器。
-- 复用同一次验证的manifest防御性快照与不可变解码结果，不重新读取可能已被替换的路径，也不为显示重复解析/重算大账本。
+- Balance deltas, rate areas, numeric residuals, outstanding balances, repeated path occupancy, and reference locality are displayed separately; none of them may be conflated into delivered traffic.
+- Effective completions, observed completions, CPU completions, and output tails each keep their own timing basis. The actual schedule is not back-inferred from nominal candidate scores.
+- The online panel explicitly displays `BINDING_NOMINAL_BOUNDS_AND_LOGGED_SCORE_V1` together with `liveProgressReplayed=false`; it must not claim certified exact balances, future contention, or global optimality.
+- A component-level projection that passed only the internal checks must retain `contextValidated=false`; it must not pass itself off as formal-bundle context validation.
+- Embedded JSON retains HTML-character and U+2028/U+2029 escaping; DOM content uses `textContent`. Labels must never turn into images, scripts, or event handlers.
+- The defensive manifest snapshot and the immutable decode results from the same validation run are reused; paths that may since have been swapped are not re-read, and no large ledger is parsed or recomputed again for display.
 
-## 维护验证
+## Maintenance Verification
 
-[浏览器检查器](<../../scripts/verify-report.cjs>)检查桌面/窄屏布局、全部运行切换、精确单元格、预览数量及无额外文件/HTTP请求。[反例检查](<../../scripts/test-report-checker.cjs>)故意破坏文本、数字类型、面板、范围声明和预览上限，必须失败。测试命令统一见[构建指南](<../getting-started/BUILD.md>)。
+The [browser checker](<../../scripts/verify-report.cjs>) checks the desktop/narrow-screen layout, the all-runs toggle, the exact cells, the preview counts, and the absence of extra files and HTTP requests. The [counterexample check](<../../scripts/test-report-checker.cjs>) deliberately breaks text, numeric types, panels, scope statements, and preview caps, and must fail. Test commands are maintained together in the [build guide](<../getting-started/BUILD.md>).

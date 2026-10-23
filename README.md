@@ -37,7 +37,7 @@ Open `index.html` in the output root to browse experiment history, and `report.h
 | Use network contention models | [Network comparison](<experiments/configs/network-comparison.json>) |
 | Inspect per-file source, transfer, and CPU input gating | [Coherent file dataflow V2](<experiments/configs/coherent-file-dataflow-v2.json>) |
 | Simulate bounded SOURCE storage and required output write-back | [Bounded storage dataflow V3](<experiments/configs/storage-dataflow-v3.json>) |
-| Select a VM at control-ready time, then transfer inputs | [Online target binding with bounded storage](<experiments/configs/online-storage-dataflow-v1.json>) |
+| Select a VM at control-ready time, then transfer inputs | [Online target assignment with bounded storage](<experiments/configs/online-storage-dataflow-v1.json>) |
 
 Examples use different support matrices; experiments cannot be constructed by arbitrarily mixing algorithms, file systems, and network options. The full scope is defined in the [dataflow capability matrix](<docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md>) and the [algorithm catalog](<docs/algorithms/CATALOG.md>).
 
@@ -50,18 +50,18 @@ Examples use different support matrices; experiments cannot be constructed by ar
 | Scheduling and planning | Online CPU scheduling, independent-task static planning, controlled SHARED-storage / LOCAL DAG planning, plus explicitly labeled random and search baselines |
 | Coherent data transfer | V2 per-file source, path, merge, and visibility semantics; optional endpoint contention or actual Fat-tree path contention |
 | Bounded storage | V3 storage with bounded read/write/NIC bandwidths, SOURCE attached to a host, asynchronous materialization of successful outputs, and terminal draining |
-| Online target binding | Binds an actual compatible VM from submitted network observations and projected CPU reservation; STATIC dispatch then follows; NOOP retries reuse the binding |
+| Online target assignment | Binds an actual compatible VM from submitted network observations and projected CPU reservation; STATIC dispatch then follows; NOOP retries reuse the binding |
 | Experiment control | Staggered multi-workflow arrivals, failure/retry under supported combinations, post-hoc deadline observation, matrix-based computation cost |
 | Policy integration | `RlEnvironment` / `RlPolicy` state, action, and reward interfaces; external policies must satisfy the corresponding model constraints |
 
-The standard `SimulationRunner` uses SPACE_SHARED VMs without task clustering. Runs are serialized within a single JVM; batch-level parallelism requires separate processes. Online target binding and online CPU scheduling are distinct decision phases and must not be conflated into one algorithm.
+The standard `SimulationRunner` uses SPACE_SHARED VMs without task clustering. Runs are serialized within a single JVM; batch-level parallelism requires separate processes. Online target assignment and online CPU scheduling are distinct decision phases and must not be conflated into one algorithm.
 
 ## Execution pipeline and project layout
 
 ```text
 workflow + SimulationConfig + PlatformProfile
     → input and combination validation → dependency parsing → optional static planning
-    → dependency/arrival gating → fixed mapping or explicit online target binding
+    → dependency/arrival gating → fixed mapping or explicit online target assignment
     → input preparation → CPU dispatch and event loop → required-output draining
     → SimulationReport → evidence validation → offline report / exact replay
 ```

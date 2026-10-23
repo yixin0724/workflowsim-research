@@ -71,7 +71,7 @@ LOCAL_HEFT/CPOP/PEFT 要求 LOCAL、STATIC、无故障/开销，以及 V1 pre-ex
 
 [输入可用性回归](<../../simulator/src/test/java/org/workflowsim/planning/LocalDataAvailabilityPlanningTest.java>)覆盖外部根输入、未来副本、有效空档和输入到达早于计算开始。文件名/大小冲突可能使某些现成输入不适用，不能从普通在线运行成功推导 LOCAL 规划也合法。
 
-启用 V1 端点或 Fat-tree 争用时，**规划仍无争用**，运行期所有父组在 Job 就绪时统一启动，不追溯更早父完成以来的传输进度。求解器采用受名义上限与资源容量共同约束的 max-min progressive filling，并在内部完成点回收、重新分配容量；不是简单固定的 `capacity/n`。因此无争用 V1 与争用 V1 的差异还包含传输起点规则。Fat-tree 另加入确定性有向路径约束，外部 SOURCE 仍绕过 fabric，详见[拓扑与路由契约](<../research/FAT_TREE_DESIGN.md>)。
+启用 V1 端点或 Fat-tree 争用时，**规划仍无争用**，运行期所有父组在 Job 就绪时统一启动，不追溯更早父完成以来的传输进度。求解器采用受名义上限与资源容量共同约束的 max-min progressive filling，并在内部完成点回收、重新分配容量；不是简单固定的 `capacity/n`。因此无争用 V1 与争用 V1 的差异还包含传输起点规则。Fat-tree 另加入确定性有向路径约束，外部 SOURCE 仍绕过 fabric，详见[拓扑与路由契约](<../research/FAT_TREE_DESIGN.zh.md>)。
 
 ### coherent 文件、存储与控制平面
 
@@ -85,7 +85,7 @@ coherent V2/V3 是独立的逐文件生命周期，不是把 LOCAL 规划器的�
 
 `dataflowPlan` 记录文件身份和生产/消费关系，不是 STATIC 的每 VM 执行顺序计划。生命周期证书记录来源、路径、可见性与因果，不认证逐区间服务面积或未来拥塞；在线动作认证也不重放精确在途余额。Workbench 在线导出要求完整且匹配的生命周期捕获，Java OFF/截断运行不能冒充完整动作证书。模型未实现 TCP、丢包/ECN、包级队列或自适应路由。
 
-具体字段与数值域见[V2 契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)、[V3 契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)和[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。对应的[存储运行测试](<../../simulator/src/test/java/org/workflowsim/data/v2/StorageDataflowRuntimeTest.java>)与[在线证据测试](<../../simulator/src/test/java/org/workflowsim/experiment/OnlineDataflowArtifactIntegrationTest.java>)检查提交门控、输出义务、失败来源和捕获完整性。
+具体字段与数值域见[V2 契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.zh.md>)、[V3 契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)和[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)。对应的[存储运行测试](<../../simulator/src/test/java/org/workflowsim/data/v2/StorageDataflowRuntimeTest.java>)与[在线证据测试](<../../simulator/src/test/java/org/workflowsim/experiment/OnlineDataflowArtifactIntegrationTest.java>)检查提交门控、输出义务、失败来源和捕获完整性。
 
 ## 优先级与成本语义
 

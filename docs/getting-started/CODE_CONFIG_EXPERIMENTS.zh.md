@@ -2,7 +2,7 @@
 
 [English](<CODE_CONFIG_EXPERIMENTS.md>) · **简体中文**
 
-只需修改输入、资源和内置算法时，优先使用 [Workbench](<WORKBENCH.zh.md>)。本指南用于自定义 Java 实验、故障模型或外部策略；算法选择统一见[算法目录](<../algorithms/CATALOG.md>)，输入选择见[数据集说明](<../../datasets/README.md>)。
+只需修改输入、资源和内置算法时，优先使用 [Workbench](<WORKBENCH.zh.md>)。本指南用于自定义 Java 实验、故障模型或外部策略；算法选择统一见[算法目录](<../algorithms/CATALOG.zh.md>)，输入选择见[数据集说明](<../../datasets/README.md>)。
 
 ## 一个完整示例
 
@@ -80,7 +80,7 @@ IDEA 运行时选择实验模块 classpath，工作目录为 `$PROJECT_DIR$`，�
 - 标准运行器要求 NONE 聚类、SPACE_SHARED VM、PE 兼容放置；每台 VM 同时最多派发一个 Job，不等于所有任务永远只使用一个 PE。
 - `PlatformProfiles.homogeneousLocal` 创建一台 VM 对应一台 Host、每 VM 1000 MIPS/1 PE/512 MB 的平台；名称中的 Local 不设置文件系统。配置中的 VM 数必须与平台一致。
 - 离线规划必须配合 STATIC 派发。coherent V2/V3 的显式在线绑定是独立决策层，可使用 INVALID/STATIC，不能把它与普通 CPU 在线调度混为一谈。
-- V1、coherent V2 和受限存储 V3 的数据就绪、输出提交和记录语义不同。不要只替换一个枚举而忽略文件系统、拓扑、SOURCE 存储或证据模式要求，见[能力与组合说明](<../advanced/DATAFLOW_CAPABILITY_MATRIX.md>)。
+- V1、coherent V2 和受限存储 V3 的数据就绪、输出提交和记录语义不同。不要只替换一个枚举而忽略文件系统、拓扑、SOURCE 存储或证据模式要求，见[能力与组合说明](<../advanced/DATAFLOW_CAPABILITY_MATRIX.zh.md>)。
 
 ## 常用配方
 
@@ -102,7 +102,7 @@ SimulationConfig config = SimulationConfig.builder(workflow, vmCount)
         .build();
 ```
 
-共享存储规划器要求无故障/开销、NONE 聚类和 SPACE_SHARED，且不接受任务成本矩阵。LOCAL 规划器使用不同的 V1 pre-execution 模型，不能作为 coherent V2/V3 估计器。完整组合和论文适配范围见[算法契约](<../algorithms/CONTRACTS.md>)。
+共享存储规划器要求无故障/开销、NONE 聚类和 SPACE_SHARED，且不接受任务成本矩阵。LOCAL 规划器使用不同的 V1 pre-execution 模型，不能作为 coherent V2/V3 估计器。完整组合和论文适配范围见[算法契约](<../algorithms/CONTRACTS.zh.md>)。
 
 ### 异构资源、到达与截止时间
 
@@ -146,16 +146,16 @@ FailureModelConfig failure = FailureModelConfig.builder()
 config = config.toBuilder().failureModel(failure).build();
 ```
 
-参数只是模型输入，不是现网故障校准；单次运行也不保证必然出现失败。标准运行器支持 NOOP 重试，预算必须为正，耗尽会显式失败。故障在尝试完成边界判定，失败输出不成为可读副本。只有允许故障的模型/算法组合才能采用此配方，约束以 [FailureModelConfig](<../../simulator/src/main/java/org/workflowsim/failure/FailureModelConfig.java>)及[算法契约](<../algorithms/CONTRACTS.md>)为准。
+参数只是模型输入，不是现网故障校准；单次运行也不保证必然出现失败。标准运行器支持 NOOP 重试，预算必须为正，耗尽会显式失败。故障在尝试完成边界判定，失败输出不成为可读副本。只有允许故障的模型/算法组合才能采用此配方，约束以 [FailureModelConfig](<../../simulator/src/main/java/org/workflowsim/failure/FailureModelConfig.java>)及[算法契约](<../algorithms/CONTRACTS.zh.md>)为准。
 
 ### 接入外部策略
 
-`RL_POLICY` 通过 [RlEnvironment](<../../simulator/src/main/java/org/workflowsim/rl/RlEnvironment.java>)的 `runEpisode(config, platform, policy)` 注册策略并运行 episode，提供观测、动作、轨迹与奖励，不提供学习算法。coherent 模型的在线目标绑定不是这个 RL 接口，详见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+`RL_POLICY` 通过 [RlEnvironment](<../../simulator/src/main/java/org/workflowsim/rl/RlEnvironment.java>)的 `runEpisode(config, platform, policy)` 注册策略并运行 episode，提供观测、动作、轨迹与奖励，不提供学习算法。coherent 模型的在线目标绑定不是这个 RL 接口，详见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)。
 
 ## 读取与保存结果
 
 - `getMakespan()` 是模拟结束时刻；`getLogicalTaskCompletionSeconds()` 仅在全部逻辑任务成功时可用，二者可能因输出写回等生命周期尾部而不同。
-- 成功/失败 Job 数统计尝试，含模型生成的 stage-in Job；不要当作逻辑任务数。等待、减速比、成本和利用率有各自样本范围，见[指标契约](<../algorithms/CONTRACTS.md>)和 [SimulationMetrics](<../../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java>)。
+- 成功/失败 Job 数统计尝试，含模型生成的 stage-in Job；不要当作逻辑任务数。等待、减速比、成本和利用率有各自样本范围，见[指标契约](<../algorithms/CONTRACTS.zh.md>)和 [SimulationMetrics](<../../simulator/src/main/java/org/workflowsim/experiment/SimulationMetrics.java>)。
 - `ExperimentArtifactWriter.write(...)` 写出 manifest v4、metrics v2、events v1，manifest 内 provenance 为 v3；启用记录时另有匹配的网络/生命周期侧车。仅写独立 manifest 不等于完整证据包。
 - 同一目录与 runId 会替换同名工件。单文件采用临时写入后替换，支持时为原子替换；整个证据包不是跨文件事务，写出后必须校验。需要保留多次运行时使用不同 runId 或目录。
 - Workbench 可从校验后的 manifest 生成自包含 HTML；Java 写器本身负责证据而不是报告界面。命令见[Workbench 指南](<WORKBENCH.zh.md>)。

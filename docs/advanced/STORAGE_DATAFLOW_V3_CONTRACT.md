@@ -1,128 +1,130 @@
-# 受限 SOURCE 与共享存储数据流 V3
+# Bounded SOURCE and Shared-Storage Dataflow V3
 
-V3 为一致文件数据流增加有限读/写/NIC 资源、实际存储接入路径和必要输出写回。运行、独立侧车、Java/Python 校验、配置重建、精确 rerun 与离线报告使用同一版本契约；不能把 V3 证书转换或贴标为 V2。
+V3 adds bounded read/write/NIC resources, a physical storage attachment path, and required-output write-back to the coherent file dataflow. Execution, the standalone sidecar, Java/Python validation, configuration rebuild, exact rerun, and offline reporting all use the same versioned contract; a V3 certificate cannot be converted into, or relabeled as, V2.
 
-## 模型与配置
+**English** · [简体中文](<STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)
 
-| 项目 | 支持值 |
+## Model and Configuration
+
+| Item | Supported values |
 |---|---|
-| 共享模型 | `COHERENT_STORAGE_DATAFLOW_V3`；`DataMovementModel.coherentStorageDataflowV3()` |
-| 无共享对照 | `COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3`；`coherentStorageDataflowNoContentionV3()` |
-| 默认目标绑定 | RANDOM 规划、STATIC 派发 |
-| 可选在线绑定 | 显式 `CONTROL_READY_ONLINE_ASSIGNMENT_V1`、INVALID 规划、STATIC 派发；见[在线绑定契约](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
-| 执行 | NONE 聚类，每 Job 一个逻辑 Task；SPACE_SHARED；无开销；受控 NOOP CPU 重试 |
-| 文件系统 | LOCAL，或下文定义的 SHARED 提交后缓存读取 |
-| 捕获 | `FILE_STORAGE_LIFECYCLE_V3`；`NetworkEvidenceConfig.storageLifecycleV3(B)`，`B` 为 `1..2147483647` 的记录预算 |
+| Sharing model | `COHERENT_STORAGE_DATAFLOW_V3`; `DataMovementModel.coherentStorageDataflowV3()` |
+| Contention-free control | `COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3`; `coherentStorageDataflowNoContentionV3()` |
+| Default target assignment | RANDOM planning, STATIC dispatch |
+| Optional online assignment | explicit `CONTROL_READY_ONLINE_ASSIGNMENT_V1`, INVALID planning, STATIC dispatch; see the [online assignment contract](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>) |
+| Execution | NONE clustering, one logical Task per Job; SPACE_SHARED; no overheads; controlled NOOP CPU retries |
+| File system | LOCAL, or the SHARED post-commit cached read defined below |
+| Capture | `FILE_STORAGE_LIFECYCLE_V3`; `NetworkEvidenceConfig.storageLifecycleV3(B)`, where `B` is a record budget in `1..2147483647` |
 
-OFF 不保留事件历史，也不改变运行物理。普通非在线运行仍保存核心文件计划；在线认证另要求匹配、完整的生命周期捕获。CPU 在线调度器、RL_POLICY 和原 LOCAL 规划器不能直接替代这里的目标绑定规则。
+OFF retains no event history and does not change the physics of the run. Ordinary non-online runs still keep the core file plan; online certification additionally requires a matching, complete lifecycle capture. The CPU online scheduler, RL_POLICY, and the original LOCAL planner cannot directly substitute for the target-assignment rules here.
 
-可运行[共享容量示例](<../../experiments/configs/storage-dataflow-v3.json>)与[独立路径瓶颈对照](<../../experiments/configs/storage-dataflow-isolated-v3.json>)。它们保持输入、绑定配置、存储与可见性规则，仅改变跨流容量共享；不能据此保证整个 DAG 的后续来源选择或完成时间相同。
+Runnable examples are the [shared-capacity example](<../../experiments/configs/storage-dataflow-v3.json>) and the [isolated path-bottleneck control](<../../experiments/configs/storage-dataflow-isolated-v3.json>). They hold the inputs, the assignment configuration, and the storage and visibility rules fixed, varying only cross-flow capacity sharing; identical downstream source selection or completion times across the whole DAG cannot be guaranteed on that basis.
 
-## 显式存储资源
+## Explicit Storage Resources
 
-[DataflowStorageSpec](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowStorageSpec.java>)固定逻辑位置 `SOURCE:source`，由 `PlatformProfile.Builder.sourceStorage(spec)` 声明。Workbench 对应 `platform.sourceStorage`，必须恰含四项：
+[DataflowStorageSpec](<../../simulator/src/main/java/org/workflowsim/data/v2/DataflowStorageSpec.java>) fixes the logical location `SOURCE:source`, declared via `PlatformProfile.Builder.sourceStorage(spec)`. The Workbench counterpart is `platform.sourceStorage`, which must contain exactly four fields:
 
-| 字段 | 含义与约束 |
+| Field | Meaning and constraints |
 |---|---|
-| `attachmentHostId` | 非负实际 Host ID，必须属于平台；有拓扑时该 Host 必须已连接 |
-| `readBandwidthMbPerSecond` | 读取服务容量 |
-| `writeBandwidthMbPerSecond` | 写入服务容量 |
-| `networkBandwidthMbPerSecond` | 读写共同使用的存储 NIC 容量 |
+| `attachmentHostId` | non-negative physical Host ID that must belong to the platform; when a topology is present, that Host must already be connected |
+| `readBandwidthMbPerSecond` | read service capacity |
+| `writeBandwidthMbPerSecond` | write service capacity |
+| `networkBandwidthMbPerSecond` | storage NIC capacity shared by reads and writes |
 
-三个带宽均为有限正数，单位是十进制 MB/s；按 binary64 乘 `1000000` 后必须为正 normal、有限 B/s，不做整数舍入。三者没有必须相等或大小排序的要求。未知资源不是无限资源。
+All three bandwidths are finite positive numbers in decimal MB/s; after multiplication by `1000000` in binary64 they must be positive normal, finite B/s, with no integer rounding. The three are not required to be equal or ordered by magnitude. An unspecified resource is not an unlimited resource.
 
-Workbench 的接入 Host 从其已建的 `0..VM数−1` Host 中选择；Java 平台 API 可声明专用存储 Host。Java/codec 的 Fat-tree `k` 为偶数 `2..32`，Workbench 为偶数 `2..16`；配置还须满足对应 Host/edge 容量约束。
+The Workbench attachment Host is chosen among its already-created `0..VM count−1` hosts; the Java platform API may declare a dedicated storage Host. Fat-tree `k` is even `2..32` for Java/the codec and even `2..16` for Workbench; the configuration must additionally satisfy the corresponding Host/edge capacity constraints.
 
-`sourceStorage` 必须且只能与存储 V3 模型一起出现，错误组合在会话创建前拒绝。旧 `PlatformProfile.StorageSpec`、Harddrive 估时和[一致 V2](<COHERENT_DATAFLOW_V2_CONTRACT.md>)的无限、绕过 fabric 的 SOURCE 含义均不改变。有限的是服务速率，**不是存储空间**；当前没有容量耗尽、淘汰、多存储一致性、存储故障、丢包重传或真实硬件校准。
+`sourceStorage` must, and must only, appear together with a storage V3 model; invalid combinations are rejected before session creation. The legacy `PlatformProfile.StorageSpec`, the Harddrive timing estimate, and the [coherent V2](<COHERENT_DATAFLOW_V2_CONTRACT.md>) SOURCE meaning of an unlimited, fabric-bypassing sink are all unchanged. What is bounded is the service rate, **not storage space**; there is currently no capacity exhaustion, eviction, multi-store consistency, storage failure, packet-loss retransmission, or real-hardware calibration.
 
-## 实际资源路径
+## Physical Resource Paths
 
-[DataTransferFabric](<../../simulator/src/main/java/org/workflowsim/data/v2/DataTransferFabric.java>)冻结实际 VM→Host 与存储接入 Host。以下次序及资源重数属于契约：
+[DataTransferFabric](<../../simulator/src/main/java/org/workflowsim/data/v2/DataTransferFabric.java>) freezes the physical VM→Host mapping and the storage attachment Host. The following orderings and resource multiplicities are part of the contract:
 
-| 操作 | 有序约束资源 |
+| Operation | Constrained resources in order |
 |---|---|
-| SOURCE→VM 读取 | `STORE:source:READ`、`STORE:source:NIC`、实际路径有向链路、目标 `VM:id` |
-| VM→SOURCE 写回 | 源 `VM:id`、实际路径有向链路、`STORE:source:NIC`、`STORE:source:WRITE` |
-| LOCAL 的 VM→VM 读取 | 源 VM、实际路径有向链路、目标 VM |
+| SOURCE→VM read | `STORE:source:READ`, `STORE:source:NIC`, the physical path's directed links, the destination `VM:id` |
+| VM→SOURCE write-back | the source `VM:id`, the physical path's directed links, `STORE:source:NIC`, `STORE:source:WRITE` |
+| LOCAL VM→VM read | the source VM, the physical path's directed links, the destination VM |
 
-同 Host 可以没有 fabric 链路，但 SOURCE 读写仍消耗 VM 端点及存储服务/NIC，不能视为本地零成本。无拓扑也保留存储/VM 资源和完整实际 VM→Host 映射。单流瓶颈为各资源容量除以路径重数后的最小值；共享模式采用受检查的 max-min 服务，无共享对照只取消跨流共享，不移除读写/NIC/路径瓶颈。反向链路分别计量，存储 NIC 双向共享。
+Endpoints on the same Host may have no fabric link between them, yet a SOURCE read/write still consumes VM endpoints and the storage service/NIC and cannot be treated as free local access. Even without a topology, the storage/VM resources and the complete physical VM→Host mapping are retained. The single-flow bottleneck is the minimum, across resources, of each resource capacity divided by its path multiplicity; the shared mode serves with checked max-min, while the contention-free control only removes cross-flow sharing and does not remove the read/write/NIC/path bottlenecks. Opposite-direction links are metered separately; the storage NIC is shared in both directions.
 
-## 成功输出、异步写回与终止
+## Successful Outputs, Asynchronous Write-back, and Termination
 
-`ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3` 要求**全部成功 Task 输出**到 SOURCE，包括 unused/sink 和零字节输出，不能仅从被消费的输入边推导必要输出集。
+`ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3` requires **all successful Task outputs** to reach the SOURCE, including unused/sink and zero-byte outputs; the required-output set must not be derived solely from consumed input edges.
 
-- CPU 完成先经故障判断；失败 Task 不发布输出，也不产生写回义务。
-- 成功输出先在实际执行 VM 观察可见，再于同一事务开始或加入 `(file,SOURCE)` 写回。已有 SOURCE 副本保留最早出处。
-- 正字节输出经过服务资源；零字节输出提交元数据，副本获取方式为 `ZERO_BYTE_OUTPUT`，不生成正流或复制序号。
-- `CLOUDLET_RETURN` 和 Task/Job 完成时刻仍是 CPU 结果，不改成存储提交时刻。VM 可在输出写回期间执行下一作业。
-- 终止要求已请求 Job 均终态、无活动复制、无 SOURCE 等待者，且每个成功输出的 SOURCE 义务已履行。仅“活动流为零”不足以证明完成。
-- 逻辑计算完成、整体仿真结束及输出尾部是不同时间边界，不虚构 I/O 失败重试或 TCP 确认。
+- CPU completion is subject to the failure check first; a failed Task publishes no output and creates no write-back obligation.
+- A successful output is first observed as visible on the actually executing VM, and the `(file,SOURCE)` write-back is started or joined within the same transaction. An existing SOURCE replica retains the earliest provenance.
+- Positive-byte outputs traverse the service resources; zero-byte outputs commit metadata, with replica acquisition mode `ZERO_BYTE_OUTPUT`, and generate no positive flow or copy ordinal.
+- `CLOUDLET_RETURN` and the Task/Job completion instants remain CPU outcomes and are not redefined as storage-commit instants. A VM may execute its next job while its outputs are being written back.
+- Termination requires every requested Job in a final state, no active copies, no SOURCE waiters, and every successful output's SOURCE obligation fulfilled. A “zero active flows” count alone does not prove completion.
+- Logical computation completion, the end of the whole simulation, and the output tail are distinct time boundaries; no I/O failure retries or TCP acknowledgments are invented.
 
-## 输入可见性与等待
+## Input Visibility and Waiting
 
-**LOCAL** 使用可见目标缓存优先，否则最大独立瓶颈速率、稳定位置打破并列的来源规则。必要输出仍写回，但下游可以在 SOURCE 提交前读取已发布的 VM 副本。
+**LOCAL** uses the source rule of visible destination cache first, otherwise maximum isolated bottleneck rate, with stable location breaking ties. Required outputs are still written back, but downstream consumers may read a published VM replica before the SOURCE commit.
 
-**SHARED** 使用 `COMMITTED_STORE_THEN_VM_READ_CACHE_V3`，不是旧 V1 的 SHARED 估时：
+**SHARED** uses `COMMITTED_STORE_THEN_VM_READ_CACHE_V3`, not the legacy V1 SHARED timing estimate:
 
-1. 控制依赖满足后，在当前观察发起固定目标 VM 的输入请求。
-2. SOURCE 未提交时记录 `INPUT_WAITING_FOR_STORE`；即使目标就是生产者且已有本地输出，也必须等待提交。
-3. SOURCE 提交后重新解析该文件：目标缓存已存在则 LOCAL，否则只从 SOURCE 读取，不能选更快 peer 绕过存储。
-4. 到达目标后该输入才满足；全部输入满足时只释放一次 `JOB_DATA_READY`，随后才可进入 CPU。
+1. Once the control dependencies are satisfied, an input request for the fixed destination VM is initiated at the current observation.
+2. While the SOURCE is not yet committed, `INPUT_WAITING_FOR_STORE` is recorded; even when the destination is the producer itself and the local output already exists, the commit must still be awaited.
+3. After the SOURCE commits, the file is re-resolved: if a destination cache entry already exists, LOCAL; otherwise it is read from the SOURCE only, and a faster peer must not be selected to bypass storage.
+4. The input is satisfied only once it has arrived at the destination; when all inputs are satisfied, `JOB_DATA_READY` is released exactly once, and only then may the CPU be entered.
 
-等待 SOURCE 与等待目标复制是不同索引。SOURCE 提交在同一暂存事务内按确定的受影响请求顺序恢复 `(job,file)`，不重入公共 `requestJob/advance`，也不靠忙轮询。多个同目标读者可加入同一次在途读取。等待者、准备统计、输出义务、路径、复制序号与事件均随失败事务回滚。
+Waiting for the SOURCE and waiting for a destination copy are distinct indices. A SOURCE commit resumes the affected `(job,file)` pairs within the same staged transaction, in a deterministic order over the affected requests, without re-entering the public `requestJob/advance` and without busy-polling. Multiple readers with the same destination may join one in-flight read. Waiters, preparation statistics, output obligations, paths, copy ordinals, and events all roll back with the failed transaction.
 
-## 主事件、指标与聚合顺序
+## Main Events, Metrics, and Aggregation Order
 
-`DATA_STAGE_IN_MODELED` 在**最终数据就绪**时记录，`transferUnit=LOGICAL_FILE_STORAGE_V3`；延迟解析之前的初始统计不完整。
+`DATA_STAGE_IN_MODELED` is recorded at **final data readiness**, with `transferUnit=LOGICAL_FILE_STORAGE_V3`; the initial statistics emitted before deferred resolution are incomplete.
 
-- `modeledTransferSeconds` 仍为名义独立输入传输秒数之和，不是并行输入墙钟、输出时间或服务面积。`NEW_COPY` 和 `JOIN_EXISTING` 各计其票据的完整 `isolatedSeconds`，不是剩余时间。
-- `requiredFileBytes`、`modeledTransferFileCount`、`newFileCopies`、`joinedFileCopies` 分别记录引用字节、引用次数、新建/加入输入复制数。输出复制不混入输入计数，也不加入 V1 的 `contentionTransferGroupCount`。
-- `observedInputPreparationSeconds = dataReady - request` 是另行记录的观察准备时长；重叠 SOURCE 等待不能逐文件相加冒充墙钟分解。
-- **引用字节按规范化 FileId 顺序聚合**：每文件的 binary64 字节值先精确乘引用数，再转为 binary64，按序累加；每 Job 总引用数不得超过 `2147483647`，聚合字节必须有限。
-- **名义输入秒数按实际 `INPUT_RESOLVED` 事件顺序累加**；SHARED 延迟恢复可能改变这个顺序，不能换成引用字节的排序。
-- 显示的精确引用总量直接累计每文件 binary64 值的精确十进制当量，不伪装成舍入后的主事件聚合。输出时间不塞进 CPU 或输入 stage-in 信封。
+- `modeledTransferSeconds` remains the sum of nominal isolated input-transfer seconds, not parallel-input wall time, output time, or service area. `NEW_COPY` and `JOIN_EXISTING` each count their ticket's full `isolatedSeconds`, not the remaining time.
+- `requiredFileBytes`, `modeledTransferFileCount`, `newFileCopies`, and `joinedFileCopies` record referenced bytes, reference counts, and the numbers of newly created/joined input copies, respectively. Output copies are not mixed into the input counts, and they do not feed V1's `contentionTransferGroupCount`.
+- `observedInputPreparationSeconds = dataReady - request` is a separately recorded observed preparation duration; overlapping SOURCE waits must not be added up file by file and passed off as a wall-clock breakdown.
+- **Referenced bytes are aggregated in normalized FileId order**: each file's binary64 byte value is first multiplied exactly by its reference count, then converted to binary64, then accumulated in order; the total reference count per Job must not exceed `2147483647`, and the aggregated bytes must be finite.
+- **Nominal input seconds accumulate in the order of the actual `INPUT_RESOLVED` events**; deferred resumption under SHARED may change that order, which must not be replaced by the referenced-byte ordering.
+- The displayed exact referenced total directly accumulates the exact decimal equivalent of each file's binary64 value and does not masquerade as the rounded main-event aggregation. Output time is not squeezed into the CPU or input stage-in envelopes.
 
-## 独立 V3 证据格式
+## Standalone V3 Evidence Format
 
-[StorageLifecycleCodec](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleCodec.java>)固定 role `storage-lifecycle`、文件名 `<runId>.storage-lifecycle.json`（例如 `result.storage-lifecycle.json`）、schema `workflowsim-storage-lifecycle-v3`、记录模式 `FILE_STORAGE_LIFECYCLE_V3`。role 属于外层 artifact 清单，不是侧车根字段。
+[StorageLifecycleCodec](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleCodec.java>) fixes the role `storage-lifecycle`, the file name `<runId>.storage-lifecycle.json` (e.g. `result.storage-lifecycle.json`), the schema `workflowsim-storage-lifecycle-v3`, and the recording mode `FILE_STORAGE_LIFECYCLE_V3`. The role belongs to the outer artifact manifest; it is not a sidecar root field.
 
-根必须恰含 `schema,modelKind,recording,certificateScope,policies,capture,filePlan,fabric,events`；`certificateScope=STORAGE_LIFECYCLE_NOT_FLUID_SERVICE_ACCOUNTING_V3`。`policies` 必须恰含八项：
+The root must contain exactly `schema,modelKind,recording,certificateScope,policies,capture,filePlan,fabric,events`, with `certificateScope=STORAGE_LIFECYCLE_NOT_FLUID_SERVICE_ACCOUNTING_V3`. `policies` must contain exactly eight fields:
 
-| 字段 | 值 |
+| Field | Value |
 |---|---|
 | `fileIdentity` | `SCOPED_RESOLVED_WRITE_ONCE_FILES_V2` |
 | `release` | `DEPENDENCY_READY_AT_OBSERVATION_V2` |
 | `visibility` | `PER_FILE_SETTLEMENT_OBSERVATION_V2` |
-| `selection` | LOCAL：`VISIBLE_LOCAL_OR_MAX_ISOLATED_RATE_STABLE_LOCATION_V2`；SHARED：`COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
+| `selection` | LOCAL: `VISIBLE_LOCAL_OR_MAX_ISOLATED_RATE_STABLE_LOCATION_V2`; SHARED: `COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
 | `sourceAccess` | `BOUNDED_STORE_READ_WRITE_NIC_HOST_ATTACHMENT_V3` |
-| `sharing` | 与 Kind 对应的 `SHARED_MAX_MIN` 或 `ISOLATED_PATH_BOTTLENECK` |
-| `inputAccess` | `LOCAL_VISIBLE_REPLICA_V3` 或 `COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
+| `sharing` | `SHARED_MAX_MIN` or `ISOLATED_PATH_BOTTLENECK`, matching the Kind |
+| `inputAccess` | `LOCAL_VISIBLE_REPLICA_V3` or `COMMITTED_STORE_THEN_VM_READ_CACHE_V3` |
 | `outputCommit` | `ALL_SUCCESSFUL_OUTPUTS_TO_SOURCE_V3` |
 
-`recording={mode,maxTraceRecords}`、`capture={status,observedThrough,retainedRecords,droppedRecords}`；导出要求 `COMPLETE`、零丢弃、事件数等于 retainedRecords 且不超过预算。完整表示未丢历史，不等于运行已结束。
+`recording={mode,maxTraceRecords}` and `capture={status,observedThrough,retainedRecords,droppedRecords}`; export requires `COMPLETE`, zero dropped records, an event count equal to retainedRecords, and no more than the budget. Complete means no history was dropped, not that the run has finished.
 
-`filePlan` 保留共同的逻辑文件/控制计划。`fabric` **恰为五项**：`locations,resources,vmHostAssignments,topology,sourceStorage`；存储对象恰含前述四参数，资源表必须含换算一致的 READ/WRITE/NIC，实际 VM 放置即使没有拓扑也必须完整。共享标志表示跨流容量共享，`storeBackedInputs`/`inputAccess` 表示访问政策，不能混同。
+`filePlan` keeps the shared logical file/control plan. `fabric` holds **exactly five entries**: `locations,resources,vmHostAssignments,topology,sourceStorage`; the storage object contains exactly the four parameters above, the resource table must contain READ/WRITE/NIC consistent under conversion, and the physical VM placement must be complete even without a topology. The sharing flag denotes cross-flow capacity sharing, while `storeBackedInputs`/`inputAccess` denote the access policy; they must not be conflated.
 
-公共事件包络为 `sequence,observedTime,type,payload`，序号从 1 连续，观察时刻单调且不超过捕获水印。相对[文件 V2 格式](<FILE_LIFECYCLE_V2_FORMAT.md>)，V3 的独立语法差异如下：
+The common event envelope is `sequence,observedTime,type,payload`; sequences are contiguous from 1, and observed times are monotonic and never exceed the capture watermark. Relative to the [file V2 format](<FILE_LIFECYCLE_V2_FORMAT.md>), V3's standalone syntax differences are:
 
-| 事件 | V3 payload 字段 |
+| Event | V3 payload fields |
 |---|---|
 | `COPY_ADMITTED` | `copyOrdinal,fileId,bytes,sourceReplica,destination,purpose,ownerJobId,resources,standaloneRate,isolatedSeconds` |
 | `INPUT_WAITING_FOR_STORE` | `jobId,fileId,referenceCount` |
 | `OUTPUT_RESOLVED` | `jobId,taskId,fileId,resolution,copyOrdinal,source` |
 
-`destination` 为类型化位置，`purpose=INPUT|OUTPUT`，`ownerJobId` 必须对应实际请求或成功输出拥有者。输出 resolution 为 `ALREADY_STORED`、`ZERO`、`NEW_COPY` 或 `JOIN_EXISTING`；前两者 copyOrdinal 为 null。输出加入旧票据时，该事件的 source 是本次成功完成的 VM，票据仍保留原拥有者和最早来源。不能把 V2 的 `destinationVmId` 准入字段或连续输入解析语法套入 V3。
+`destination` is a typed location, `purpose=INPUT|OUTPUT`, and `ownerJobId` must correspond to the actual requester or the owner of a successful output. Output resolution is `ALREADY_STORED`, `ZERO`, `NEW_COPY`, or `JOIN_EXISTING`; the first two carry a null copyOrdinal. When an output joins an existing ticket, that event's source is the VM that completed successfully this time, while the ticket retains the original owner and the earliest origin. V2's `destinationVmId` admission field and continuous input-resolution syntax must not be grafted onto V3.
 
-共同的严格 JSON/数值、零与小数字节、不可表示时钟、复制残余上界及出处检查见[文件格式的数值契约](<FILE_LIFECYCLE_V2_FORMAT.md#数值与结算边界>)；封闭的 V2/V3 入口分别选择语法，输入文档不能自行扩展契约。
+The shared strict JSON/numeric rules, zero and fractional bytes, unrepresentable clocks, copy-residual upper bounds, and provenance checks are defined in the [file format's numeric contract](<FILE_LIFECYCLE_V2_FORMAT.md#numeric-and-settlement-boundaries>); the closed V2/V3 entrances each select their own syntax, and an input document cannot extend the contract on its own.
 
-## 校验、重放与显示边界
+## Validation, Replay, and Display Boundaries
 
-[StorageLifecycleEvidence](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleEvidence.java>)只是不可变载体。Java 和[独立 Python 校验](<../../scripts/_storage_lifecycle_audit.py>)不调用生产路由器、分配器或协调器来生成预期；完整捕获也不能结束在半个请求/输出发布/SOURCE 恢复/遗漏即时就绪操作中。合法 standalone 前缀仍可含活动复制、输入等待或输出义务。
+[StorageLifecycleEvidence](<../../simulator/src/main/java/org/workflowsim/data/v2/StorageLifecycleEvidence.java>) is only an immutable carrier. Neither Java nor the [standalone Python validator](<../../scripts/_storage_lifecycle_audit.py>) invokes the production router, allocator, or coordinator to generate expectations; a complete capture may also not end in a half request, a half output publication, a half SOURCE resumption, or an omitted immediate-readiness operation. A legal standalone prefix may still contain active copies, input waits, or output obligations.
 
-完整 bundle 则额外要求所有逻辑 Task 成功、覆盖每次 compute 尝试、与 Job/Task/主事件和实际平台相符、状态静止且每个必要输出已到 SOURCE。V3 上下文核查现代故障参数及 VM/depth 覆盖、关闭故障不能产生失败、实际/必要重试不得超预算、STATIC/NOOP 重试不得迁移 VM；ON/OFF 核心配置都受约束。这些是必要配置与因果检查，不重放随机抽样，standalone 也不冒称知道外层调度/故障配置。
+A complete bundle additionally requires all logical Tasks successful, every compute attempt covered, agreement with the Jobs/Tasks, main events, and the physical platform, a quiescent state, and every required output arrived at the SOURCE. The V3 context check verifies the modern failure parameters and VM/depth coverage, that turning failure off cannot produce a failure, that actual/required retries stay within budget, and that STATIC/NOOP retries do not migrate the VM; both the ON and OFF core configurations are constrained. These are necessary-configuration and causal checks; no random sampling is replayed, and the standalone audit does not pretend to know the outer scheduling/failure configuration.
 
-截断、缺失或矛盾证据在工件 I/O 前拒绝；重新计算 hash 不能掩盖来源、目的、CPU、策略或写回矛盾。**认证不包括未记录的逐区间流体服务面积。** V2 的接受契约不因此改变。
+Truncated, missing, or contradictory evidence is rejected before artifact I/O; recomputing a hash cannot conceal source, destination, CPU, policy, or write-back contradictions. **Certification does not include the unrecorded per-interval fluid service area.** V2's acceptance contract does not change because of this.
 
-重建保留模式、核心计划和物理存储；侧车全字段在 `/storageLifecycle/...` 精确比较，没有新易变量豁免。正常与独立报告复用同一已验证快照，使用 `getStorageLifecycle()/getDecodedStorageLifecycle()` 的独立路径，不复用 V1/V2 getter。显示数值为精确文本；复制/资源/Job/事件预览分别最多 **64/64/64/128** 条，嵌套列表最多 12 项、标签最多 256 字符。OFF、零正复制、完整运行前缀、缺失投影和无有效结果分别处理，不请求额外侧车。
+Rebuild retains the mode, the core plan, and the physical storage; every sidecar field is compared exactly under `/storageLifecycle/...`, with no new exemption for mutable variables. Normal and standalone reports reuse the same validated snapshot through the dedicated `getStorageLifecycle()/getDecodedStorageLifecycle()` paths, not the V1/V2 getters. Displayed numbers are exact text; copy/resource/Job/event previews are capped at **64/64/64/128** entries respectively, nested lists at 12 items, and labels at 256 characters. OFF, zero positive copies, a complete run prefix, a missing projection, and no valid result are each handled separately, without requesting an additional sidecar.
 
-参见[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)、[Workbench](<../getting-started/WORKBENCH.md>)、[能力矩阵](<DATAFLOW_CAPABILITY_MATRIX.md>)及[构建与检查](<../getting-started/BUILD.md>)。
+See also the [rerun difference contract](<../experiments/RERUN_DIFF_CONTRACT.md>), [Workbench](<../getting-started/WORKBENCH.md>), the [capability matrix](<DATAFLOW_CAPABILITY_MATRIX.md>), and [build and checks](<../getting-started/BUILD.md>).

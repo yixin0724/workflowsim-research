@@ -1,59 +1,61 @@
-# 文档与源码注释规范
+# Documentation and Source-Comment Standards
 
-## 文档分层
+**English** · [简体中文](<CODE_STYLE.zh.md>)
 
-- [项目首页](<../../README.md>)只保留项目用途、运行入口、主要能力和研究边界，不堆叠阶段报告、旧排名或临时验收记录。
-- [文档中心](<../README.md>)按使用问题导航；同一操作或定义尽量只有一个维护位置，其他页面链接引用。
-- 入门指南讲如何使用，算法/模型契约讲已实现语义，构建指南讲验证命令。开发过程记录、完成清单和被替代草稿不保留为长期使用文档；需要查历史时使用Git历史。
-- 被运行器指纹绑定的协议、论文输入归属和实验原始数值不能作为普通旧稿误删。历史研究说明留在其数据目录，明确版本、证据保留状态和不可推广范围，不当作当前指南。
+## Documentation Layering
 
-## Markdown约定
+- The [project front page](<../../README.md>) keeps only the project's purpose, run entry points, main capabilities, and research boundaries; phase reports, old rankings, and provisional acceptance records are not piled onto it.
+- The [documentation hub](<../README.md>) is navigated by usage questions; one operation or definition should have a single maintained location wherever possible, with other pages linking to it.
+- Getting-started guides explain how to use things, algorithm/model contracts state the implemented semantics, and the build guide states the verification commands. Development-process records, completion checklists, and superseded drafts are not kept as long-term usage documents; use the Git history when the past is needed.
+- Protocols bound by runner fingerprints, paper-input attributions, and raw experiment numbers must not be deleted by mistake as ordinary old drafts. Historical research descriptions stay in their data directories, stating their version, evidence-retention status, and non-generalizable scope, and are not treated as present guides.
 
-1. 每个页面使用一个描述性H1标题；标题不使用开发轮次、交付阶段、星级推荐或“最新完成”标签。
-2. 以当前实现为准。接口、枚举、格式版本和协议ID保留实际名字；不要把实现类名称、过期草稿或未来设想写成可运行选项。
-3. 本地链接使用相对路径及可读标签，目标放在尖括号内。不要链接开发者机器的绝对路径或标准检出不存在的本地生成结果；示例/可选输出路径放在代码中并说明来源。
-4. 代码块标注语言。完整可运行示例与需要嵌入已有程序的片段明确区分；命令说明工作目录、必需依赖和新输出目录要求。
-5. 保留单位、数值域、状态含义、失败行为和证明范围。不要把记录OFF当零流量、生命周期证明当流体会计、抽象成本当云账单。
-6. 不复制易变化的测试总数、当前分支名、临时执行耗时或会话工具记录作为规范。需要性能结果时同时给出输入、环境、测量范围、采样和限制。
-7. 外部文献保留作者、原题名和稳定来源；未经核对的研究建议不作为实现能力或实验结论。
+## Markdown Conventions
 
-文档变更后执行：
+1. Each page uses one descriptive H1 title; titles carry no development-round, delivery-phase, star-rating, or "latest completed" labels.
+2. The current implementation is authoritative. Interfaces, enums, format versions, and protocol IDs keep their actual names; implementation class names, expired drafts, and future ideas must not be written up as runnable options.
+3. Local links use relative paths and readable labels, with the targets in angle brackets. Do not link absolute paths on a developer's machine or locally generated results that do not exist in a standard checkout; example/optional output paths go inside code with their origin stated.
+4. Tag code blocks with a language. Fully runnable examples and fragments meant to be embedded in an existing program are clearly distinguished; commands state the working directory, the required dependencies, and any new output-directory requirement.
+5. Keep the units, the value domains, the state meanings, the failure behavior, and the proof scope. Do not treat recording OFF as zero traffic, lifecycle proof as fluid accounting, or abstract costs as a cloud bill.
+6. Do not copy quickly changing test counts, current branch names, one-off execution times, or session tool logs into the standards. When performance results are given, state the inputs, environment, measurement scope, sampling, and limitations together.
+7. External references keep their authors, original titles, and stable sources; unchecked research suggestions are not implementation capabilities or experimental conclusions.
+
+After changing documentation, run:
 
 ```bash
 python3 -B scripts/test-check-docs.py
 python3 -B scripts/check-docs.py
 ```
 
-检查器验证项目Markdown的本地链接和可解析锚点，不访问外网，也不代替对命令、引用原文或语义的内容与源码复核。新增/移动/删除页面时还应检索Java注释、示例输出、测试、脚本和协议身份中的路径引用。
+The checker validates the local links and resolvable anchors of the project's Markdown, accesses no external network, and replaces neither a content review of the commands and cited originals nor a source review of the semantics. When pages are added, moved, or deleted, the path references in Java comments, example outputs, tests, scripts, and protocol identities should also be searched.
 
-## 源码注释的范围
+## Scope of Source Comments
 
-- `simulator/src/main/java/org/workflowsim/`及测试：通用仿真API、算法、模型与验证规则。
-- `experiments/src/main/java/org/workflowsim/`及测试：示例、参考矩阵、研究身份、输入来源和不可推广范围。
-- `simulator/src/main/java/org/cloudbus/`为CloudSim来源代码，不为本项目中文化而改写上游版权、许可证、作者或出处。其他已有法律/来源头同样保留。
+- `simulator/src/main/java/org/workflowsim/` and tests: the general simulation API, algorithms, models, and verification rules.
+- `experiments/src/main/java/org/workflowsim/` and tests: examples, reference matrices, research identity, input provenance, and non-generalizable scope.
+- `simulator/src/main/java/org/cloudbus/` is upstream CloudSim source; its copyright, license, authors, and origin are not rewritten for this project's Chinese localization. Other existing legal/provenance headers are likewise retained.
 
-新增维护说明以清晰中文为主，既有准确英文契约可保留；论文标题、标准术语和上游名称保留原文。包名、类型、方法、枚举、JSON字段及机器可读协议保持英文，不为文档整理改名。
+New maintenance notes are written primarily in clear Chinese, and existing accurate English contracts may be kept; paper titles, standard terminology, and upstream names keep their original wording. Package names, types, methods, enums, JSON fields, and machine-readable protocols stay in English and are not renamed for the sake of the documentation.
 
-## Java源码格式与命名（工具强制）
+## Java Source Format and Naming (Tool-Enforced)
 
-- 规则台账与分级定义唯一维护点：[checkstyle 配置](<../../config/checkstyle/checkstyle.xml>)；测试豁免面见[豁免清单](<../../config/checkstyle/suppressions.xml>)。
-- 分级：**Tier-A（error 级）**为一票否决的语义/正确性规则（命名契约、重复导入、空语句、`equals/hashCode` 契约、字符串`==`、`default`不居末），由 `mvn validate` 起的 `checkstyle:check` 门禁强制失败；**Tier-B（warning 级）**为格式/长度/复杂度建议规则，存量以基线报告在册。
-- ratchet 纪律：规则只增不减。Tier-B 某项存量清零后晋级为 error（阈值与豁免面只能收紧，任何放宽视同契约变更须人工评审）；formatter 归一与存量修复记录见 Git 历史，规范落地进度不在此页复制（避免易变数值成为文档债）。
-- 契约修订备案（2026-10-23，用户裁决批准）：WhitespaceAround 补齐空体族属性 `allowEmptyConstructors` / `allowEmptyMethods` / `allowEmptyLambdas` 后全树清零并晋级 Tier-A。性质为与 Palantir 正典格式器（空体恒输出 `{}`）的边界对齐，同族先例 `allowEmptyTypes` 一脉；非空体空白环绕仍零容忍。该阈值放宽按上条纪律完成人工评审（裁决包 2026-10-23 整体批准）。
-- 分层豁免：`org.cloudbus` 上游代码整体退出门禁（不为其引入格式债务）；测试代码豁免体量/复杂度类指标但**不豁免语义防护类**。
-- 修复提交纪律：格式/导入/命名整形一律 `format-only:` 前缀提交，与逻辑变更永不同一 commit；巨方法拆分先全测试绿后提交。
-- 独立验证：`mvn -q validate`（门禁）；`make audit` 或 CI 的 `mvn -B -Pjavadoc verify` 全链路生效。
+- The single point of maintenance for the rule ledger and the tier definitions is the [checkstyle configuration](<../../config/checkstyle/checkstyle.xml>); the test exemption surface is listed in the [exemption list](<../../config/checkstyle/suppressions.xml>).
+- Tiers: **Tier-A (error level)** carries the semantic/correctness rules that veto the build outright (naming contracts, duplicate imports, empty statements, the `equals/hashCode` contract, string `==`, `default` not placed last), enforced by the `checkstyle:check` gate starting from `mvn validate`; **Tier-B (warning level)** carries the format/length/complexity advisory rules, whose backlog is on record in the baseline report.
+- Ratchet discipline: rules grow only. Once a Tier-B rule's backlog reaches zero, the rule is promoted to error (thresholds and exemption surfaces may only be tightened; any relaxation counts as a contract change and requires human review); formatter normalization and backlog-reduction records live in the Git history, and this page does not duplicate the standard's landing progress (to keep volatile numbers from becoming documentation debt).
+- Contract-revision record (2026-10-23, approved by user adjudication): after WhitespaceAround gained the empty-body family properties `allowEmptyConstructors` / `allowEmptyMethods` / `allowEmptyLambdas`, the whole tree cleared and the rule was promoted to Tier-A. Its nature is a boundary alignment with the Palantir canonical formatter (which always emits `{}` for an empty body), in line with the same-family precedent `allowEmptyTypes`; whitespace around non-empty bodies remains zero-tolerance. This threshold relaxation went through human review under the discipline above (adjudication package 2026-10-23, approved as a whole).
+- Layered exemption: the `org.cloudbus` upstream code exits the gates entirely (no formatting debt is introduced on its behalf); test code is exempt from the volume/complexity metrics but **not from the semantic-protection classes**.
+- Fix-commit discipline: format/import/naming cleanups are always committed with the `format-only:` prefix, never in the same commit as a logic change; giant-method splits are submitted only after the full test suite is green.
+- Independent verification: `mvn -q validate` (the gates); `make audit` or the CI `mvn -B -Pjavadoc verify` puts the full chain into effect.
 
-## Javadoc与行注释
+## Javadoc and Line Comments
 
-- 类型/包说明优先解释职责、输入输出、状态所有权、单位和研究边界；公开parser、builder、runner、validator及有副作用入口说明参数、返回和失败条件。
-- 对简单getter/setter不堆砌模板说明；覆写契约已足够时使用`{@inheritDoc}`，只补充新增限制、顺序或副作用。
-- 行注释解释公式、稳定tie-break、时间/资源边界、兼容性原因、失败原子性和非直观测试oracle，不复述显然的赋值与循环。
-- 不在方法体内用`/** ... */`伪造Javadoc；不把某个实验装置的结果写成所有模型的保证。
-- 修正文档时核对算术和实际配置分支，避免getter说明、正式契约和实现相互矛盾。
+- Type and package descriptions explain duties, inputs and outputs, state ownership, units, and research boundaries first; public parsers, builders, runners, validators, and other effectful entry points document their parameters, returns, and failure conditions.
+- No template prose is piled onto simple getters/setters; where the overridden contract is sufficient, `@inheritDoc` is used and only new restrictions, ordering, or side effects are added.
+- Line comments explain formulas, stable tie-breaks, time/resource boundaries, compatibility reasons, failure atomicity, and non-obvious test oracles, without restating obvious assignments and loops.
+- `/** ... */` is not used inside method bodies to fake Javadoc; the result of one experimental setup is not written as a guarantee for all models.
+- When correcting documentation, check the arithmetic and the actual configuration branches so that getter descriptions, formal contracts, and the implementation do not contradict one another.
 
-## 验证与身份
+## Verification and Identity
 
-只改注释也应执行相关构建与Javadoc检查；完整命令见[构建指南](<../getting-started/BUILD.md>)。不通过修改算法、随机性、输入、工件字段或测试断言来迎合文档。
+Run the relevant build and Javadoc checks even for comment-only changes; the full commands are in the [build guide](<../getting-started/BUILD.md>). The algorithm, randomness, inputs, artifact fields, and test assertions are never modified to fit a document.
 
-provenance v3会记录组件源树身份，协议文档也可能被单独哈希；注释或协议整理会改变未来生成工件的相应身份。不要改写已保留的历史工件哈希或把新来源标成旧版本。源树哈希是本地身份，不是Git提交或发行签名。
+Provenance v3 records the component source-tree identity, and contract documents may also be hashed individually; comment or protocol tidy-ups change the corresponding identity of artifacts generated in the future. Do not rewrite the hashes of retained historical artifacts or label a new source as an old version. The source-tree hash is a local identity, not a Git commit and not a release signature.

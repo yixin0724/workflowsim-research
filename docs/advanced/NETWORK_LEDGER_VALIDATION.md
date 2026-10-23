@@ -1,8 +1,10 @@
-# V1流体账本校验与精确指标
+# V1 Fluid Ledger Validation and Exact Metrics
 
-## 范围与接口
+**English** · [简体中文](<NETWORK_LEDGER_VALIDATION.zh.md>)
 
-V1组级账本的Java语义校验不调用生产端progressive-filling求解器计算“期望速率”；[Python检查器](<NETWORK_LEDGER_PYTHON.md>)独立实现同一契约。正式导出需完整bundle，包含捕获、绑定、输入聚合观察和派生指标；OFF不产生网络角色。格式见[编解码契约](<NETWORK_LEDGER_FORMAT.md>)，展示与重放分别见[离线报告](<NETWORK_REPORT_DISPLAY.md>)、[重放契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
+## Scope and Interfaces
+
+The Java-side semantic validation of the V1 group-level ledger does not invoke the production-side progressive-filling solver to compute "expected rates"; the [Python checker](<NETWORK_LEDGER_PYTHON.md>) independently implements the same contract. A formal export requires the complete bundle, consisting of capture, bindings, aggregated input observations, and derived metrics; OFF produces no network roles. The format is defined in the [encoding/decoding contract](<NETWORK_LEDGER_FORMAT.md>); for display and replay see the [offline report](<NETWORK_REPORT_DISPLAY.md>) and the [rerun difference contract](<../experiments/RERUN_DIFF_CONTRACT.md>) respectively.
 
 ```java
 NetworkRunEvidence evidence = report.getNetworkEvidence(); // OFF为null
@@ -16,104 +18,104 @@ if (evidence != null) {
 }
 ```
 
-- `COMPLETE`表示所有记录均保留，不表示所有流已完成。活动流可以处于完整的中途快照中。
-- `TRUNCATED`表示保留确定性前缀；不得用其产生完整运行的流量、平均FCT或利用率认证。
-- `certifiedThroughSequence`仅标记已获得完整分配证书的稳定边界。尾部可能处于入流改率、服务批次、完成队列或待推进窗口中。
-- 对截断尾部只检查已观测语法和必要的上下界；**不证明任意未知后缀存在，也不重建被丢弃的历史**。
-- 这是内部一致性校验，不是对整份被一致重写证据的密码学认证。配置、Job绑定、主事件与provenance仍需在工件层关联校验。
-- 当前运行捕获中的流是`PARENT_GROUP_V1`或`EXTERNAL_GROUP_V1`；不是逐文件流。来源标签为`MODELED_CONSTRAINED_SOURCE`，不等于名义估算器实际选择的逐文件副本。
+- `COMPLETE` means that all records are retained; it does not mean that all flows have finished. Active flows may sit inside a complete mid-run snapshot.
+- `TRUNCATED` means that a deterministic prefix is retained; it must not be used to issue whole-run traffic, mean-FCT, or utilization certifications.
+- `certifiedThroughSequence` marks only the stable boundary up to which the full assignment certificate has been obtained. The tail may sit in a rate change on admitted flows, a service batch, the completion queue, or a window pending advancement.
+- For truncated tails only the already-observed syntax and the necessary lower/upper bounds are checked; **it proves neither that any unknown suffix exists, nor reconstructs the discarded history**.
+- This is an internal-consistency check, not a cryptographic attestation of the evidence as a whole under a consistent rewrite. Configuration, Job bindings, main events, and provenance still require joint verification at the artifact layer.
+- Flows in the current run capture are `PARENT_GROUP_V1` or `EXTERNAL_GROUP_V1`, not per-file flows. Their source tag is `MODELED_CONSTRAINED_SOURCE`, which is not the same as the per-file replica actually selected by the nominal estimator.
 
-## 精确派生指标
+## Exact Derived Metrics
 
-`NetworkTraceMetrics.calculate`先调用独立校验器，再读取冻结快照，不访问活引擎、不推进时间。会计版本为`EXACT_BINARY64_INPUT_DECIMAL_V1`：把记录中的double精确表示为BigDecimal后执行不舍入的乘积和累加。
+`NetworkTraceMetrics.calculate` first invokes the independent verifier and then reads the frozen snapshot; it touches no live engine and advances no time. The accounting version is `EXACT_BINARY64_INPUT_DECIMAL_V1`: the doubles in the records are represented exactly as BigDecimal, then multiplied and accumulated without rounding.
 
-| 量 | 定义与限制 |
+| Quantity | Definition and constraint |
 | --- | --- |
-| admittedPayloadBytes | 所有START的需求字节B |
-| servicedBalanceDeltaBytes | 精确累加before-after，记作D |
-| modeledRateAreaBytes | 精确累加rate×原始elapsed，记作A；不替换为时钟差 |
-| completionResidualBytes | 完成时的数值移除R，不是网络服务 |
-| remainingLedgerBytes | 尚未完成的账本余额Q |
-| rateAreaMinusBalanceDeltaBytes | 有符号A-D，可正可负，不取绝对值或归零 |
-| completedDemandBytes | 已完成流的原始需求，不等于已传输服务量 |
+| admittedPayloadBytes | The demand bytes B across all START records |
+| servicedBalanceDeltaBytes | Exact accumulation of before-after, denoted D |
+| modeledRateAreaBytes | Exact accumulation of rate × original elapsed, denoted A; never replaced by a clock difference |
+| completionResidualBytes | The numeric removal R at completion; not network service |
+| remainingLedgerBytes | The ledger balance Q not yet completed |
+| rateAreaMinusBalanceDeltaBytes | Signed A-D, of either sign; never absolute-valued or forced to zero |
+| completedDemandBytes | The raw demand of completed flows; not equal to the transferred serviced volume |
 
-每条流都检查精确的`B=D+R+Q`，不错误断言`A=D`。大余额减去0.5后可能仍是同一个double：此时D=0、A=0.5，差异必须保留。BigDecimal也避免超过Double.MAX_VALUE的跨流总量或容量积分被输出为Infinity。
+Every flow is checked against the exact `B=D+R+Q`; it is never falsely asserted that `A=D`. A large balance minus 0.5 may still be the same double: in that case D=0 and A=0.5, and the difference must be retained. BigDecimal also keeps cross-flow totals or capacity integrals beyond `Double.MAX_VALUE` from being emitted as Infinity.
 
-- 每个入流序号独立保存FCT，即使外部ID被重用。活动流的完成时间/FCT为null，属于删失样本。
-- effective FCT与observed FCT、通知滞后分别保留。零effective FCT可以伴随正服务，不输出虚构或无限吞吐率。
-- 均值先以DECIMAL128求均值再转换为double；p95使用整数计算的nearest-rank，不插值。
-- OFF/TRUNCATED保留校验诊断，但字节总量、FCT样本总量和利用率统计不可用；不是以零替代。COMPLETE零流则有真实零字节总量，但没有FCT或利用率样本。
-- 资源积分按原路径重复权重收费，不能把所有资源的积分之和当作唯一交付字节。
-- 利用率是`boundedRateArea/capacityArea`，**每个正elapsed服务批次只计一次容量面积**，排除全局空闲间隔；当时已登记但未占用的资源计零负载。
-- 从未受限的SOURCE有流量面积、无利用率分母。资源后来才登记容量时，先前无上限阶段的流量不进入受限时期的利用率分子。
+- FCT is kept separately per admission ordinal, even when an external ID is reused. For an active flow, the completion time/FCT is null, a censored sample.
+- effective FCT, observed FCT, and notification lag are retained separately. A zero effective FCT may come with positive service; no fictitious or infinite throughput is emitted.
+- Means are first averaged in DECIMAL128 and then converted to double; p95 uses nearest-rank computed on integers, without interpolation.
+- OFF/TRUNCATED keep the validation diagnostics, but the byte totals, FCT sample totals, and utilization statistics are unavailable; they are not replaced with zeros. COMPLETE with zero flows has a genuine zero byte total, but no FCT or utilization samples.
+- Resource integrals are charged according to the repeated weights along the original paths; the sum of the integrals over all resources must not be equated with the delivered bytes.
+- Utilization is `boundedRateArea/capacityArea`; **the capacity area is counted exactly once per positive-elapsed service batch**, global idle gaps are excluded, and resources registered at the time but unoccupied are charged zero load.
+- A SOURCE that was never constrained has a flow area but no utilization denominator. When a resource registers capacity only later, the traffic of the earlier uncapped phase does not enter the utilization numerator of the capped period.
 
-## 实际局部性观察
+## Actual Locality Observations
 
-局部性不使用“需求字节减服务字节”推断。原有输入循环只调用一次本地副本判断，将**同一个布尔结果**同时用于原有跳过分支和可选观察计数器；不重复查目录、不改入流/释放/副本策略。
+Locality is not inferred from "demand bytes minus serviced bytes". The original input loop performs exactly one local-replica check, reusing **the same boolean result** for both the original skip branch and the optional observation counter; it does not query the catalog again and does not change the admission/release/replica policy.
 
-`NetworkInputDemandTracker`仅保留固定数量的long/BigDecimal聚合项，不保存每文件或每Job历史。其冻结快照的范围为`V1_GROUP_INPUT_REFERENCES`：包含父组中的重复引用、不同Job尝试的再次引用以及零字节引用，不能解释为唯一文件数或有限缓存模型。
+`NetworkInputDemandTracker` keeps only a fixed number of long/BigDecimal aggregates and keeps no per-file or per-Job history. Its frozen snapshot is scoped to `V1_GROUP_INPUT_REFERENCES`: it includes repeated references within the parent group, renewed references from different Job attempts, and zero-byte references, and must not be interpreted as a unique-file count or a finite-cache model.
 
-- requiredReferenceBytes按所观察到的double文件大小精确累计；localReferenceBytes只累计实际被跳过的引用；transferableReferenceBytes为其余引用。
-- 计数和字节满足各自的精确分区关系。零引用没有命中率分母；零字节引用仍会增加引用数，但没有字节命中率分母。
-- `NetworkRunMetrics`分别给出引用数命中率、字节命中率，以及`admittedMinusTransferableReferenceBytes`。
-- 最后一项是原V1 double归组入流量与精确非本地引用量的**有符号差异**，不是局部性收益。例如同组`1e16+1`或`1e16+3`会产生-1或+1的入流舍入差；实际local计数仍为0。
-- 原始计数器可在trace预算耗尽后继续O(1)聚合，但TRUNCATED不发布完整捕获的局部性指标。
-- 旧的低层`NetworkRunEvidence.capture`重载若未提供观察，局部性为`INPUT_COUNTERS_UNAVAILABLE`，不会捏造零命中；OFF也与零需求完整捕获不同。
+- requiredReferenceBytes accumulates exactly the double file sizes as observed; localReferenceBytes accumulates only the references actually skipped; transferableReferenceBytes covers the remaining references.
+- Counts and bytes each satisfy their own exact partition relations. Zero references carry no hit-rate denominator; a zero-byte reference still increments the reference count but contributes no byte-hit-rate denominator.
+- `NetworkRunMetrics` reports the reference-count hit rate and the byte hit rate separately, together with `admittedMinusTransferableReferenceBytes`.
+- The last quantity is the **signed difference** between the legacy V1 double-arithmetic per-group admission volume and the exact non-local reference volume; it is not a locality gain. For example, `1e16+1` or `1e16+3` within the same group yields a -1 or +1 admission rounding difference while the actual local count remains 0.
+- The raw counters keep aggregating in O(1) after the trace budget is exhausted, but TRUNCATED does not publish complete-capture locality metrics.
+- When the legacy low-level `NetworkRunEvidence.capture` overloads take no observations, locality is `INPUT_COUNTERS_UNAVAILABLE`; no zero-hit rate is fabricated. OFF is also distinct from a complete capture with zero demand.
 
-输入观察是聚合证据，不是逐文件完成时间线；工件层仍需将其与主事件、绑定和来源身份一起验证。
+Input observations are aggregate evidence, not a per-file completion timeline; at the artifact layer they still must be verified together with the main events, the bindings, and the source identities.
 
-## 完整捕获的校验语法
+## Validated Syntax of a Complete Capture
 
-1. 记录sequence为连续的1..N，START的admissionOrdinal为连续入流序号。外部ID可在旧入流完成后重用，但不能同时重用。
-2. 每条记录恰有一种匹配type的payload；数值、身份、资源列表和时间域必须合法。
-3. CAPACITY仅能在无活动流时登记或覆盖。
-4. START携带新流的最终初始速率，随后是按既有入流顺序排列的旧流RATE_CHANGE。不能用后续改率修改该START已经声明的新流初始速率。
-5. 正elapsed积分步必须给每个步前活动流恰好一条SERVICE，按入流顺序排列。用活动流数量划分批次，不能按相同时间或连续类型粗略分组。
-6. 使用原始binary64标量公式独立核对elapsed、before/after和内部边界；保留记录中的elapsed，不能替换成`end-start`。
-7. 完成队列由相对/ULP字节容差及最早流强制归零规则决定。残差来自强制归零前的remaining，不属于网络服务流量。
-8. 完成队列之后才处理幸存流改率；在完整改率块结束后验证容量和max-min证书，不能把序列化过程的瞬态过载误判为最终过载。
-9. observed horizon内已知还有活动流时必须继续积分，不能静默跳过窗口。完整EOF必须结束所有已知必需阶段，活动状态须与engineTime一致。
+1. Record sequence is the contiguous 1..N, and each START's admissionOrdinal is a contiguous admission ordinal. An external ID may be reused after the earlier admitted flow completes, but never simultaneously.
+2. Each record carries exactly one payload matching its type; the numbers, identities, resource lists, and time domains must be legal.
+3. CAPACITY may be registered or overwritten only while no flow is active.
+4. A START carries the new flow's final initial rate, followed by the RATE_CHANGE records of old flows in existing admission order. A later rate change must not revise the new flow's initial rate already declared by that START.
+5. A positive-elapsed integration step must carry exactly one SERVICE for each flow active before the step, in admission order. Batches are delimited by the number of active flows, never grouped coarsely by equal timestamps or contiguous record types.
+6. elapsed, before/after, and the internal boundaries are re-derived independently with the original binary64 scalar formulas; the elapsed recorded in the record is retained and must not be replaced with `end-start`.
+7. The completion queue is decided by the relative/ULP byte tolerances and the earliest-flow forced-zeroing rule. The residual comes from the remaining before forced zeroing and does not count as network serviced traffic.
+8. Survivor rate changes are processed only after the completion queue; capacity and the max-min certificate are verified after the complete rate-change block ends, so a transient overload introduced by serialization must not be misjudged as a final overload.
+9. Integration must continue as long as a flow is known to remain active within the observed horizon; windows must not be silently skipped. A complete EOF must close all known required phases, with the active state consistent with engineTime.
 
-### 必须保留的数值边界
+### Numerical Boundaries That Must Be Preserved
 
-- 正elapsed的区间起止double时钟可能相同；零FCT不等于零服务。
-- zero-elapsed迭代不输出SERVICE，但可以输出完成记录；强制归零残差可能大于通常完成容差。
-- 两个相邻、时间完全相同的COMPLETE也可能来自不同迭代，完成顺序不一定按原始入流序号排序。
-- `q=Double.MIN_VALUE`，无资源X=`192q@128`、Y=`64q@64`，在0入流并advance到`2q`，会先服务一次、完成Y，再以零elapsed完成X，残差`64q`。这是已执行的回归控制，不是应被“修复”为更多传输的记录。
+- The start and end double clocks of a positive-elapsed interval may be identical; a zero FCT is not zero service.
+- A zero-elapsed iteration emits no SERVICE but may emit completion records; the forced-zeroing residual may exceed the usual completion tolerance.
+- Two adjacent COMPLETE records at exactly the same time may also come from different iterations, and the completion order is not necessarily sorted by the original admission ordinal.
+- With `q=Double.MIN_VALUE` and no resources, X=`192q@128` and Y=`64q@64` admitted at 0 and advanced to `2q` will first service once and complete Y, then complete X with zero elapsed, leaving residual `64q`. This is the executed regression control, not a record that should be "fixed" into more transferred bytes.
 
-## 独立max-min瓶颈证书
+## Independent Max-Min Bottleneck Certificate
 
-对每个稳定分配检查：
+Each stable assignment is checked for:
 
-- 每流速率有限、正且不超过其nominal cap；
-- 每个有限资源的加权负载不超过容量，重复资源键按出现次数收费；
-- 对每个未被nominal cap限制的流，至少存在一个已饱和的占用资源，且该资源的每个共同用户速率都不高于该流（在明确数值profile内）。
+- every flow's rate being finite, positive, and no greater than its nominal cap;
+- every finite resource's weighted load not exceeding capacity, with repeated resource keys charged per occurrence;
+- for every flow not limited by its nominal cap, at least one occupied saturated resource whose every co-user's rate is no higher than that flow's, within the explicit numerical profile.
 
-最后一项能拒绝“容量100、两条相同需求却给75/25”之类容量可行但不公平的伪造，也能发现竞争者完成后未回收容量的历史。
-未登记容量的资源不构成瓶颈；SOURCE的缺省无限预算不输出Infinity或虚构利用率。
+The last criterion rejects capacity-feasible but unfair fabrications such as "capacity 100 with two identical demands granted 75/25", and it also detects histories in which capacity was not reclaimed after competitors completed.
+Resources without a registered capacity do not constitute bottlenecks; a SOURCE's default infinite budget emits neither Infinity nor a fabricated utilization.
 
-## 数值profile
+## Numerical Profile
 
-固定标识：`BINARY64_SCALAR_MAXMIN_8ULP_CAPPED_1E_MINUS12_V1`。
+Fixed identifier: `BINARY64_SCALAR_MAXMIN_8ULP_CAPPED_1E_MINUS12_V1`.
 
-- 服务和时间标量公式按binary64数值精确比较；正负零时钟按数值等价处理。
-- 容量负载通过BigDecimal表示记录中double的精确值，避免求和溢出。
-- 容量比较预算为`min(8*(occupancyTerms+1)*ulp(capacity), capacity*1e-12)`。
-- 速率比较采用同样的相对上限；ULP项按活动流数量及所比较速率的最大值计算。
-- 这不是输入字节的完成容差，也不是全局时间epsilon。
+- Service and time scalar formulas are compared exactly under binary64 values; positive and negative zero clocks are treated as numerically equivalent.
+- Capacity loads are computed by representing the doubles in the records exactly as BigDecimal, avoiding summation overflow.
+- The capacity comparison budget is `min(8*(occupancyTerms+1)*ulp(capacity), capacity*1e-12)`.
+- Rate comparisons use the same relative cap; the ULP term is computed from the number of active flows and the larger of the rates being compared.
+- This is neither the completion tolerance for input bytes nor a global time epsilon.
 
-相对上限必不可少：裸多ULP预算在subnormal尺度可能大于整个容量。独立反例已确认旧引擎在容量`3q`、两个相同流时可分配`2q+2q`，形成约33%的超配。**校验器拒绝这种精度不足的物理证书，不修改旧引擎来恢复兼容性，也不把大比例误差说成舍入噪声。** 新版本物理模型仍需明确其可表示的数值域。
+The relative cap is indispensable: a bare multi-ULP budget can exceed the entire capacity at subnormal scale. An independent counterexample confirmed that the legacy engine could allocate `2q+2q` given capacity `3q` and two identical flows, an over-allocation of about 33%. **The verifier rejects such under-precise physical certificates; it does not modify the legacy engine to restore compatibility, and it does not relabel a large proportional error as rounding noise.** The newer physical models must still make their representable numerical domain explicit.
 
-## 截断尾部的必要检查
+## Necessary Checks on a Truncated Tail
 
-- 必须恰好保留预算条数、droppedCount为正；恰好装满而没有丢记录仍是COMPLETE。
-- 已固定流包括新入流、已处理改率的旧流，以及被顺序越过而已不能再改率的旧流。
-- 固定子集的加权负载下界不能超容量；固定的非nominal-capped流必须仍有一个可能成立的瓶颈。
-- 可变流的上界同时受nominal、比较速率、所有占用资源的剩余容量、固定占用及重复权重限制；这些是保守必要条件，不调用分配器。
-- 若已无合法待处理改率对象，就必须关闭并认证该分配，不能借TRUNCATED掩盖已确定错误。
-- 已确定的缺失服务批次、完成队列，以及后续观察窗口内每个幸存流的必要记录，都计入最低droppedCount义务。
-- 若只有snapshot水位前进而未保留对应observed horizon，只计算保守最低义务；未知新START或改率可能改变后续批次数，不能擅自重放完整缺失历史。
+- Exactly the budgeted number of records must be retained and droppedCount must be positive; filling the budget exactly without dropping a record is still COMPLETE.
+- Fixed flows include the newly admitted flows, the old flows whose rate changes have already been processed, and the old flows skipped past in sequence that can no longer change rate.
+- The weighted-load lower bound of the fixed subset must not exceed capacity; every fixed flow not capped by its nominal cap must still have a bottleneck that can hold.
+- A variable flow's upper bound is constrained jointly by its nominal cap, the compared rates, the remaining capacity of every occupied resource, the fixed occupancy, and the repeated weights; these are conservative necessary conditions that never invoke the allocator.
+- If no legal pending rate-change candidate remains, that assignment must be closed and certified; TRUNCATED must not be used to cover already-determined errors.
+- The missing service batches and completion queues already determined, plus the records required by each surviving flow in the subsequent observed window, all count toward the minimum droppedCount obligation.
+- If only the snapshot watermark advanced and the matching observed horizon was not retained, only the conservative minimum obligation is computed; unknown new STARTs or rate changes could change the number of later batches, and the missing history must not be replayed on the checker's own authority.
 
-## 测试入口
+## Test Entrypoints
 
-回归包括完整轨迹、截断前缀、正常边界和重编号/重哈希后的篡改反例。验收命令统一维护在[构建指南](<../getting-started/BUILD.md>)；修改验证器时应同时覆盖正控制与反例，不能通过调整研究参数或刷新黄金结果来掩盖语义变化。
+Regression coverage includes complete traces, truncated prefixes, normal boundary cases, and tampering counterexamples after renumbering/rehashing. Acceptance commands are maintained together in the [build guide](<../getting-started/BUILD.md>); when the verifier is modified, positive controls and counterexamples must both be covered, and semantic changes must not be masked by tuning study parameters or refreshing golden results.

@@ -1,36 +1,37 @@
-# 数据流/网络能力矩阵与研究边界
+# Dataflow/Network Capability Matrix and Research Boundary
 
-本表说明当前网络、文件数据流、存储与目标绑定的支持范围。所有量属于所声明的模拟模型，不代表真实平台监测、云账单或算法普遍优越性。
+This matrix states the supported scope of the current network, file dataflow, storage, and target assignment. All quantities belong to the declared simulation model and stand for no real-platform monitoring, cloud bills, or universal algorithmic superiority.
+**English** · [简体中文](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)
 
-## 物理模型与目标绑定
+## Physical Models and Target Assignment
 
-| 分支 | 输入/存储语义 | 复制与CPU | 可选目标绑定 |
+| Branch | Input/storage semantics | Copying and CPU | Optional target assignment |
 |---|---|---|---|
-| 原五类V1模型 | 保留各自既有抽象，不被新版本偷偷改义 | 保留既有组级/阶段输入规则 | 仍按原支持矩阵；不能直接把CPU在线调度/RL当成新网络策略 |
-| COHERENT_FILE_DATAFLOW_V2及无共享对照 | LOCAL；SOURCE明确无限汇聚、绕过fabric；可选实际Fat-tree路径 | 逐文件真实来源、冻结路径、同目标合并、观察可见、CPU输入屏障 | 默认RANDOM/STATIC；或显式控制就绪绑定＋STATIC |
-| COHERENT_STORAGE_DATAFLOW_V3及无共享对照 | 有限读/写/共享NIC和接入Host；LOCAL或SOURCE提交后SHARED缓存读取 | 所有成功输出（含unused/零字节）提交SOURCE，CPU可与写回重叠，结束等待排空 | 同上；同一逻辑Task的NOOP重试保留原VM |
+| The five original V1 models | Keep their respective existing abstractions; the newer versions must not silently reinterpret them | Keep the existing group-level/staged input rules | Still follow the original support matrix; CPU online scheduling/RL must not be taken directly as a new network strategy |
+| COHERENT_FILE_DATAFLOW_V2 and its no-sharing control | LOCAL; SOURCE aggregates explicitly without limit and bypasses the fabric; optional actual Fat-tree paths | Per-file real sources, frozen paths, same-destination merging, observed visibility, and a CPU input barrier | Default RANDOM/STATIC; or explicit control-ready assignment + STATIC |
+| COHERENT_STORAGE_DATAFLOW_V3 and its no-sharing control | Bounded read/write/shared-NIC and access-Host resources; LOCAL, or SHARED cache reads after the SOURCE commit | Every successful output (including unused/zero-byte ones) commits to SOURCE, the CPU may overlap with the write-back, and the ending waits for the drain | Same as above; a NOOP retry of the same logical Task keeps the original VM |
 
-一致V2/V3要求每Job一个Task、NONE聚类、SPACE_SHARED、无开销及受控NOOP重试。Java实际拓扑与Workbench规模上限按既有契约检查，不能随意跨算法轨道混排。
+Coherent V2/V3 require one Task per Job, NONE clustering, SPACE_SHARED, no overheads, and controlled NOOP retries. The actual Java topology and the Workbench scale caps are checked under the existing contracts; arbitrary mixing across algorithm tracks is not allowed.
 
-在线目标绑定是独立配置`CONTROL_READY_ONLINE_ASSIGNMENT_V1`，不是新的物理Kind或CPU重映射器。被动观测读取已提交状态，名义输入/CPU预留策略在控制就绪时选定实际兼容VM，再发生输入准备。完整说明见[在线绑定契约](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+Online target assignment is the independent configuration `CONTROL_READY_ONLINE_ASSIGNMENT_V1`, not a new physical Kind and not a CPU remapper. Passive observation reads the committed state; the nominal input/CPU reservation policy selects an actually compatible VM at control readiness, and only then does input preparation happen. For the complete specification see the [online assignment contract](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>).
 
-## 证据与验证范围
+## Evidence and Validation Scope
 
-| 证据 | 已验证内容 | 不声明的内容 |
+| Evidence | What is verified | What is not claimed |
 |---|---|---|
-| V1组级账本 | 声明模型下的组/资源服务、FCT和相应上下文 | 逐文件协议、TCP连接或实际硬件吞吐 |
-| FILE_LIFECYCLE_V2 | 文件身份、来源、路径、准入、合并、结算/可见、CPU因果 | 未记录的逐区间流体服务面积 |
-| FILE_STORAGE_LIFECYCLE_V3 | 上述内容及受限SOURCE、输入等待、全部成功输出义务 | 复杂存储一致性、容量/淘汰/故障协议 |
-| 在线动作主事件 | 绑定、PE/MI、CPU预留、名义输入边界、已记录分数、固定重试VM | 精确活动流余额、完整未来争用重放、全局最优性 |
+| V1 group ledger | Group/resource service, FCT, and the corresponding context under the declared model | Per-file protocols, TCP connections, or actual hardware throughput |
+| FILE_LIFECYCLE_V2 | File identity, source, path, admission, merging, settlement/visibility, and CPU causality | Unrecorded per-interval fluid service areas |
+| FILE_STORAGE_LIFECYCLE_V3 | All of the above, plus restricted SOURCE, input waiting, and the obligations of all successful outputs | Complex storage coherence, capacity/eviction/failure protocols |
+| Online action main events | Assignment, PE/MI, CPU reservations, nominal input boundaries, logged scores, and the fixed retry VM | Exact active-flow balances, a full replay of future contention, or global optimality |
 
-Java和独立Python均有校验。在线认证要求匹配的完整生命周期捕获；原始Java运行仍可关闭记录且物理/动作不变，但不能据此导出完整在线认证。缺失、截断和字段矛盾会拒绝；允许范围内的名义进度漂移也仍属于精确rerun核心量，不能因哈希更新而被豁免。
+Both the Java side and the independent Python side have validators. Online attestation requires a matching full-lifecycle capture; a raw Java run may still disable recording with the physics and the actions unchanged, but a complete online attestation cannot be exported from it. Missing, truncated, and field-contradictory state is rejected; nominal progress drift within the allowed range still counts among the exact-rerun core quantities and gains no exemption through a hash update.
 
-正常Workbench与独立报告只使用同一个已验证快照。物理与动作面板并存，数值以精确字符串显示；动作/候选预览有明确上限，不读取额外侧车。完整文件及新配置示例见[Workbench指南](<../getting-started/WORKBENCH.md>)。
+Regular Workbench and standalone reports use only the same verified snapshot. The physical and action panels coexist, numbers are displayed as exact strings; the action/candidate previews have explicit caps, and no extra sidecar is read. For the complete files and new configuration examples see the [Workbench guide](<../getting-started/WORKBENCH.md>).
 
-## 性能优化不改变上述语义
+## Performance Optimizations Do Not Change the Semantics Above
 
-事务只复制活动工作与变化的副本行；不可变历史索引和终态摘要共享，不改服务分配器、浮点计算、来源/路径、事件顺序或绑定策略。宽活动任务集合仍可能呈近二次成本，不能把历史复制优化等同于所有输入都线性化。见[状态结构与性能测量](<DATAFLOW_STATE_COPY_PERFORMANCE.md>)。
+A transaction copies only the active working set and the changed replica rows; the immutable history index and the terminal summaries are shared, and neither the service allocator, the floating-point arithmetic, the sources/paths, the event order, nor the assignment policy is changed. Wide sets of simultaneously active tasks can still incur near-quadratic cost, and the history-copy optimizations must not be equated with linearizing every input. See [state structure and performance measurement](<DATAFLOW_STATE_COPY_PERFORMANCE.md>).
 
-## 未实现的能力
+## Unimplemented Capabilities
 
-包级TCP/重传/ECN、交换机队列实现、自适应路由、复杂一致性/多存储协议、有限缓存淘汰、神经网络训练器、真实集群校准和云厂商计费不在当前实现范围。不得将边界内通过校验或性能改善解释为这些能力已经具备。
+Packet-level TCP/retransmission/ECN, switch queue implementations, adaptive routing, complex coherence/multi-storage protocols, bounded cache eviction, neural-network trainers, real-cluster calibration, and cloud-provider billing are outside the current implementation. Passing validation or improved performance within these boundaries must not be read as these capabilities being present.

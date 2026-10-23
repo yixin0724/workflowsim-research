@@ -67,9 +67,9 @@ CLI 参数中的相对路径以工作目录为基准；配置内部的 `workflow
 | `algorithms` | 每项唯一 `id`，满足 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`；可声明 `scheduler`、`planner`、`dataflowAssignment` |
 | `seeds` | 1–100 个互不重复的 signed-long 整数，默认 `[42]`；算法数×种子数不超过 500 |
 
-没有 planner 时默认 INVALID/FCFS；声明非 INVALID planner 时默认 STATIC；显式在线绑定的默认派发器也是 STATIC。算法具体前提见[算法目录](<../algorithms/CATALOG.md>)，不能仅凭 JSON 字段可解析就认定所有组合有效。
+没有 planner 时默认 INVALID/FCFS；声明非 INVALID planner 时默认 STATIC；显式在线绑定的默认派发器也是 STATIC。算法具体前提见[算法目录](<../algorithms/CATALOG.zh.md>)，不能仅凭 JSON 字段可解析就认定所有组合有效。
 
-未知或重复字段、字符串冒充数字、不合法整数、重复算法 ID、跨决策层混比、缺失输入和无效模型组合会被拒绝；独立任务映射器不接受含依赖边的输入。Workbench 固定无故障、无额外开销；这类研究需使用[Java API](<CODE_CONFIG_EXPERIMENTS.md>)。`RL_POLICY` 也通过 Java `RlEnvironment` 接入外部策略，不由 Workbench 训练模型。
+未知或重复字段、字符串冒充数字、不合法整数、重复算法 ID、跨决策层混比、缺失输入和无效模型组合会被拒绝；独立任务映射器不接受含依赖边的输入。Workbench 固定无故障、无额外开销；这类研究需使用[Java API](<CODE_CONFIG_EXPERIMENTS.zh.md>)。`RL_POLICY` 也通过 Java `RlEnvironment` 接入外部策略，不由 Workbench 训练模型。
 
 ## 九种数据移动模型
 
@@ -93,7 +93,7 @@ coherent V2/V3 在未启用在线绑定时要求显式 **RANDOM/STATIC**，可�
 
 V1 Fat-tree 和 V2 的外部 SOURCE 流量绕过 fabric，SOURCE 不设有限汇聚容量。V3 不沿用这个假设：`sourceStorage` 必须同时声明 `attachmentHostId`、`readBandwidthMbPerSecond`、`writeBandwidthMbPerSecond`、`networkBandwidthMbPerSecond`。Host ID 从 0 起，与 `vmMips` 条目对应；不接受未知 Host、缺省猜测容量或非正/非有限及不能换算为正 normal 有限 B/s 的容量。
 
-V3 的 **LOCAL** 可读取已可见 VM 副本，但所有成功输出仍异步写回 SOURCE；**SHARED** 必须先等 SOURCE 提交，再使用目标缓存或从 SOURCE 读取，同 VM 缓存也不能绕过提交。unused sink 和零字节输出同样有提交义务；CPU 返回不等待写回，但仿真结束须等义务完成。完整边界见[V2 契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.md>)与[V3 契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)。
+V3 的 **LOCAL** 可读取已可见 VM 副本，但所有成功输出仍异步写回 SOURCE；**SHARED** 必须先等 SOURCE 提交，再使用目标缓存或从 SOURCE 读取，同 VM 缓存也不能绕过提交。unused sink 和零字节输出同样有提交义务；CPU 返回不等待写回，但仿真结束须等义务完成。完整边界见[V2 契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.zh.md>)与[V3 契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)。
 
 ## 在线目标绑定
 
@@ -115,7 +115,7 @@ V3 的 **LOCAL** 可读取已可见 VM 副本，但所有成功输出仍异步�
 
 Workbench 在线证据必须启用匹配的完整生命周期记录。Java API 可以关闭捕获而保持动作与物理行为，但不能导出无记录的在线动作认证；NOOP 重试复用原逻辑绑定，不重新选 VM。
 
-认证检查绑定、PE、有效 MI、CPU 预留、名义输入边界和记录分数，不认证精确在途余额或未来争用。报告明确显示 `liveProgressReplayed=false`；边界内估计变化仍会在实际 rerun 中作为核心差异。完整状态、公式与范围见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)。
+认证检查绑定、PE、有效 MI、CPU 预留、名义输入边界和记录分数，不认证精确在途余额或未来争用。报告明确显示 `liveProgressReplayed=false`；边界内估计变化仍会在实际 rerun 中作为核心差异。完整状态、公式与范围见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)。
 
 ## 记录与证据完整性
 
@@ -136,7 +136,7 @@ Workbench 在线证据必须启用匹配的完整生命周期记录。Java API �
 
 预算耗尽不截断仿真。三种侧车角色互斥，不能把 V2/V3 侧车当作 V1 账本。coherent 模型即使 OFF，manifest 仍保留核心 `dataflowPlan`，V3 还保留存储配置。V2/V3 是生命周期证书，不是逐区间服务面积、链路利用率或 TCP 协议认证。
 
-格式与独立校验见[V1 账本](<../advanced/NETWORK_LEDGER_FORMAT.md>)、[V2 生命周期](<../advanced/FILE_LIFECYCLE_V2_FORMAT.md>)、[V3 存储](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.md>)及[Python 检查器](<../../scripts/verify-network-ledger.py>)。rerun 将 `/fileLifecycle/...`、`/storageLifecycle/...` 和在线动作相关核心量纳入比较，见[复跑差异契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
+格式与独立校验见[V1 账本](<../advanced/NETWORK_LEDGER_FORMAT.zh.md>)、[V2 生命周期](<../advanced/FILE_LIFECYCLE_V2_FORMAT.zh.md>)、[V3 存储](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)及[Python 检查器](<../../scripts/verify-network-ledger.py>)。rerun 将 `/fileLifecycle/...`、`/storageLifecycle/...` 和在线动作相关核心量纳入比较，见[复跑差异契约](<../experiments/RERUN_DIFF_CONTRACT.md>)。
 
 ## 输出、失败与恢复
 
@@ -171,4 +171,4 @@ manifest 为 v4，provenance 为 v3，metrics 为 v2，events 为 v1。写出后
 
 确定性算法的多种子结果仅作重复性观察，不当作独立统计样本。指标不等于真实平台测量；模型不包含 TCP、丢包/ECN、包级队列或自适应路由。
 
-浏览器验收统一见[构建指南](<BUILD.zh.md#离线报告浏览器验收>)；网络显示边界见[离线网络报告说明](<../advanced/NETWORK_REPORT_DISPLAY.md>)。
+浏览器验收统一见[构建指南](<BUILD.zh.md#离线报告浏览器验收>)；网络显示边界见[离线网络报告说明](<../advanced/NETWORK_REPORT_DISPLAY.zh.md>)。

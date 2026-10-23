@@ -75,9 +75,9 @@ ready-batch 的 ECT 比较量为 `length/MIPS`，不包括未来 availability、
 | coherent 预先映射 | RANDOM / STATIC | V2 为 LOCAL；V3 为 LOCAL/SHARED；无开销，可选 Fat-tree，V3 必须声明 SOURCE 存储 | 可用 |
 | coherent 在线绑定 | INVALID / STATIC，显式启用绑定 | 同上一行的物理前提；控制就绪后绑定，再准备输入 | 可用 |
 
-V1 pre-execution 家族是 `preExecutionTransferDelayV1()`、`preExecutionTransferDelayWithContentionV1()`、`fatTreeContentionV1()`。后者必须 LOCAL、无故障/开销并声明平台拓扑；LOCAL 规划器在这些运行模型下仍使用无争用估计。拓扑与路由见 [Fat-tree 模型](<../research/FAT_TREE_DESIGN.md>)。
+V1 pre-execution 家族是 `preExecutionTransferDelayV1()`、`preExecutionTransferDelayWithContentionV1()`、`fatTreeContentionV1()`。后者必须 LOCAL、无故障/开销并声明平台拓扑；LOCAL 规划器在这些运行模型下仍使用无争用估计。拓扑与路由见 [Fat-tree 模型](<../research/FAT_TREE_DESIGN.zh.md>)。
 
-coherent 在线绑定使用 `CONTROL_READY_ONLINE_ASSIGNMENT_V1` 与策略 `NOMINAL_INPUT_EARLIEST_RESERVATION_V1`。它是 **STATIC 通常要求非 INVALID 规划器的显式例外**，不是给任意 STATIC 配置的豁免。不能与 RANDOM 预规划并用；NOOP 重试复用逻辑绑定。Workbench 要求匹配的完整生命周期捕获，Java OFF 运行不提供在线动作导出认证。详见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.md>)和[模型能力表](<../advanced/DATAFLOW_CAPABILITY_MATRIX.md>)。
+coherent 在线绑定使用 `CONTROL_READY_ONLINE_ASSIGNMENT_V1` 与策略 `NOMINAL_INPUT_EARLIEST_RESERVATION_V1`。它是 **STATIC 通常要求非 INVALID 规划器的显式例外**，不是给任意 STATIC 配置的豁免。不能与 RANDOM 预规划并用；NOOP 重试复用逻辑绑定。Workbench 要求匹配的完整生命周期捕获，Java OFF 运行不提供在线动作导出认证。详见[在线绑定契约](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)和[模型能力表](<../advanced/DATAFLOW_CAPABILITY_MATRIX.zh.md>)。
 
 矩阵可用不表示每个规划器都会优化矩阵：时间感知独立规划器、PSO、LOCAL 规划及执行共用有效整数 MI；RANDOM 和 STATIC_ROUND_ROBIN 保持各自的成本无关选择。故障只在允许的组合中使用标准 NOOP 重试契约；Workbench 不开放故障或额外开销配置。
 

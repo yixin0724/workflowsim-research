@@ -93,7 +93,7 @@ python3 -B scripts/check-docs.py
 python3 -B scripts/check-docs.py --json
 ```
 
-检查器通过Git元数据发现现有项目Markdown，排除依赖、构建输出和本地实验结果；验证本地目标、Markdown锚点及来源文本行号，不访问外网。缺失目标、错误锚点或不支持的引用形式会产生带文件/行号的诊断并以非零退出。语义和命令仍需对照源码，规范见[文档与源码注释要求](<../advanced/CODE_STYLE.md>)。
+检查器通过Git元数据发现现有项目Markdown，排除依赖、构建输出和本地实验结果；验证本地目标、Markdown锚点及来源文本行号，不访问外网。缺失目标、错误锚点或不支持的引用形式会产生带文件/行号的诊断并以非零退出。语义和命令仍需对照源码，规范见[文档与源码注释要求](<../advanced/CODE_STYLE.zh.md>)。
 
 ## 离线报告浏览器验收
 
@@ -129,7 +129,7 @@ WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
 
 ## 运行 Java 入口
 
-实验入口使用 `-pl :workflowsim-workbench -am compile exec:java`，由Reactor先构建当前核心依赖再执行。不要省略`compile`直接调用`exec:java`：它可能解析本地Maven仓库中的旧核心JAR，导致当前源码已有的模型枚举在运行时仍不被识别。遇到这种情况应重建正确的模块/类路径，而不是改写证据中的模型标签。Workbench的四个命令见[操作指南](<WORKBENCH.md>)；自建Java类见[代码指南](<CODE_CONFIG_EXPERIMENTS.md>)。
+实验入口使用 `-pl :workflowsim-workbench -am compile exec:java`，由Reactor先构建当前核心依赖再执行。不要省略`compile`直接调用`exec:java`：它可能解析本地Maven仓库中的旧核心JAR，导致当前源码已有的模型枚举在运行时仍不被识别。遇到这种情况应重建正确的模块/类路径，而不是改写证据中的模型标签。Workbench的四个命令见[操作指南](<WORKBENCH.zh.md>)；自建Java类见[代码指南](<CODE_CONFIG_EXPERIMENTS.zh.md>)。
 
 使用仓库自带 JSON 输入的示例：
 
@@ -169,4 +169,4 @@ mvn -pl :workflowsim -Pjavadoc verify
 open simulator/target/reports/apidocs/index.html
 ```
 
-Javadoc 检查维护中的 WorkflowSim API，不包含上游 CloudSim 注释。IDE 类路径或导入问题见[IDEA 配置](<IDEA_SETUP.md>)。输入不存在时，先区分 Java 入口的工作目录与 Workbench 配置文件的相对路径基准；不要通过切换未声明的模型或跳过校验来消除错误。
+Javadoc 检查维护中的 WorkflowSim API，不包含上游 CloudSim 注释。IDE 类路径或导入问题见[IDEA 配置](<IDEA_SETUP.zh.md>)。输入不存在时，先区分 Java 入口的工作目录与 Workbench 配置文件的相对路径基准；不要通过切换未声明的模型或跳过校验来消除错误。
