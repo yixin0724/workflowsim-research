@@ -5,6 +5,12 @@
   <artifactId>workflowsim-grouped</artifactId>
   <name>Fixed-request execution packages</name>
   <description>Independent scientific-workflow package execution model and research scheduling methods.</description>
+  <properties>
+    <!-- BAT-Q2 ratchet: BUNDLE floors rounded down from measured 2026-10-23
+         (INSTRUCTION 0.9428, BRANCH 0.8265); raise-only, never lower.-->
+    <workflowsim.jacoco.instruction.minimum>0.94</workflowsim.jacoco.instruction.minimum>
+    <workflowsim.jacoco.branch.minimum>0.82</workflowsim.jacoco.branch.minimum>
+  </properties>
   <dependencies>
     <dependency><groupId>org.workflowsim</groupId><artifactId>workflowsim</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.10.2</version><scope>test</scope></dependency>
@@ -13,5 +19,6 @@
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId></plugin>
+    <plugin><groupId>org.jacoco</groupId><artifactId>jacoco-maven-plugin</artifactId></plugin>
   </plugins></build>
 </project>
