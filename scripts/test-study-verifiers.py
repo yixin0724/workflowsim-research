@@ -451,5 +451,91 @@ class IndependentAuditorTests(unittest.TestCase):
         self.assertEqual(1, outcome.returncode, outcome.stdout + outcome.stderr)
 
 
+def inject_contract_events(manifest, terminal_delta=0.0, start_delta=0.0, duplicate_start=False):
+    """Insert the F-006/F-007 revision events into a make_bundle fixture.
+
+    Elementary quantities only: the job envelope start is the fixture's known 0.21 and the
+    modeled post-stage start equals envelope + effective stage. The tampering knobs corrupt
+    exactly one derivation or identity, proving the independent auditor rejects each."""
+    doc = json.loads(manifest.read_text())
+    end = float(doc["result"]["simulationEndSeconds"])
+    events = [json.loads(line) for line in (manifest.parent / "run.events.jsonl").read_text().splitlines() if line.strip()]
+    insert_at = next(i for i, e in enumerate(events) if e["type"] == "TASK_EXECUTION_MODELED")
+    start_event = {"sequence": insert_at, "simulationTime": 0.21, "type": "JOB_EXECUTION_STARTED",
+                   "jobId": 0, "taskIds": [1],
+                   "attributes": {"jobEnvelopeStartSeconds": 0.21, "effectiveDataStageSeconds": 0.0,
+                                  "requestedDataStageSeconds": 5e-07,
+                                  "modeledJobStartSeconds": 0.21 + start_delta}}
+    events.insert(insert_at, start_event)
+    if duplicate_start:
+        events.insert(insert_at + 1, dict(start_event))
+    events.append({"sequence": len(events), "simulationTime": end + terminal_delta,
+                   "type": "SIMULATION_TERMINATED", "jobId": None, "taskIds": [],
+                   "attributes": {"simulationEndSeconds": end + terminal_delta}})
+    for index, event in enumerate(events):
+        event["sequence"] = index
+    (manifest.parent / "run.events.jsonl").write_text(''.join(json.dumps(e) + '\n' for e in events), encoding="utf-8")
+    doc["events"]["eventCount"] = len(events)
+    bind_sidecars(manifest, doc)
+    return manifest
+
+
+class ContractEventAuditTests(unittest.TestCase):
+    """F-006/F-007 (adjudicated 2026-10-23): terminal and execution-start event cross-checks.
+
+    Legacy streams without the revision events must keep passing unchanged; revision streams
+    must be validated for terminal-clock identity, per-instance uniqueness, derivation
+    arithmetic, and executed-job coverage."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_healthy_revision_bundle_and_legacy_bundle_both_pass(self):
+        legacy_report = Audit()
+        evidence.inspect_manifest(make_bundle(self.root / "legacy"), legacy_report)
+        self.assertEqual(0, legacy_report.issue_count, legacy_report.report())
+        revision_report = Audit()
+        revision_manifest = inject_contract_events(make_bundle(self.root / "revisioned"))
+        evidence.inspect_manifest(revision_manifest, revision_report)
+        self.assertEqual(0, revision_report.issue_count, revision_report.report())
+
+    def test_terminal_clock_identity_mismatch_is_detected(self):
+        manifest = inject_contract_events(make_bundle(self.root / "terminal-mismatch"), terminal_delta=0.05)
+        audit = Audit()
+        evidence.inspect_manifest(manifest, audit)
+        self.assertGreater(audit.counts.get("terminal-clock-identity", 0), 0, audit.report())
+
+    def test_job_start_derivation_mismatch_is_detected(self):
+        manifest = inject_contract_events(make_bundle(self.root / "start-mismatch"), start_delta=0.05)
+        audit = Audit()
+        evidence.inspect_manifest(manifest, audit)
+        self.assertGreater(audit.counts.get("job-start-derivation", 0), 0, audit.report())
+
+    def test_duplicate_job_execution_started_is_detected(self):
+        manifest = inject_contract_events(make_bundle(self.root / "duplicate-start"), duplicate_start=True)
+        audit = Audit()
+        evidence.inspect_manifest(manifest, audit)
+        self.assertGreater(audit.counts.get("duplicate-JOB_EXECUTION_STARTED", 0), 0, audit.report())
+
+    def test_job_start_missing_for_executed_job_is_detected(self):
+        manifest = inject_contract_events(make_bundle(self.root / "missing-start"))
+        events = [json.loads(line) for line in (manifest.parent / "run.events.jsonl").read_text().splitlines()]
+        start_at = next(i for i, e in enumerate(events) if e["type"] == "JOB_EXECUTION_STARTED")
+        del events[start_at]
+        for index, event in enumerate(events):
+            event["sequence"] = index
+        (manifest.parent / "run.events.jsonl").write_text(''.join(json.dumps(e) + '\n' for e in events), encoding="utf-8")
+        doc = json.loads(manifest.read_text())
+        doc["events"]["eventCount"] = len(events)
+        bind_sidecars(manifest, doc)
+        audit = Audit()
+        evidence.inspect_manifest(manifest, audit)
+        self.assertGreater(audit.counts.get("job-start-coverage", 0), 0, audit.report())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

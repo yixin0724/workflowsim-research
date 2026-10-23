@@ -243,6 +243,7 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
         audit.ensure(exact_equal(needed(side, "metrics"), metrics), "manifest-sidecar-metrics", prefix)
 
         events, by_type = [], collections.defaultdict(dict)
+        executed_job_ids, terminal_events = set(), []
         previous = 0.0
         with refs["events"].open(encoding="utf-8") as stream:
             for sequence, line in enumerate(stream):
@@ -259,14 +260,49 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                 if not isinstance(typ, str) or not isinstance(needed(event, "attributes"), dict):
                     raise CheckError("event type/attributes have invalid JSON types")
                 event["taskIds"] = [integer(tid, "event task id", True) for tid in needed(event, "taskIds")]
-                if typ in ("JOB_READY", "SCHEDULING_DECISION", "JOB_RETURNED", "DATA_STAGE_IN_MODELED", "STAGE_IN_JOB_CREATED"):
+                if typ in ("JOB_READY", "SCHEDULING_DECISION", "JOB_RETURNED", "DATA_STAGE_IN_MODELED",
+                           "STAGE_IN_JOB_CREATED", "JOB_EXECUTION_STARTED"):
                     jid = integer(needed(event, "jobId"), "event jobId", True)
                     audit.ensure(set(event) >= {"attributes", "taskIds"}, "event-required-members", prefix)
                     audit.ensure(jid not in by_type[typ], "duplicate-" + typ, prefix, jid)
                     by_type[typ][jid] = event
+                if typ == "TASK_EXECUTION_MODELED":
+                    executed_job_ids.add(integer(needed(event, "jobId"), "event jobId", True))
+                if typ == "SIMULATION_TERMINATED":
+                    terminal_events.append(event)
                 events.append(event)
         audit.ensure(len(events) == integer(needed(needed(doc, "events"), "eventCount"), "event count", True),
                      "event-count", prefix, len(events), doc["events"].get("eventCount"))
+        # F-006 contract revision (2026-10-23): when the terminal event is present (revision
+        # streams), the makespan family becomes event-recomputable; bind the clocks exactly.
+        # Legacy streams without the event keep the declared manifest-authority boundary.
+        if terminal_events:
+            audit.ensure(len(terminal_events) == 1, "duplicate-SIMULATION_TERMINATED", prefix, len(terminal_events))
+            terminal = terminal_events[0]
+            clock = number(needed(terminal, "simulationTime"), "terminal event time", nonnegative=True)
+            declared_end = number(needed(needed(terminal, "attributes"), "simulationEndSeconds"),
+                                  "terminal simulationEndSeconds", nonnegative=True)
+            audit.ensure(clock == end and declared_end == end, "terminal-clock-identity",
+                         prefix + ":event:" + str(terminal.get("sequence")), [clock, declared_end], end)
+            audit.ensure(events[-1]["type"] == "SIMULATION_TERMINATED", "terminal-event-position", prefix,
+                         events[-1]["type"], "SIMULATION_TERMINATED")
+        # F-007 contract revision (2026-10-23): each executed Job instance carries exactly one
+        # JOB_EXECUTION_STARTED (uniqueness enforced by the typed family above); validate its
+        # envelope/stage derivation and its coverage of every executed instance.
+        started_jobs = by_type.get("JOB_EXECUTION_STARTED", {})
+        for jid, event in started_jobs.items():
+            attributes = needed(event, "attributes")
+            envelope = number(needed(attributes, "jobEnvelopeStartSeconds"), "job envelope start", nonnegative=True)
+            effective = number(needed(attributes, "effectiveDataStageSeconds"), "effective data stage", nonnegative=True)
+            number(needed(attributes, "requestedDataStageSeconds"), "requested data stage", nonnegative=True)
+            modeled = number(needed(attributes, "modeledJobStartSeconds"), "modeled job start", nonnegative=True)
+            audit.ensure(modeled == envelope + effective, "job-start-derivation",
+                         prefix + ":event:" + str(event.get("sequence")), modeled, [envelope, effective])
+        if started_jobs or terminal_events:
+            # Revision streams must cover every executed instance; legacy streams (neither
+            # marker present) keep the declared manifest-authority boundary from 2026-10-19.
+            audit.ensure(set(started_jobs) == executed_job_ids, "job-start-coverage", prefix,
+                         sorted(started_jobs), sorted(executed_job_ids))
 
         raw_tasks, raw_external = {}, collections.OrderedDict()
         inputs = needed(doc, "inputs")

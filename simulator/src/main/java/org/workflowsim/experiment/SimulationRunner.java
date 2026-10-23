@@ -174,6 +174,16 @@ public final class SimulationRunner {
                     + " does not match preflighted platform placement "
                     + platform.getVmHostAssignments());
         }
+        // F-006 contract revision (2026-10-23, user-adjudicated): a naturally completed run
+        // must terminate its event stream with the termination clock so the makespan family
+        // stays event-recomputable even when a positive post-delay tail follows the last
+        // JOB_RETURNED. Aborted and failed runs deliberately pass this point without the
+        // marker; absence of the event therefore identifies an incomplete execution.
+        events.record(
+                SimulationEventType.SIMULATION_TERMINATED,
+                makespan,
+                null,
+                SimulationEventRecorder.attributes("simulationEndSeconds", Double.valueOf(makespan)));
         try {
             return SimulationReport.capture(
                     config,

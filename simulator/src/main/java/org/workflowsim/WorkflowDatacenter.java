@@ -857,6 +857,23 @@ public class WorkflowDatacenter extends Datacenter {
         // CloudSim 将 fileTransferTime 转化为追加的整数 MI；任务时间窗从该生效时长后开始，
         // 而原始请求值作为数据移动模型观测另行保留。
         double startTime = job.getExecStartTime() + effectiveStageInSeconds;
+        // F-007 contract revision (2026-10-23, user-adjudicated): record the execution start of
+        // this Job instance ahead of its TASK_EXECUTION_MODELED family, carrying the envelope
+        // start and both data-stage seconds so the decision-to-start / waiting families stay
+        // recomputable from the event stream without relying on exactJobTiming luck.
+        eventRecorder.record(
+                SimulationEventType.JOB_EXECUTION_STARTED,
+                CloudSim.clock(),
+                job,
+                SimulationEventRecorder.attributes(
+                        "jobEnvelopeStartSeconds",
+                        Double.valueOf(job.getExecStartTime()),
+                        "effectiveDataStageSeconds",
+                        Double.valueOf(effectiveStageInSeconds),
+                        "requestedDataStageSeconds",
+                        Double.valueOf(requestedStageInSeconds),
+                        "modeledJobStartSeconds",
+                        Double.valueOf(startTime)));
         boolean firstTask = true;
         for (Task task : job.getTaskList()) {
             task.setExecStartTime(startTime);

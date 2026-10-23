@@ -45,8 +45,8 @@
 
 ## 6. 开放边界（当前如实声明）
 
-- F-006/F-007（事件可观测性缺口）→ 可复现边界见 RERUN_DIFF_CONTRACT；事件化提案在案，走契约修订流程。
-- Python 独立复算覆盖 68/78 标量；deadline 6 项、critical-path 4 项或"需实现"或"契约级别不可独立重算"（按审计矩阵处置）。
+- F-006/F-007（事件可观测性缺口）→ **已闭合（2026-10-23 契约修订，用户裁决批准）**：`SIMULATION_TERMINATED` 与 `JOB_EXECUTION_STARTED` 进入 events v1，makespan/终端尾/deadline-slack 与决策→开始/等待族实现事件级独立重算；修订前证据维持原声明边界。复算边界变化见 RERUN_DIFF_CONTRACT。
+- Python 独立复算覆盖 68/78 标量；deadline 6 项、critical-path 4 项或"需实现"或"契约级别不可独立重算"（按审计矩阵处置；其中依赖事件缺失的部分由上述契约修订解除）。
 - 原始 WorkflowSim / CloudSim 3 代码路径的遗留缺陷（已修复 6 项：F-001/004/005/008/009 + M5/M7 测试盲区），历史细节见审查工程档案。
 
 ---

@@ -34,5 +34,26 @@ public enum SimulationEventType {
     JOB_FAILED,
     RETRY_JOB_CREATED,
     /** Explicit control-ready destination binding/reuse before input preparation; not CPU dispatch. */
-    DATAFLOW_VM_ASSIGNED
+    DATAFLOW_VM_ASSIGNED,
+    /**
+     * F-007 contract revision (2026-10-23, user-adjudicated via the adjudication package):
+     * the execution start of one Job execution instance, recorded exactly once per instance
+     * ahead of its TASK_EXECUTION_MODELED family. Attributes carry the job envelope start
+     * ({@code jobEnvelopeStartSeconds}), the effective and requested data-stage seconds
+     * ({@code effectiveDataStageSeconds}, {@code requestedDataStageSeconds}), and the modeled
+     * post-stage start ({@code modeledJobStartSeconds}). This makes the decision-to-start and
+     * waiting-time families recomputable from the event stream without relying on
+     * {@code TASK_EXECUTION_MODELED.taskStartTime} coinciding with the job envelope.
+     */
+    JOB_EXECUTION_STARTED,
+    /**
+     * F-006 contract revision (2026-10-23, user-adjudicated via the adjudication package):
+     * terminal event of a naturally completed run, recorded exactly once after the stall
+     * watchdog and the quiescence checks pass, carrying the simulation termination clock as
+     * the event time and as the {@code simulationEndSeconds} attribute. It closes the declared
+     * recompute boundary where a positive post-delay tail recorded no events, making the
+     * makespan / terminalLifecycleTail / deadline-slack families event-recomputable. Aborted
+     * and failed runs deliberately omit this marker.
+     */
+    SIMULATION_TERMINATED
 }

@@ -40,7 +40,7 @@ Job 信封与 Task 计算窗口不能混用：legacy/固定端点可把有效输
 
 `simulationEndSeconds` 与 `makespanSeconds` 是同一模拟结束时钟。只有全部逻辑 Task 成功时，`logicalTaskCompletionSeconds` 才可用，取各 Task 首次成功 Job 信封完成时刻的最大值；差值 `terminalLifecycleTailSeconds` 可以包含输出写回等尾部，不是纯 CPU 或调度器耗时。
 
-**事件流可重算边界（审查工程 2026-10-19 声明）**：配置了正 post-delay 时，最后一个 Job 返回与模拟终止时钟之间没有任何事件——`makespanSeconds` 及其派生吞吐、利用率分母、`terminalLifecycleTailSeconds` 无法从 events 独立重算，不能依赖这类尾部恰为零的巧合。同理，事件流不携带 Job 信封开始时刻：`TASK_EXECUTION_MODELED.taskStartTime` 仅在 `exactJobTiming` 为真时等于该信封。独立复算范围因此覆盖计数、比率、成本、等待族与决策计数；makespan 取值与决策→开始类延迟以 manifest 的 result/metrics 表为权威。要把这些量纳入事件级审计，应先修订 events 契约（例如末端终止事件与执行开始事件），而不是放宽比较。
+**事件流可重算边界（2026-10-23 契约修订，用户裁决后实施；原 2026-10-19 声明对旧证据仍然有效）**：events v1 追加两类事件。其一 `SIMULATION_TERMINATED`：自然完成路径在看门狗与静默检查通过后恰好记录一次，事件时刻与 `simulationEndSeconds` 属性都等于终止时钟——`makespanSeconds`、`terminalLifecycleTailSeconds`、deadline-slack 族因此可以从事件流独立重算；中止/失败路径刻意不含该事件，缺失即标记不完整执行。其二 `JOB_EXECUTION_STARTED`：每个 Job 执行实例在首个 `TASK_EXECUTION_MODELED` 之前恰好记录一次，携带 `jobEnvelopeStartSeconds`、`effectiveDataStageSeconds`、`requestedDataStageSeconds` 与 `modeledJobStartSeconds`（=信封+生效阶段秒，两者精确相等）——决策→开始/等待族不再依赖 `exactJobTiming` 巧合。独立审计器执行交叉检查：终末时钟与 manifest 端值精确相等、每实例唯一、派生算术、执行实例全覆盖；修订前证据（无新事件）维持原声明边界，以 manifest 的 result/metrics 表为权威，不判失败。新增事件同时是复跑精确比较的核心数据，跨修订前证据与新代码的复跑会在事件数组上合法差异，见[重放契约](<RERUN_DIFF_CONTRACT.md>)。
 
 [PlatformProfile](<../../simulator/src/main/java/org/workflowsim/platform/PlatformProfile.java>)记录 Host/VM 规格、可选 pin 和容量可行的预检映射；实际 VM 创建后的放置还须与预检一致。需要排除 Host 放置因素时使用一 Host 一 VM。共置是资源配置条件，不表示已经建模或校准 Host CPU 干扰、迁移或真实基础设施利用率。
 
