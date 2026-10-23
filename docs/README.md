@@ -6,7 +6,7 @@
 
 | 需要 | 文档 |
 |---|---|
-| 跑通已有配置并打开报告 | [快速开始](<getting-started/QUICK_START.md>) |
+| 跑通已有配置并打开报告 | [快速开始（中文）](<getting-started/QUICK_START.zh.md>) · [Quick Start (EN)](<getting-started/QUICK_START.md>) |
 | 配置、验证、运行和重建离线报告 | [Workbench指南](<getting-started/WORKBENCH.md>) |
 | 在Java中构建配置、平台及实验 | [代码配置指南](<getting-started/CODE_CONFIG_EXPERIMENTS.md>) |
 | Maven、Python、浏览器和Javadoc检查 | [构建与验证](<getting-started/BUILD.md>) |

@@ -10,7 +10,7 @@
 | 使用合成工作流或扩展规模扫描 | `wfformat/` WfGen 输入 | 标准检出只保证一个 Montage 输入；其他 recipe/规模需单独准备 |
 | 研究真实执行派生的图结构 | `wfinstances/v1.5/` | 标准检出有四个小型输入；不是来源平台 trace replay |
 
-运行入口见[快速开始](<../docs/getting-started/QUICK_START.md>)。Workbench 配置的 `workflowPaths` 相对于配置文件所在目录；Java 示例从项目根运行时使用 `datasets/...` 路径。接受数据集根参数的研究驱动应使用其明确规定的路径契约，不猜测项目位置。
+运行入口见[快速开始](<../docs/getting-started/QUICK_START.zh.md>)。Workbench 配置的 `workflowPaths` 相对于配置文件所在目录；Java 示例从项目根运行时使用 `datasets/...` 路径。接受数据集根参数的研究驱动应使用其明确规定的路径契约，不猜测项目位置。
 
 ## 标准检出范围
 

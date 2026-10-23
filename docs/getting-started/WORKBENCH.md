@@ -1,6 +1,6 @@
 # Workbench：配置、运行与离线报告
 
-Workbench 是维护中的统一实验入口。它读取 JSON 配置，运行同一决策层的算法，保存可校验证据并生成自包含 HTML；不启动 Web 服务、不加载 CDN。首次运行见[快速开始](<QUICK_START.md>)。
+Workbench 是维护中的统一实验入口。它读取 JSON 配置，运行同一决策层的算法，保存可校验证据并生成自包含 HTML；不启动 Web 服务、不加载 CDN。首次运行见[快速开始](<QUICK_START.zh.md>)。
 
 ## 命令与路径
 

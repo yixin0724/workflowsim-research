@@ -12,7 +12,7 @@ mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 ```
 
-每次实验使用独立输出目录，控制台打印离线报告位置。首次使用见[快速开始](<../docs/getting-started/QUICK_START.md>)；配置、预检、报告再生和失败处理见[Workbench 指南](<../docs/getting-started/WORKBENCH.md>)。
+每次实验使用独立输出目录，控制台打印离线报告位置。首次使用见[快速开始](<../docs/getting-started/QUICK_START.zh.md>)；配置、预检、报告再生和失败处理见[Workbench 指南](<../docs/getting-started/WORKBENCH.md>)。
 
 ## 代码与材料放在哪里
 
