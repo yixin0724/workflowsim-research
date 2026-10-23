@@ -132,7 +132,15 @@ REGISTRY = [
         old="        double startTime = job.getExecStartTime() + effectiveStageInSeconds;",
         new="        double startTime = job.getExecStartTime() + effectiveStageInSeconds + 1.0e-6;",
         killers="NetworkEvidenceDatacenterTest,SimulationRunnerFailureCoverageIntegrationTest,"
-                "SimulationRunnerAlgorithmContractTest"),
+                "SimulationRunnerAlgorithmContractTest,EventTerminalAndJobStartContractTest"),
+    dict(
+        id="M10",
+        name="SHARED DLS dynamic level flips the earliest-start subtraction into an addition",
+        file="simulator/src/main/java/org/workflowsim/planning/SharedStorageDagPlanner.java",
+        old="                        new DlsCandidate(task, vm, upwardRanks.get(task).doubleValue() - earliestStart);",
+        new="                        new DlsCandidate(task, vm, upwardRanks.get(task).doubleValue() + earliestStart);",
+        killers="SharedStoragePlannerRuntimeMirrorIntegrationTest,SharedStorageDlsPlanningAlgorithmTest,"
+                "SharedStorageDlsEtfSlotSemanticsAuditTest,SharedStorageDlsEtfSlotVisitAuditTest"),
 ]
 
 

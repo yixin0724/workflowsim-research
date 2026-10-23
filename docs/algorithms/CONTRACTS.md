@@ -54,6 +54,8 @@ duration(t,v) = (L_raw(t) + floor(mips(v) * inputSeconds(t))) / mips(v)
 
 不是逐文件分别 floor，也不是免费通信。父子依赖通过引擎释放约束，输入延迟被加入 Job 执行信封；该轨道没有点对点通信边、路径或共享链路争用。计算时长与 stage-in 估计的实现见 [SharedStorageDagPlanner](<../../simulator/src/main/java/org/workflowsim/planning/SharedStorageDagPlanner.java>)。固定端点模型也在 Job 内建模输入延迟，但附加接入参数不同，因此不能未经适配用于这些 SHARED_STORAGE 规划器。
 
+SHARED 五个规划器（HEFT/CPOP/DLS/ETF/PEFT）的规划-执行 0 容差镜像由[共享存储镜像测试](<../../simulator/src/test/java/org/workflowsim/planning/SharedStoragePlannerRuntimeMirrorIntegrationTest.java>)端到端锁定：完整运行的任务窗口、VM 绑定与独立复规划的图完全逐位一致（2026-10-23，A3 权威收官）。
+
 ### LOCAL 的 V1 输入可用性估计
 
 LOCAL_HEFT/CPOP/PEFT 要求 LOCAL、STATIC、无故障/开销，以及 V1 pre-execution 家族。无争用计算使用有效 MI；文件传输使用十进制 MB/s：SOURCE→VM 受目标端点带宽约束，VM→VM 使用两端带宽的较小值。
