@@ -42,7 +42,7 @@ open output/workbench/index.html
 
 - [Workbench 配置与报告](<WORKBENCH.zh.md>)：选择模型、证据模式，重建报告或历史。
 - [Java API 实验指南](<CODE_CONFIG_EXPERIMENTS.zh.md>)：需要自定义平台、故障或外部策略时使用。
-- [算法目录](<../algorithms/CATALOG.md>)与[数据集说明](<../../datasets/README.md>)：选择可比较的算法和输入。
+- [算法目录](<../algorithms/CATALOG.zh.md>)与[数据集说明](<../../datasets/README.md>)：选择可比较的算法和输入。
 - [构建与验证](<BUILD.zh.md>)、[IDEA 配置](<IDEA_SETUP.zh.md>)：开发环境和质量检查。
 
 仿真指标描述声明的抽象模型；示例完成不代表真实平台校准或算法普遍优越。

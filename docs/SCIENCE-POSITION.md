@@ -1,53 +1,124 @@
-# 科学定位声明
+# Science Position Statement
 
-> 向研究者、审稿人和开发者说明 WorkflowSim-yixin 的研究身份、真实性标准与证据体系。
-> 依据：文献调研与两轮审查工程（2026-10-19/20）。
+> This statement tells researchers, reviewers, and developers the research identity, the
+> validity standard, and the evidence system of WorkflowSim-yixin.
+> Basis: literature survey and two review-engineering rounds (2026-10-19/20).
 
-## 1. 研究对象与方法论身份（Who we are）
+## 1. Research object and methodological identity (Who we are)
 
-本平台以**工作流调度问题**为研究对象：单工作流 DAG 的映射与排序决策，以及多工作流错峰到达下的资源竞争。平台的方法论身份是：
+The platform takes the **workflow-scheduling problem** as its research object: mapping and
+ordering decisions for a single workflow DAG, and resource contention under staggered
+multi-workflow arrivals. Its methodological identity is:
 
-> **忠实承载与验证工作流调度算法的实验平台——其实验结论可复现、可追溯、证据链完整。**
+> **A faithful carrier and verifier of workflow-scheduling algorithms — an experimental
+> platform whose conclusions are reproducible, traceable, and evidence-complete.**
 
-这一定位包含三个不可分割的要素：
-1. **算法忠实性**：每个受维护算法的语义锚定到一级文献或教科书（手推黄金表+显式声明的偏离项），从根上消除"论文里的算法 X"与"平台上跑的 X"之间的语义缝隙。
-2. **实验可控性**：决策层（规划/在线调度/绑定）分离、配置 fail-fast 禁止静默换义、混合算法层轨道不可同池比较——遵循 Hooker 1995 的受控实验主张而非竞赛式比较。
-3. **证据完整性**：位精确的 rerun 契约、白名单治理、Java/Python 双语言独立审计、逐位重放——产出即可被第三方独立复核的实验证据包。
+Three inseparable elements make up this identity:
+1. **Algorithm faithfulness**: every maintained algorithm's semantics are anchored to
+   primary literature or textbooks (hand-derived golden tables plus explicitly declared
+   deviations), eliminating the semantic gap between "algorithm X in the paper" and "X as
+   run on the platform" at the root.
+2. **Experimental controllability**: decision layers (planning / online scheduling /
+   assignment) are separated, configuration fails fast instead of silently switching
+   meaning, and mixed algorithm-layer tracks must not be compared in one pool — following
+   the controlled-experiment position of Hooker 1995 rather than horse-race comparisons.
+3. **Evidence completeness**: bit-exact rerun contracts, whitelisting governance,
+   Java/Python dual-language independent audits, and bit-exact replay — producing evidence
+   bundles a third party can independently re-verify.
 
-## 2. 真实性标准：内部效度优先（What "valid" means here）
+## 2. Validity standard: internal validity first (What "valid" means here)
 
-本平台遵循**内部效度**路线：数字是所声明模拟模型的**精确产物**，且第三方可逐位重算。物理模型采用与领域文献一致的声明式抽象（NC 族简化：源端带宽、两端 min、副本本地零传输，另有 max-min 争用与确定性 fat-tree 路由的受控扩展），**不**追求对具体生产集群的外部保真——该路线由 WRENCH/SimGrid 系占据，需要多年物理模型验证战役，不在本平台范围。
+The platform follows the **internal-validity** route: numbers are the **exact product** of
+the declared simulation model, and third parties can recompute them bit-exactly. The
+physical models are declarative abstractions consistent with the domain literature (the
+NC-family simplifications: source-end bandwidth, two-end min, zero local replica transfer,
+plus the controlled extensions of max-min contention and deterministic fat-tree routing),
+and deliberately do **not** pursue external fidelity to any production cluster — that route
+belongs to the WRENCH/SimGrid family and requires multi-year physical-model validation
+campaigns, which are out of scope here.
 
-区别于常见误解的两个声明：
-- 数学正确性已经很强（如：LOCAL 族规划-执行 0 容差镜像将估计精度从指标升格为不变量，超出领域把 accuracy 当指标测量的通行做法）；
-- 仿真模型物理简化是文献惯用设定（DNC vs NC），不是缺陷，但**偏离处于哪个层次必须始终可查**（能力矩阵声明"未实现能力"）。
+Two declarations that differ from common misunderstandings:
+- Mathematical rigor is already strong (e.g., the LOCAL-family zero-tolerance planning to
+  execution mirror upgrades estimation accuracy from a metric to an invariant, beyond the
+  field's usual practice of measuring accuracy as a metric);
+- Physical simplification of the simulation model is the literature-standard setting (DNC
+  vs NC), not a defect — but **which layer a deviation lives in must always be
+  inspectable** (the capability matrix declares "unimplemented capabilities").
 
-## 3. 竞争定位（Where we stand）
+## 3. Competitive positioning (Where we stand)
 
-- WfCommons（Coleman et al.）：输入真实性与格式标准 —— **我们是模范消费者**，不与之竞争，且将其标准的证据边界进一步区分（三源分离）。
-- WRENCH（Casanova et al. FGCS 2020）：外保真仿真框架，验证战役路线，直接对比 WorkflowSim 原版——本 fork 承认 WRENCH 论文对原版 WorkflowSim 的批评，并以**证据完整性**路线正面回应，而非跟随其物理校准路线。
-- CloudSim Plus：工程正确性与功能广度——本平台不参与功能竞赛，以 CloudSim 3 深维护内核继承稳定性而非追新。
-- 领域痛点：[Hooker 1995] 三十年批评 + 2024/25 年"SOTA 复验"与"对抗式比较"（PISA IPDPS 2025）共同指向的信任危机——**这正是本平台护城河的落点**：可独立审计的算法比较证据链。
+- WfCommons (Coleman et al.): input realism and format standards — **we are a model
+  consumer**, not a competitor, and we further separate the evidence boundaries of its
+  standard (three-source separation).
+- WRENCH (Casanova et al., FGCS 2020): an external-fidelity simulation framework on the
+  validation-campaign route, contrasted directly with original WorkflowSim — this fork
+  acknowledges WRENCH's critique of the original WorkflowSim, and responds squarely on
+  the **evidence-completeness** route rather than by following its physical-calibration
+  route.
+- CloudSim Plus: engineering correctness and feature breadth — this platform declines the
+  feature race; it inherits stability from a deeply maintained CloudSim 3 kernel instead
+  of chasing new releases.
+- The field's pain point: Hooker's 1995 thirty-year critique plus the 2024/25 "SOTA
+  replication" and "adversarial comparison" crises (PISA, IPDPS 2025) point at the same
+  trust collapse — **that is exactly where this platform's moat is anchored**: an
+  independently auditable evidence chain for algorithm comparison.
 
-## 4. 统计与比较纪律
+## 4. Statistics and comparison discipline
 
-- 配对 Wilcoxon + Holm、预注册协议、固定 per-DAG 种子 —— 与领域正典一致。
-- 跨论文指标比较纪律见[论文指标口径卡]()（definitive: docs/algorithms/METRICS_CARD.md）：每个指标在论文中引用时需给出公式/样本域/窗口基线/地板，不做跨口径合并。
-- 本平台输出做统计比较时遵循既有 CAMPAIGNS 契约（同层比较、配对、DAG 内平均后分层、双侧符号检验+Holm）。
+- Paired Wilcoxon + Holm, preregistered protocols, fixed per-DAG seeds — aligned with the
+  field's canon.
+- Cross-paper metric-comparison discipline follows the paper-metrics conventions card
+  ([METRICS_CARD.md](<algorithms/METRICS_CARD.md>)): every metric cited in a paper carries
+  its formula, sample domain, window baseline, and floor; no cross-convention merging.
+- Statistical comparisons of platform output follow the established CAMPAIGNS contract
+  (same-layer comparison, pairing, within-DAG averaging before stratification, two-sided
+  sign tests + Holm).
 
-## 5. 威胁效度声明（Threats to Validity，论文可整段引用）
+## 5. Threats to validity (quotable as a whole section in papers)
 
-- 内部效度：所有指标为声明模型精确产物；位精确 rerun 契约保证同输入同配置同代码树 ⇒ IDENTICAL_CORE（白名单仅身份/环境/墙钟，语义豁免一律拒绝）。
-- 统计有效：确定性算法多种子只是重复；随机比较按预注册的分层设计与 Holm 校正执行；同层比较强制（跨决策层混合被视为构造效度缺陷，非功能）。
-- 外部效度：**明确不声称**任何生产平台或真实 trace 的校准；边界声明优先于任何"接近真实"的泛化叙述（区别于该领域常见的模糊宣称）。
-- 结构效度：所有受维护算法均带文献锚定或教科书锚（偏离显式声明）；legacy 聚类/重聚类通道被 SimulationRunner 显式拒绝，避免"历史兼容代码"混入研究语义。
-- 构造效度：指标定义与文献最相近口径的差异（分母地板、就绪基线窗口、最近秩分位数）以口径卡逐指标声明。
+- Internal validity: all metrics are exact products of the declared model; the bit-exact
+  rerun contract guarantees same inputs + same configuration + same code tree ⇒
+  IDENTICAL_CORE (the whitelist covers only identity/environment/wall-clock; semantic
+  exemptions are rejected outright).
+- Statistical validity: multiple seeds of a deterministic algorithm are repetitions, not
+  samples; randomized comparisons run under preregistered stratified designs with Holm
+  correction; same-layer comparison is enforced (mixing decision layers is treated as a
+  construct-validity defect, not a feature).
+- External validity: **no claim whatsoever** of calibration to any production platform or
+  real trace; boundary declarations precede any "close to real" generalization narrative
+  (unlike the vague claims common in this field).
+- Structural validity: every maintained algorithm carries a literature or textbook anchor
+  (deviations explicitly declared); the legacy clustering/reclustering paths are
+  explicitly rejected by SimulationRunner, preventing "historical compatibility code"
+  from leaking into research semantics.
+- Construct validity: per-metric differences between our metric definitions and the
+  closest literature conventions (denominator floors, ready-baseline windows,
+  nearest-rank quantiles) are declared item by item in the conventions card.
 
-## 6. 开放边界（当前如实声明）
+## 6. Open boundaries (currently declared as-is)
 
-- F-006/F-007（事件可观测性缺口）→ **已闭合（2026-10-23 契约修订，用户裁决批准）**：`SIMULATION_TERMINATED` 与 `JOB_EXECUTION_STARTED` 进入 events v1，makespan/终端尾/deadline-slack 与决策→开始/等待族实现事件级独立重算；修订前证据维持原声明边界。复算边界变化见 RERUN_DIFF_CONTRACT。
-- Python 独立复算覆盖 **78/78 标量（100%）**：链 E（2026-10-20）以三态处置收口 deadline 6 项（MET/MISSED_LATE/NOT_REQUESTED 三分支精确复算）与 controlledSharedStorage 4 项（含全部 UNAVAILABLE 分支、矩阵权威语义与 (long) 截断取整）。2026-10-23 的 F-006/F-007 事件契约修订进一步把复算从 manifest 级延伸到事件级（终末时钟身份、Job 执行开始覆盖与派生交叉检查内置于独立审计器）。
-- 原始 WorkflowSim / CloudSim 3 代码路径的遗留缺陷（已修复 6 项：F-001/004/005/008/009 + M5/M7 测试盲区），历史细节见审查工程档案。
+- F-006/F-007 (event observability gaps) → **closed (2026-10-23 contract revision,
+  user-adjudicated)**: `SIMULATION_TERMINATED` and `JOB_EXECUTION_STARTED` entered
+  events v1; the makespan/terminal-tail/deadline-slack and decision-to-start/waiting
+  families are now independently recomputable at the event level; pre-revision evidence
+  keeps its declared boundary. The recompute boundary change is documented in
+  RERUN_DIFF_CONTRACT.
+- Independent Python recomputation covers **78/78 scalars (100%)**: chain E (2026-10-20)
+  closed the deadline family — six fields (exact recompute across the
+  MET/MISSED_LATE/NOT_REQUESTED branches) — and the controlledSharedStorage four
+  (including all UNAVAILABLE branches, matrix-authoritative semantics, and (long)
+  truncation rounding) under a three-state disposition. The 2026-10-23 F-006/F-007
+  events contract revision further extends recomputation from the manifest level to the
+  event level (terminal-clock identity, job-execution-start coverage, and derived
+  cross-checks are built into the independent auditors).
+- Legacy defects inherited from original WorkflowSim / CloudSim 3 code paths (6 fixed:
+  F-001/004/005/008/009 + the M5/M7 test blind spots); historical details live in the
+  review-engineering archive.
 
 ---
-**结论句（一段式，可单独引用）**：WorkflowSim-yixin 是面向工作流调度算法研究、以内部效度与证据完整性为真实性标准的仿真实验平台；其可信主张的证据不是物理保真，而是"输出即证据——数字可被第三方逐位重算、复跑判等、双语言审计、口径逐指标声明"。
+**Conclusion sentence (single paragraph, quotable standalone)**: WorkflowSim-yixin is a
+simulation-experiment platform for research on workflow-scheduling algorithms whose
+validity standard is internal validity and evidence completeness; the evidence for its
+trustworthy claims is not physical fidelity but "output-as-evidence — numbers a third
+party can recompute bit-exactly, rerun to equality, audit in two languages, and read under
+per-metric conventions declarations."
