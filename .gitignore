@@ -58,3 +58,8 @@ output/peft-comparison-r12/
 output/sensitivity-r13/
 output/workbench*/
 output/*.tar.gz
+# R13-v2 recertified local evidence; docs live in experiments/studies/sensitivity-r13-v2/.
+output/sensitivity-r13-v2/
+# Independent Python audit reports for the retained R13-v2 evidence.
+output/r13-v2-audit-evidence
+output/r13-v2-audit-statistics
