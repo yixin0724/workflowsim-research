@@ -26,6 +26,7 @@
 | R12 / S5 PEFT 比较 | `peft-comparison-r12-v1`；126 个单元；旧 PEFT 非标准 | `output/peft-comparison-r12/`；`output/peft-comparison-r12-evidence.tar.gz`；修正身份为 `peft-comparison-r12-v2` |
 | R13 敏感性响应面 | `sensitivity-response-r13-v1`；546 个单元；旧 PEFT 非标准 | 原[预注册协议](<sensitivity-r13/PROTOCOL.md>)和[评估记录](<sensitivity-r13/RESULTS.md>)原地归档；`output/sensitivity-r13/`；`output/sensitivity-r13-evidence.tar.gz` |
 | 正确性修复后复验 | 当前三种协议的冻结实现研究，Java 提交 `8681f9c` | [来源、数值变化与保留说明](<correctness-repair/RESULTS.md>)；`output/workbench-correctness-repair-97c66a0/studies/` |
+| R13 v2 现任重认证 | `sensitivity-response-r13-v2`；546 单元；HEAD `f00ff69` 执行（2026-10-23），与 `8681f9c` 影响层逐位一致 | [协议](<sensitivity-r13-v2/PROTOCOL.md>)与[结果](<sensitivity-r13-v2/RESULTS.md>)（英文）；`output/sensitivity-r13-v2/`；`output/sensitivity-r13-v2-evidence.tar.gz` |
 
 ### R12 来源与比较边界
 

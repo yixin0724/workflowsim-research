@@ -1,90 +1,92 @@
 # WorkflowSim
 
-WorkflowSim 是用于科学工作流调度研究的离散事件模拟器。它在统一的声明模型中处理任务依赖、计算资源、存储、数据传输与调度决策，并输出可校验、可重放的实验结果。
+WorkflowSim is a discrete-event simulator for research on scientific workflow scheduling. It covers task dependencies, compute resources, storage, data transfer, and scheduling decisions in a single declarative model, and emits auditable, replayable experiment results.
 
-模拟结果用于同条件研究比较，不等同于真实集群监控、生产网络预测或云服务商账单。项目提供Java仿真环境和策略接口，不包含深度学习训练器。
+Simulation results support controlled, same-condition research comparisons; they are not substitutes for real-cluster monitoring, production-network prediction, or cloud-provider billing. The project provides the Java simulation environment and policy interfaces; it does not include deep-learning trainers.
 
-## 快速开始
+**English** · [简体中文](<README.zh.md>)
 
-需要 **JDK 17+、Maven 3.6.3+**。在项目根目录执行：
+## Quick Start
+
+Requires **JDK 17+ and Maven 3.6.3+**. From the repository root:
 
 ```bash
-# 检查输入、参数和算法组合
+# Validate inputs, parameters, and algorithm combinations
 mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="validate experiments/configs/online-comparison.json"
 
-# 运行实验并生成离线交互报告
+# Run experiments and generate the offline interactive report
 mvn -pl :workflowsim-workbench -am compile exec:java \
   -Dexec.mainClass=org.workflowsim.experiments.workbench.Workbench \
   -Dexec.args="run experiments/configs/online-comparison.json output/workbench"
 ```
 
-打开输出根目录的 `index.html` 查看实验历史，进入实验目录的 `report.html` 查看方案比较、任务时间线、等待和资源利用率。每次运行使用独立输出目录，失败原因与已完成结果均会保留。
+Open `index.html` in the output root to browse experiment history, and `report.html` inside an experiment directory for scheme comparisons, task timelines, waiting time, and resource utilization. Each run uses a dedicated output directory; failure causes and completed results are both retained.
 
-- 使用配置文件运行、查看报告：[Workbench指南](<docs/getting-started/WORKBENCH.md>)
-- 使用Java API构建实验：[代码配置指南](<docs/getting-started/CODE_CONFIG_EXPERIMENTS.md>)
-- 构建、测试与工具命令：[构建指南](<docs/getting-started/BUILD.md>)
-- 按主题查找：[文档中心](<docs/README.md>)
+- Run from configuration and read reports: [Workbench guide](<docs/getting-started/WORKBENCH.md>)
+- Build experiments with the Java API: [code-configuration guide](<docs/getting-started/CODE_CONFIG_EXPERIMENTS.md>)
+- Build, test, and tooling commands: [build guide](<docs/getting-started/BUILD.md>)
+- Browse by topic: [documentation center](<docs/README.md>)
 
-## 选择示例
+## Choose an example
 
-| 目标 | 配置 |
+| Goal | Configuration |
 |---|---|
-| 比较在线CPU调度方案 | [在线调度比较](<experiments/configs/online-comparison.json>) |
-| 使用网络争用模型 | [网络比较](<experiments/configs/network-comparison.json>) |
-| 查看逐文件来源、传输和CPU输入门控 | [一致文件数据流V2](<experiments/configs/coherent-file-dataflow-v2.json>) |
-| 模拟有限SOURCE和必要输出写回 | [受限存储数据流V3](<experiments/configs/storage-dataflow-v3.json>) |
-| 在控制就绪时选择VM，再传输输入 | [在线目标绑定与受限存储](<experiments/configs/online-storage-dataflow-v1.json>) |
+| Compare online CPU scheduling policies | [Online scheduling comparison](<experiments/configs/online-comparison.json>) |
+| Use network contention models | [Network comparison](<experiments/configs/network-comparison.json>) |
+| Inspect per-file source, transfer, and CPU input gating | [Coherent file dataflow V2](<experiments/configs/coherent-file-dataflow-v2.json>) |
+| Simulate bounded SOURCE storage and required output write-back | [Bounded storage dataflow V3](<experiments/configs/storage-dataflow-v3.json>) |
+| Select a VM at control-ready time, then transfer inputs | [Online target binding with bounded storage](<experiments/configs/online-storage-dataflow-v1.json>) |
 
-示例使用不同支持矩阵，不能通过任意混合算法、文件系统和网络选项来构造实验。完整范围见[数据流能力矩阵](<docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md>)及[算法目录](<docs/algorithms/CATALOG.md>)。
+Examples use different support matrices; experiments cannot be constructed by arbitrarily mixing algorithms, file systems, and network options. The full scope is defined in the [dataflow capability matrix](<docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md>) and the [algorithm catalog](<docs/algorithms/CATALOG.md>).
 
-## 主要能力
+## Capability overview
 
-| 方面 | 支持范围 |
+| Area | Scope |
 |---|---|
-| 工作流输入 | Pegasus DAX XML、WfCommons WfFormat/WfInstances JSON；读取依赖、运行量及文件信息，不重放来源机器的时间线 |
-| 平台 | 显式Host/VM、确定性VM放置、容量预检和声明式成本；不模拟CPU超卖、VM迁移或实际硬件监控 |
-| 调度与规划 | 在线CPU调度、独立任务规划、受控共享存储/LOCAL DAG规划，以及明确标注的随机与搜索基线 |
-| 一致数据流 | V2逐文件来源、路径、合并与可见性；可选端点或实际Fat-tree路径 |
-| 受限存储 | V3有限读/写/NIC、SOURCE接入Host、成功输出异步落库及终止排空 |
-| 在线目标绑定 | 根据已提交网络观测和预计CPU预留绑定实际兼容VM；STATIC随后派发，NOOP重试复用绑定 |
-| 实验控制 | 多工作流错峰到达、受支持组合下的失败/重试、deadline事后观察、矩阵计算成本 |
-| 策略接入 | `RlEnvironment` / `RlPolicy`状态、动作和奖励接口；外部策略需遵守对应模型约束 |
+| Workflow inputs | Pegasus DAX XML and WfCommons WfFormat / WfInstances JSON; dependencies, work volume, and file declarations are read, while source-machine timelines are not replayed |
+| Platform | Explicit Host/VM specifications, deterministic VM placement, capacity prechecks, and declared costs; CPU oversubscription, VM migration, and hardware monitoring are not simulated |
+| Scheduling and planning | Online CPU scheduling, independent-task static planning, controlled SHARED-storage / LOCAL DAG planning, plus explicitly labeled random and search baselines |
+| Coherent data transfer | V2 per-file source, path, merge, and visibility semantics; optional endpoint contention or actual Fat-tree path contention |
+| Bounded storage | V3 storage with bounded read/write/NIC bandwidths, SOURCE attached to a host, asynchronous materialization of successful outputs, and terminal draining |
+| Online target binding | Binds an actual compatible VM from submitted network observations and projected CPU reservation; STATIC dispatch then follows; NOOP retries reuse the binding |
+| Experiment control | Staggered multi-workflow arrivals, failure/retry under supported combinations, post-hoc deadline observation, matrix-based computation cost |
+| Policy integration | `RlEnvironment` / `RlPolicy` state, action, and reward interfaces; external policies must satisfy the corresponding model constraints |
 
-标准 `SimulationRunner` 使用无任务聚类的SPACE_SHARED VM。同一JVM内串行运行；批量并行应使用独立进程。在线目标绑定与在线CPU调度是不同决策阶段，不能混为同一种算法。
+The standard `SimulationRunner` uses SPACE_SHARED VMs without task clustering. Runs are serialized within a single JVM; batch-level parallelism requires separate processes. Online target binding and online CPU scheduling are distinct decision phases and must not be conflated into one algorithm.
 
-## 运行链与项目结构
+## Execution pipeline and project layout
 
 ```text
-工作流 + SimulationConfig + PlatformProfile
-    → 输入与组合校验 → 解析依赖 → 可选静态规划
-    → 依赖/到达门控 → 固定映射或显式在线目标绑定
-    → 输入准备 → CPU派发与事件循环 → 必要输出排空
-    → SimulationReport → 证据校验 → 离线报告 / 精确重放
+workflow + SimulationConfig + PlatformProfile
+    → input and combination validation → dependency parsing → optional static planning
+    → dependency/arrival gating → fixed mapping or explicit online target binding
+    → input preparation → CPU dispatch and event loop → required-output draining
+    → SimulationReport → evidence validation → offline report / exact replay
 ```
 
-- `simulator/`：仿真核心、平台、算法、网络、策略接口及测试。
-- `experiments/`：统一入口、示例、实验执行器和报告；默认参与Maven reactor。
-- `datasets/`：工作流输入及[数据说明](<datasets/README.md>)。
-- `scripts/`：独立证据校验、浏览器验收和性能比较工具。
-- `docs/`：当前使用指南、模型契约和维护说明。
+- `simulator/` — the simulation core, platform, algorithms, network, policy interfaces, and tests.
+- `experiments/` — the unified entry point, examples, experiment executors, and reporting; part of the default Maven reactor.
+- `datasets/` — workflow inputs and the [dataset notes](<datasets/README.md>).
+- `scripts/` — independent evidence validation, browser acceptance, and performance comparison tooling.
+- `docs/` — current usage guides, model contracts, and maintenance notes (Chinese; a professional English translation pass is planned).
 
-核心模块不依赖实验模块。
+The core module does not depend on the experiment module.
 
-## 实验结果与研究边界
+## Experiment results and the research boundary
 
-标准工件包含manifest v4、metrics v2和events v1；网络侧车按明确的记录模式选择。哈希、大小、事件顺序和声明上下文共同校验，重放按JSON精确值比较，不用容差掩盖科学量变化。
+Standard artifacts comprise manifest v4, metrics v2, and events v1; network sidecars are engaged by an explicit recording mode. Hashes, sizes, event ordering, and declared context are cross-checked, and replay compares JSON values exactly — no tolerance is used to mask changes in scientific quantities.
 
-- 生命周期证据证明其声明范围内的来源、路径、输入/输出及CPU因果，不自动构成逐区间流体服务会计。
-- 在线动作证据验证绑定、计算声明、名义输入边界和已记录分数，不证明精确实时余额、未来争用或全局最优性。
-- 文件引用量不等于网络流量，抽象成本不等于账单，运行器墙钟耗时不等于模拟时间。具体统计口径见[可复现性契约](<docs/experiments/REPRODUCIBILITY.md>)与[重放契约](<docs/experiments/RERUN_DIFF_CONTRACT.md>)。
-- 论文夹具和兼容性数据只验证对应版本/条件，不能直接替代当前代码的实验结论。
+- Lifecycle evidence proves source, path, input/output, and CPU causality within its declared scope; it is not automatically an interval-by-interval fluid-service accounting.
+- Online-action evidence validates binding, computation claims, nominal-input bounds, and recorded scores; it does not prove exact real-time balances, future contention, or global optimality.
+- File reference volume is not network traffic, abstract cost is not a bill, and runner wall-clock time is not simulated time. Exact statistical conventions are defined in the [reproducibility contract](<docs/experiments/REPRODUCIBILITY.md>) and the [replay contract](<docs/experiments/RERUN_DIFF_CONTRACT.md>).
+- Paper fixtures and compatibility data validate only their versions and conditions; they cannot directly substitute for conclusions about the current code.
 
-## 开发与验证
+## Development and verification
 
 ```bash
 mvn -Pjavadoc clean verify
 ```
 
-联合门禁包含单元、语义、集成、覆盖率与核心API文档；独立Python及离线浏览器检查见[构建指南](<docs/getting-started/BUILD.md>)。性能比较先检查状态、捕获和动作指纹一致，再报告耗时及分配量，方法见[状态复制性能说明](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)。
+The joint gate covers unit, semantic, and integration tests, coverage floors, and core-API Javadoc; independent Python and offline browser checks are described in the [build guide](<docs/getting-started/BUILD.md>). For performance comparisons, first check state, capture, and action-fingerprint equality, then report wall time and allocation deltas, following the [state-copy performance notes](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>).
