@@ -1,7 +1,7 @@
 # WorkflowSim Makefile
 # 简化常用 Maven 构建命令
 
-.PHONY: all build test verify audit clean coverage install package rebuild help
+.PHONY: all build test verify audit clean coverage install package rebuild mutation-gate help
 
 # 默认目标
 all: build
@@ -56,6 +56,11 @@ package:
 # 清理并重新构建
 rebuild: clean build
 
+# 注册变异零存活门禁（约 3-5 分钟；需干净工作树，报告存入 review-workspace）
+mutation-gate:
+	@echo "运行注册变异门禁（需干净工作树）..."
+	python3 -B scripts/mutation-gate.py --output review-workspace/mutation-gate-$$(date +%Y-%m-%d).json
+
 # 显示帮助信息
 help:
 	@echo "WorkflowSim 构建命令："
@@ -69,6 +74,7 @@ help:
 	@echo "  make package  - 打包 JAR（跳过测试）"
 	@echo "  make install  - 安装到本地 Maven 仓库"
 	@echo "  make rebuild  - 清理并重新构建"
+	@echo "  make mutation-gate - 注册变异零存活门禁（需干净工作树）"
 	@echo "  make help     - 显示此帮助信息"
 	@echo ""
 	@echo "详细文档请参考: docs/getting-started/BUILD.md"

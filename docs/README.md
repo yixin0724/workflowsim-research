@@ -52,6 +52,7 @@
 ## 维护
 
 - [文档与源码注释规范](<advanced/CODE_STYLE.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
+- [变异门禁](<advanced/MUTATION-GATE.md>)：注册变异零存活检查、杀手测试台账与扩表规则（英文）。
 - [数据流状态与性能测量](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>)：不可变历史/活动工作集、测量口径及可重复比较。
 - [实验模块说明](<../experiments/README.md>)：模块职责和维护入口。
 

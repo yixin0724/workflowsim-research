@@ -70,6 +70,18 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-profile.py
 
 自测验证检查器的正例与反例，不证明任意真实研究已通过审计。[CI 配置](<../../.github/workflows/ci.yml>)另外生成 Java 的 V1 网络、V2 文件、V3 存储和在线绑定证据，再用 Python 检查实际产物；对应生产夹具和跨语言验收命令以该文件为准。`mvn verify` 只覆盖 Java 门禁，不包含这些 Python 检查。
 
+## 变异门禁
+
+注册变异零存活门禁验证测试集对已知语义破坏的杀伤力（注册表、运行方式与扩表规则见[变异门禁](<../advanced/MUTATION-GATE.md>)，英文）。全量约 3–5 分钟，需干净工作树并独占运行（不与其余 Maven 构建并发）：
+
+```bash
+python3 -B scripts/mutation-gate.py --output <新报告.json>
+python3 -B scripts/mutation-gate.py --output <新报告.json> --dry-run
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-mutation-gate.py
+```
+
+退出码：0 全杀；1 有存活或构建故障；2 锚点漂移（台账需先修复）。空跑模式和自测不调用 Maven。
+
 ## 文档检查
 
 ```bash
