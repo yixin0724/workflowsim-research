@@ -118,6 +118,30 @@ RANDOM and STATIC_ROUND_ROBIN keep their respective cost-oblivious choices. Fail
 standard NOOP retry contract only in combinations that allow them; Workbench exposes no
 failure or extra-overhead configuration.
 
+## Registered external algorithms (extension surface, 2026-10-26)
+
+The standard runner additionally accepts algorithms provided by third-party code through the
+Java ServiceLoader SPI, with **zero modifications to the repository's core tree**:
+implement [SchedulingAlgorithmProvider](<../../simulator/src/main/java/org/workflowsim/experiment/registry/SchedulingAlgorithmProvider.java>),
+declare the service file, and reference the provider's label in the configuration. The
+self-declared [AlgorithmDeclaration](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmDeclaration.java>)
+— file-system scope, accepted data-movement kinds, task-cost-matrix and failure-model
+acceptance — is consumed by the runner's fail-fast combination matrix via
+[AlgorithmRegistry.validate](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmRegistry.java>);
+[the acceptance exercise](<../../experiments/src/test/java/org/workflowsim/experiments/registry/GradStudentSchedulerExerciseIntegrationTest.java>)
+takes a novel bandwidth-first scheduler from SPI discovery to a validated v4 evidence bundle.
+
+Scope and boundaries:
+
+- Registered algorithms occupy the **plain online scheduling layer** only: both
+  `schedulingAlgorithm` and `planningAlgorithm` must stay `INVALID`; the label is recorded in
+  the manifest as `registeredSchedulingAlgorithm` next to the enum, and the evidence remains
+  contract-verifiable.
+- A registered label names exactly the declared class and no more: it carries **no literature
+  anchoring, no clustering/provenance contract, and no real-platform calibration claim**.
+- Incompatible declarations fail fast with the violated contract clause; a label colliding with
+  a built-in enum name is rejected at discovery rather than shadowed.
+
 ## Legacy label migration
 
 | Legacy label | Current status and retained behavior | Maintenance entry |

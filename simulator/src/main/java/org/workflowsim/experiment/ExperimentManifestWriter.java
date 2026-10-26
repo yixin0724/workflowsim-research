@@ -225,6 +225,13 @@ public final class ExperimentManifestWriter {
         values.put("workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
         values.put("taskCostMatrix", taskCostMatrix(config));
         values.put("schedulingAlgorithm", config.getSchedulingAlgorithm().name());
+        // BAT-3（2026-10-26）：注册算轨标签同层记录；证据身份不归属到 INVALID 枚举，
+        // 复跑比较以 identical contract 键继续按精确字段比较。
+        values.put(
+                "registeredSchedulingAlgorithm",
+                config.getRegisteredSchedulingAlgorithmProvider() == null
+                        ? null
+                        : config.getRegisteredSchedulingAlgorithmProvider().label());
         values.put("planningAlgorithm", config.getPlanningAlgorithm().name());
         values.put("algorithmContract", AlgorithmCatalog.forConfiguration(config));
         values.put("reduceMethod", config.getReduceMethod());

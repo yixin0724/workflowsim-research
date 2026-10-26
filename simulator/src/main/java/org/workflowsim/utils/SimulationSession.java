@@ -52,6 +52,12 @@ public final class SimulationSession implements AutoCloseable {
         Parameters.setRuntimeScale(config.getRuntimeScale());
         Parameters.setRuntimeReferenceMips(config.getRuntimeReferenceMips());
         Parameters.setCostModel(config.getCostModel());
+        if (config.getRegisteredSchedulingAlgorithmProvider() != null) {
+            // BAT-3 (2026-10-26): registered SPI algorithm — carried through the same
+            // session-managed legacy Parameters carrier as the scheduling enum; reset()
+            // clears it, and the runner validated the self-declared contract beforehand.
+            Parameters.setRegisteredSchedulingAlgorithmProvider(config.getRegisteredSchedulingAlgorithmProvider());
+        }
         if (config.getWorkflowPaths().size() == 1) {
             Parameters.init(
                     config.getVmCount(),

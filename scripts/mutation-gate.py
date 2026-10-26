@@ -141,6 +141,13 @@ REGISTRY = [
         new="                        new DlsCandidate(task, vm, upwardRanks.get(task).doubleValue() + earliestStart);",
         killers="SharedStoragePlannerRuntimeMirrorIntegrationTest,SharedStorageDlsPlanningAlgorithmTest,"
                 "SharedStorageDlsEtfSlotSemanticsAuditTest,SharedStorageDlsEtfSlotVisitAuditTest"),
+    dict(
+        id="M11",
+        name="registered declaration ANY-scope no longer covers any file system",
+        file="simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmDeclaration.java",
+        old="            case ANY:\n                return true;",
+        new="            case ANY:\n                return false;",
+        killers="GradStudentSchedulerExerciseIntegrationTest"),
 ]
 
 

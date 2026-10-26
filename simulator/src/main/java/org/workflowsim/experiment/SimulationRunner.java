@@ -218,6 +218,22 @@ public final class SimulationRunner {
      * 但不得通过此入口悄然生成研究证据。
      */
     private static void validateSupportedAlgorithms(SimulationConfig config) {
+        if (config.getRegisteredSchedulingAlgorithmProvider() != null) {
+            // BAT-3（2026-10-26）：注册算轨走自声明契约矩阵；枚举规划/调度都必须为 INVALID。
+            if (config.getSchedulingAlgorithm() != SchedulingAlgorithm.INVALID
+                    || (config.getPlanningAlgorithm() != null
+                            && config.getPlanningAlgorithm()
+                                    != org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID)) {
+                throw new SimulationConfigurationException(
+                        "A registry-based scheduling algorithm occupies the plain online"
+                                + " scheduling layer: schedulingAlgorithm and planningAlgorithm"
+                                + " must both be INVALID");
+            }
+            org.workflowsim.experiment.registry.AlgorithmRegistry.validate(
+                    config.getRegisteredSchedulingAlgorithmProvider().label(),
+                    new org.workflowsim.experiment.registry.AlgorithmRegistry.ValidationInput(config));
+            return;
+        }
         if (!AlgorithmCatalog.isSupportedBySimulationRunner(config.getSchedulingAlgorithm())) {
             if (config.getSchedulingAlgorithm() == SchedulingAlgorithm.INVALID) {
                 throw new SimulationConfigurationException(

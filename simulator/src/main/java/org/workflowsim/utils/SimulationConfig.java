@@ -40,6 +40,8 @@ public final class SimulationConfig {
     private final NetworkEvidenceConfig networkEvidenceConfig;
     private final transient org.workflowsim.data.v2.DataflowAssignmentConfig dataflowAssignmentConfig;
     private final TaskCostMatrix taskCostMatrix;
+    private final transient org.workflowsim.experiment.registry.SchedulingAlgorithmProvider
+            registeredSchedulingAlgorithmProvider;
 
     private SimulationConfig(Builder builder) {
         this.workflowPaths = Collections.unmodifiableList(new ArrayList<>(builder.workflowPaths));
@@ -62,6 +64,7 @@ public final class SimulationConfig {
         this.networkEvidenceConfig = builder.networkEvidenceConfig;
         this.dataflowAssignmentConfig = builder.dataflowAssignmentConfig;
         this.taskCostMatrix = builder.taskCostMatrix;
+        this.registeredSchedulingAlgorithmProvider = builder.registeredSchedulingAlgorithmProvider;
     }
 
     /**
@@ -110,6 +113,11 @@ public final class SimulationConfig {
     /** @return 在线调度或静态派发算法 */
     public SchedulingAlgorithm getSchedulingAlgorithm() {
         return schedulingAlgorithm;
+    }
+
+    /** BAT-3（2026-10-26）：@return 注册算轨的提供者；null 表示未启用。 */
+    public org.workflowsim.experiment.registry.SchedulingAlgorithmProvider getRegisteredSchedulingAlgorithmProvider() {
+        return registeredSchedulingAlgorithmProvider;
     }
 
     /** @return 离线规划算法；未启用时为 {@code INVALID} */
@@ -239,6 +247,10 @@ public final class SimulationConfig {
         private ClusteringParameters clusteringParameters =
                 new ClusteringParameters(0, 0, ClusteringParameters.ClusteringMethod.NONE, null);
         private SchedulingAlgorithm schedulingAlgorithm = SchedulingAlgorithm.FCFS;
+
+        /** BAT-3（2026-10-26）：经算法注册表校验的第三方 SPI 调度算轨；null 表示不启用。 */
+        private org.workflowsim.experiment.registry.SchedulingAlgorithmProvider registeredSchedulingAlgorithmProvider;
+
         private PlanningAlgorithm planningAlgorithm = PlanningAlgorithm.INVALID;
         private String reduceMethod;
         private long deadline;
@@ -302,6 +314,17 @@ public final class SimulationConfig {
         /** @param value 在线调度或静态派发算法 @return 当前构建器 */
         public Builder schedulingAlgorithm(SchedulingAlgorithm value) {
             this.schedulingAlgorithm = value;
+            return this;
+        }
+
+        /**
+         * BAT-3（2026-10-26）：启用第三方注册调度算轨。注册算法占用纯在线调度层：
+         * 枚举 schedulingAlgorithm 与 planningAlgorithm 必须保持 INVALID（分派由提
+         * 供者的策略实例承担），组合前提由 AlgorithmRegistry 校验 fail-fast。
+         */
+        public Builder registeredSchedulingAlgorithm(
+                org.workflowsim.experiment.registry.SchedulingAlgorithmProvider provider) {
+            this.registeredSchedulingAlgorithmProvider = provider;
             return this;
         }
 
@@ -520,7 +543,7 @@ public final class SimulationConfig {
                         + "under SHARED storage its replica sites are datacenter names that never match "
                         + "VM ids, so it would silently degenerate to first-fit-idle");
             }
-            if (schedulingAlgorithm == SchedulingAlgorithm.INVALID) {
+            if (schedulingAlgorithm == SchedulingAlgorithm.INVALID && registeredSchedulingAlgorithmProvider == null) {
                 throw new IllegalArgumentException("SchedulingAlgorithm.INVALID is not a runnable configuration; "
                         + "select an explicit online scheduler or STATIC with a planning algorithm");
             }

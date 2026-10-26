@@ -225,15 +225,31 @@ public final class WorkbenchConfig {
             }
             Parameters.PlanningAlgorithm planner =
                     Parameters.PlanningAlgorithm.valueOf(text(algorithm, "planner", "INVALID"));
-            Parameters.SchedulingAlgorithm scheduler = Parameters.SchedulingAlgorithm.valueOf(text(
+            String schedulerText = text(
                     algorithm,
                     "scheduler",
                     assignment.isEnabled()
                             ? "STATIC"
-                            : planner == Parameters.PlanningAlgorithm.INVALID ? "FCFS" : "STATIC"));
-            if (!AlgorithmCatalog.isSupportedBySimulationRunner(planner)
-                    || !AlgorithmCatalog.isSupportedBySimulationRunner(scheduler)
-                    || scheduler == Parameters.SchedulingAlgorithm.RL_POLICY) {
+                            : planner == Parameters.PlanningAlgorithm.INVALID ? "FCFS" : "STATIC");
+            org.workflowsim.experiment.registry.SchedulingAlgorithmProvider registeredProvider = null;
+            Parameters.SchedulingAlgorithm scheduler;
+            try {
+                scheduler = Parameters.SchedulingAlgorithm.valueOf(schedulerText);
+            } catch (IllegalArgumentException unknownEnumLabel) {
+                // BAT-3（2026-10-26）：外部注册算轨标签（ServiceLoader SPI）。
+                if (!assignment.isEnabled()
+                        && planner == Parameters.PlanningAlgorithm.INVALID
+                        && org.workflowsim.experiment.registry.AlgorithmRegistry.isRegistered(schedulerText)) {
+                    registeredProvider = org.workflowsim.experiment.registry.AlgorithmRegistry.find(schedulerText);
+                    scheduler = Parameters.SchedulingAlgorithm.INVALID;
+                } else {
+                    throw unknownEnumLabel;
+                }
+            }
+            if (registeredProvider == null
+                    && (!AlgorithmCatalog.isSupportedBySimulationRunner(planner)
+                            || !AlgorithmCatalog.isSupportedBySimulationRunner(scheduler)
+                            || scheduler == Parameters.SchedulingAlgorithm.RL_POLICY)) {
                 throw new IllegalArgumentException(
                         "Workbench requires maintained built-in algorithms; external RL policies use the Java "
                                 + "RlEnvironment adapter");
@@ -247,7 +263,7 @@ public final class WorkbenchConfig {
                 throw new IllegalArgumentException("Cannot compare different decision layers in one experiment");
             }
             track = candidateTrack;
-            SimulationConfig config = SimulationConfig.builder(
+            org.workflowsim.utils.SimulationConfig.Builder configBuilder = SimulationConfig.builder(
                             paths, platform.getVms().size())
                     .workflowArrivalSeconds(arrivals)
                     .fileSystem(models.fileSystem)
@@ -256,7 +272,11 @@ public final class WorkbenchConfig {
                     .dataflowAssignment(assignment)
                     .schedulingAlgorithm(scheduler)
                     .planningAlgorithm(planner)
-                    .randomSeed(seeds.get(0))
+                    .randomSeed(seeds.get(0));
+            if (registeredProvider != null) {
+                configBuilder.registeredSchedulingAlgorithm(registeredProvider);
+            }
+            SimulationConfig config = configBuilder
                     .runtimeScale(decimal(models.sim, "runtimeScale", 1, true))
                     .runtimeReferenceMips(decimal(models.sim, "runtimeReferenceMips", 1000, true))
                     .cloudSimMinEventIntervalSeconds(decimal(models.sim, "minEventIntervalSeconds", 0.1, true))

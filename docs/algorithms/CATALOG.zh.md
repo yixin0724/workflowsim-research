@@ -81,6 +81,24 @@ coherent 在线绑定使用 `CONTROL_READY_ONLINE_ASSIGNMENT_V1` 与策略 `NOMI
 
 矩阵可用不表示每个规划器都会优化矩阵：时间感知独立规划器、PSO、LOCAL 规划及执行共用有效整数 MI；RANDOM 和 STATIC_ROUND_ROBIN 保持各自的成本无关选择。故障只在允许的组合中使用标准 NOOP 重试契约；Workbench 不开放故障或额外开销配置。
 
+## 注册外部算法（扩展面，2026-10-26）
+
+标准运行器另通过 Java ServiceLoader SPI 接受第三方算轨，**对仓库核心树零修改**：
+实现 [SchedulingAlgorithmProvider](<../../simulator/src/main/java/org/workflowsim/experiment/registry/SchedulingAlgorithmProvider.java>)、
+声明服务注册文件，并在配置中引用提供者标签。自声明的
+[AlgorithmDeclaration](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmDeclaration.java>)
+——文件系统范围、接受的数据移动类别、成本矩阵与故障模型接受性——由运行器的 fail-fast 组合矩阵经
+[AlgorithmRegistry.validate](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmRegistry.java>)
+消费；[验收练习](<../../experiments/src/test/java/org/workflowsim/experiments/registry/GradStudentSchedulerExerciseIntegrationTest.java>)
+把一个新颖的带宽优先调度器从 SPI 发现一路带到验证过的 v4 证据包。
+
+适用范围与边界：
+
+- 注册算法只占用**纯在线调度层**：`schedulingAlgorithm` 与 `planningAlgorithm` 都必须保持
+  `INVALID`；标签在 manifest 中以 `registeredSchedulingAlgorithm` 与枚举同层记录，证据保持可契约校验。
+- 注册标签只指代被声明的那个类，不多不少：它**不携带文献锚定、聚类/溯源契约，也不构成真实平台校准主张**。
+- 不兼容的声明按违反的契约子句 fail-fast；与内置枚举名冲突的标签在发现期即拒绝，绝不被遮蔽。
+
 ## 兼容标签迁移
 
 | 旧标签 | 当前状态与保留行为 | 维护入口 |

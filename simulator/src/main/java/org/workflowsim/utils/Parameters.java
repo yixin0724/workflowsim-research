@@ -175,6 +175,10 @@ public class Parameters {
     /** 当前调度模式。 */
     private static SchedulingAlgorithm schedulingAlgorithm;
 
+    /** BAT-3（2026-10-26）：本次会话注册的第三方调度算法；null 表示未启用注册算轨。 */
+    private static org.workflowsim.experiment.registry.SchedulingAlgorithmProvider
+            registeredSchedulingAlgorithmProvider;
+
     /** 当前规划模式。 */
     private static PlanningAlgorithm planningAlgorithm;
 
@@ -389,6 +393,21 @@ public class Parameters {
         return schedulingAlgorithm;
     }
 
+    /** BAT-3（2026-10-26）：设置会话内生效的第三方注册调度算法（随 reset() 清除）。 */
+    public static void setRegisteredSchedulingAlgorithmProvider(
+            org.workflowsim.experiment.registry.SchedulingAlgorithmProvider provider) {
+        if (provider == null) {
+            throw new IllegalArgumentException("Registered scheduling provider cannot be null");
+        }
+        registeredSchedulingAlgorithmProvider = provider;
+    }
+
+    /** @return 会话内生效的第三方注册调度算法；null 表示未启用。 */
+    public static org.workflowsim.experiment.registry.SchedulingAlgorithmProvider
+            getRegisteredSchedulingAlgorithmProvider() {
+        return registeredSchedulingAlgorithmProvider;
+    }
+
     /** @return 当前规划算法 */
     public static PlanningAlgorithm getPlanningAlgorithm() {
         return planningAlgorithm;
@@ -493,6 +512,7 @@ public class Parameters {
     public static void reset() {
         SOURCE = "source";
         schedulingAlgorithm = SchedulingAlgorithm.INVALID;
+        registeredSchedulingAlgorithmProvider = null;
         planningAlgorithm = PlanningAlgorithm.INVALID;
         reduceMethod = null;
         vmNum = 0;

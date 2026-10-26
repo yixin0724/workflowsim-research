@@ -272,6 +272,16 @@ public class WorkflowScheduler extends DatacenterBroker {
      * @return 当前活动调度策略
      */
     protected BaseSchedulingAlgorithm getSchedulingPolicy() {
+        // BAT-3（2026-10-26）：注册算轨优先于枚举分派；提供者策略跨事件存活，
+        // Parameters.reset() 负责其会话边界失效。既有枚举路径零改动。
+        if (Parameters.getRegisteredSchedulingAlgorithmProvider() != null) {
+            if (activeSchedulingPolicy == null || activeSchedulingPolicyType != SchedulingAlgorithm.INVALID) {
+                activeSchedulingPolicy =
+                        Parameters.getRegisteredSchedulingAlgorithmProvider().create();
+                activeSchedulingPolicyType = SchedulingAlgorithm.INVALID;
+            }
+            return activeSchedulingPolicy;
+        }
         SchedulingAlgorithm configuredType = Parameters.getSchedulingAlgorithm();
         if (activeSchedulingPolicy == null || activeSchedulingPolicyType != configuredType) {
             activeSchedulingPolicy = createSchedulingPolicy(configuredType);
