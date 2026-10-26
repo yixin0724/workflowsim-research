@@ -32,6 +32,10 @@ public final class GroupedSimulator {
     private static final int TICK = 43101, SETUP_DONE = 1, TASK_DONE = 2;
     private static final int WAIT = 0, SETUP = 1, READ = 2, COMPUTE = 3, WRITE = 4, DONE = 5;
 
+    /**
+     * Deterministic physics-simulation outcome of one package plan: resource usage, makespan,
+     * input/output accounting, per-task windows and blocker sets feeding the exact optimizer.
+     */
     public static final class Result {
         public final double makespan;
         public final double inputBytes, outputBytes, reservedCoreSeconds, reservedMemoryByteSeconds;
