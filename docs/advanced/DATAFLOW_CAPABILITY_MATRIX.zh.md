@@ -3,6 +3,9 @@
 本表说明当前网络、文件数据流、存储与目标绑定的支持范围。所有量属于所声明的模拟模型，不代表真实平台监测、云账单或算法普遍优越性。
 [English](<DATAFLOW_CAPABILITY_MATRIX.md>) · **简体中文**
 
+| 注册外部调度器（2026-10-26） | 纯在线轨道（INVALID/INVALID）经[算法注册表](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmRegistry.java>) |
+自声明契约 fail-fast 校验；标签入 manifest；见[注册算轨章节](<../algorithms/CATALOG.zh.md>) |
+
 ## 物理模型与目标绑定
 
 | 分支 | 输入/存储语义 | 复制与CPU | 可选目标绑定 |

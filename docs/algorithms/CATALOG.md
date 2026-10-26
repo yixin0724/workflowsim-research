@@ -101,7 +101,7 @@ The V1 pre-execution family is `preExecutionTransferDelayV1()`,
 `preExecutionTransferDelayWithContentionV1()`, and `fatTreeContentionV1()`. The last
 requires LOCAL, no failure/overhead, and a declared platform topology; LOCAL planners still
 use no-contention estimates under these run models. Topology and routing are described in
-the [Fat-tree model](<../research/FAT_TREE_DESIGN.md>).
+the [Fat-tree model](<../advanced/FAT_TREE_DESIGN.md>).
 
 Coherent online assignment uses `CONTROL_READY_ONLINE_ASSIGNMENT_V1` with the policy
 `NOMINAL_INPUT_EARLIEST_RESERVATION_V1`. It is an **explicit exception** to STATIC normally

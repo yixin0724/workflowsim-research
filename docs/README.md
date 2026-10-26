@@ -24,7 +24,7 @@ and superseded audit drafts are not long-term entry points.
 - [Paper-metrics conventions card](<algorithms/METRICS_CARD.md>): per-metric literature-convention differences and citation advice.
 - [Workflow inputs and datasets](<../datasets/README.md>): repository-bundled inputs, optional corpora, provenance, conversion, and format constraints.
 - [Dataflow and network capability matrix](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>): physical models, storage, online assignment, and unimplemented capabilities.
-- [Fat-tree topology and shared model](<research/FAT_TREE_DESIGN.md>): structure, placement, deterministic routing, and capacity-allocation boundaries.
+- [Fat-tree topology and shared model](<advanced/FAT_TREE_DESIGN.md>): structure, placement, deterministic routing, and capacity-allocation boundaries.
 
 ## Dataflow and evidence reference
 
@@ -47,7 +47,11 @@ and superseded audit drafts are not long-term entry points.
 - [Protocol identity and historical-evidence boundaries](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>): which legacy identities remain readable and why legacy results are not conclusions about the current implementation.
 - [Independent study-audit tooling](<../scripts/STUDY_AUDIT.md>): the actual scope of general evidence/statistics checks, distinguished from dataflow-specific certificates.
 
-## Research positioning and quality
+## Platform history
+
+- [Platform engineering history](<history/PLATFORM_ENGINEERING.md>): the single narrative record of the correctness, uplift, regularization, and observability waves.
+
+## Research, positioning and quality
 
 - [Science position statement](<SCIENCE-POSITION.md>): research identity, validity standard (internal validity), competitive positioning, and threats to validity.
 - [Review and scientific-engineering summary](<quality/AUDIT-2026-10.md>): two-round results, key numbers, and methodology lessons.
@@ -55,7 +59,7 @@ and superseded audit drafts are not long-term entry points.
 ## Maintenance
 
 - [Documentation and source-comment conventions](<advanced/CODE_STYLE.md>): content layering, link/example requirements, source protection, and the document check command.
-- [Mutation gate](<advanced/MUTATION-GATE.md>): registered-mutant zero-survival gate, killer-test ledger, and growth rules.
+- [Mutation gate](<advanced/MUTATION_GATE.md>): registered-mutant zero-survival gate, killer-test ledger, and growth rules.
 - [Dataflow state and performance measurement](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>): immutable history/active working set, measurement conventions, and repeatable comparisons.
 - [Experiment module notes](<../experiments/README.md>): module responsibilities and maintenance entry point.
 

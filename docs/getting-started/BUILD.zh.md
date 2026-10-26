@@ -74,7 +74,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-dataflow-profile.py
 
 ## 变异门禁
 
-注册变异零存活门禁验证测试集对已知语义破坏的杀伤力（注册表、运行方式与扩表规则见[变异门禁](<../advanced/MUTATION-GATE.md>)，英文）。全量约 3–5 分钟，需干净工作树并独占运行（不与其余 Maven 构建并发）：
+注册变异零存活门禁验证测试集对已知语义破坏的杀伤力（注册表、运行方式与扩表规则见[变异门禁](<../advanced/MUTATION_GATE.md>)，英文）。全量约 3–5 分钟，需干净工作树并独占运行（不与其余 Maven 构建并发）：
 
 ```bash
 python3 -B scripts/mutation-gate.py --output <新报告.json>

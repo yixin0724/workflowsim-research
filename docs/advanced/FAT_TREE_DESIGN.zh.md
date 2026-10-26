@@ -70,10 +70,10 @@ LINK:AGG:p:a->CORE:c       LINK:CORE:c->AGG:p:a
 | 存储数据流V3共享/独立对照 | 可选 | LOCAL或SHARED提交后读取；SOURCE有实际接入Host和读/写/NIC约束，输入和必要输出使用相应路径 |
 | 不使用拓扑的模型 | 不允许多余声明 | 避免平台声明被静默忽略 |
 
-V2/V3可使用默认RANDOM/STATIC，或显式控制就绪在线目标绑定＋STATIC。它们不是把旧CPU在线调度器直接接到争用模型上。详见[V2契约](<../advanced/COHERENT_DATAFLOW_V2_CONTRACT.zh.md>)、[V3契约](<../advanced/STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)和[在线绑定](<../advanced/ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)。
+V2/V3可使用默认RANDOM/STATIC，或显式控制就绪在线目标绑定＋STATIC。它们不是把旧CPU在线调度器直接接到争用模型上。详见[V2契约](<COHERENT_DATAFLOW_V2_CONTRACT.zh.md>)、[V3契约](<STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)和[在线绑定](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)。
 
 ## 不包含的能力
 
 没有包级TCP/重传、丢包、ECN、交换机队列细节、链路传播时延、交换机内部转发容量、链路故障或自适应路由。流级模型适合所声明抽象下的调度研究，但不声称没有信息损失，也不能替代真实网络校准。
 
-拓扑、源选择、容量服务和证据分别测试。校验范围见[V1账本校验](<../advanced/NETWORK_LEDGER_VALIDATION.zh.md>)、[逐文件生命周期格式](<../advanced/FILE_LIFECYCLE_V2_FORMAT.zh.md>)；运行命令见[构建指南](<../getting-started/BUILD.zh.md>)。历史campaign数值只在其[数据来源说明](<../../experiments/studies/fattree-scheduling-campaign/RETENTION.md>)中解释，不作为当前实现的普遍黄金值。
+拓扑、源选择、容量服务和证据分别测试。校验范围见[V1账本校验](<NETWORK_LEDGER_VALIDATION.zh.md>)、[逐文件生命周期格式](<FILE_LIFECYCLE_V2_FORMAT.zh.md>)；运行命令见[构建指南](<../getting-started/BUILD.zh.md>)。历史campaign数值只在其[数据来源说明](<../../experiments/studies/fattree-scheduling-campaign/RETENTION.md>)中解释，不作为当前实现的普遍黄金值。

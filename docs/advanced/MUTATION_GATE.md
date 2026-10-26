@@ -25,6 +25,8 @@ closed with dedicated boundary/conservation tests at that time.
 | M7 | Balanced merge drops the child-side tail unlink | clustering conservation law |
 | M8 | Online assignment halves the compute estimate | coherent binding nominal score |
 | M9 | Task execution window offset by 1e-6 s | timing-window exactness |
+| M10 | SHARED DLS dynamic level flips the earliest-start subtraction into an addition | DLS decision surface |
+| M11 | Registered declaration's ANY scope covers no file system | registry declaration semantics |
 
 The set is deliberately small and **registered**: it is a canary battery over the semantic
 axes that carry research claims, not an exhaustive mutation score for the whole codebase.

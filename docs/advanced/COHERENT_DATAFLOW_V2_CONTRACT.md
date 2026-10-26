@@ -52,7 +52,7 @@ The contract mark of [DataflowFilePlan](<../../simulator/src/main/java/org/workf
 4. Capacities must be positive normal finite binary64 values; for a positive transfer, the isolated seconds, the absolute completion time, and successor observations must be representable and must advance the clock. Underflow is not treated as a zero transfer, and a slower source is not silently re-selected over numeric trouble.
 5. The single-flow path check is not a shared-solver certificate. The runner separately checks live allocations, finite service areas, settlement residuals, and future times; failures roll back through the staged transaction.
 
-The Fat-tree structure, deterministic routing, and sharing mechanics are described in the [topology notes](<../research/FAT_TREE_DESIGN.md>). There is no adaptive routing and no source selection based on instantaneous queue states.
+The Fat-tree structure, deterministic routing, and sharing mechanics are described in the [topology notes](<FAT_TREE_DESIGN.md>). There is no adaptive routing and no source selection based on instantaneous queue states.
 
 ## Lifecycle and Compute Gating
 

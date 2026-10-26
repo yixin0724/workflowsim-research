@@ -74,7 +74,7 @@ The self-tests verify the checkers on positive and negative cases; they do not p
 
 ## Mutation gate
 
-The registered-mutation zero-survival gate verifies the test battery's killing power against known semantic breaks (the registry, how to run it, and the rules for extending the table are documented in [Mutation gate](<../advanced/MUTATION-GATE.md>), in English). A full run takes about 3–5 minutes, requires a clean working tree, and must run exclusively (not concurrently with other Maven builds):
+The registered-mutation zero-survival gate verifies the test battery's killing power against known semantic breaks (the registry, how to run it, and the rules for extending the table are documented in [Mutation gate](<../advanced/MUTATION_GATE.md>), in English). A full run takes about 3–5 minutes, requires a clean working tree, and must run exclusively (not concurrently with other Maven builds):
 
 ```bash
 python3 -B scripts/mutation-gate.py --output <新报告.json>

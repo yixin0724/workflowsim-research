@@ -29,6 +29,11 @@ post-correction studies and impact analysis are documented in the
 [correctness-repair results](<correctness-repair/RESULTS.md>) and are not a
 re-certification of every later code change.
 
+> **Archived layer.** The rows below describe frozen historical studies (including the
+> over-numbered protocol identities such as `r13-v1`); the current executable protocols live
+> above. Archived studies are never renamed or deleted — their version suffixes are the
+> mechanism that keeps old numbers honestly bound to old identities.
+
 ## Historical material and optional evidence locations
 
 The records below describe their respective implementations at the time. **Passing an

@@ -71,7 +71,7 @@ LOCAL_HEFT/CPOP/PEFT 要求 LOCAL、STATIC、无故障/开销，以及 V1 pre-ex
 
 [输入可用性回归](<../../simulator/src/test/java/org/workflowsim/planning/LocalDataAvailabilityPlanningTest.java>)覆盖外部根输入、未来副本、有效空档和输入到达早于计算开始。文件名/大小冲突可能使某些现成输入不适用，不能从普通在线运行成功推导 LOCAL 规划也合法。
 
-启用 V1 端点或 Fat-tree 争用时，**规划仍无争用**，运行期所有父组在 Job 就绪时统一启动，不追溯更早父完成以来的传输进度。求解器采用受名义上限与资源容量共同约束的 max-min progressive filling，并在内部完成点回收、重新分配容量；不是简单固定的 `capacity/n`。因此无争用 V1 与争用 V1 的差异还包含传输起点规则。Fat-tree 另加入确定性有向路径约束，外部 SOURCE 仍绕过 fabric，详见[拓扑与路由契约](<../research/FAT_TREE_DESIGN.zh.md>)。
+启用 V1 端点或 Fat-tree 争用时，**规划仍无争用**，运行期所有父组在 Job 就绪时统一启动，不追溯更早父完成以来的传输进度。求解器采用受名义上限与资源容量共同约束的 max-min progressive filling，并在内部完成点回收、重新分配容量；不是简单固定的 `capacity/n`。因此无争用 V1 与争用 V1 的差异还包含传输起点规则。Fat-tree 另加入确定性有向路径约束，外部 SOURCE 仍绕过 fabric，详见[拓扑与路由契约](<../advanced/FAT_TREE_DESIGN.zh.md>)。
 
 ### coherent 文件、存储与控制平面
 

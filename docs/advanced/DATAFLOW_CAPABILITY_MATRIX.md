@@ -3,6 +3,11 @@
 This matrix states the supported scope of the current network, file dataflow, storage, and target assignment. All quantities belong to the declared simulation model and stand for no real-platform monitoring, cloud bills, or universal algorithmic superiority.
 **English** · [简体中文](<DATAFLOW_CAPABILITY_MATRIX.zh.md>)
 
+| Registered external scheduler (2026-10-26) | plain online track (INVALID/INVALID) through the
+[algorithm registry](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmRegistry.java>) |
+self-declared contract validated fail-fast; label in the manifest; see the
+[registered-algorithms section](<../algorithms/CATALOG.md>) |
+
 ## Physical Models and Target Assignment
 
 | Branch | Input/storage semantics | Copying and CPU | Optional target assignment |

@@ -21,7 +21,7 @@
 - [论文指标口径卡](<algorithms/METRICS_CARD.zh.md>)：逐指标的文献口径差异与论文引用建议。
 - [工作流输入与数据集](<../datasets/README.zh.md>)：随仓库输入、可选语料、来源、转换和格式约束。
 - [数据流与网络能力矩阵](<advanced/DATAFLOW_CAPABILITY_MATRIX.zh.md>)：物理模型、存储、在线绑定及未实现能力。
-- [Fat-tree拓扑与共享模型](<research/FAT_TREE_DESIGN.zh.md>)：结构、放置、确定性路径和容量分配边界。
+- [Fat-tree拓扑与共享模型](<advanced/FAT_TREE_DESIGN.zh.md>)：结构、放置、确定性路径和容量分配边界。
 
 ## 数据流与证据参考
 
@@ -44,6 +44,10 @@
 - [协议身份与历史证据边界](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.zh.md>)：哪些旧身份仍可读取，为什么旧结果不等于当前实现的结论。
 - [独立研究检查工具](<../scripts/STUDY_AUDIT.zh.md>)：一般证据/统计校验的实际范围，与数据流专用证书区分。
 
+## 平台工程编年史
+
+- [平台工程编年史](<history/PLATFORM_ENGINEERING.zh.md>)：正确性、仪器升级、规范化、可观测性四波工程的单页叙事。
+
 ## 研究定位与质量
 
 - [科学定位声明](<SCIENCE-POSITION.zh.md>)：研究身份、真实性标准（内部效度）、竞争定位、威胁效度。
@@ -52,7 +56,7 @@
 ## 维护
 
 - [文档与源码注释规范](<advanced/CODE_STYLE.zh.md>)：内容分层、链接/示例要求、来源保护和文档检查命令。
-- [变异门禁](<advanced/MUTATION-GATE.md>)：注册变异零存活检查、杀手测试台账与扩表规则（英文）。
+- [变异门禁](<advanced/MUTATION_GATE.md>)：注册变异零存活检查、杀手测试台账与扩表规则（英文）。
 - [数据流状态与性能测量](<advanced/DATAFLOW_STATE_COPY_PERFORMANCE.zh.md>)：不可变历史/活动工作集、测量口径及可重复比较。
 - [实验模块说明](<../experiments/README.zh.md>)：模块职责和维护入口。
 
