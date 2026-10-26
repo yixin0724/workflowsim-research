@@ -364,6 +364,14 @@ final class FileLifecycleValidator {
                 }
             }
             // Sparse iterative walks permit ANY control ancestor, not only a direct parent.
+            requireAncestralProducers();
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from validateGraphAndFiles(); statements verbatim; order unchanged.
+         * Scope: the per-task input-producer ancestry walk only; graph/topology checks stay in the caller.
+         */
+        private void requireAncestralProducers() {
             for (TaskRow task : tasks.values()) {
                 Set<Integer> required = new HashSet<>();
                 for (FileKey id : task.inputs.keySet()) {
@@ -843,39 +851,7 @@ final class FileLifecycleValidator {
         void event(FileLifecycleEvent.Type type, JsonObject p, double at) {
             // These are atomic observed operations, not an attempt to infer missing service intervals.
             // READY takes priority inside an output operation or between deferred resolvers.
-            if (!dueReady.isEmpty()) {
-                require(
-                        type == FileLifecycleEvent.Type.JOB_DATA_READY && at == dueAt,
-                        "A now-due JOB_DATA_READY must immediately follow its visibility operation");
-            } else if (needsResolution != null) {
-                require(
-                        type
-                                        == (needsResolution.output
-                                                ? FileLifecycleEvent.Type.OUTPUT_RESOLVED
-                                                : FileLifecycleEvent.Type.INPUT_RESOLVED)
-                                && at == needsResolution.release,
-                        "COPY_ADMITTED must immediately precede its corresponding NEW_COPY resolution");
-            } else if (request != null) {
-                require(
-                        at == request.requestedAt
-                                && (type == FileLifecycleEvent.Type.INPUT_RESOLVED
-                                        || type == FileLifecycleEvent.Type.COPY_ADMITTED
-                                        || (contract.storage
-                                                && type == FileLifecycleEvent.Type.INPUT_WAITING_FOR_STORE)),
-                        "Every initial input must be resolved or classified waiting at its request observation");
-            } else if (!resumes.isEmpty()) {
-                require(
-                        at == resumeAt
-                                && (type == FileLifecycleEvent.Type.INPUT_RESOLVED
-                                        || type == FileLifecycleEvent.Type.COPY_ADMITTED),
-                        "SOURCE visibility must immediately resume its affected inputs at the same observation");
-            } else if (outputOperation != null) {
-                require(
-                        at == outputOperation.at
-                                && (type == FileLifecycleEvent.Type.OUTPUT_RESOLVED
-                                        || type == FileLifecycleEvent.Type.COPY_ADMITTED),
-                        "Successful output obligations must resolve within their completion operation");
-            }
+            requireEventOrder(type, at);
             if (type != FileLifecycleEvent.Type.EXTERNAL_SEEDED) {
                 require(unseeded.isEmpty(), "All external files must be seeded before runtime operations");
                 runtimeEventSeen = true;
@@ -914,6 +890,53 @@ final class FileLifecycleValidator {
                 default:
                     throw bad("Unsupported lifecycle event");
             }
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from event(); statements verbatim; order unchanged.
+         * Scope: the immediate-successor ordering guard chain only; event dispatch stays in the caller.
+         */
+        private void requireEventOrder(FileLifecycleEvent.Type type, double at) {
+            if (!dueReady.isEmpty()) {
+                require(
+                        type == FileLifecycleEvent.Type.JOB_DATA_READY && at == dueAt,
+                        "A now-due JOB_DATA_READY must immediately follow its visibility operation");
+            } else if (needsResolution != null) {
+                require(
+                        type
+                                        == (needsResolution.output
+                                                ? FileLifecycleEvent.Type.OUTPUT_RESOLVED
+                                                : FileLifecycleEvent.Type.INPUT_RESOLVED)
+                                && at == needsResolution.release,
+                        "COPY_ADMITTED must immediately precede its corresponding NEW_COPY resolution");
+            } else if (request != null) {
+                requireResolvedAtRequest(type, at);
+            } else if (!resumes.isEmpty()) {
+                require(
+                        at == resumeAt
+                                && (type == FileLifecycleEvent.Type.INPUT_RESOLVED
+                                        || type == FileLifecycleEvent.Type.COPY_ADMITTED),
+                        "SOURCE visibility must immediately resume its affected inputs at the same observation");
+            } else if (outputOperation != null) {
+                require(
+                        at == outputOperation.at
+                                && (type == FileLifecycleEvent.Type.OUTPUT_RESOLVED
+                                        || type == FileLifecycleEvent.Type.COPY_ADMITTED),
+                        "Successful output obligations must resolve within their completion operation");
+            }
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from event(); statements verbatim; order unchanged.
+         * Scope: the pending-initial-request successor constraint only, as one branch of the order chain.
+         */
+        private void requireResolvedAtRequest(FileLifecycleEvent.Type type, double at) {
+            require(
+                    at == request.requestedAt
+                            && (type == FileLifecycleEvent.Type.INPUT_RESOLVED
+                                    || type == FileLifecycleEvent.Type.COPY_ADMITTED
+                                    || (contract.storage && type == FileLifecycleEvent.Type.INPUT_WAITING_FOR_STORE)),
+                    "Every initial input must be resolved or classified waiting at its request observation");
         }
 
         private void seed(JsonObject p, double at) {
@@ -1154,19 +1177,7 @@ final class FileLifecycleValidator {
                             file.id, owner.destination, at, "ZERO_BYTE_REFERENCE", selected.origin, source, null));
                     break;
                 case "NEW_COPY":
-                    long newOrdinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
-                    copy = needsResolution;
-                    require(
-                            copy != null
-                                    && !copy.output
-                                    && copy.ordinal == newOrdinal
-                                    && copy.file.id.equals(file.id)
-                                    && copy.owner == owner
-                                    && copy.destination.equals(owner.destination)
-                                    && source.equals(copy.source.location)
-                                    && local == null,
-                            "NEW_COPY must identify the immediately preceding frozen input admission");
-                    needsResolution = null;
+                    copy = resolveNewCopyAdmission(p, file, owner, source, local);
                     break;
                 case "JOIN_EXISTING":
                     long joinedOrdinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
@@ -1183,6 +1194,27 @@ final class FileLifecycleValidator {
                 default:
                     throw bad("Unsupported input resolution");
             }
+            return copy;
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from resolveAdmission(); statements verbatim; order unchanged.
+         * Scope: the NEW_COPY case body only; returns the frozen admission as the caller's result.
+         */
+        private Copy resolveNewCopyAdmission(JsonObject p, FileRow file, Job owner, Location source, Replica local) {
+            long newOrdinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
+            Copy copy = needsResolution;
+            require(
+                    copy != null
+                            && !copy.output
+                            && copy.ordinal == newOrdinal
+                            && copy.file.id.equals(file.id)
+                            && copy.owner == owner
+                            && copy.destination.equals(owner.destination)
+                            && source.equals(copy.source.location)
+                            && local == null,
+                    "NEW_COPY must identify the immediately preceding frozen input admission");
+            needsResolution = null;
             return copy;
         }
 
@@ -1219,6 +1251,28 @@ final class FileLifecycleValidator {
                                 && needsResolution.owner == owner,
                         "Output admission must immediately resolve its corresponding NEW_COPY obligation");
             }
+            boolean published = resolveOutputResolution(p, owner, file, source, producer, stored, resolution, at);
+            outputOperation.remaining.removeFirst();
+            outputOperation.visibleNotified = false;
+            if (published) {
+                resumeStoreInputs(file.id, at);
+            }
+            continueOutputs();
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from resolveOutput(); statements verbatim; order unchanged.
+         * Scope: the four-way output disposal switch only; it reports whether a SOURCE publication happened.
+         */
+        private boolean resolveOutputResolution(
+                JsonObject p,
+                Job owner,
+                FileRow file,
+                Location source,
+                Replica producer,
+                Replica stored,
+                String resolution,
+                double at) {
             boolean published = false;
             switch (resolution) {
                 case "ALREADY_STORED":
@@ -1236,19 +1290,7 @@ final class FileLifecycleValidator {
                     published = true;
                     break;
                 case "NEW_COPY":
-                    long ordinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
-                    Copy copy = needsResolution;
-                    require(
-                            stored == null
-                                    && copy != null
-                                    && copy.output
-                                    && copy.ordinal == ordinal
-                                    && copy.owner == owner
-                                    && copy.file.id.equals(file.id)
-                                    && copy.destination.equals(SOURCE)
-                                    && copy.source.location.equals(source),
-                            "Output NEW_COPY must identify its immediately preceding owned upload");
-                    needsResolution = null;
+                    resolveNewOutputCopy(p, owner, file, source, stored);
                     break;
                 case "JOIN_EXISTING":
                     long joined = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
@@ -1266,12 +1308,27 @@ final class FileLifecycleValidator {
                 default:
                     throw bad("Unsupported output resolution");
             }
-            outputOperation.remaining.removeFirst();
-            outputOperation.visibleNotified = false;
-            if (published) {
-                resumeStoreInputs(file.id, at);
-            }
-            continueOutputs();
+            return published;
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from resolveOutput(); statements verbatim; order unchanged.
+         * Scope: the output NEW_COPY case body only; discharges the immediately preceding frozen upload.
+         */
+        private void resolveNewOutputCopy(JsonObject p, Job owner, FileRow file, Location source, Replica stored) {
+            long ordinal = positiveLong(p.get("copyOrdinal"), "copyOrdinal");
+            Copy copy = needsResolution;
+            require(
+                    stored == null
+                            && copy != null
+                            && copy.output
+                            && copy.ordinal == ordinal
+                            && copy.owner == owner
+                            && copy.file.id.equals(file.id)
+                            && copy.destination.equals(SOURCE)
+                            && copy.source.location.equals(source),
+                    "Output NEW_COPY must identify its immediately preceding owned upload");
+            needsResolution = null;
         }
 
         private void settle(JsonObject p, double at) {

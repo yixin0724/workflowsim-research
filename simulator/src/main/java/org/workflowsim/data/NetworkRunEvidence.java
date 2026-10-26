@@ -99,16 +99,7 @@ public final class NetworkRunEvidence {
         if (trace.getEvents().size() > budget || candidates.size() > budget) {
             throw new IllegalArgumentException("Network trace or candidate binding count exceeds the record budget");
         }
-        Map<Long, NetworkFlowBinding> byOrdinal = new LinkedHashMap<Long, NetworkFlowBinding>();
-        for (NetworkFlowBinding binding : candidates) {
-            if (binding == null || binding.getAdmissionOrdinal() > budget) {
-                throw new IllegalArgumentException("Network binding lies outside the bounded admission prefix");
-            }
-            if (byOrdinal.put(binding.getAdmissionOrdinal(), binding) != null) {
-                throw new IllegalArgumentException(
-                        "Duplicate network binding admission ordinal: " + binding.getAdmissionOrdinal());
-            }
-        }
+        Map<Long, NetworkFlowBinding> byOrdinal = indexBoundedBindings(candidates, budget);
         List<NetworkFlowBinding> retained = new ArrayList<NetworkFlowBinding>();
         for (TransferTraceEvent event : trace.getEvents()) {
             if (event.getType() != TransferTraceEvent.Type.START) {
@@ -128,6 +119,24 @@ public final class NetworkRunEvidence {
                     "Complete network trace has candidate bindings without retained START records");
         }
         return new NetworkRunEvidence(config, modelKind, trace, retained, true, inputDemand);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from capture; statements verbatim; order unchanged.
+     * 作用域：仅校验候选绑定落在有界准入前缀内且 admission 序号唯一，并按序号建立索引。
+     */
+    private static Map<Long, NetworkFlowBinding> indexBoundedBindings(List<NetworkFlowBinding> candidates, int budget) {
+        Map<Long, NetworkFlowBinding> byOrdinal = new LinkedHashMap<Long, NetworkFlowBinding>();
+        for (NetworkFlowBinding binding : candidates) {
+            if (binding == null || binding.getAdmissionOrdinal() > budget) {
+                throw new IllegalArgumentException("Network binding lies outside the bounded admission prefix");
+            }
+            if (byOrdinal.put(binding.getAdmissionOrdinal(), binding) != null) {
+                throw new IllegalArgumentException(
+                        "Duplicate network binding admission ordinal: " + binding.getAdmissionOrdinal());
+            }
+        }
+        return byOrdinal;
     }
 
     private static void requireEnabledContention(NetworkEvidenceConfig config, DataMovementModel.Kind kind) {

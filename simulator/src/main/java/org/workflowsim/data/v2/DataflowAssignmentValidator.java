@@ -239,62 +239,94 @@ public final class DataflowAssignmentValidator {
     private void anchorComputeMainEvent(JsonObject main, String type, long sequence, double at, Attempt attempt) {
         Anchor anchor = new Anchor(sequence, at);
         if ("JOB_READY".equals(type)) {
-            Action action = assignments.get(attempt.id);
-            require(
-                    action != null && action.at == at && !ready.containsKey(attempt.id),
-                    "Every compute JOB_READY needs one preceding same-clock assignment");
-            JsonObject attrs = object(main.get("attributes"), "JOB_READY attributes");
-            Retry retry = retries.get(attempt.id);
-            if (retry == null) {
-                require(!attrs.has("retryOfFailedJobId"), "Initial readiness claims a retry parent");
-            } else {
-                require(
-                        integer(attrs.get("retryOfFailedJobId"), "retryOfFailedJobId") == retry.parent,
-                        "Readiness retry parent differs");
-            }
-            ready.put(attempt.id, anchor);
+            anchorReady(main, attempt, at, anchor);
         } else if ("JOB_RETURNED".equals(type)) {
-            require(
-                    assignments.containsKey(attempt.id) && ready.containsKey(attempt.id),
-                    "Compute return precedes its binding/readiness");
-            require(!returned.containsKey(attempt.id), "Duplicate main return");
-            require(
-                    integer(object(main.get("attributes"), "return attributes").get("jobStatus"), "jobStatus")
-                            == attempt.status,
-                    "Returned Job status differs from final attempt");
-            returned.put(attempt.id, anchor);
+            anchorReturned(main, attempt, anchor);
         } else if ("JOB_FAILED".equals(type)) {
-            require(
-                    attempt.status == Cloudlet.FAILED && !failed.containsKey(attempt.id),
-                    "Unexpected or duplicate main failure");
-            Anchor returnEvent = returned.get(attempt.id);
-            require(
-                    returnEvent != null && returnEvent.sequence < sequence && returnEvent.at <= at,
-                    "Failure must follow its failed return");
-            failed.put(attempt.id, anchor);
+            anchorFailed(attempt, sequence, at, anchor);
         } else {
-            int parentId =
-                    integer(object(main.get("attributes"), "retry attributes").get("failedJobId"), "failedJobId");
-            Attempt parent = attempts.get(parentId);
-            Anchor failure = failed.get(parentId);
-            require(
-                    failureEnabled
-                            && !assignments.containsKey(attempt.id)
-                            && !retries.containsKey(attempt.id)
-                            && parent != null
-                            && parent.id != attempt.id
-                            && parent.status == Cloudlet.FAILED
-                            && parent.task == attempt.task
-                            && parent.vm == attempt.vm
-                            && assignments.containsKey(parent.id)
-                            && failure != null
-                            && failure.sequence < sequence
-                            && failure.at <= at
-                            && retriedParents.add(parentId),
-                    "NOOP retry must follow one failed bound parent on the same Task and VM");
-            retries.put(attempt.id, new Retry(parentId, at));
-            require(retries.size() <= retryBudget, "Online retry history exceeds its budget");
+            anchorRetry(main, sequence, at, attempt);
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from anchorComputeMainEvent; statements verbatim; order unchanged.
+     * 范围：JOB_READY 分支——同拍先行 assignment、首次/重试父号校验，并登记 ready 锚点。
+     */
+    private void anchorReady(JsonObject main, Attempt attempt, double at, Anchor anchor) {
+        Action action = assignments.get(attempt.id);
+        require(
+                action != null && action.at == at && !ready.containsKey(attempt.id),
+                "Every compute JOB_READY needs one preceding same-clock assignment");
+        JsonObject attrs = object(main.get("attributes"), "JOB_READY attributes");
+        Retry retry = retries.get(attempt.id);
+        if (retry == null) {
+            require(!attrs.has("retryOfFailedJobId"), "Initial readiness claims a retry parent");
+        } else {
+            require(
+                    integer(attrs.get("retryOfFailedJobId"), "retryOfFailedJobId") == retry.parent,
+                    "Readiness retry parent differs");
+        }
+        ready.put(attempt.id, anchor);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from anchorComputeMainEvent; statements verbatim; order unchanged.
+     * 范围：JOB_RETURNED 分支——绑定/就绪先行、唯一性与终态 Job status 校验，并登记 returned 锚点。
+     */
+    private void anchorReturned(JsonObject main, Attempt attempt, Anchor anchor) {
+        require(
+                assignments.containsKey(attempt.id) && ready.containsKey(attempt.id),
+                "Compute return precedes its binding/readiness");
+        require(!returned.containsKey(attempt.id), "Duplicate main return");
+        require(
+                integer(object(main.get("attributes"), "return attributes").get("jobStatus"), "jobStatus")
+                        == attempt.status,
+                "Returned Job status differs from final attempt");
+        returned.put(attempt.id, anchor);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from anchorComputeMainEvent; statements verbatim; order unchanged.
+     * 范围：JOB_FAILED 分支——终态 FAILED、唯一性与 return 严格先行校验，并登记 failed 锚点。
+     */
+    private void anchorFailed(Attempt attempt, long sequence, double at, Anchor anchor) {
+        require(
+                attempt.status == Cloudlet.FAILED && !failed.containsKey(attempt.id),
+                "Unexpected or duplicate main failure");
+        Anchor returnEvent = returned.get(attempt.id);
+        require(
+                returnEvent != null && returnEvent.sequence < sequence && returnEvent.at <= at,
+                "Failure must follow its failed return");
+        failed.put(attempt.id, anchor);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from anchorComputeMainEvent; statements verbatim; order unchanged.
+     * 范围：RETRY_JOB_CREATED 分支——同 Task 同 VM 单一已 FAILED 父号链校验，并登记 Retry 与预算上界。
+     */
+    private void anchorRetry(JsonObject main, long sequence, double at, Attempt attempt) {
+        int parentId =
+                integer(object(main.get("attributes"), "retry attributes").get("failedJobId"), "failedJobId");
+        Attempt parent = attempts.get(parentId);
+        Anchor failure = failed.get(parentId);
+        require(
+                failureEnabled
+                        && !assignments.containsKey(attempt.id)
+                        && !retries.containsKey(attempt.id)
+                        && parent != null
+                        && parent.id != attempt.id
+                        && parent.status == Cloudlet.FAILED
+                        && parent.task == attempt.task
+                        && parent.vm == attempt.vm
+                        && assignments.containsKey(parent.id)
+                        && failure != null
+                        && failure.sequence < sequence
+                        && failure.at <= at
+                        && retriedParents.add(parentId),
+                "NOOP retry must follow one failed bound parent on the same Task and VM");
+        retries.put(attempt.id, new Retry(parentId, at));
+        require(retries.size() <= retryBudget, "Online retry history exceeds its budget");
     }
 
     /**
@@ -313,6 +345,28 @@ public final class DataflowAssignmentValidator {
                 assignments.keySet().equals(attempts.keySet()) && ready.keySet().equals(attempts.keySet()),
                 "Missing or extra assignment/readiness for final compute attempts");
         Prefix prefix = new Prefix();
+        replayLifecycle(prefix);
+        require(
+                prefix.requested.equals(attempts.keySet())
+                        && prefix.terminal.keySet().equals(attempts.keySet())
+                        && prefix.active.isEmpty()
+                        && prefix.copies.isEmpty()
+                        && prefix.pendingOutputs.isEmpty(),
+                "Final lifecycle/action coverage is not complete and quiescent");
+        require(prefix.retryCount == retries.size(), "Retry creation has no corresponding reused action");
+        JsonArray records = new JsonArray();
+        for (Action action : assignments.values()) {
+            records.add(action.record);
+        }
+        result = new Result(records, prefix.initialCount, prefix.retryCount);
+        return result;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from finish; statements verbatim; order unchanged.
+     * 范围：已校验生命周期事件流的单遍按序回放（发布/请求/拷贝/解析/CPU 启动/终局），填充 prefix。
+     */
+    private void replayLifecycle(Prefix prefix) {
         for (JsonElement item : lifecycle) {
             JsonObject event = object(item, "validated lifecycle event");
             JsonObject p = object(event.get("payload"), "payload");
@@ -357,20 +411,6 @@ public final class DataflowAssignmentValidator {
                     throw bad("Unexpected decoded lifecycle operation");
             }
         }
-        require(
-                prefix.requested.equals(attempts.keySet())
-                        && prefix.terminal.keySet().equals(attempts.keySet())
-                        && prefix.active.isEmpty()
-                        && prefix.copies.isEmpty()
-                        && prefix.pendingOutputs.isEmpty(),
-                "Final lifecycle/action coverage is not complete and quiescent");
-        require(prefix.retryCount == retries.size(), "Retry creation has no corresponding reused action");
-        JsonArray records = new JsonArray();
-        for (Action action : assignments.values()) {
-            records.add(action.record);
-        }
-        result = new Result(records, prefix.initialCount, prefix.retryCount);
-        return result;
     }
 
     /** Immutable result. The returned records are full validated main events, not wire summaries. */
@@ -432,31 +472,8 @@ public final class DataflowAssignmentValidator {
                     "Assignment order, clock or actual input binding differs");
             Integer bound = bindings.get(attempt.task);
             Retry retry = retries.get(id);
-            if (bound == null) {
-                require(!action.reuse && retry == null, "First logical binding must be INITIAL, not a retry");
-            } else {
-                Terminal parent = retry == null ? null : terminal.get(retry.parent);
-                require(
-                        action.reuse
-                                && bound == attempt.vm
-                                && parent != null
-                                && !parent.success
-                                && parent.at <= retry.at
-                                && retry.at <= now,
-                        "RETRY_REUSE lacks an already failed fixed-VM parent");
-            }
-            Summary summary = action.summary;
-            require(
-                    summary.storage == storage
-                            && summary.storeInputs == storeInputs
-                            && summary.shared == shared
-                            && summary.observed == now
-                            && summary.service == now
-                            && summary.copies == copies.size()
-                            && summary.jobs == active.size()
-                            && summary.pending == pendingOutputs.size()
-                            && summary.scoped == tasks.get(attempt.task).inputs.size(),
-                    "Observation differs from immediately pre-request state");
+            requireBindingConsistency(attempt, action, bound, retry, now);
+            requireObservationSnapshot(action, attempt, now);
             List<Integer> expectedVms = bound == null ? new ArrayList<>(vms.keySet()) : Arrays.asList(bound);
             require(
                     action.candidates.size() == expectedVms.size(),
@@ -476,6 +493,45 @@ public final class DataflowAssignmentValidator {
             } else {
                 retryCount++;
             }
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from request; statements verbatim; order unchanged.
+         * 范围：首次绑定（INITIAL）与重试绑定（RETRY_REUSE）的种类一致性与固定 VM 失败父链校验。
+         */
+        private void requireBindingConsistency(Attempt attempt, Action action, Integer bound, Retry retry, double now) {
+            if (bound == null) {
+                require(!action.reuse && retry == null, "First logical binding must be INITIAL, not a retry");
+            } else {
+                Terminal parent = retry == null ? null : terminal.get(retry.parent);
+                require(
+                        action.reuse
+                                && bound == attempt.vm
+                                && parent != null
+                                && !parent.success
+                                && parent.at <= retry.at
+                                && retry.at <= now,
+                        "RETRY_REUSE lacks an already failed fixed-VM parent");
+            }
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from request; statements verbatim; order unchanged.
+         * 范围：assignment observation 摘要与紧前 pre-request 状态（存储模式/时钟/活跃计数）一致性校验。
+         */
+        private void requireObservationSnapshot(Action action, Attempt attempt, double now) {
+            Summary summary = action.summary;
+            require(
+                    summary.storage == storage
+                            && summary.storeInputs == storeInputs
+                            && summary.shared == shared
+                            && summary.observed == now
+                            && summary.service == now
+                            && summary.copies == copies.size()
+                            && summary.jobs == active.size()
+                            && summary.pending == pendingOutputs.size()
+                            && summary.scoped == tasks.get(attempt.task).inputs.size(),
+                    "Observation differs from immediately pre-request state");
         }
         /** request() 的候选估值循环（逐字搬运转写；分数公式的 binary64 次序与 tie-break 原样）。 */
         private CandidateLoop evaluateCandidates(
@@ -736,6 +792,21 @@ public final class DataflowAssignmentValidator {
                     "Every compute attempt needs a unique Task outcome");
         }
         Map<Integer, Attempt> logical = new HashMap<>();
+        loadComputeRequests(manifest, jobs, outcomes, logical);
+        require(
+                attempts.keySet().equals(jobs.keySet()) && outcomes.keySet().equals(jobs.keySet()),
+                "Compute requests and Task outcomes must exactly cover compute Jobs");
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from loadAttempts; statements verbatim; order unchanged.
+     * 范围：dataflowComputeRequests 循环——逐请求解析声明、校验并登记唯一 Attempt（含同 Task 长度/PE 一致性）。
+     */
+    private void loadComputeRequests(
+            JsonObject manifest,
+            Map<Integer, JsonObject> jobs,
+            Map<Integer, JsonObject> outcomes,
+            Map<Integer, Attempt> logical) {
         for (JsonElement value : array(manifest.get("dataflowComputeRequests"), "dataflowComputeRequests")) {
             JsonObject row = object(value, "compute request");
             keys(row, "jobId", "taskId", "taskPes", "jobPes", "lengthMi");
@@ -747,17 +818,7 @@ public final class DataflowAssignmentValidator {
                     job != null && outcome != null && tasks.containsKey(task),
                     "Compute request has no declared Task/final attempt");
             int vm = integer(job.get("vmId"), "vmId"), status = integer(job.get("status"), "status");
-            require(
-                    vms.containsKey(vm)
-                            && (status == Cloudlet.SUCCESS || status == Cloudlet.FAILED)
-                            && singleton(job.get("taskIds"), "Job taskIds") == task
-                            && integer(job.get("taskCount"), "taskCount") == 1
-                            && integer(outcome.get("taskId"), "Task taskId") == task
-                            && integer(outcome.get("vmId"), "Task vmId") == vm
-                            && integer(outcome.get("jobStatus"), "jobStatus") == status
-                            && integer(outcome.get("taskStatus"), "taskStatus") == status
-                            && positiveLong(outcome.get("lengthMi"), "Task lengthMi") == length,
-                    "Compute metadata differs from Job/Task outcomes");
+            requireComputeMetadata(job, outcome, task, vm, status, length);
             Attempt attempt = new Attempt(
                     id,
                     task,
@@ -773,9 +834,24 @@ public final class DataflowAssignmentValidator {
                     prior == null || (prior.lengthMi == length && prior.taskPes == taskPes && prior.jobPes == jobPes),
                     "NOOP logical Task length/PE requirements changed across attempts");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from loadAttempts; statements verbatim; order unchanged.
+     * 范围：单个计算请求相对 Job/Task 终局的全量元数据一致性 require 校验。
+     */
+    private void requireComputeMetadata(JsonObject job, JsonObject outcome, int task, int vm, int status, long length) {
         require(
-                attempts.keySet().equals(jobs.keySet()) && outcomes.keySet().equals(jobs.keySet()),
-                "Compute requests and Task outcomes must exactly cover compute Jobs");
+                vms.containsKey(vm)
+                        && (status == Cloudlet.SUCCESS || status == Cloudlet.FAILED)
+                        && singleton(job.get("taskIds"), "Job taskIds") == task
+                        && integer(job.get("taskCount"), "taskCount") == 1
+                        && integer(outcome.get("taskId"), "Task taskId") == task
+                        && integer(outcome.get("vmId"), "Task vmId") == vm
+                        && integer(outcome.get("jobStatus"), "jobStatus") == status
+                        && integer(outcome.get("taskStatus"), "taskStatus") == status
+                        && positiveLong(outcome.get("lengthMi"), "Task lengthMi") == length,
+                "Compute metadata differs from Job/Task outcomes");
     }
 
     private Map<Integer, Map<Integer, Double>> loadMatrix(JsonObject config) {
@@ -1278,18 +1354,44 @@ public final class DataflowAssignmentValidator {
 
     private static void same(JsonElement a, JsonElement b, String message) {
         if (a != null && b != null && a.isJsonObject() && b.isJsonObject()) {
-            JsonObject x = a.getAsJsonObject(), y = b.getAsJsonObject();
-            require(x.keySet().equals(y.keySet()), message);
-            for (String key : y.keySet()) {
-                same(x.get(key), y.get(key), message);
-            }
+            sameObject(a, b, message);
         } else if (a != null && b != null && a.isJsonArray() && b.isJsonArray()) {
-            JsonArray x = a.getAsJsonArray(), y = b.getAsJsonArray();
-            require(x.size() == y.size(), message);
-            for (int i = 0; i < y.size(); i++) {
-                same(x.get(i), y.get(i), message);
-            }
-        } else if (a != null
+            sameArray(a, b, message);
+        } else {
+            sameScalar(a, b, message);
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same; statements verbatim; order unchanged.
+     * 范围：对象层比对——keySet 全等校验后对每个键递归 same。
+     */
+    private static void sameObject(JsonElement a, JsonElement b, String message) {
+        JsonObject x = a.getAsJsonObject(), y = b.getAsJsonObject();
+        require(x.keySet().equals(y.keySet()), message);
+        for (String key : y.keySet()) {
+            same(x.get(key), y.get(key), message);
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same; statements verbatim; order unchanged.
+     * 范围：数组层比对——长度相等校验后对每个下标递归 same。
+     */
+    private static void sameArray(JsonElement a, JsonElement b, String message) {
+        JsonArray x = a.getAsJsonArray(), y = b.getAsJsonArray();
+        require(x.size() == y.size(), message);
+        for (int i = 0; i < y.size(); i++) {
+            same(x.get(i), y.get(i), message);
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same; statements verbatim; order unchanged.
+     * 范围：标量层比对——数值按 decimal 精确比较，其余回退 null/equals 兜底校验。
+     */
+    private static void sameScalar(JsonElement a, JsonElement b, String message) {
+        if (a != null
                 && b != null
                 && a.isJsonPrimitive()
                 && b.isJsonPrimitive()

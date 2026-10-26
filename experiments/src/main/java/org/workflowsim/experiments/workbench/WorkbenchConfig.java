@@ -225,44 +225,8 @@ public final class WorkbenchConfig {
             }
             Parameters.PlanningAlgorithm planner =
                     Parameters.PlanningAlgorithm.valueOf(text(algorithm, "planner", "INVALID"));
-            String schedulerText = text(
-                    algorithm,
-                    "scheduler",
-                    assignment.isEnabled()
-                            ? "STATIC"
-                            : planner == Parameters.PlanningAlgorithm.INVALID ? "FCFS" : "STATIC");
-            org.workflowsim.experiment.registry.SchedulingAlgorithmProvider registeredProvider = null;
-            Parameters.SchedulingAlgorithm scheduler;
-            try {
-                scheduler = Parameters.SchedulingAlgorithm.valueOf(schedulerText);
-            } catch (IllegalArgumentException unknownEnumLabel) {
-                // BAT-3（2026-10-26）：外部注册算轨标签（ServiceLoader SPI）。
-                if (!assignment.isEnabled()
-                        && planner == Parameters.PlanningAlgorithm.INVALID
-                        && org.workflowsim.experiment.registry.AlgorithmRegistry.isRegistered(schedulerText)) {
-                    registeredProvider = org.workflowsim.experiment.registry.AlgorithmRegistry.find(schedulerText);
-                    scheduler = Parameters.SchedulingAlgorithm.INVALID;
-                } else {
-                    throw unknownEnumLabel;
-                }
-            }
-            if (registeredProvider == null
-                    && (!AlgorithmCatalog.isSupportedBySimulationRunner(planner)
-                            || !AlgorithmCatalog.isSupportedBySimulationRunner(scheduler)
-                            || scheduler == Parameters.SchedulingAlgorithm.RL_POLICY)) {
-                throw new IllegalArgumentException(
-                        "Workbench requires maintained built-in algorithms; external RL policies use the Java "
-                                + "RlEnvironment adapter");
-            }
-            String candidateTrack = assignment.isEnabled()
-                    ? "DATAFLOW_BINDING"
-                    : planner == Parameters.PlanningAlgorithm.INVALID
-                            ? "ONLINE"
-                            : planner.name().startsWith("STATIC_") ? "INDEPENDENT" : "DAG_STATIC";
-            if (track != null && !track.equals(candidateTrack)) {
-                throw new IllegalArgumentException("Cannot compare different decision layers in one experiment");
-            }
-            track = candidateTrack;
+            ResolvedScheduler resolved = resolveSchedulerPolicy(algorithm, assignment, planner);
+            track = requireSameDecisionLayer(track, assignment, planner);
             org.workflowsim.utils.SimulationConfig.Builder configBuilder = SimulationConfig.builder(
                             paths, platform.getVms().size())
                     .workflowArrivalSeconds(arrivals)
@@ -270,11 +234,11 @@ public final class WorkbenchConfig {
                     .dataMovementModel(models.movement)
                     .networkEvidence(models.networkEvidence)
                     .dataflowAssignment(assignment)
-                    .schedulingAlgorithm(scheduler)
+                    .schedulingAlgorithm(resolved.scheduler)
                     .planningAlgorithm(planner)
                     .randomSeed(seeds.get(0));
-            if (registeredProvider != null) {
-                configBuilder.registeredSchedulingAlgorithm(registeredProvider);
+            if (resolved.registeredProvider != null) {
+                configBuilder.registeredSchedulingAlgorithm(resolved.registeredProvider);
             }
             SimulationConfig config = configBuilder
                     .runtimeScale(decimal(models.sim, "runtimeScale", 1, true))
@@ -292,6 +256,78 @@ public final class WorkbenchConfig {
             throw new IllegalArgumentException("An experiment needs 1..500 runs");
         }
         return candidates;
+    }
+
+    /** readCandidates 调度策略解析的私有搬运转写结构。 */
+    private static final class ResolvedScheduler {
+        final Parameters.SchedulingAlgorithm scheduler;
+        final org.workflowsim.experiment.registry.SchedulingAlgorithmProvider registeredProvider;
+
+        ResolvedScheduler(
+                Parameters.SchedulingAlgorithm scheduler,
+                org.workflowsim.experiment.registry.SchedulingAlgorithmProvider registeredProvider) {
+            this.scheduler = scheduler;
+            this.registeredProvider = registeredProvider;
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from readCandidates; statements verbatim; order unchanged.
+     * 作用域：仅解析候选算轨的调度策略（默认标签、枚举解析、SPI 外部注册回退与维护面资格审查）。
+     */
+    private static ResolvedScheduler resolveSchedulerPolicy(
+            JsonObject algorithm,
+            org.workflowsim.data.v2.DataflowAssignmentConfig assignment,
+            Parameters.PlanningAlgorithm planner) {
+        String schedulerText = text(
+                algorithm,
+                "scheduler",
+                assignment.isEnabled()
+                        ? "STATIC"
+                        : planner == Parameters.PlanningAlgorithm.INVALID ? "FCFS" : "STATIC");
+        org.workflowsim.experiment.registry.SchedulingAlgorithmProvider registeredProvider = null;
+        Parameters.SchedulingAlgorithm scheduler;
+        try {
+            scheduler = Parameters.SchedulingAlgorithm.valueOf(schedulerText);
+        } catch (IllegalArgumentException unknownEnumLabel) {
+            // BAT-3（2026-10-26）：外部注册算轨标签（ServiceLoader SPI）。
+            if (!assignment.isEnabled()
+                    && planner == Parameters.PlanningAlgorithm.INVALID
+                    && org.workflowsim.experiment.registry.AlgorithmRegistry.isRegistered(schedulerText)) {
+                registeredProvider = org.workflowsim.experiment.registry.AlgorithmRegistry.find(schedulerText);
+                scheduler = Parameters.SchedulingAlgorithm.INVALID;
+            } else {
+                throw unknownEnumLabel;
+            }
+        }
+        if (registeredProvider == null
+                && (!AlgorithmCatalog.isSupportedBySimulationRunner(planner)
+                        || !AlgorithmCatalog.isSupportedBySimulationRunner(scheduler)
+                        || scheduler == Parameters.SchedulingAlgorithm.RL_POLICY)) {
+            throw new IllegalArgumentException(
+                    "Workbench requires maintained built-in algorithms; external RL policies use the Java "
+                            + "RlEnvironment adapter");
+        }
+        return new ResolvedScheduler(scheduler, registeredProvider);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from readCandidates; statements verbatim; order unchanged.
+     * 作用域：仅计算决策层归属并校验同一实验内全部候选必须处于同一决策层。
+     */
+    private static String requireSameDecisionLayer(
+            String track,
+            org.workflowsim.data.v2.DataflowAssignmentConfig assignment,
+            Parameters.PlanningAlgorithm planner) {
+        String candidateTrack = assignment.isEnabled()
+                ? "DATAFLOW_BINDING"
+                : planner == Parameters.PlanningAlgorithm.INVALID
+                        ? "ONLINE"
+                        : planner.name().startsWith("STATIC_") ? "INDEPENDENT" : "DAG_STATIC";
+        if (track != null && !track.equals(candidateTrack)) {
+            throw new IllegalArgumentException("Cannot compare different decision layers in one experiment");
+        }
+        return candidateTrack;
     }
 
     /** read() 仿真模型组的私有搬运转写结构。 */

@@ -146,22 +146,7 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
 
     /** 从最高优先级入口任务出发，沿最长路径上的实际边前进，平局取较小任务 ID。 */
     private LinkedHashSet<Task> walkCriticalPath(List<Task> tasks) {
-        Task entry = null;
-        for (Task task : tasks) {
-            if (!task.getParentList().isEmpty()) {
-                continue;
-            }
-            if (entry == null
-                    || priorityOf(task) > priorityOf(entry)
-                    || (Double.compare(priorityOf(task), priorityOf(entry)) == 0
-                            && task.getCloudletId() < entry.getCloudletId())) {
-                entry = task;
-            }
-        }
-        if (entry == null) {
-            throw new IllegalStateException("LOCAL_CPOP requires at least one entry task; "
-                    + "the DAG validator should have rejected cyclic workflows");
-        }
+        Task entry = highestPriorityEntry(tasks);
         double criticalPathLength = priorityOf(entry);
         LinkedHashSet<Task> criticalPath = new LinkedHashSet<Task>();
         Task current = entry;
@@ -196,6 +181,30 @@ public final class LocalCpopPlanningAlgorithm extends AbstractLocalCommPlanningA
     private static boolean sameRank(double first, double second) {
         double scale = Math.max(1.0, Math.max(Math.abs(first), Math.abs(second)));
         return Math.abs(first - second) <= RANK_TOLERANCE * scale;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from walkCriticalPath; statements verbatim; order unchanged.
+     * 作用域：仅在全部入口任务中选出优先级最高者（平局取较小任务 ID），无入口任务即抛。
+     */
+    private Task highestPriorityEntry(List<Task> tasks) {
+        Task entry = null;
+        for (Task task : tasks) {
+            if (!task.getParentList().isEmpty()) {
+                continue;
+            }
+            if (entry == null
+                    || priorityOf(task) > priorityOf(entry)
+                    || (Double.compare(priorityOf(task), priorityOf(entry)) == 0
+                            && task.getCloudletId() < entry.getCloudletId())) {
+                entry = task;
+            }
+        }
+        if (entry == null) {
+            throw new IllegalStateException("LOCAL_CPOP requires at least one entry task; "
+                    + "the DAG validator should have rejected cyclic workflows");
+        }
+        return entry;
     }
 
     /** 关键路径处理器：使关键路径任务计算秒数之和最小的 VM，平局取较小 VM ID。 */

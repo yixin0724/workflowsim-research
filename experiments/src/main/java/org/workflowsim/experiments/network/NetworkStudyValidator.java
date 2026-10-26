@@ -146,18 +146,7 @@ public final class NetworkStudyValidator {
         if (!"COMPLETED_SUCCESSFULLY".equals(text(run, "status"))) {
             throw new IOException("Study contains failed run: " + cell);
         }
-        String relative = text(run, "manifest");
-        Path manifest = retained.root.resolve(relative).normalize();
-        if (Paths.get(relative).isAbsolute()
-                || !manifest.startsWith(retained.root)
-                || !manifest.toRealPath().startsWith(retained.realRoot)) {
-            throw new IOException("Invalid study evidence path");
-        }
-        ExperimentArtifactValidator.validate(manifest);
-        JsonObject evidence = read(manifest);
-        if (!"workflowsim-experiment-manifest-v4".equals(text(evidence, "schema"))) {
-            throw new IOException("Registered network studies require manifest v4");
-        }
+        JsonObject evidence = readValidatedManifest(run, retained);
         String datasetRoot = validateProvenance(evidence, retained.registered, retained.protocolSha256);
         if (state.datasetIdentity != null && !state.datasetIdentity.equals(datasetRoot)) {
             throw new IOException("Study runs disagree on their declared dataset root");
@@ -182,6 +171,26 @@ public final class NetworkStudyValidator {
                 seed,
                 cell);
         validateRunEvidence(run, workflow, cell, evidence);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateStudyRun; statements verbatim; order unchanged.
+     * 作用域：仅解析并校验单个研究运行指向的 manifest 证据路径（限制在留存研究目录内）且强制 v4 schema。
+     */
+    private static JsonObject readValidatedManifest(JsonObject run, RetainedStudy retained) throws IOException {
+        String relative = text(run, "manifest");
+        Path manifest = retained.root.resolve(relative).normalize();
+        if (Paths.get(relative).isAbsolute()
+                || !manifest.startsWith(retained.root)
+                || !manifest.toRealPath().startsWith(retained.realRoot)) {
+            throw new IOException("Invalid study evidence path");
+        }
+        ExperimentArtifactValidator.validate(manifest);
+        JsonObject evidence = read(manifest);
+        if (!"workflowsim-experiment-manifest-v4".equals(text(evidence, "schema"))) {
+            throw new IOException("Registered network studies require manifest v4");
+        }
+        return evidence;
     }
 
     /** 设计实验 manifest 指标与索引一致性校验（逐字搬运转写）。 */

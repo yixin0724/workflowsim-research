@@ -34,25 +34,7 @@ public final class WorkflowDagValidator {
             throw new WorkflowValidationException("Workflow must contain at least one task");
         }
 
-        Map<Integer, Task> taskById = new HashMap<>();
-        Set<Task> taskSet = new HashSet<>();
-        for (Task task : tasks) {
-            if (task == null) {
-                throw new WorkflowValidationException("Workflow cannot contain a null task");
-            }
-            if (task.getCloudletLength() <= 0L) {
-                throw new WorkflowValidationException(
-                        "Task " + task.getCloudletId() + " has non-positive Cloudlet length");
-            }
-            if (taskById.put(task.getCloudletId(), task) != null) {
-                throw new WorkflowValidationException("Duplicate task ID " + task.getCloudletId());
-            }
-            if (task.getParentList() == null || task.getChildList() == null) {
-                throw new WorkflowValidationException("Task " + task.getCloudletId() + " has a null adjacency list");
-            }
-            taskSet.add(task);
-            task.setDepth(0);
-        }
+        Set<Task> taskSet = indexAndValidateTasks(tasks);
 
         Map<Task, Integer> remainingParents = new HashMap<>();
         // Per-validation lazy indexes only: Task lists remain authoritative and keep their order.
@@ -97,6 +79,33 @@ public final class WorkflowDagValidator {
         if (visited != tasks.size()) {
             throw new WorkflowValidationException("Workflow graph contains a cycle");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateAndAssignDepths; statements verbatim; order unchanged.
+     * 作用域：仅逐任务校验非空、长度、编号唯一与邻接表存在性并建索引，同时把深度归零。
+     */
+    private static Set<Task> indexAndValidateTasks(List<Task> tasks) {
+        Map<Integer, Task> taskById = new HashMap<>();
+        Set<Task> taskSet = new HashSet<>();
+        for (Task task : tasks) {
+            if (task == null) {
+                throw new WorkflowValidationException("Workflow cannot contain a null task");
+            }
+            if (task.getCloudletLength() <= 0L) {
+                throw new WorkflowValidationException(
+                        "Task " + task.getCloudletId() + " has non-positive Cloudlet length");
+            }
+            if (taskById.put(task.getCloudletId(), task) != null) {
+                throw new WorkflowValidationException("Duplicate task ID " + task.getCloudletId());
+            }
+            if (task.getParentList() == null || task.getChildList() == null) {
+                throw new WorkflowValidationException("Task " + task.getCloudletId() + " has a null adjacency list");
+            }
+            taskSet.add(task);
+            task.setDepth(0);
+        }
+        return taskSet;
     }
 
     private static void validateNeighbours(

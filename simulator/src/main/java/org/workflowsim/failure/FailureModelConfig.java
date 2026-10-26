@@ -261,6 +261,22 @@ public final class FailureModelConfig {
                     || generatorSpecsByVmId == null) {
                 throw new IllegalArgumentException("Failure configuration contains a required null value");
             }
+            validateGeneratorLayout();
+            return new FailureModelConfig(
+                    clusteringAlgorithm,
+                    monitorMode,
+                    generatorMode,
+                    distributionFamily,
+                    generatorSpecs,
+                    generatorSpecsByVmId,
+                    generatorMode == FailureParameters.FTCFailure.FAILURE_NONE ? 0 : maxTotalRetryJobs);
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from build; statements verbatim; order unchanged.
+         * 作用域：仅校验故障模型启停与生成器布局（禁用禁配生成器与 retry 预算；启用时恰取一种布局且模式/预算匹配）。
+         */
+        private void validateGeneratorLayout() {
             boolean hasDenseMatrix = generatorSpecs.length != 0;
             boolean hasVmIdKeyedRows = !generatorSpecsByVmId.isEmpty();
             if (generatorMode == FailureParameters.FTCFailure.FAILURE_NONE) {
@@ -290,14 +306,6 @@ public final class FailureModelConfig {
                             + "maxTotalRetryJobs safety budget");
                 }
             }
-            return new FailureModelConfig(
-                    clusteringAlgorithm,
-                    monitorMode,
-                    generatorMode,
-                    distributionFamily,
-                    generatorSpecs,
-                    generatorSpecsByVmId,
-                    generatorMode == FailureParameters.FTCFailure.FAILURE_NONE ? 0 : maxTotalRetryJobs);
         }
 
         private static void validateGeneratorMatrix(DistributionSpec[][] matrix, DistributionFamily expectedFamily) {

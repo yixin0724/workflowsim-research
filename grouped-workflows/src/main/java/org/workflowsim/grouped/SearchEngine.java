@@ -517,32 +517,7 @@ public final class SearchEngine {
             return current;
         }
         List<Integer> candidates = cuts(current, w);
-        int all = (1 << candidates.size()) - 1, currentMask = 0;
-        for (int i = 0; i < candidates.size(); i++) {
-            if (current.result.compiled.owner[w[candidates.get(i) - 1]]
-                    != current.result.compiled.owner[w[candidates.get(i)]]) {
-                currentMask |= 1 << i;
-            }
-        }
-        List<Integer> masks = new ArrayList<>();
-        for (int mask = 0; mask <= all; mask++) {
-            masks.add(mask);
-        }
-        Collections.shuffle(masks, random);
-        LinkedHashSet<Integer> selected = new LinkedHashSet<>();
-        selected.add(all);
-        selected.add(0);
-        selected.add(currentMask);
-        for (int mask : masks) {
-            if (selected.size() < cfg.partitionSamples) {
-                selected.add(mask);
-            }
-        }
-        masks = new ArrayList<>(selected);
-        Collections.shuffle(masks, random);
-        if (masks.size() > cfg.partitionSamples) {
-            masks = new ArrayList<>(masks.subList(0, cfg.partitionSamples));
-        }
+        List<Integer> masks = sampledMasks(current, w, candidates);
         List<Integer> related = withRelated ? related(current, w) : Collections.emptyList();
         Value result = current;
         for (int i = 0; i < masks.size() && within(limit, requestLimit); i++) {
@@ -577,6 +552,39 @@ public final class SearchEngine {
         return result;
     }
 
+    /** 2026-10-26 complexity extraction from path; statements verbatim; order unchanged.
+     * Samples window cut masks, always keeping all/none/current-owner plus random fill to budget.
+     */
+    private List<Integer> sampledMasks(Value current, int[] w, List<Integer> candidates) {
+        int all = (1 << candidates.size()) - 1, currentMask = 0;
+        for (int i = 0; i < candidates.size(); i++) {
+            if (current.result.compiled.owner[w[candidates.get(i) - 1]]
+                    != current.result.compiled.owner[w[candidates.get(i)]]) {
+                currentMask |= 1 << i;
+            }
+        }
+        List<Integer> masks = new ArrayList<>();
+        for (int mask = 0; mask <= all; mask++) {
+            masks.add(mask);
+        }
+        Collections.shuffle(masks, random);
+        LinkedHashSet<Integer> selected = new LinkedHashSet<>();
+        selected.add(all);
+        selected.add(0);
+        selected.add(currentMask);
+        for (int mask : masks) {
+            if (selected.size() < cfg.partitionSamples) {
+                selected.add(mask);
+            }
+        }
+        masks = new ArrayList<>(selected);
+        Collections.shuffle(masks, random);
+        if (masks.size() > cfg.partitionSamples) {
+            masks = new ArrayList<>(masks.subList(0, cfg.partitionSamples));
+        }
+        return masks;
+    }
+
     private List<Integer> related(Value v, int[] window) {
         if (cfg.relatedLimit == 0) {
             return Collections.emptyList();
@@ -585,23 +593,7 @@ public final class SearchEngine {
         for (int t : window) {
             own.add(v.result.compiled.owner[t]);
         }
-        LinkedHashSet<Integer> choices = new LinkedHashSet<>();
-        for (int g : own) {
-            for (int child : v.result.compiled.groups[g].children) {
-                if (!own.contains(child)) {
-                    choices.add(child);
-                }
-            }
-        }
-        for (int g = 0; g < v.plan.members.length; g++) {
-            if (!own.contains(g)) {
-                for (int blocker : v.result.blockers[g]) {
-                    if (own.contains(blocker)) {
-                        choices.add(g);
-                    }
-                }
-            }
-        }
+        LinkedHashSet<Integer> choices = relatedChoices(v, own);
         List<Integer> outside = new ArrayList<>();
         for (int g = 0; g < v.plan.members.length; g++) {
             if (!own.contains(g)) {
@@ -624,6 +616,30 @@ public final class SearchEngine {
             result.add(outside.get(random.nextInt(outside.size())));
         }
         return result.subList(0, Math.min(cfg.relatedLimit, result.size()));
+    }
+
+    /** 2026-10-26 complexity extraction from related; statements verbatim; order unchanged.
+     * Locates outside groups bordering the window by child links or observed blockers.
+     */
+    private LinkedHashSet<Integer> relatedChoices(Value v, Set<Integer> own) {
+        LinkedHashSet<Integer> choices = new LinkedHashSet<>();
+        for (int g : own) {
+            for (int child : v.result.compiled.groups[g].children) {
+                if (!own.contains(child)) {
+                    choices.add(child);
+                }
+            }
+        }
+        for (int g = 0; g < v.plan.members.length; g++) {
+            if (!own.contains(g)) {
+                for (int blocker : v.result.blockers[g]) {
+                    if (own.contains(blocker)) {
+                        choices.add(g);
+                    }
+                }
+            }
+        }
+        return choices;
     }
 
     private static final class Repartition {
@@ -670,6 +686,19 @@ public final class SearchEngine {
         } catch (IllegalArgumentException infeasible) {
             return null;
         }
+        return placeRepartitioned(v, members, compiled, fixedOrder, movable, fixedPlacement);
+    }
+
+    /** 2026-10-26 complexity extraction from repartition; statements verbatim; order unchanged.
+     * Places each recompiled group, reusing prior hosts where feasible, and derives the order.
+     */
+    private Repartition placeRepartitioned(
+            Value v,
+            int[][] members,
+            PackageCompiler.Compiled compiled,
+            List<Integer> fixedOrder,
+            List<Integer> movable,
+            boolean fixedPlacement) {
         int[] hosts = new int[members.length],
                 oldPosition = new int[v.plan.members.length],
                 rank = new int[members.length];
@@ -915,28 +944,7 @@ public final class SearchEngine {
 
     private void genetic() {
         operator = "genetic";
-        List<List<Value>> populations = new ArrayList<>();
-        for (int[][] partition : partitions) {
-            List<Value> pop = new ArrayList<>();
-            PackageCompiler.Compiled c = PackageCompiler.compile(s, partition);
-            for (String mode : new String[] {"rank", "downstream"}) {
-                if (available()) {
-                    Value v = evaluate(InitialPlans.assign(s, partition, c, InitialPlans.priority(s, c, mode, random)));
-                    if (v != null) {
-                        pop.add(v);
-                    }
-                }
-            }
-            populations.add(pop);
-        }
-        for (int i = 2; i < cfg.population && available(); i++) {
-            for (int k = 0; k < populations.size() && available(); k++) {
-                Value v = evaluate(InitialPlans.construct(s, partitions.get(k), "random", random));
-                if (v != null) {
-                    populations.get(k).add(v);
-                }
-            }
-        }
+        List<List<Value>> populations = geneticPopulations();
         int generation = 0;
         while (available()) {
             int k = generation++ % populations.size();
@@ -969,6 +977,35 @@ public final class SearchEngine {
             iterations++;
         }
     }
+
+    /** 2026-10-26 complexity extraction from genetic; statements verbatim; order unchanged.
+     * Seeds one population per partition, then fills each to the configured size randomly.
+     */
+    private List<List<Value>> geneticPopulations() {
+        List<List<Value>> populations = new ArrayList<>();
+        for (int[][] partition : partitions) {
+            List<Value> pop = new ArrayList<>();
+            PackageCompiler.Compiled c = PackageCompiler.compile(s, partition);
+            for (String mode : new String[] {"rank", "downstream"}) {
+                if (available()) {
+                    Value v = evaluate(InitialPlans.assign(s, partition, c, InitialPlans.priority(s, c, mode, random)));
+                    if (v != null) {
+                        pop.add(v);
+                    }
+                }
+            }
+            populations.add(pop);
+        }
+        for (int i = 2; i < cfg.population && available(); i++) {
+            for (int k = 0; k < populations.size() && available(); k++) {
+                Value v = evaluate(InitialPlans.construct(s, partitions.get(k), "random", random));
+                if (v != null) {
+                    populations.get(k).add(v);
+                }
+            }
+        }
+        return populations;
+    }
     /** A shared genetic population whose members may have different legal packages.
      * Parent priorities are transported through original task identities before a
      * precedence-safe crossover. Package mutation is followed by global construction.
@@ -987,48 +1024,7 @@ public final class SearchEngine {
             List<Value> family = new ArrayList<>(Arrays.asList(a, b));
             for (int direction = 0; direction < 2 && available(); direction++) {
                 Value parent = direction == 0 ? a : b, other = direction == 0 ? b : a;
-                PackageCompiler.Compiled c = parent.result.compiled;
-                int[] transported = transport(other, c), order = crossover(parent.plan.order, transported);
-                if (random.nextDouble() < cfg.mutation) {
-                    int g = order[random.nextInt(order.length)];
-                    List<Integer> positions = positions(c, order, g, Integer.MAX_VALUE);
-                    order = insert(order, g, positions.get(random.nextInt(positions.size())));
-                }
-                int[][] partition = parent.plan.members;
-                if (!cfg.algorithm.equals("POOLED-HGA") && random.nextDouble() < cfg.packageMutation) {
-                    packageMutationAttempts++;
-                    operator = "joint_package_mutation";
-                    int[] window = window(parent, anchor(parent));
-                    if (window.length > 1) {
-                        List<Integer> choices = cuts(parent, window);
-                        List<int[]> pieces = new ArrayList<>();
-                        int start = 0;
-                        int all = (1 << choices.size()) - 1, mask = random.nextInt(all + 1);
-                        for (int i = 0; i < choices.size(); i++) {
-                            if ((mask & (1 << i)) != 0) {
-                                int end = choices.get(i);
-                                pieces.add(Arrays.copyOfRange(window, start, end));
-                                start = end;
-                            }
-                        }
-                        pieces.add(Arrays.copyOfRange(window, start, window.length));
-                        Repartition changed = repartition(parent, window, pieces, -1, false);
-                        if (changed != null) {
-                            partition = changed.plan.members;
-                            c = PackageCompiler.compile(s, partition);
-                            if (!partitionKey(partition).equals(partitionKey(parent.plan.members))) {
-                                packageMutationChanges++;
-                            }
-                            // Preserve the evolved precedence information at original-task level.
-                            PackagePlan evolved = new PackagePlan(parent.plan.members, parent.plan.host, order);
-                            Value ordering = new Value(evolved, parent.result, evolved.canonical());
-                            order = transport(ordering, c);
-                        } else {
-                            packageMutationRejected++;
-                        }
-                    }
-                }
-                Value child = evaluate(InitialPlans.assign(s, partition, c, order));
+                Value child = offspring(parent, other);
                 if (child == null) {
                     break;
                 }
@@ -1052,6 +1048,55 @@ public final class SearchEngine {
             population.set(ib, family.get(1));
             iterations++;
         }
+    }
+
+    /** 2026-10-26 complexity extraction from jointGenetic; statements verbatim; order unchanged.
+     * Builds one offspring: transport-assisted crossover, optional order and package mutation, evaluate.
+     */
+    private Value offspring(Value parent, Value other) {
+        PackageCompiler.Compiled c = parent.result.compiled;
+        int[] transported = transport(other, c), order = crossover(parent.plan.order, transported);
+        if (random.nextDouble() < cfg.mutation) {
+            int g = order[random.nextInt(order.length)];
+            List<Integer> positions = positions(c, order, g, Integer.MAX_VALUE);
+            order = insert(order, g, positions.get(random.nextInt(positions.size())));
+        }
+        int[][] partition = parent.plan.members;
+        if (!cfg.algorithm.equals("POOLED-HGA") && random.nextDouble() < cfg.packageMutation) {
+            packageMutationAttempts++;
+            operator = "joint_package_mutation";
+            int[] window = window(parent, anchor(parent));
+            if (window.length > 1) {
+                List<Integer> choices = cuts(parent, window);
+                List<int[]> pieces = new ArrayList<>();
+                int start = 0;
+                int all = (1 << choices.size()) - 1, mask = random.nextInt(all + 1);
+                for (int i = 0; i < choices.size(); i++) {
+                    if ((mask & (1 << i)) != 0) {
+                        int end = choices.get(i);
+                        pieces.add(Arrays.copyOfRange(window, start, end));
+                        start = end;
+                    }
+                }
+                pieces.add(Arrays.copyOfRange(window, start, window.length));
+                Repartition changed = repartition(parent, window, pieces, -1, false);
+                if (changed != null) {
+                    partition = changed.plan.members;
+                    c = PackageCompiler.compile(s, partition);
+                    if (!partitionKey(partition).equals(partitionKey(parent.plan.members))) {
+                        packageMutationChanges++;
+                    }
+                    // Preserve the evolved precedence information at original-task level.
+                    PackagePlan evolved = new PackagePlan(parent.plan.members, parent.plan.host, order);
+                    Value ordering = new Value(evolved, parent.result, evolved.canonical());
+                    order = transport(ordering, c);
+                } else {
+                    packageMutationRejected++;
+                }
+            }
+        }
+        Value child = evaluate(InitialPlans.assign(s, partition, c, order));
+        return child;
     }
 
     /** Initial pooled population (2026-10-23 extraction; statements verbatim from

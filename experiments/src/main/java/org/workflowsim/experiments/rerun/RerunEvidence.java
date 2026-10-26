@@ -84,19 +84,12 @@ public final class RerunEvidence {
                 null);
     }
 
-    RerunEvidence(
-            Path runDirectory,
-            Path manifestPath,
-            Path metricsPath,
-            Path eventsPath,
-            int eventCount,
-            JsonObject manifest,
-            Path networkLedgerPath,
-            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
-            Path fileLifecyclePath,
-            org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus,
-            Path storageLifecyclePath,
-            org.workflowsim.data.v2.FileLifecycleEvidence.Status storageLifecycleCaptureStatus) {
+    /**
+     * 2026-10-26 complexity extraction from RerunEvidence constructor; statements verbatim; order unchanged.
+     * 作用域：仅校验五件套非空，越界即抛"缺失必要证据组件"。
+     */
+    private static void requireEvidenceComponents(
+            Path runDirectory, Path manifestPath, Path metricsPath, Path eventsPath, JsonObject manifest) {
         if (runDirectory == null
                 || manifestPath == null
                 || metricsPath == null
@@ -104,11 +97,13 @@ public final class RerunEvidence {
                 || manifest == null) {
             throw new IllegalArgumentException("All evidence components are required");
         }
-        this.runDirectory = runDirectory;
-        this.manifestPath = manifestPath;
-        this.metricsPath = metricsPath;
-        this.eventsPath = eventsPath;
-        this.eventCount = eventCount;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from RerunEvidence constructor; statements verbatim; order unchanged.
+     * 作用域：仅从 manifest 的 configuration.networkEvidence 解码可选网络证据配置（缺省为 off）。
+     */
+    private static org.workflowsim.data.NetworkEvidenceConfig manifestNetworkEvidenceOption(JsonObject manifest) {
         org.workflowsim.data.NetworkEvidenceConfig option = org.workflowsim.data.NetworkEvidenceConfig.off();
         if (manifest.has("configuration")
                 && manifest.get("configuration").isJsonObject()
@@ -116,6 +111,21 @@ public final class RerunEvidence {
             option = org.workflowsim.data.NetworkEvidenceConfigCodec.decodeConfig(
                     manifest.getAsJsonObject("configuration").get("networkEvidence"));
         }
+        return option;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from RerunEvidence constructor; statements verbatim; order unchanged.
+     * 作用域：仅校验声明模式与三类 sidecar 路径/状态组合的自洽性，失配即抛管线配置异常。
+     */
+    private static void requireConsistentSidecarContract(
+            org.workflowsim.data.NetworkEvidenceConfig option,
+            Path networkLedgerPath,
+            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
+            Path fileLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus,
+            Path storageLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status storageLifecycleCaptureStatus) {
         boolean group = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,
                 file = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,
                 storage = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_STORAGE_LIFECYCLE_V3;
@@ -134,6 +144,36 @@ public final class RerunEvidence {
             throw new IllegalArgumentException(
                     "Declared network evidence requires its version-specific validated path and capture status");
         }
+    }
+
+    RerunEvidence(
+            Path runDirectory,
+            Path manifestPath,
+            Path metricsPath,
+            Path eventsPath,
+            int eventCount,
+            JsonObject manifest,
+            Path networkLedgerPath,
+            org.workflowsim.data.TransferTraceSnapshot.Status networkCaptureStatus,
+            Path fileLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status fileLifecycleCaptureStatus,
+            Path storageLifecyclePath,
+            org.workflowsim.data.v2.FileLifecycleEvidence.Status storageLifecycleCaptureStatus) {
+        requireEvidenceComponents(runDirectory, manifestPath, metricsPath, eventsPath, manifest);
+        this.runDirectory = runDirectory;
+        this.manifestPath = manifestPath;
+        this.metricsPath = metricsPath;
+        this.eventsPath = eventsPath;
+        this.eventCount = eventCount;
+        org.workflowsim.data.NetworkEvidenceConfig option = manifestNetworkEvidenceOption(manifest);
+        requireConsistentSidecarContract(
+                option,
+                networkLedgerPath,
+                networkCaptureStatus,
+                fileLifecyclePath,
+                fileLifecycleCaptureStatus,
+                storageLifecyclePath,
+                storageLifecycleCaptureStatus);
         this.manifest = manifest;
         this.networkLedgerPath = networkLedgerPath;
         this.networkCaptureStatus = networkCaptureStatus;

@@ -121,6 +121,20 @@ final class FileLifecycleContextValidator {
         JsonObject config = obj(root, "configuration"), plan = obj(root, "dataflowPlan");
         String kind = text(obj(config, "dataMovementModel"), "kind");
         boolean storage = isStorage(kind);
+        validatePlanModelAndConfiguration(root, config, kind, storage);
+        validatePlanOverheadModel(config);
+        validatePlanFailureModel(root, config, storage);
+        Map<Integer, JsonObject> tasks = validatePlanTaskGraph(root, plan);
+        validateWorkflowScopeMapping(config, root, tasks);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validatePlanContext; statements verbatim; order unchanged. Validates
+     * that the coherent model kind, planning/scheduling algorithms, input-access file system, clustering mode,
+     * and platform storage declaration are all explicitly supported.
+     */
+    private static void validatePlanModelAndConfiguration(
+            JsonObject root, JsonObject config, String kind, boolean storage) throws IOException {
         if (!isV2(kind) && !storage) {
             throw fail("dataflowPlan requires an explicitly supported coherent model");
         }
@@ -136,6 +150,14 @@ final class FileLifecycleContextValidator {
         } else if (obj(root, "platform").has("sourceStorage")) {
             throw fail("V2 cannot declare bounded sourceStorage");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validatePlanContext; statements verbatim; order unchanged. Validates
+     * that the V2 runtime overhead model is fully disabled: zero workflow-engine interval and bandwidth and
+     * empty delay maps.
+     */
+    private static void validatePlanOverheadModel(JsonObject config) throws IOException {
         JsonObject overhead = obj(config, "overheadModel");
         if (whole(need(overhead, "workflowEngineDelayInterval")) != 0 || number(need(overhead, "bandwidth")) != 0) {
             throw fail("V2 runtime overhead is unsupported");
@@ -145,12 +167,28 @@ final class FileLifecycleContextValidator {
                 throw fail("V2 runtime overhead maps must be empty");
             }
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validatePlanContext; statements verbatim; order unchanged. Validates
+     * the coherent no-op failure-model pair and, for V3 storage, the full storage failure grammar.
+     */
+    private static void validatePlanFailureModel(JsonObject root, JsonObject config, boolean storage)
+            throws IOException {
         JsonObject failure = obj(config, "failureModel");
         requireText(failure, "clusteringAlgorithm", "FTCLUSTERING_NOOP");
         requireText(failure, "monitorMode", "MONITOR_NONE");
         if (storage) {
             validateStorageFailure(root);
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validatePlanContext; statements verbatim; order unchanged. Validates
+     * that the V2 file plan document is schema-valid and its Task identities and control parents equal the
+     * manifest workflowGraph.
+     */
+    private static Map<Integer, JsonObject> validatePlanTaskGraph(JsonObject root, JsonObject plan) throws IOException {
         try {
             FileLifecycleCodec.validatePlanDocument(plan);
         } catch (IllegalArgumentException invalid) {
@@ -166,7 +204,7 @@ final class FileLifecycleContextValidator {
                 throw fail("V2 plan control parents differ from workflowGraph");
             }
         }
-        validateWorkflowScopeMapping(config, root, tasks);
+        return tasks;
     }
 
     /**
@@ -238,6 +276,34 @@ final class FileLifecycleContextValidator {
         this.decoded = decoded;
         validatePlanContext(root);
         JsonObject config = obj(root, "configuration"), result = obj(root, "result"), document = decoded.getDocument();
+        validateRecordingMode(config, document, decoded);
+        validateStorageDocumentContext(config, document, decoded);
+        same(obj(root, "dataflowPlan"), decoded.getEvidence().getFilePlan(), "Core and lifecycle file plans differ");
+        simulationEnd = number(need(result, "simulationEndSeconds"));
+        if (decoded.getEvidence().getObservedThrough() > simulationEnd || !decoded.isQuiescent()) {
+            throw fail("Final V2 bundle is not quiescent or exceeds simulation end");
+        }
+        if (!bool(need(result, "workflowCompletedSuccessfully"))) {
+            throw fail("Initial V2 bundle contract requires all logical Tasks completed");
+        }
+        validateFabric(
+                obj(root, "platform"),
+                obj(result, "actualVmHostAssignments"),
+                decoded.getEvidence().getFabric(),
+                decoded.storage);
+        initRootScopes(root, config, decoded);
+        initJobOutcomes(root, result, decoded);
+        verifyJobOutcomeCoverage(decoded);
+        initFinalLifecycleFromEvents(decoded);
+        verifyFinalLifecycleCoverage();
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from FileLifecycleContextValidator(JsonObject, Checked); statements
+     * verbatim; order unchanged. Validates that the manifest recording mode, trace capacity, and model kind match
+     * the decoded lifecycle document.
+     */
+    private void validateRecordingMode(JsonObject config, JsonObject document, Checked decoded) throws IOException {
         String model = text(obj(config, "dataMovementModel"), "kind");
         NetworkEvidenceConfig option;
         try {
@@ -254,6 +320,15 @@ final class FileLifecycleContextValidator {
                 || decoded.storage != isStorage(model)) {
             throw fail("Versioned model/recording differs between manifest and lifecycle");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from FileLifecycleContextValidator(JsonObject, Checked); statements
+     * verbatim; order unchanged. Validates the V3 storage document's input-access policy and records the failure
+     * mode and retry budget from the manifest.
+     */
+    private void validateStorageDocumentContext(JsonObject config, JsonObject document, Checked decoded)
+            throws IOException {
         if (decoded.storage) {
             String expected = text(config, "fileSystem").equals("SHARED")
                     ? "COMMITTED_STORE_THEN_VM_READ_CACHE_V3"
@@ -263,21 +338,14 @@ final class FileLifecycleContextValidator {
             storageFailureEnabled = !text(failure, "generatorMode").equals("FAILURE_NONE");
             storageRetryBudget = integer(need(failure, "maxTotalRetryJobs"));
         }
-        same(obj(root, "dataflowPlan"), decoded.getEvidence().getFilePlan(), "Core and lifecycle file plans differ");
-        simulationEnd = number(need(result, "simulationEndSeconds"));
-        if (decoded.getEvidence().getObservedThrough() > simulationEnd || !decoded.isQuiescent()) {
-            throw fail("Final V2 bundle is not quiescent or exceeds simulation end");
-        }
-        if (!bool(need(result, "workflowCompletedSuccessfully"))) {
-            throw fail("Initial V2 bundle contract requires all logical Tasks completed");
-        }
-        validateFabric(
-                obj(root, "platform"),
-                obj(result, "actualVmHostAssignments"),
-                decoded.getEvidence().getFabric(),
-                decoded.storage);
-        initRootScopes(root, config, decoded);
-        initJobOutcomes(root, result, decoded);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from FileLifecycleContextValidator(JsonObject, Checked); statements
+     * verbatim; order unchanged. Validates that the decoded Job/Task outcome coverage equals the lifecycle's
+     * compute attempt and logical success sets.
+     */
+    private void verifyJobOutcomeCoverage(Checked decoded) throws IOException {
         if (!taskOutcomes.keySet().equals(jobs.keySet())
                 || decoded.getRequestedJobCount() != jobs.size()
                 || decoded.getCompletedJobCount() != jobs.size()) {
@@ -286,7 +354,14 @@ final class FileLifecycleContextValidator {
         if (!decoded.getSuccessfullyCompletedTaskIds().equals(taskScopes.keySet())) {
             throw fail("V2 lifecycle lacks logical Task success");
         }
-        initFinalLifecycleFromEvents(decoded);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from FileLifecycleContextValidator(JsonObject, Checked); statements
+     * verbatim; order unchanged. Validates that the final request, CPU, terminal, and readiness lifecycles cover
+     * exactly the observed Job set.
+     */
+    private void verifyFinalLifecycleCoverage() throws IOException {
         if (!requested.keySet().equals(jobs.keySet())
                 || !cpu.keySet().equals(jobs.keySet())
                 || !finished.keySet().equals(jobs.keySet())
@@ -338,6 +413,16 @@ final class FileLifecycleContextValidator {
 
     /** 构造器阶段二：Job/Task 结果集校验（逐字搬运转写）。 */
     private void initJobOutcomes(JsonObject root, JsonObject result, Checked decoded) throws IOException {
+        initJobOutcomeRows(result);
+        initTaskOutcomeRows(result);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from initJobOutcomes; statements verbatim; order unchanged. Validates
+     * every reported Job outcome's uniqueness, singleton compute class, and in-window timing, indexing each
+     * compute attempt as a Job.
+     */
+    private void initJobOutcomeRows(JsonObject result) throws IOException {
         Set<Integer> allJobs = new HashSet<>();
         for (JsonElement row : arr(result, "jobs")) {
             JsonObject value = object(row);
@@ -365,31 +450,51 @@ final class FileLifecycleContextValidator {
             }
             jobs.put(id, job);
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from initJobOutcomes; statements verbatim; order unchanged. Feeds each
+     * reported Task outcome through the per-attempt Job cross-check.
+     */
+    private void initTaskOutcomeRows(JsonObject result) throws IOException {
         for (JsonElement row : arr(result, "tasks")) {
-            JsonObject task = object(row);
-            int jobId = integer(need(task, "jobId"));
-            Job job = jobs.get(jobId);
-            if (job == null
-                    || integer(need(task, "taskId")) != job.task
-                    || integer(need(task, "vmId")) != job.vm
-                    || integer(need(task, "jobStatus")) != job.status
-                    || taskOutcomes.put(jobId, task) != null) {
-                throw fail("V2 Task attempt differs from Job outcome");
-            }
-            int status = integer(need(task, "taskStatus"));
-            if ((status != Cloudlet.SUCCESS && status != Cloudlet.FAILED) || status != job.status) {
-                throw fail("Singleton Task outcome differs from its terminal Job status");
-            }
-            double taskStart = number(need(task, "startTime")), taskFinish = number(need(task, "finishTime"));
-            if (taskStart != job.start
-                    || taskFinish < taskStart
-                    || taskFinish > job.finish + timeTolerance(job.finish)) {
-                throw fail("Task model window differs from actual V2 Job bounds");
-            }
-            if (task.has("exactJobTiming")
-                    && bool(need(task, "exactJobTiming")) != (taskStart == job.start && taskFinish == job.finish)) {
-                throw fail("Task exactJobTiming claim differs from its actual bounds");
-            }
+            verifySingleTaskOutcome(object(row));
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from initJobOutcomes; statements verbatim; order unchanged. Validates one
+     * Task attempt against its Job outcome's identity, terminal status, and first-observation uniqueness.
+     */
+    private void verifySingleTaskOutcome(JsonObject task) throws IOException {
+        int jobId = integer(need(task, "jobId"));
+        Job job = jobs.get(jobId);
+        if (job == null
+                || integer(need(task, "taskId")) != job.task
+                || integer(need(task, "vmId")) != job.vm
+                || integer(need(task, "jobStatus")) != job.status
+                || taskOutcomes.put(jobId, task) != null) {
+            throw fail("V2 Task attempt differs from Job outcome");
+        }
+        int status = integer(need(task, "taskStatus"));
+        if ((status != Cloudlet.SUCCESS && status != Cloudlet.FAILED) || status != job.status) {
+            throw fail("Singleton Task outcome differs from its terminal Job status");
+        }
+        verifyTaskTimingWindow(task, job);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from initJobOutcomes; statements verbatim; order unchanged. Validates a
+     * Task's modelled timing window stays within its Job bounds and its exactJobTiming claim is truthful.
+     */
+    private void verifyTaskTimingWindow(JsonObject task, Job job) throws IOException {
+        double taskStart = number(need(task, "startTime")), taskFinish = number(need(task, "finishTime"));
+        if (taskStart != job.start || taskFinish < taskStart || taskFinish > job.finish + timeTolerance(job.finish)) {
+            throw fail("Task model window differs from actual V2 Job bounds");
+        }
+        if (task.has("exactJobTiming")
+                && bool(need(task, "exactJobTiming")) != (taskStart == job.start && taskFinish == job.finish)) {
+            throw fail("Task exactJobTiming claim differs from its actual bounds");
         }
     }
 
@@ -549,16 +654,7 @@ final class FileLifecycleContextValidator {
             throw fail("V2 main event Job identity differs");
         }
         if (type.equals("RETRY_JOB_CREATED")) {
-            int failed = integer(need(obj(event, "attributes"), "failedJobId"));
-            Job previous = requireJob(failed);
-            if (previous.status != Cloudlet.FAILED
-                    || previous.task != job.task
-                    || (decoded.storage && previous.vm != job.vm)
-                    || retries.put(id, failed) != null
-                    || time > requestTime.get(id)) {
-                throw fail("Invalid V2 retry provenance");
-            }
-            retryEvents.put(id, event);
+            applyMainRetryCreatedEvent(event, id, job, time);
             return;
         }
         Map<Integer, JsonObject> values = main.get(type);
@@ -567,6 +663,23 @@ final class FileLifecycleContextValidator {
             main.put(type, values);
         }
         put(values, id, event);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from acceptEvent; statements verbatim; order unchanged. Validates a
+     * RETRY_JOB_CREATED event's failed-Job provenance and records the retry origin.
+     */
+    private void applyMainRetryCreatedEvent(JsonObject event, int id, Job job, double time) throws IOException {
+        int failed = integer(need(obj(event, "attributes"), "failedJobId"));
+        Job previous = requireJob(failed);
+        if (previous.status != Cloudlet.FAILED
+                || previous.task != job.task
+                || (decoded.storage && previous.vm != job.vm)
+                || retries.put(id, failed) != null
+                || time > requestTime.get(id)) {
+            throw fail("Invalid V2 retry provenance");
+        }
+        retryEvents.put(id, event);
     }
 
     void finish() throws IOException {
@@ -607,12 +720,35 @@ final class FileLifecycleContextValidator {
                 returned = main("JOB_RETURNED", id),
                 decision = main("SCHEDULING_DECISION", id),
                 dispatch = main("JOB_DISPATCHED", id);
+        verifyMainEventAnchorTimes(id, ready, stage, execution, returned);
+        verifySchedulingDecisionWindow(id, job, decision, dispatch, returned);
+        verifyExecutionEnvelope(id, job, execution);
+        verifyStageAndReadyAttributes(id, stage, ready);
+        verifyReturnedTerminalStatus(id, job, returned, initialTasks, retriedFailures);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyJobLifecycleAnchors; statements verbatim; order unchanged.
+     * Validates the ready/stage-in/execution/returned main-event times against the recorded lifecycle request,
+     * readiness, CPU, and finish anchors.
+     */
+    private void verifyMainEventAnchorTimes(
+            int id, JsonObject ready, JsonObject stage, JsonObject execution, JsonObject returned) throws IOException {
         if (number(need(ready, "simulationTime")) != requestTime.get(id)
                 || number(need(stage, "simulationTime")) != (decoded.storage ? readyTime.get(id) : requestTime.get(id))
                 || number(need(execution, "simulationTime")) != cpuTime.get(id)
                 || number(need(returned, "simulationTime")) != finishTime.get(id)) {
             throw fail("V2 lifecycle observations differ from main event anchors");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyJobLifecycleAnchors; statements verbatim; order unchanged.
+     * Validates the STATIC scheduling decision window, its matching dispatch anchor, and the zero dispatch/post
+     * overhead requirement.
+     */
+    private void verifySchedulingDecisionWindow(
+            int id, Job job, JsonObject decision, JsonObject dispatch, JsonObject returned) throws IOException {
         double decided = number(need(decision, "simulationTime"));
         if (decided < readyTime.get(id) || decided > job.start || number(need(dispatch, "simulationTime")) != decided) {
             throw fail("Dispatch precedes V2 data-ready or differs from scheduling decision");
@@ -623,6 +759,14 @@ final class FileLifecycleContextValidator {
                 || number(need(obj(returned, "attributes"), "postDelaySeconds")) != 0) {
             throw fail("Unsupported V2 dispatch/post overhead");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyJobLifecycleAnchors; statements verbatim; order unchanged.
+     * Validates the execution event's zero-transfer CPU envelope and, under the online assignment audit, its
+     * certified MI and model-derived timing scope.
+     */
+    private void verifyExecutionEnvelope(int id, Job job, JsonObject execution) throws IOException {
         JsonObject attrs = obj(execution, "attributes");
         if (integer(need(attrs, "taskId")) != job.task
                 || number(need(attrs, "taskStartTime")) != job.start
@@ -640,6 +784,14 @@ final class FileLifecycleContextValidator {
             }
             requireText(attrs, "taskTimingScope", "MODEL_DERIVED_COMPUTE_WINDOW");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyJobLifecycleAnchors; statements verbatim; order unchanged.
+     * Validates the stage-in event's transfer-unit/model attributes with its cross-checked reference totals and
+     * the readiness event's truthful retry-origin claim.
+     */
+    private void verifyStageAndReadyAttributes(int id, JsonObject stage, JsonObject ready) throws IOException {
         JsonObject stageAttrs = obj(stage, "attributes");
         requireText(stageAttrs, "transferUnit", decoded.storage ? "LOGICAL_FILE_STORAGE_V3" : "LOGICAL_FILE_V2");
         if (decoded.storage
@@ -657,6 +809,16 @@ final class FileLifecycleContextValidator {
         } else if (readyAttrs.has("retryOfFailedJobId")) {
             throw fail("Initial V2 request falsely claims retry origin");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyJobLifecycleAnchors; statements verbatim; order unchanged.
+     * Validates a Job's returned terminal status, failure recovery bookkeeping, and unique initial-attempt
+     * registration.
+     */
+    private void verifyReturnedTerminalStatus(
+            int id, Job job, JsonObject returned, Set<Integer> initialTasks, Set<Integer> retriedFailures)
+            throws IOException {
         if (integer(need(obj(returned, "attributes"), "jobStatus")) != job.status) {
             throw fail("V2 main return status differs");
         }
@@ -722,11 +884,36 @@ final class FileLifecycleContextValidator {
         if (actual.size() != vms.size()) {
             throw fail("Actual placement is incomplete");
         }
+        Map<String, Double> caps = fabricResourceCaps(fabric);
+        validateFabricEndpointCoverage(fabric, vms);
+        validateFabricVmPlacements(vms, hosts, actual, caps);
+        if (storage) {
+            validateStorageFabric(platform, fabric, vms, actual, caps);
+        } else if (platform.has("sourceStorage") || fabric.has("sourceStorage")) {
+            throw fail("V2 cannot declare bounded storage");
+        }
+        validateFabricTopology(platform, fabric, vms, hosts, actual);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateFabric; statements verbatim; order unchanged. Indexes the
+     * audited fabric resource capacities keyed by their endpoint descriptors.
+     */
+    private static Map<String, Double> fabricResourceCaps(JsonObject fabric) throws IOException {
         Map<String, Double> caps = new HashMap<>();
         for (JsonElement row : arr(fabric, "resources")) {
             JsonObject r = object(row);
             caps.put(text(r, "key"), number(need(r, "capacityBytesPerSecond")));
         }
+        return caps;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateFabric; statements verbatim; order unchanged. Validates that
+     * the declared fabric VM endpoints cover exactly the platform VM set.
+     */
+    private static void validateFabricEndpointCoverage(JsonObject fabric, Map<Integer, JsonObject> vms)
+            throws IOException {
         Set<Integer> fabricVms = new HashSet<>();
         for (JsonElement row : arr(fabric, "locations")) {
             JsonObject l = object(row);
@@ -737,6 +924,15 @@ final class FileLifecycleContextValidator {
         if (!fabricVms.equals(vms.keySet())) {
             throw fail("V2 fabric endpoints differ from platform");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateFabric; statements verbatim; order unchanged. Validates each
+     * VM's actual host placement and bandwidth capacity against the platform and fabric resource audit.
+     */
+    private static void validateFabricVmPlacements(
+            Map<Integer, JsonObject> vms, Map<Integer, JsonObject> hosts, JsonObject actual, Map<String, Double> caps)
+            throws IOException {
         for (int id : vms.keySet()) {
             JsonObject vm = vms.get(id);
             int host = integer(need(vm, "preflightHostId"));
@@ -752,30 +948,38 @@ final class FileLifecycleContextValidator {
                 throw fail("V2 VM capacity differs from platform");
             }
         }
-        if (storage) {
-            JsonObject spec = validateStorageSpec(platform);
-            same(spec, obj(fabric, "sourceStorage"), "Storage fabric parameters differ from platform");
-            Map<Integer, JsonObject> mapped = rows(arr(fabric, "vmHostAssignments"), "vmId");
-            if (!mapped.keySet().equals(vms.keySet())) {
-                throw fail("Storage fabric actual placement coverage differs");
-            }
-            for (int id : vms.keySet()) {
-                if (integer(need(mapped.get(id), "hostId")) != integer(need(actual, Integer.toString(id)))) {
-                    throw fail("Storage fabric uses a nonactual VM host");
-                }
-            }
-            String[] fields = {"readBandwidthMbPerSecond", "writeBandwidthMbPerSecond", "networkBandwidthMbPerSecond"},
-                    keys = {"STORE:source:READ", "STORE:source:WRITE", "STORE:source:NIC"};
-            for (int i = 0; i < fields.length; i++) {
-                Double capacity = caps.get(keys[i]);
-                if (capacity == null || capacity != number(need(spec, fields[i])) * 1_000_000.0) {
-                    throw fail("Store capacity differs from platform");
-                }
-            }
-        } else if (platform.has("sourceStorage") || fabric.has("sourceStorage")) {
-            throw fail("V2 cannot declare bounded storage");
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateFabric; statements verbatim; order unchanged. Validates the
+     * storage fabric's source-storage parameters, actual host coverage, and derived store capacities.
+     */
+    private static void validateStorageFabric(
+            JsonObject platform,
+            JsonObject fabric,
+            Map<Integer, JsonObject> vms,
+            JsonObject actual,
+            Map<String, Double> caps)
+            throws IOException {
+        JsonObject spec = validateStorageSpec(platform);
+        same(spec, obj(fabric, "sourceStorage"), "Storage fabric parameters differ from platform");
+        Map<Integer, JsonObject> mapped = rows(arr(fabric, "vmHostAssignments"), "vmId");
+        if (!mapped.keySet().equals(vms.keySet())) {
+            throw fail("Storage fabric actual placement coverage differs");
         }
-        validateFabricTopology(platform, fabric, vms, hosts, actual);
+        for (int id : vms.keySet()) {
+            if (integer(need(mapped.get(id), "hostId")) != integer(need(actual, Integer.toString(id)))) {
+                throw fail("Storage fabric uses a nonactual VM host");
+            }
+        }
+        String[] fields = {"readBandwidthMbPerSecond", "writeBandwidthMbPerSecond", "networkBandwidthMbPerSecond"},
+                keys = {"STORE:source:READ", "STORE:source:WRITE", "STORE:source:NIC"};
+        for (int i = 0; i < fields.length; i++) {
+            Double capacity = caps.get(keys[i]);
+            if (capacity == null || capacity != number(need(spec, fields[i])) * 1_000_000.0) {
+                throw fail("Store capacity differs from platform");
+            }
+        }
     }
 
     /**
@@ -800,6 +1004,16 @@ final class FileLifecycleContextValidator {
         }
         JsonObject topology = object(declared), snapshot = object(observed);
         int k = integer(need(topology, "k")), half = k / 2;
+        validateTopologySizing(topology, snapshot, k);
+        validateTopologyPlacements(fabric, topology, snapshot, vms, hosts, actual, k, half);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateFabricTopology; statements verbatim; order unchanged.
+     * Validates the fat-tree size constraint and both documents' matching k, core switch, and link bandwidth
+     * capacities.
+     */
+    private static void validateTopologySizing(JsonObject topology, JsonObject snapshot, int k) throws IOException {
         if (k < 2 || k > 32 || k % 2 != 0) {
             throw fail("Unsupported V2 topology size");
         }
@@ -811,6 +1025,22 @@ final class FileLifecycleContextValidator {
                         != number(need(topology, "linkBandwidthMbPerSecond")) * 1_000_000.0) {
             throw fail("V2 topology capacities differ");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateFabricTopology; statements verbatim; order unchanged.
+     * Validates topology host coverage, actual route placement, and default or explicit host edge assignments.
+     */
+    private static void validateTopologyPlacements(
+            JsonObject fabric,
+            JsonObject topology,
+            JsonObject snapshot,
+            Map<Integer, JsonObject> vms,
+            Map<Integer, JsonObject> hosts,
+            JsonObject actual,
+            int k,
+            int half)
+            throws IOException {
         Map<Integer, JsonObject> placements = rows(arr(snapshot, "hostPlacements"), "hostId"),
                 vmHosts = rows(arr(fabric, "vmHostAssignments"), "vmId");
         if (!placements.keySet().equals(hosts.keySet()) || !vmHosts.keySet().equals(vms.keySet())) {
@@ -866,6 +1096,15 @@ final class FileLifecycleContextValidator {
         } else {
             validateEnabledFailureLayout(root, mode, family, dense, keyed, byVm, budget);
         }
+        validateFailureAttemptHistory(root, enabled, budget);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateStorageFailure; statements verbatim; order unchanged.
+     * Validates the compute-attempt history: unique singleton attempts, success under FAILURE_NONE, STATIC-NOOP
+     * VM stability, and the declared retry budget limit.
+     */
+    private static void validateFailureAttemptHistory(JsonObject root, boolean enabled, int budget) throws IOException {
         Map<Integer, Integer> taskVms = new HashMap<>();
         Set<Integer> attempts = new HashSet<>();
         long compute = 0;
@@ -905,6 +1144,18 @@ final class FileLifecycleContextValidator {
                 || (byVm && !mode.equals("FAILURE_VM") && !mode.equals("FAILURE_VM_JOB"))) {
             throw fail("Invalid enabled V3 failure layout or budget");
         }
+        Map<Integer, JsonArray> generatorRows = buildFailureGeneratorRows(keyed, dense, byVm);
+        validateFailureGeneratorRows(generatorRows, family);
+        validateFailureGeneratorScope(root, generatorRows, mode);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateEnabledFailureLayout; statements verbatim; order unchanged.
+     * Builds the per-VM failure generator rows from the keyed or dense source representation, rejecting malformed
+     * row keys and shapes.
+     */
+    private static Map<Integer, JsonArray> buildFailureGeneratorRows(JsonObject keyed, JsonArray dense, boolean byVm)
+            throws IOException {
         Map<Integer, JsonArray> generatorRows = new HashMap<>();
         if (byVm) {
             for (Map.Entry<String, JsonElement> entry : keyed.entrySet()) {
@@ -929,6 +1180,16 @@ final class FileLifecycleContextValidator {
                 generatorRows.put(i, dense.get(i).getAsJsonArray());
             }
         }
+        return generatorRows;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateEnabledFailureLayout; statements verbatim; order unchanged.
+     * Validates each generator row's distribution field set, family, positive scale/shape, and all-or-nothing
+     * prior nullability.
+     */
+    private static void validateFailureGeneratorRows(Map<Integer, JsonArray> generatorRows, String family)
+            throws IOException {
         for (JsonArray row : generatorRows.values()) {
             if (row.size() == 0) {
                 throw fail("Failure generator row is empty");
@@ -958,6 +1219,14 @@ final class FileLifecycleContextValidator {
                 }
             }
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateEnabledFailureLayout; statements verbatim; order unchanged.
+     * Validates that generator rows cover the DAG-depth and VM scope required by the declared failure mode.
+     */
+    private static void validateFailureGeneratorScope(
+            JsonObject root, Map<Integer, JsonArray> generatorRows, String mode) throws IOException {
         int maxDepth = 0;
         for (JsonElement item : arr(root, "workflowGraph")) {
             int depth = integer(need(object(item), "depth"));
@@ -1220,23 +1489,11 @@ final class FileLifecycleContextValidator {
             throw fail(message);
         }
         if (a.isJsonObject() && b.isJsonObject()) {
-            JsonObject x = a.getAsJsonObject(), y = b.getAsJsonObject();
-            if (!x.keySet().equals(y.keySet())) {
-                throw fail(message);
-            }
-            for (String key : x.keySet()) {
-                same(x.get(key), y.get(key), message);
-            }
+            sameObjectTrees(a, b, message);
             return;
         }
         if (a.isJsonArray() && b.isJsonArray()) {
-            JsonArray x = a.getAsJsonArray(), y = b.getAsJsonArray();
-            if (x.size() != y.size()) {
-                throw fail(message);
-            }
-            for (int i = 0; i < x.size(); i++) {
-                same(x.get(i), y.get(i), message);
-            }
+            sameArrayTrees(a, b, message);
             return;
         }
         if (a.isJsonPrimitive()
@@ -1250,6 +1507,34 @@ final class FileLifecycleContextValidator {
             return;
         }
         throw fail(message);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same; statements verbatim; order unchanged. Compares two JSON object
+     * sub-trees recursively, key sets first, then each key's value.
+     */
+    private static void sameObjectTrees(JsonElement a, JsonElement b, String message) throws IOException {
+        JsonObject x = a.getAsJsonObject(), y = b.getAsJsonObject();
+        if (!x.keySet().equals(y.keySet())) {
+            throw fail(message);
+        }
+        for (String key : x.keySet()) {
+            same(x.get(key), y.get(key), message);
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same; statements verbatim; order unchanged. Compares two JSON array
+     * sub-trees recursively by exact length, then element-wise.
+     */
+    private static void sameArrayTrees(JsonElement a, JsonElement b, String message) throws IOException {
+        JsonArray x = a.getAsJsonArray(), y = b.getAsJsonArray();
+        if (x.size() != y.size()) {
+            throw fail(message);
+        }
+        for (int i = 0; i < x.size(); i++) {
+            same(x.get(i), y.get(i), message);
+        }
     }
 
     private static double timeTolerance(double value) {

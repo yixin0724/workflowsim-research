@@ -102,6 +102,26 @@ public final class FatTreeTopology {
         }
         // 放置解析：显式 map 或默认轮转（hostId 升序 → edge 交换机索引轮转）。
         int edgeSwitchCount = k * halfK;
+        Map<Integer, int[]> hostToPodEdge = resolveHostPlacements(spec, sorted, halfK, edgeSwitchCount);
+        // 单位契约：spec 的链路带宽按 MB/s 解释（×10⁶ = 字节/秒），与 VM 端点
+        // 容量（vm.getBw() × 10⁶）及遗留估算公式（bytes/10⁶/bw）同一惯例。
+        // 同声明值下链路容量与端点容量同量级（R8 审计修复：此前误按 Mb/s ÷8）。
+        Map<String, Double> linkCapacities = buildLinkCapacities(
+                k, halfK, coreSwitchCount, hostToPodEdge, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0);
+        return new FatTreeTopology(
+                k,
+                spec.getLinkBandwidthMbPerSecond() * 1_000_000.0,
+                coreSwitchCount,
+                Collections.unmodifiableMap(hostToPodEdge),
+                Collections.unmodifiableMap(linkCapacities));
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from fromSpec; statements verbatim; order unchanged.
+     * 作用域：仅解析主机放置表（placement 未声明时按 hostId 升序默认轮转，声明时校验覆盖与每 edge 容量）。
+     */
+    private static Map<Integer, int[]> resolveHostPlacements(
+            NetworkTopologySpec spec, List<Integer> sorted, int halfK, int edgeSwitchCount) {
         Map<Integer, int[]> hostToPodEdge = new LinkedHashMap<Integer, int[]>();
         Map<Integer, Integer> placements = spec.getHostEdgePlacements();
         if (placements == null) {
@@ -133,17 +153,7 @@ public final class FatTreeTopology {
                 }
             }
         }
-        // 单位契约：spec 的链路带宽按 MB/s 解释（×10⁶ = 字节/秒），与 VM 端点
-        // 容量（vm.getBw() × 10⁶）及遗留估算公式（bytes/10⁶/bw）同一惯例。
-        // 同声明值下链路容量与端点容量同量级（R8 审计修复：此前误按 Mb/s ÷8）。
-        Map<String, Double> linkCapacities = buildLinkCapacities(
-                k, halfK, coreSwitchCount, hostToPodEdge, spec.getLinkBandwidthMbPerSecond() * 1_000_000.0);
-        return new FatTreeTopology(
-                k,
-                spec.getLinkBandwidthMbPerSecond() * 1_000_000.0,
-                coreSwitchCount,
-                Collections.unmodifiableMap(hostToPodEdge),
-                Collections.unmodifiableMap(linkCapacities));
+        return hostToPodEdge;
     }
 
     /** 构造全部物理链路容量表（双工分方向；仅已放置主机的接入链路）。 */

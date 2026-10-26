@@ -341,6 +341,28 @@ public final class GroupedSimulator {
             }
             JsonObject span = full && elapsed > 0 && !flows.isEmpty() ? new JsonObject() : null;
             JsonArray records = span == null ? null : new JsonArray();
+            List<Integer> done = advanceFlows(span, records, elapsed);
+            if (span != null) {
+                span.addProperty("start", last);
+                span.addProperty("end", now);
+                span.add("flows", records);
+                services.add(span);
+            }
+            for (int g : done) {
+                Flow flow = flows.remove(g);
+                if (flow.kind == READ) {
+                    inputEnd[g] = now;
+                    beginTask(g, 0);
+                } else {
+                    complete(g);
+                }
+            }
+        }
+
+        /** 2026-10-26 complexity extraction from settleServices; statements verbatim; order unchanged.
+         * Advances flow delivery over the elapsed window, records service spans, returns completed groups.
+         */
+        private List<Integer> advanceFlows(JsonObject span, JsonArray records, double elapsed) {
             List<Integer> done = new ArrayList<>();
             for (Flow flow : flows.values()) {
                 double delivered = elapsed * flow.rate, previous = flow.remaining;
@@ -368,21 +390,7 @@ public final class GroupedSimulator {
                     done.add(flow.group);
                 }
             }
-            if (span != null) {
-                span.addProperty("start", last);
-                span.addProperty("end", now);
-                span.add("flows", records);
-                services.add(span);
-            }
-            for (int g : done) {
-                Flow flow = flows.remove(g);
-                if (flow.kind == READ) {
-                    inputEnd[g] = now;
-                    beginTask(g, 0);
-                } else {
-                    complete(g);
-                }
-            }
+            return done;
         }
 
         private boolean admit() {
@@ -482,46 +490,53 @@ public final class GroupedSimulator {
                 for (Flow f : active) {
                     f.rate = 0;
                 }
-                while (!active.isEmpty()) {
-                    int[] count = new int[remaining.length];
-                    for (Flow f : active) {
-                        count[f.host]++;
-                    }
-                    double storeStep = store / active.size(), step = storeStep;
-                    double[] hostStep = new double[count.length];
-                    for (int h = 0; h < count.length; h++) {
-                        hostStep[h] = count[h] == 0 ? Double.POSITIVE_INFINITY : remaining[h] / count[h];
-                        step = Math.min(step, hostStep[h]);
-                    }
-                    if (!(step >= 0) || !Double.isFinite(step)) {
-                        throw new IllegalStateException("invalid bandwidth allocation");
-                    }
-                    for (Flow f : active) {
-                        f.rate += step;
-                    }
-                    store = Math.max(0, store - step * active.size());
-                    for (int h = 0; h < count.length; h++) {
-                        remaining[h] = Math.max(0, remaining[h] - step * count[h]);
-                    }
-                    boolean storeFull = step == storeStep;
-                    int before = active.size();
-                    Iterator<Flow> it = active.iterator();
-                    while (it.hasNext()) {
-                        Flow f = it.next();
-                        if (storeFull || hostStep[f.host] == step) {
-                            it.remove();
-                        }
-                    }
-                    if (active.size() == before) {
-                        throw new IllegalStateException("water filling did not progress");
-                    }
-                }
+                waterFill(active, store, remaining);
             }
             for (Flow f : flows.values()) {
                 if (!(f.rate > 0) || !Double.isFinite(f.rate)) {
                     throw new IllegalStateException("nonpositive flow service");
                 }
                 f.end = after(f.remaining / f.rate);
+            }
+        }
+
+        /** 2026-10-26 complexity extraction from rates; statements verbatim; order unchanged.
+         * Distributes bandwidth across active flows by repeated water-filling rounds.
+         */
+        private void waterFill(List<Flow> active, double store, double[] remaining) {
+            while (!active.isEmpty()) {
+                int[] count = new int[remaining.length];
+                for (Flow f : active) {
+                    count[f.host]++;
+                }
+                double storeStep = store / active.size(), step = storeStep;
+                double[] hostStep = new double[count.length];
+                for (int h = 0; h < count.length; h++) {
+                    hostStep[h] = count[h] == 0 ? Double.POSITIVE_INFINITY : remaining[h] / count[h];
+                    step = Math.min(step, hostStep[h]);
+                }
+                if (!(step >= 0) || !Double.isFinite(step)) {
+                    throw new IllegalStateException("invalid bandwidth allocation");
+                }
+                for (Flow f : active) {
+                    f.rate += step;
+                }
+                store = Math.max(0, store - step * active.size());
+                for (int h = 0; h < count.length; h++) {
+                    remaining[h] = Math.max(0, remaining[h] - step * count[h]);
+                }
+                boolean storeFull = step == storeStep;
+                int before = active.size();
+                Iterator<Flow> it = active.iterator();
+                while (it.hasNext()) {
+                    Flow f = it.next();
+                    if (storeFull || hostStep[f.host] == step) {
+                        it.remove();
+                    }
+                }
+                if (active.size() == before) {
+                    throw new IllegalStateException("water filling did not progress");
+                }
             }
         }
 

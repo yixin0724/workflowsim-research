@@ -126,6 +126,13 @@ public final class InitialPlans {
                 }
             }
         }
+        return hostSweep(s, members, cores, memory, input, output);
+    }
+
+    /** 2026-10-26 complexity extraction from isolatedCost; statements verbatim; order unchanged.
+     * Sums required bytes and sweeps hosts for the minimal feasible nominal duration.
+     */
+    static double hostSweep(Scenario s, int[] members, int cores, long memory, BitSet input, BitSet output) {
         double bytes = 0;
         for (int f = input.nextSetBit(0); f >= 0; f = input.nextSetBit(f + 1)) {
             bytes += s.files[f].bytes;

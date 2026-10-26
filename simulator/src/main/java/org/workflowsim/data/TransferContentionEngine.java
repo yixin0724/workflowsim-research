@@ -530,20 +530,7 @@ public final class TransferContentionEngine {
                 throw new IllegalArgumentException("Occupied resource keys cannot contain null");
             }
         }
-        if (coherentChecked) {
-            if (nominalRateBytesPerSecond < Double.MIN_NORMAL || occupiedResources.isEmpty()) {
-                throw unsupported("Positive service requires a normal nominal rate and physical path");
-            }
-            for (String resource : occupiedResources) {
-                if (!endpointCapacitiesBytesPerSecond.containsKey(resource)) {
-                    throw unsupported("Unknown physical resource: " + resource);
-                }
-            }
-            double finish = now + nominalDuration;
-            if (!Double.isFinite(finish) || finish <= now) {
-                throw unsupported("Unrepresentable absolute isolated finish");
-            }
-        }
+        validateCoherentAdmission(occupiedResources, nominalRateBytesPerSecond, now, nominalDuration);
         AdvanceResult result = advanceInternal(now);
         activeTransfers.put(
                 transferId, new Transfer(bytes, new ArrayList<String>(occupiedResources), nominalRateBytesPerSecond));
@@ -562,6 +549,28 @@ public final class TransferContentionEngine {
         }
         return new AdvanceResult(
                 result.getCompletedTransferIds(), earliestCompletion(now), result.getCompletionObservations());
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from addInternal(); statements verbatim; order unchanged.
+     * Scope: coherent-checked admission preconditions (normal rate, known physical resources, representable finish).
+     */
+    private void validateCoherentAdmission(
+            List<String> occupiedResources, double nominalRateBytesPerSecond, double now, double nominalDuration) {
+        if (coherentChecked) {
+            if (nominalRateBytesPerSecond < Double.MIN_NORMAL || occupiedResources.isEmpty()) {
+                throw unsupported("Positive service requires a normal nominal rate and physical path");
+            }
+            for (String resource : occupiedResources) {
+                if (!endpointCapacitiesBytesPerSecond.containsKey(resource)) {
+                    throw unsupported("Unknown physical resource: " + resource);
+                }
+            }
+            double finish = now + nominalDuration;
+            if (!Double.isFinite(finish) || finish <= now) {
+                throw unsupported("Unrepresentable absolute isolated finish");
+            }
+        }
     }
 
     /**
@@ -620,34 +629,49 @@ public final class TransferContentionEngine {
             if (traceState != null) {
                 traceState.intervalStart = lastAdvanceTime;
             }
-            for (Transfer transfer : activeTransfers.values()) {
-                if (traceState != null) {
-                    transfer.traceRemainingBefore = transfer.remainingBytes;
-                }
-                if (coherentChecked && !Double.isFinite(transfer.rateBytesPerSecond * elapsed)) {
-                    throw unsupported("Service rate-area multiplication overflow");
-                }
-                transfer.remainingBytes =
-                        Math.max(0.0, transfer.remainingBytes - transfer.rateBytesPerSecond * elapsed);
-                if (traceState != null || coherentChecked) {
-                    transfer.traceRemainingAfterService = transfer.remainingBytes;
-                }
-            }
+            serviceTransfersByElapsed(elapsed);
             if (earliest != null && elapsed >= nextDuration) {
                 // Round-off in subtraction must not leave the actual earliest flow alive.
                 earliest.remainingBytes = 0.0;
             }
             lastAdvanceTime = Math.min(now, lastAdvanceTime + elapsed);
-            if (traceState != null && elapsed > 0.0) {
-                // All services precede completions; retain elapsed even if the two clocks round equal.
-                for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
-                    traceState.service(entry.getKey(), entry.getValue(), lastAdvanceTime, now, elapsed);
-                }
-            }
+            recordServiceTrace(elapsed, now);
             List<Long> settled = collectSettled();
             settleTransfers(settled, observations, now, completed);
             if (elapsed == 0.0 && settled.isEmpty()) {
                 throw new IllegalStateException("Transfer integration made no progress");
+            }
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from integrateUntil(); statements verbatim; order unchanged.
+     * Scope: byte-conserving rate-area service pass over active transfers, including trace/coherent residuals.
+     */
+    private void serviceTransfersByElapsed(double elapsed) {
+        for (Transfer transfer : activeTransfers.values()) {
+            if (traceState != null) {
+                transfer.traceRemainingBefore = transfer.remainingBytes;
+            }
+            if (coherentChecked && !Double.isFinite(transfer.rateBytesPerSecond * elapsed)) {
+                throw unsupported("Service rate-area multiplication overflow");
+            }
+            transfer.remainingBytes = Math.max(0.0, transfer.remainingBytes - transfer.rateBytesPerSecond * elapsed);
+            if (traceState != null || coherentChecked) {
+                transfer.traceRemainingAfterService = transfer.remainingBytes;
+            }
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from integrateUntil(); statements verbatim; order unchanged.
+     * Scope: positive-step SERVICE_SEGMENT trace publication preceding completion settlement.
+     */
+    private void recordServiceTrace(double elapsed, double now) {
+        if (traceState != null && elapsed > 0.0) {
+            // All services precede completions; retain elapsed even if the two clocks round equal.
+            for (Map.Entry<Long, Transfer> entry : activeTransfers.entrySet()) {
+                traceState.service(entry.getKey(), entry.getValue(), lastAdvanceTime, now, elapsed);
             }
         }
     }
@@ -839,39 +863,57 @@ public final class TransferContentionEngine {
         Map<String, BigDecimal> totals = new LinkedHashMap<String, BigDecimal>();
         Map<String, Long> terms = new LinkedHashMap<String, Long>();
         for (Transfer transfer : activeTransfers.values()) {
-            double rate = transfer.rateBytesPerSecond, remaining = transfer.remainingBytes;
-            if (!Double.isFinite(rate)
-                    || rate < Double.MIN_NORMAL
-                    || rate > transfer.nominalRateBytesPerSecond
-                    || !Double.isFinite(remaining)
-                    || remaining <= 0
-                    || remaining > transfer.bytes) {
-                throw unsupported("Invalid active flow balance or normal allocation");
-            }
-            double duration = remaining / rate, finish = lastAdvanceTime + duration;
-            if (!Double.isFinite(duration) || duration <= 0 || !Double.isFinite(finish) || finish <= lastAdvanceTime) {
-                throw unsupported("Active completion prediction is not representable");
-            }
-            Map<String, BigDecimal> single = new LinkedHashMap<String, BigDecimal>();
-            Map<String, Long> singleTerms = new LinkedHashMap<String, Long>();
-            for (String key : transfer.occupiedResources) {
-                Double cap = endpointCapacitiesBytesPerSecond.get(key);
-                if (cap == null || !Double.isFinite(cap) || cap < Double.MIN_NORMAL) {
-                    throw unsupported("Unregistered or unsupported physical capacity");
-                }
-                addRate(single, singleTerms, key, rate);
-                if (shareResources) {
-                    addRate(totals, terms, key, rate);
-                }
-            }
-            for (String key : single.keySet()) {
-                checkCapacity(single.get(key), endpointCapacitiesBytesPerSecond.get(key), singleTerms.get(key));
-            }
+            double rate = checkCoherentFlowBalance(transfer);
+            accumulateCoherentFlowResources(transfer, rate, totals, terms);
         }
         if (shareResources) {
             for (String key : totals.keySet()) {
                 checkCapacity(totals.get(key), endpointCapacitiesBytesPerSecond.get(key), terms.get(key));
             }
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from checkCoherentState(); statements verbatim; order unchanged.
+     * Scope: per-flow balance and completion-representability invariants, returning the certified rate.
+     */
+    private double checkCoherentFlowBalance(Transfer transfer) {
+        double rate = transfer.rateBytesPerSecond, remaining = transfer.remainingBytes;
+        if (!Double.isFinite(rate)
+                || rate < Double.MIN_NORMAL
+                || rate > transfer.nominalRateBytesPerSecond
+                || !Double.isFinite(remaining)
+                || remaining <= 0
+                || remaining > transfer.bytes) {
+            throw unsupported("Invalid active flow balance or normal allocation");
+        }
+        double duration = remaining / rate, finish = lastAdvanceTime + duration;
+        if (!Double.isFinite(duration) || duration <= 0 || !Double.isFinite(finish) || finish <= lastAdvanceTime) {
+            throw unsupported("Active completion prediction is not representable");
+        }
+        return rate;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from checkCoherentState(); statements verbatim; order unchanged.
+     * Scope: per-flow resource capacity accumulation with per-flow and shared aggregate capacity checks.
+     */
+    private void accumulateCoherentFlowResources(
+            Transfer transfer, double rate, Map<String, BigDecimal> totals, Map<String, Long> terms) {
+        Map<String, BigDecimal> single = new LinkedHashMap<String, BigDecimal>();
+        Map<String, Long> singleTerms = new LinkedHashMap<String, Long>();
+        for (String key : transfer.occupiedResources) {
+            Double cap = endpointCapacitiesBytesPerSecond.get(key);
+            if (cap == null || !Double.isFinite(cap) || cap < Double.MIN_NORMAL) {
+                throw unsupported("Unregistered or unsupported physical capacity");
+            }
+            addRate(single, singleTerms, key, rate);
+            if (shareResources) {
+                addRate(totals, terms, key, rate);
+            }
+        }
+        for (String key : single.keySet()) {
+            checkCapacity(single.get(key), endpointCapacitiesBytesPerSecond.get(key), singleTerms.get(key));
         }
     }
 

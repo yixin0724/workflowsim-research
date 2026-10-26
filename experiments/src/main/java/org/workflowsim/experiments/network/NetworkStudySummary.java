@@ -119,57 +119,68 @@ public final class NetworkStudySummary {
                     }
                 }
                 for (String candidate : candidates) {
-                    List<Double> effects = new ArrayList<Double>();
-                    int wins = 0, ties = 0, losses = 0;
-                    for (Map<String, Object> baseline : stratum) {
-                        if (!"LOCAL_HEFT".equals(baseline.get("planner"))) {
-                            continue;
-                        }
-                        Map<String, Object> other =
-                                find(stratum, baseline.get("workflowId").toString(), candidate);
-                        if (other == null) {
-                            continue;
-                        }
-                        double base = number(baseline, "meanSeconds");
-                        double value = number(other, "meanSeconds");
-                        effects.add((base - value) / base * 100.0);
-                        double tolerance = 1e-9 * Math.max(1.0, Math.max(base, value));
-                        if (value < base - tolerance) {
-                            wins++;
-                        } else if (value > base + tolerance) {
-                            losses++;
-                        } else {
-                            ties++;
-                        }
-                    }
-                    if (effects.isEmpty()) {
-                        continue;
-                    }
-                    Collections.sort(effects);
-                    Map<String, Object> comparison = new LinkedHashMap<String, Object>();
-                    for (String field : new String[] {"population", "vmCount", "network"}) {
-                        comparison.put(field, stratum.get(0).get(field));
-                    }
-                    if (heterogeneityAxis) {
-                        comparison.put("heterogeneity", stratum.get(0).get("heterogeneity"));
-                    }
-                    comparison.put("baseline", "LOCAL_HEFT");
-                    comparison.put("candidate", candidate);
-                    comparison.put("dagPairs", effects.size());
-                    comparison.put("wins", wins);
-                    comparison.put("ties", ties);
-                    comparison.put("losses", losses);
-                    comparison.put("medianImprovementPercent", median(effects));
-                    comparison.put("pValue", signTest(wins, losses));
-                    comparison.put("test", "EXACT_TWO_SIDED_SIGN_TEST_ON_DAG_SEED_MEANS");
-                    comparison.put("inferenceScope", "EXPLORATORY_SELECTED_CORPUS_NOT_RANDOM_WORKLOAD_POPULATION");
-                    family.add(comparison);
+                    compareCandidateAgainstBaseline(stratum, candidate, heterogeneityAxis, family);
                 }
                 applyHolm(family);
                 comparisons.addAll(family);
             }
         }
         return comparisons;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from buildComparisons; statements verbatim; order unchanged.
+     * 作用域：仅计算单个候选 planner 相对 LOCAL_HEFT 基线在本 stratum 内的效应/胜/平/负记录并追加进 family。
+     */
+    private static void compareCandidateAgainstBaseline(
+            List<Map<String, Object>> stratum,
+            String candidate,
+            boolean heterogeneityAxis,
+            List<Map<String, Object>> family) {
+        List<Double> effects = new ArrayList<Double>();
+        int wins = 0, ties = 0, losses = 0;
+        for (Map<String, Object> baseline : stratum) {
+            if (!"LOCAL_HEFT".equals(baseline.get("planner"))) {
+                continue;
+            }
+            Map<String, Object> other = find(stratum, baseline.get("workflowId").toString(), candidate);
+            if (other == null) {
+                continue;
+            }
+            double base = number(baseline, "meanSeconds");
+            double value = number(other, "meanSeconds");
+            effects.add((base - value) / base * 100.0);
+            double tolerance = 1e-9 * Math.max(1.0, Math.max(base, value));
+            if (value < base - tolerance) {
+                wins++;
+            } else if (value > base + tolerance) {
+                losses++;
+            } else {
+                ties++;
+            }
+        }
+        if (effects.isEmpty()) {
+            return;
+        }
+        Collections.sort(effects);
+        Map<String, Object> comparison = new LinkedHashMap<String, Object>();
+        for (String field : new String[] {"population", "vmCount", "network"}) {
+            comparison.put(field, stratum.get(0).get(field));
+        }
+        if (heterogeneityAxis) {
+            comparison.put("heterogeneity", stratum.get(0).get("heterogeneity"));
+        }
+        comparison.put("baseline", "LOCAL_HEFT");
+        comparison.put("candidate", candidate);
+        comparison.put("dagPairs", effects.size());
+        comparison.put("wins", wins);
+        comparison.put("ties", ties);
+        comparison.put("losses", losses);
+        comparison.put("medianImprovementPercent", median(effects));
+        comparison.put("pValue", signTest(wins, losses));
+        comparison.put("test", "EXACT_TWO_SIDED_SIGN_TEST_ON_DAG_SEED_MEANS");
+        comparison.put("inferenceScope", "EXPLORATORY_SELECTED_CORPUS_NOT_RANDOM_WORKLOAD_POPULATION");
+        family.add(comparison);
     }
 
     /** summarize() 分组阶段的私有搬运转写结构。 */

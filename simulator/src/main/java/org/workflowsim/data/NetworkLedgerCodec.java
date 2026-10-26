@@ -354,13 +354,7 @@ public final class NetworkLedgerCodec {
             throw bad("Missing value at " + path);
         }
         if (expected.isJsonObject()) {
-            JsonObject left = expected.getAsJsonObject(), right = object(actual, path);
-            if (!left.keySet().equals(right.keySet())) {
-                throw bad("Missing/unknown fields at " + path);
-            }
-            for (String key : left.keySet()) {
-                same(left.get(key), right.get(key), path + "/" + key);
-            }
+            sameObject(expected, actual, path);
             return;
         }
         if (expected.isJsonArray()) {
@@ -373,6 +367,28 @@ public final class NetworkLedgerCodec {
             }
             return;
         }
+        samePrimitive(expected, actual, path);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same(); statements verbatim; order unchanged.
+     * Scope: keyed object-tree equality by field-name set and per-key recursion.
+     */
+    private static void sameObject(JsonElement expected, JsonElement actual, String path) {
+        JsonObject left = expected.getAsJsonObject(), right = object(actual, path);
+        if (!left.keySet().equals(right.keySet())) {
+            throw bad("Missing/unknown fields at " + path);
+        }
+        for (String key : left.keySet()) {
+            same(left.get(key), right.get(key), path + "/" + key);
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from same(); statements verbatim; order unchanged.
+     * Scope: primitive leaf equality by Number runtime type, boolean, then text.
+     */
+    private static void samePrimitive(JsonElement expected, JsonElement actual, String path) {
         JsonPrimitive primitive = expected.getAsJsonPrimitive();
         if (primitive.isNumber()) {
             Number n = primitive.getAsNumber();
@@ -445,30 +461,7 @@ public final class NetworkLedgerCodec {
             space();
             char c = peek();
             if (c == '{') {
-                at++;
-                JsonObject object = new JsonObject();
-                space();
-                if (take('}')) {
-                    return object;
-                }
-                while (true) {
-                    space();
-                    if (peek() != '"') {
-                        throw error("Object keys must be quoted strings");
-                    }
-                    String key = string();
-                    if (object.has(key)) {
-                        throw error("Duplicate JSON key: " + key);
-                    }
-                    space();
-                    expect(':');
-                    object.add(key, value(depth + 1));
-                    space();
-                    if (take('}')) {
-                        return object;
-                    }
-                    expect(',');
-                }
+                return objectValue(depth);
             }
             if (c == '[') {
                 at++;
@@ -505,6 +498,37 @@ public final class NetworkLedgerCodec {
                 return numeric();
             }
             throw error("Expected JSON value");
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from value(); statements verbatim; order unchanged.
+         * Scope: quoted-key object parsing with duplicate-key rejection and depth-carrying recursion.
+         */
+        JsonObject objectValue(int depth) {
+            at++;
+            JsonObject object = new JsonObject();
+            space();
+            if (take('}')) {
+                return object;
+            }
+            while (true) {
+                space();
+                if (peek() != '"') {
+                    throw error("Object keys must be quoted strings");
+                }
+                String key = string();
+                if (object.has(key)) {
+                    throw error("Duplicate JSON key: " + key);
+                }
+                space();
+                expect(':');
+                object.add(key, value(depth + 1));
+                space();
+                if (take('}')) {
+                    return object;
+                }
+                expect(',');
+            }
         }
 
         JsonPrimitive numeric() {
@@ -590,27 +614,35 @@ public final class NetworkLedgerCodec {
                         result.append((char) 9);
                         break;
                     case 'u':
-                        if (text.length() - at < 4) {
-                            throw error("Incomplete Unicode escape");
-                        }
-                        int code = 0;
-                        for (int i = 0; i < 4; i++) {
-                            char h = text.charAt(at++);
-                            int hex = h >= '0' && h <= '9'
-                                    ? h - '0'
-                                    : h >= 'a' && h <= 'f' ? h - 'a' + 10 : h >= 'A' && h <= 'F' ? h - 'A' + 10 : -1;
-                            if (hex < 0) {
-                                throw error("Invalid Unicode escape");
-                            }
-                            code = code * 16 + hex;
-                        }
-                        result.append((char) code);
+                        appendUnicodeEscape(result);
                         break;
                     default:
                         throw error("Invalid string escape");
                 }
             }
             throw error("Unterminated string");
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from string(); statements verbatim; order unchanged.
+         * Scope: four-hex-digit Unicode escape decoding with per-digit range rejection.
+         */
+        void appendUnicodeEscape(StringBuilder result) {
+            if (text.length() - at < 4) {
+                throw error("Incomplete Unicode escape");
+            }
+            int code = 0;
+            for (int i = 0; i < 4; i++) {
+                char h = text.charAt(at++);
+                int hex = h >= '0' && h <= '9'
+                        ? h - '0'
+                        : h >= 'a' && h <= 'f' ? h - 'a' + 10 : h >= 'A' && h <= 'F' ? h - 'A' + 10 : -1;
+                if (hex < 0) {
+                    throw error("Invalid Unicode escape");
+                }
+                code = code * 16 + hex;
+            }
+            result.append((char) code);
         }
 
         void literal(String value) {

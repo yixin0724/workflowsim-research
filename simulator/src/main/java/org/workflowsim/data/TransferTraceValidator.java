@@ -233,6 +233,14 @@ public final class TransferTraceValidator {
                         throw bad(at("Rate change outside allocation transition"));
                 }
             }
+            validateTraceTail();
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from run(); statements verbatim; order unchanged.
+         * Scope: post-replay horizon drain, final watermark/cut checks, and tail phase assignment only.
+         */
+        private void validateTraceTail() {
             if (partial) {
                 return;
             }
@@ -326,6 +334,19 @@ public final class TransferTraceValidator {
                 flow.rate = e.getRateChange().getRateBytesPerSecond();
                 index++;
             }
+            if (!truncatedTailProceeds(excluded, previousOrdinal, phase)) {
+                return false;
+            }
+            allocation();
+            certified = index;
+            return true;
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from rates(); statements verbatim; order unchanged.
+         * Scope: the truncated tail's still-variable-rate bound and cut only; false stops the replay.
+         */
+        private boolean truncatedTailProceeds(Long excluded, long previousOrdinal, String phase) {
             if (index == events.size() && truncated) {
                 Set<Long> variable = new HashSet<Long>();
                 for (Flow flow : active.values()) {
@@ -351,8 +372,6 @@ public final class TransferTraceValidator {
                 }
                 // No legal future rate event can repair this allocation: it is already fixed.
             }
-            allocation();
-            certified = index;
             return true;
         }
 
@@ -405,13 +424,7 @@ public final class TransferTraceValidator {
             double end = Math.min(observed, cursor + elapsed);
             Map<Long, Double> after = new LinkedHashMap<>();
             List<Flow> settled = new ArrayList<>();
-            for (Flow f : before) {
-                double remainder = Math.max(0.0, f.remaining - f.rate * elapsed);
-                after.put(f.ordinal, remainder);
-                if (remainder <= tolerance(f.bytes) || (f == earliest && elapsed >= duration)) {
-                    settled.add(f);
-                }
-            }
+            classifySettlement(before, earliest, duration, elapsed, after, settled);
             long continuation = end < observed ? before.size() - settled.size() : 0L;
             if (elapsed > 0) {
                 if (!validateServiceBatch(before, settled, after, continuation, end, observed, elapsed)) {
@@ -435,6 +448,26 @@ public final class TransferTraceValidator {
             }
             certified = index;
             return true;
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from step(); statements verbatim; order unchanged.
+         * Scope: post-interval settlement classification only; it fills the after/settled containers.
+         */
+        private void classifySettlement(
+                List<Flow> before,
+                Flow earliest,
+                double duration,
+                double elapsed,
+                Map<Long, Double> after,
+                List<Flow> settled) {
+            for (Flow f : before) {
+                double remainder = Math.max(0.0, f.remaining - f.rate * elapsed);
+                after.put(f.ordinal, remainder);
+                if (remainder <= tolerance(f.bytes) || (f == earliest && elapsed >= duration)) {
+                    settled.add(f);
+                }
+            }
         }
 
         /**
@@ -531,6 +564,15 @@ public final class TransferTraceValidator {
                         at("Already-fixed prefix allocation exceeds resource capacity"));
             }
             Map<Long, BigDecimal> variableUpper = variableUpperBounds(variable, fixed);
+            requireFixedBottleneckCertificates(variable, fixed, variableUpper);
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from fixedAllocationBounds(); statements verbatim; order unchanged.
+         * Scope: the per-flow fixed-prefix max-min certificate search only; bounds stay in the caller.
+         */
+        private void requireFixedBottleneckCertificates(
+                Set<Long> variable, Map<String, Resource> fixed, Map<Long, BigDecimal> variableUpper) {
             for (Flow flow : active.values()) {
                 if (variable.contains(flow.ordinal) || near(flow.rate, flow.nominal, active.size())) {
                     continue;
@@ -691,15 +733,7 @@ public final class TransferTraceValidator {
                 + (e.getComplete() != null ? 1 : 0);
         require(payloads == 1, "An event must contain exactly one typed payload");
         if (e.getType() == TransferTraceEvent.Type.CAPACITY) {
-            require(
-                    e.getCapacity() != null && e.getTransferId() == null && e.getAdmissionOrdinal() == null,
-                    "Invalid CAPACITY shape");
-            require(
-                    e.getCapacity().getResourceKey() != null
-                            && !e.getCapacity().getResourceKey().isEmpty(),
-                    "Invalid capacity resource key");
-            positive(e.getCapacity().getCapacityBytesPerSecond(), "capacity");
-            same(e.getEffectiveTime(), e.getObservedTime(), "Capacity clocks differ");
+            shapeCapacity(e);
             return;
         }
         require(
@@ -744,6 +778,22 @@ public final class TransferTraceValidator {
             default:
                 throw bad("Unsupported flow event");
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from shape(); statements verbatim; order unchanged.
+     * Scope: the CAPACITY payload shape checks only; other payload families stay in the caller.
+     */
+    private static void shapeCapacity(TransferTraceEvent e) {
+        require(
+                e.getCapacity() != null && e.getTransferId() == null && e.getAdmissionOrdinal() == null,
+                "Invalid CAPACITY shape");
+        require(
+                e.getCapacity().getResourceKey() != null
+                        && !e.getCapacity().getResourceKey().isEmpty(),
+                "Invalid capacity resource key");
+        positive(e.getCapacity().getCapacityBytesPerSecond(), "capacity");
+        same(e.getEffectiveTime(), e.getObservedTime(), "Capacity clocks differ");
     }
 
     private static double tolerance(double bytes) {

@@ -151,6 +151,16 @@ public final class NetworkStudyPlan {
         }
         NetworkStudyPlan result = new NetworkStudyPlan(full, variant, values, excluded);
         NetworkStudyPlan registered = canonical(mode, result.getProtocol());
+        verifyAgainstRegisteredProtocol(registered, values, excluded);
+        return result;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from create; statements verbatim; order unchanged.
+     * 作用域：仅校验合格输入/排除项与已登记研究协议逐项一致（id、sha256、资格剔除字段），不一致即抛。
+     */
+    private static void verifyAgainstRegisteredProtocol(
+            NetworkStudyPlan registered, List<WorkflowCase> values, List<Map<String, Object>> excluded) {
         if (values.size() != registered.workflows.size() || excluded.size() != registered.excludedInputs.size()) {
             throw new IllegalArgumentException("Qualified inputs differ from the registered study protocol");
         }
@@ -171,7 +181,6 @@ public final class NetworkStudyPlan {
                 }
             }
         }
-        return result;
     }
 
     /** The declared protocol revision; new executions never use a historical revision. */

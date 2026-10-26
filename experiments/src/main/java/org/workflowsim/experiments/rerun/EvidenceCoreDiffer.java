@@ -191,32 +191,7 @@ public final class EvidenceCoreDiffer {
             List<Divergence> volatileNoted) {
         if (volatileScope || isVolatileSubtreeRoot(pointer)) {
             // 易变子树：递归到叶子，仅记录差异，不参与核心量判定。
-            if (original != null && rerun != null && original.isJsonObject() && rerun.isJsonObject()) {
-                JsonObject a = original.getAsJsonObject();
-                JsonObject b = rerun.getAsJsonObject();
-                Set<String> keys = new TreeSet<String>();
-                keys.addAll(a.keySet());
-                keys.addAll(b.keySet());
-                for (String key : keys) {
-                    compareJson(
-                            pointer + "/" + escapePointerToken(key), a.get(key), b.get(key), true, core, volatileNoted);
-                }
-                return;
-            }
-            if (original != null && rerun != null && original.isJsonArray() && rerun.isJsonArray()) {
-                JsonArray a = original.getAsJsonArray();
-                JsonArray b = rerun.getAsJsonArray();
-                if (a.size() != b.size()) {
-                    volatileNoted.add(new Divergence(pointer, "array length " + a.size(), "array length " + b.size()));
-                }
-                for (int i = 0; i < Math.min(a.size(), b.size()); i++) {
-                    compareJson(pointer + "/" + i, a.get(i), b.get(i), true, core, volatileNoted);
-                }
-                return;
-            }
-            if (!nullSafeEquals(original, rerun)) {
-                volatileNoted.add(new Divergence(pointer, describe(original), describe(rerun)));
-            }
+            compareVolatileScope(pointer, original, rerun, core, volatileNoted);
             return;
         }
         if (isVolatileLeaf(pointer)) {
@@ -231,6 +206,57 @@ public final class EvidenceCoreDiffer {
             }
             return;
         }
+        compareCoreValue(pointer, original, rerun, core, volatileNoted);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from compareJson; statements verbatim; order unchanged.
+     * 作用域：仅处理已判入易变子树的取值（对象/数组顺序遍历仅记录，叶子差异记入 volatileNoted，不参与核心量判定）。
+     */
+    private static void compareVolatileScope(
+            String pointer,
+            JsonElement original,
+            JsonElement rerun,
+            List<Divergence> core,
+            List<Divergence> volatileNoted) {
+        if (original != null && rerun != null && original.isJsonObject() && rerun.isJsonObject()) {
+            JsonObject a = original.getAsJsonObject();
+            JsonObject b = rerun.getAsJsonObject();
+            Set<String> keys = new TreeSet<String>();
+            keys.addAll(a.keySet());
+            keys.addAll(b.keySet());
+            for (String key : keys) {
+                compareJson(pointer + "/" + escapePointerToken(key), a.get(key), b.get(key), true, core, volatileNoted);
+            }
+            return;
+        }
+        if (original != null && rerun != null && original.isJsonArray() && rerun.isJsonArray()) {
+            JsonArray a = original.getAsJsonArray();
+            JsonArray b = rerun.getAsJsonArray();
+            if (a.size() != b.size()) {
+                volatileNoted.add(new Divergence(pointer, "array length " + a.size(), "array length " + b.size()));
+            }
+            for (int i = 0; i < Math.min(a.size(), b.size()); i++) {
+                compareJson(pointer + "/" + i, a.get(i), b.get(i), true, core, volatileNoted);
+            }
+            return;
+        }
+        if (!nullSafeEquals(original, rerun)) {
+            volatileNoted.add(new Divergence(pointer, describe(original), describe(rerun)));
+        }
+        return;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from compareJson; statements verbatim; order unchanged.
+     * 作用域：仅处理非易变指针上双非空取值的核心量比对（容器递归或叶子/标量精确相等，分歧记入 core）。
+     */
+    private static void compareCoreValue(
+            String pointer,
+            JsonElement original,
+            JsonElement rerun,
+            List<Divergence> core,
+            List<Divergence> volatileNoted) {
         if (original.isJsonObject() && rerun.isJsonObject()) {
             JsonObject a = original.getAsJsonObject();
             JsonObject b = rerun.getAsJsonObject();

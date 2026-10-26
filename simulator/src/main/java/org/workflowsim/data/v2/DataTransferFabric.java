@@ -114,6 +114,23 @@ public final class DataTransferFabric {
                 throw bad("Duplicate SOURCE location");
             }
         }
+        Map<Integer, Integer> placement = resolveTopologyPlacement(topology, endpointBytes, actualHosts, values);
+        locations = Collections.unmodifiableSet(known);
+        capacities = Collections.unmodifiableMap(values);
+        hosts = Collections.unmodifiableMap(placement);
+        this.topology = topology;
+        sourceStorage = null;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from DataTransferFabric constructor; statements verbatim; order unchanged.
+     * 作用域：仅校验并登记含拓扑时的实际主机映射（覆盖全部 VM 端点、落在已放置主机上）并把物理链路容量并入资源表。
+     */
+    private static Map<Integer, Integer> resolveTopologyPlacement(
+            FatTreeTopology topology,
+            Map<Integer, Double> endpointBytes,
+            Map<Integer, Integer> actualHosts,
+            Map<String, Double> values) {
         Map<Integer, Integer> placement = new TreeMap<>();
         if (topology != null) {
             if (actualHosts == null || !actualHosts.keySet().equals(endpointBytes.keySet())) {
@@ -136,11 +153,7 @@ public final class DataTransferFabric {
         } else if (actualHosts != null) {
             throw bad("Host mapping without a topology is unsupported");
         }
-        locations = Collections.unmodifiableSet(known);
-        capacities = Collections.unmodifiableMap(values);
-        hosts = Collections.unmodifiableMap(placement);
-        this.topology = topology;
-        sourceStorage = null;
+        return placement;
     }
 
     /**

@@ -336,21 +336,8 @@ public class FailureParameters {
         if (tasks == null || vmIds == null) {
             throw new IllegalArgumentException("Failure coverage validation requires tasks and VM IDs");
         }
-        TreeSet<Integer> observedDepths = new TreeSet<Integer>();
-        for (Task task : tasks) {
-            if (task == null || task.getDepth() <= 0) {
-                throw new IllegalStateException(
-                        "Failure coverage validation requires parsed tasks with positive DAG depths");
-            }
-            observedDepths.add(Integer.valueOf(task.getDepth()));
-        }
-        TreeSet<Integer> declaredVmIds = new TreeSet<Integer>();
-        for (Integer vmId : vmIds) {
-            if (vmId == null || vmId.intValue() < 0) {
-                throw new IllegalStateException("Failure coverage validation requires non-negative VM IDs");
-            }
-            declaredVmIds.add(vmId);
-        }
+        TreeSet<Integer> observedDepths = collectObservedDepths(tasks);
+        TreeSet<Integer> declaredVmIds = collectDeclaredVmIds(vmIds);
 
         switch (failureMode) {
             case FAILURE_ALL:
@@ -381,6 +368,37 @@ public class FailureParameters {
             default:
                 return;
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateRuntimeCoverage(); statements verbatim; order unchanged.
+     * Scope: parsing each input Task's positive DAG depth into the observed-depth set.
+     */
+    private static TreeSet<Integer> collectObservedDepths(Collection<Task> tasks) {
+        TreeSet<Integer> observedDepths = new TreeSet<Integer>();
+        for (Task task : tasks) {
+            if (task == null || task.getDepth() <= 0) {
+                throw new IllegalStateException(
+                        "Failure coverage validation requires parsed tasks with positive DAG depths");
+            }
+            observedDepths.add(Integer.valueOf(task.getDepth()));
+        }
+        return observedDepths;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateRuntimeCoverage(); statements verbatim; order unchanged.
+     * Scope: parsing each declared VM ID's non-null non-negative membership.
+     */
+    private static TreeSet<Integer> collectDeclaredVmIds(Collection<Integer> vmIds) {
+        TreeSet<Integer> declaredVmIds = new TreeSet<Integer>();
+        for (Integer vmId : vmIds) {
+            if (vmId == null || vmId.intValue() < 0) {
+                throw new IllegalStateException("Failure coverage validation requires non-negative VM IDs");
+            }
+            declaredVmIds.add(vmId);
+        }
+        return declaredVmIds;
     }
 
     private static void validateCoverageCoordinate(
@@ -486,25 +504,42 @@ public class FailureParameters {
             throw new IllegalArgumentException("Enabled failure mode requires exactly one generator layout");
         }
         if (hasVmIdKeyedRows) {
-            if (failure != FTCFailure.FAILURE_VM && failure != FTCFailure.FAILURE_VM_JOB) {
-                throw new IllegalArgumentException("VM-ID-keyed generators require FAILURE_VM or FAILURE_VM_JOB");
-            }
-            for (Map.Entry<Integer, DistributionGenerator[]> entry : failureGeneratorsByVmId.entrySet()) {
-                if (entry.getKey() == null
-                        || entry.getKey().intValue() < 0
-                        || entry.getValue() == null
-                        || entry.getValue().length == 0) {
-                    throw new IllegalArgumentException("VM-ID-keyed failure generator row is invalid");
-                }
-                for (int column = 0; column < entry.getValue().length; column++) {
-                    if (entry.getValue()[column] == null) {
-                        throw new IllegalArgumentException(
-                                "Failure generator for VM " + entry.getKey() + " at depth " + column + " is null");
-                    }
-                }
-            }
+            validateVmIdKeyedGeneratorRows(failure, failureGeneratorsByVmId);
             return;
         }
+        validateDenseGeneratorMatrix(failureGenerators);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateGenerators(); statements verbatim; order unchanged.
+     * Scope: VM-ID-keyed layout mode restriction plus per-row/per-depth generator validity.
+     */
+    private static void validateVmIdKeyedGeneratorRows(
+            FTCFailure failure, Map<Integer, DistributionGenerator[]> failureGeneratorsByVmId) {
+        if (failure != FTCFailure.FAILURE_VM && failure != FTCFailure.FAILURE_VM_JOB) {
+            throw new IllegalArgumentException("VM-ID-keyed generators require FAILURE_VM or FAILURE_VM_JOB");
+        }
+        for (Map.Entry<Integer, DistributionGenerator[]> entry : failureGeneratorsByVmId.entrySet()) {
+            if (entry.getKey() == null
+                    || entry.getKey().intValue() < 0
+                    || entry.getValue() == null
+                    || entry.getValue().length == 0) {
+                throw new IllegalArgumentException("VM-ID-keyed failure generator row is invalid");
+            }
+            for (int column = 0; column < entry.getValue().length; column++) {
+                if (entry.getValue()[column] == null) {
+                    throw new IllegalArgumentException(
+                            "Failure generator for VM " + entry.getKey() + " at depth " + column + " is null");
+                }
+            }
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateGenerators(); statements verbatim; order unchanged.
+     * Scope: dense matrix layout per-row/per-column generator validity.
+     */
+    private static void validateDenseGeneratorMatrix(DistributionGenerator[][] failureGenerators) {
         for (int row = 0; row < failureGenerators.length; row++) {
             if (failureGenerators[row] == null || failureGenerators[row].length == 0) {
                 throw new IllegalArgumentException("Failure generator row " + row + " is empty");

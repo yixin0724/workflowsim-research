@@ -222,35 +222,7 @@ public final class DataflowFilePlan {
             if (task.getFileList() == null) {
                 throw bad("Null resolved file list for Task " + id);
             }
-            for (FileItem item : task.getFileList()) {
-                if (item == null || (item.getType() != FileType.INPUT && item.getType() != FileType.OUTPUT)) {
-                    throw bad("V2 resolved files require INPUT or OUTPUT type");
-                }
-                double bytes = item.getSize();
-                if (!Double.isFinite(bytes) || bytes < 0) {
-                    throw bad("Resolved file bytes must be finite and nonnegative");
-                }
-                bytes = bytes == 0 ? 0 : bytes;
-                FileId key = FileId.of(workflow, item.getName());
-                FileBuilder file = files.get(key);
-                if (file == null) {
-                    file = new FileBuilder(key, bytes);
-                    files.put(key, file);
-                } else if (file.bytes != bytes) {
-                    throw bad("Conflicting resolved sizes for " + key);
-                }
-                if (item.getType() == FileType.INPUT) {
-                    Long count = node.inputs.get(key);
-                    node.inputs.put(key, count == null ? 1 : Math.addExact(count, 1));
-                    file.consumers.add(id);
-                } else {
-                    if (file.producer != null && file.producer != id) {
-                        throw bad("Multiple logical producers for " + key);
-                    }
-                    file.producer = id;
-                    node.outputs.add(key);
-                }
-            }
+            resolveTaskFiles(node, files, id, workflow, task);
             for (FileId key : node.outputs) {
                 if (node.inputs.containsKey(key)) {
                     throw bad("In-place file mutation is not write-once: " + key + " at Task " + id);
@@ -263,6 +235,43 @@ public final class DataflowFilePlan {
         validateGraph(nodes);
         validateProducers(nodes, files);
         return new DataflowFilePlan(nodes, files);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from capture; statements verbatim; order unchanged.
+     * 作用域：仅把单个 Task 声明的 INPUT/OUTPUT 文件解析进节点簿记（输入计数/输出集合）与全局文件构建器
+     * （唯一生产者、字节一致性）。
+     */
+    private static void resolveTaskFiles(Node node, Map<FileId, FileBuilder> files, int id, int workflow, Task task) {
+        for (FileItem item : task.getFileList()) {
+            if (item == null || (item.getType() != FileType.INPUT && item.getType() != FileType.OUTPUT)) {
+                throw bad("V2 resolved files require INPUT or OUTPUT type");
+            }
+            double bytes = item.getSize();
+            if (!Double.isFinite(bytes) || bytes < 0) {
+                throw bad("Resolved file bytes must be finite and nonnegative");
+            }
+            bytes = bytes == 0 ? 0 : bytes;
+            FileId key = FileId.of(workflow, item.getName());
+            FileBuilder file = files.get(key);
+            if (file == null) {
+                file = new FileBuilder(key, bytes);
+                files.put(key, file);
+            } else if (file.bytes != bytes) {
+                throw bad("Conflicting resolved sizes for " + key);
+            }
+            if (item.getType() == FileType.INPUT) {
+                Long count = node.inputs.get(key);
+                node.inputs.put(key, count == null ? 1 : Math.addExact(count, 1));
+                file.consumers.add(id);
+            } else {
+                if (file.producer != null && file.producer != id) {
+                    throw bad("Multiple logical producers for " + key);
+                }
+                file.producer = id;
+                node.outputs.add(key);
+            }
+        }
     }
 
     /** @return versioned resolved-size/write-once contract */

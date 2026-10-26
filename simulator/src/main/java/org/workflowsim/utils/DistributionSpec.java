@@ -119,6 +119,14 @@ public final class DistributionSpec {
         if (shape <= 0.0 || (family != DistributionFamily.NORMAL && scale <= 0.0)) {
             throw new IllegalArgumentException("Distribution shape and non-normal scale must be positive");
         }
+        validatePriors(priorShape, priorScale, likelihoodPrior);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validate; statements verbatim; order unchanged.
+     * 作用域：仅校验贝叶斯先验三参数必须同配且全部有限，否则抛参数校验异常。
+     */
+    private static void validatePriors(Double priorShape, Double priorScale, Double likelihoodPrior) {
         boolean anyPrior = priorShape != null || priorScale != null || likelihoodPrior != null;
         boolean allPriors = priorShape != null && priorScale != null && likelihoodPrior != null;
         if (anyPrior != allPriors

@@ -494,24 +494,8 @@ final class SharedStorageDagPlanner {
     }
 
     private List<Task> identifyCriticalPath(List<Task> tasks) {
-        Task current = null;
-        double target = Double.NEGATIVE_INFINITY;
-        for (Task task : tasks) {
-            if (!task.getParentList().isEmpty()) {
-                continue;
-            }
-            double priority = cpopPriority(task);
-            if (priority > target
-                    || (Double.compare(priority, target) == 0
-                            && current != null
-                            && task.getCloudletId() < current.getCloudletId())) {
-                current = task;
-                target = priority;
-            }
-        }
-        if (current == null) {
-            throw new IllegalStateException("CPOP requires a DAG entry task");
-        }
+        Task current = highestPriorityEntryTask(tasks);
+        double target = cpopPriority(current);
         List<Task> path = new ArrayList<Task>();
         while (true) {
             path.add(current);
@@ -536,6 +520,32 @@ final class SharedStorageDagPlanner {
             }
             current = next;
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from identifyCriticalPath; statements verbatim; order unchanged.
+     * 作用域：仅在入口任务中选出 CPOP 优先级最高者（平局取较小任务 ID），无入口任务即抛。
+     */
+    private Task highestPriorityEntryTask(List<Task> tasks) {
+        Task current = null;
+        double target = Double.NEGATIVE_INFINITY;
+        for (Task task : tasks) {
+            if (!task.getParentList().isEmpty()) {
+                continue;
+            }
+            double priority = cpopPriority(task);
+            if (priority > target
+                    || (Double.compare(priority, target) == 0
+                            && current != null
+                            && task.getCloudletId() < current.getCloudletId())) {
+                current = task;
+                target = priority;
+            }
+        }
+        if (current == null) {
+            throw new IllegalStateException("CPOP requires a DAG entry task");
+        }
+        return current;
     }
 
     private CondorVM selectCriticalProcessor(List<Task> criticalPath, List<CondorVM> vms) {

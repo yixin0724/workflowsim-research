@@ -206,16 +206,7 @@ public final class DataflowVmAssigner {
         Task task = job.getTaskList().get(0);
         int taskId = task.getCloudletId(), jobId = job.getCloudletId();
         Integer bound = bindings.get(taskId);
-        if (jobId < 0 || reservations.containsKey(jobId)) {
-            throw new IllegalArgumentException("Attempt identity is invalid or already reserved");
-        }
-        if (bound == null) {
-            if (job.getVmId() != -1 || task.getVmId() != -1) {
-                throw new IllegalStateException("Initial online dataflow Task/Job must be unbound");
-            }
-        } else if (job.getVmId() != bound || task.getVmId() != bound) {
-            throw new IllegalStateException("NOOP retry must inherit its logical Task VM binding");
-        }
+        verifyAttemptIdentityAndBinding(job, task, jobId, bound);
         List<DataflowFilePlan.InputDemand> demands =
                 runtime.getFilePlan().demandsFor(Collections.singletonList(taskId));
         List<DataflowFilePlan.FileId> files = new ArrayList<>();
@@ -231,24 +222,8 @@ public final class DataflowVmAssigner {
         if (observation.getObservedThrough() != now) {
             throw new IllegalStateException("Observation watermark differs from decision boundary");
         }
-        for (int active : observation.getActiveJobs().keySet()) {
-            if (!reservations.containsKey(active)) {
-                throw new IllegalStateException(
-                        "Active compute attempt has no policy-owned CPU reservation: " + active);
-            }
-        }
-        java.util.Set<Integer> actualIds = new java.util.TreeSet<>();
-        for (DataLocation location : observation.getFabric().getLocations()) {
-            if (location.getKind() == DataLocation.Kind.VM) {
-                actualIds.add(location.getVmId());
-            }
-        }
-        if (!actualIds.equals(vms.keySet())) {
-            throw new IllegalArgumentException("Assignment candidates must cover exactly the actual fabric VMs");
-        }
-        for (VmOption vm : vms.values()) {
-            observation.getFabric().requireLocation(DataLocation.vm(vm.id));
-        }
+        verifyActiveComputeReservations(observation);
+        verifyFabricCoversActualVms(observation);
         CandidateAssessment assessment = evaluateVmCandidates(task, job, bound, observation, demands, now);
         List<Map<String, Object>> scores = assessment.scores;
         VmOption chosen = assessment.chosen;
@@ -275,6 +250,55 @@ public final class DataflowVmAssigner {
         job.setVmId(chosen.id);
         task.setVmId(chosen.id);
         return new Prepared(decision, prepared);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from prepare(); statements verbatim; order unchanged.
+     * Scope: attempt-job identity freshness and initial/NOOP-retry binding inheritance checks.
+     */
+    private void verifyAttemptIdentityAndBinding(Job job, Task task, int jobId, Integer bound) {
+        if (jobId < 0 || reservations.containsKey(jobId)) {
+            throw new IllegalArgumentException("Attempt identity is invalid or already reserved");
+        }
+        if (bound == null) {
+            if (job.getVmId() != -1 || task.getVmId() != -1) {
+                throw new IllegalStateException("Initial online dataflow Task/Job must be unbound");
+            }
+        } else if (job.getVmId() != bound || task.getVmId() != bound) {
+            throw new IllegalStateException("NOOP retry must inherit its logical Task VM binding");
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from prepare(); statements verbatim; order unchanged.
+     * Scope: every active compute attempt must own a policy CPU reservation at binding time.
+     */
+    private void verifyActiveComputeReservations(DataflowObservation observation) {
+        for (int active : observation.getActiveJobs().keySet()) {
+            if (!reservations.containsKey(active)) {
+                throw new IllegalStateException(
+                        "Active compute attempt has no policy-owned CPU reservation: " + active);
+            }
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from prepare(); statements verbatim; order unchanged.
+     * Scope: assignment candidates must cover exactly the actual fabric VM set.
+     */
+    private void verifyFabricCoversActualVms(DataflowObservation observation) {
+        java.util.Set<Integer> actualIds = new java.util.TreeSet<>();
+        for (DataLocation location : observation.getFabric().getLocations()) {
+            if (location.getKind() == DataLocation.Kind.VM) {
+                actualIds.add(location.getVmId());
+            }
+        }
+        if (!actualIds.equals(vms.keySet())) {
+            throw new IllegalArgumentException("Assignment candidates must cover exactly the actual fabric VMs");
+        }
+        for (VmOption vm : vms.values()) {
+            observation.getFabric().requireLocation(DataLocation.vm(vm.id));
+        }
     }
     /** prepare() 的候选打分阶段（逐字搬运转写；完成时刻公式与 ID tie-break 原样）。 */
     private CandidateAssessment evaluateVmCandidates(
@@ -400,32 +424,7 @@ public final class DataflowVmAssigner {
                             existing.getService().getNominalRateBytesPerSecond());
                     estimate.joined++;
                 } else {
-                    List<DataReplicaState.Replica> sources = observation.isStoreBackedInputs()
-                            ? Collections.singletonList(file.getReplica(CoherentDataflowRuntime.SOURCE))
-                            : file.getVisibleReplicas();
-                    if (sources.isEmpty() || sources.get(0) == null) {
-                        throw new IllegalStateException("No observed replica for required input");
-                    }
-                    double rate = 0;
-                    DataLocation selected = null;
-                    for (DataReplicaState.Replica source : sources) {
-                        if (source.getVisibleAt() > observation.getObservedThrough()) {
-                            throw new IllegalStateException("Future replica in observation");
-                        }
-                        if (demand.getFile().getBytes() == 0) {
-                            continue;
-                        }
-                        double candidate = observation
-                                .getFabric()
-                                .route(source.getLocation(), destination)
-                                .getStandaloneRateBytesPerSecond();
-                        if (selected == null
-                                || candidate > rate
-                                || (candidate == rate && source.getLocation().compareTo(selected) < 0)) {
-                            selected = source.getLocation();
-                            rate = candidate;
-                        }
-                    }
+                    double rate = fastestSourceTransferRate(observation, demand, file, destination);
                     if (demand.getFile().getBytes() > 0) {
                         delay = ratio(demand.getFile().getBytes(), rate);
                     }
@@ -434,6 +433,44 @@ public final class DataflowVmAssigner {
             estimate.seconds = Math.max(estimate.seconds, delay);
         }
         return estimate;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from estimateInputs(); statements verbatim; order unchanged.
+     * Scope: source-candidate visibility and standalone-rate selection with lower-location tie-break.
+     */
+    private static double fastestSourceTransferRate(
+            DataflowObservation observation,
+            DataflowFilePlan.InputDemand demand,
+            DataflowObservation.FileView file,
+            DataLocation destination) {
+        List<DataReplicaState.Replica> sources = observation.isStoreBackedInputs()
+                ? Collections.singletonList(file.getReplica(CoherentDataflowRuntime.SOURCE))
+                : file.getVisibleReplicas();
+        if (sources.isEmpty() || sources.get(0) == null) {
+            throw new IllegalStateException("No observed replica for required input");
+        }
+        double rate = 0;
+        DataLocation selected = null;
+        for (DataReplicaState.Replica source : sources) {
+            if (source.getVisibleAt() > observation.getObservedThrough()) {
+                throw new IllegalStateException("Future replica in observation");
+            }
+            if (demand.getFile().getBytes() == 0) {
+                continue;
+            }
+            double candidate = observation
+                    .getFabric()
+                    .route(source.getLocation(), destination)
+                    .getStandaloneRateBytesPerSecond();
+            if (selected == null
+                    || candidate > rate
+                    || (candidate == rate && source.getLocation().compareTo(selected) < 0)) {
+                selected = source.getLocation();
+                rate = candidate;
+            }
+        }
+        return rate;
     }
 
     private static double ratio(double bytes, double rate) {

@@ -123,14 +123,7 @@ public final class ExperimentArtifactValidator {
                 && !MANIFEST_SCHEMA_V4.equals(schema)) {
             throw new IOException("Unsupported experiment manifest schema: " + schema);
         }
-        if ((isCoherentManifest(root)
-                        || root.has("dataflowPlan")
-                        || (root.has("platform")
-                                && root.get("platform").isJsonObject()
-                                && root.getAsJsonObject("platform").has("sourceStorage")))
-                && !MANIFEST_SCHEMA_V4.equals(schema)) {
-            throw new IOException("Coherent V2 dataflow requires manifest v4");
-        }
+        requireV4ForCoherentFeatures(root, schema);
         validateManifestTopLevelShape(root);
         if (MANIFEST_SCHEMA_V3.equals(schema) || MANIFEST_SCHEMA_V4.equals(schema)) {
             validateV3Provenance(requireObject(root, "provenance", "experiment manifest"));
@@ -139,6 +132,21 @@ public final class ExperimentArtifactValidator {
             ManifestV4Validator.validate(root);
         }
         return root;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from openManifest; statements verbatim; order unchanged.
+     * 作用域：仅校验 coherent 数据面、dataflowPlan 或 sourceStorage 特性必须搭载 v4 schema。
+     */
+    private static void requireV4ForCoherentFeatures(JsonObject root, String schema) throws IOException {
+        if ((isCoherentManifest(root)
+                        || root.has("dataflowPlan")
+                        || (root.has("platform")
+                                && root.get("platform").isJsonObject()
+                                && root.getAsJsonObject("platform").has("sourceStorage")))
+                && !MANIFEST_SCHEMA_V4.equals(schema)) {
+            throw new IOException("Coherent V2 dataflow requires manifest v4");
+        }
     }
 
     /** validate() 的结果装配阶段（逐字搬运转写）。 */

@@ -556,23 +556,7 @@ public final class CoherentDataflowRuntime {
                     finiteSum(job.referenceBytes, demand.getReferenceBytes().doubleValue());
             job.referenceCount = Math.addExact(job.referenceCount, demand.getReferenceCount());
             job.pending.add(file);
-            if (storeBackedInputs && frame.replicas.getReplica(file, SOURCE) == null) {
-                job.unresolvedStore.put(file, demand.getReferenceCount());
-                LinkedHashSet<Integer> waiting = frame.storeWaiters.get(file);
-                if (waiting == null) {
-                    waiting = new LinkedHashSet<>();
-                    frame.storeWaiters.put(file, waiting);
-                }
-                waiting.add(jobId);
-                JsonObject p = staged.event(FileLifecycleEvent.Type.INPUT_WAITING_FOR_STORE, now);
-                if (p != null) {
-                    p.addProperty("jobId", jobId);
-                    p.add("fileId", FileLifecycleFormat.file(file));
-                    p.addProperty("referenceCount", demand.getReferenceCount());
-                }
-            } else {
-                resolveStorageInput(staged, jobId, file, demand.getReferenceCount(), now, false);
-            }
+            awaitOrResolveStorageInput(staged, frame, job, jobId, demand, file, now);
         }
         if (job.referenceCount > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Reference count exceeds core-event range");
@@ -584,6 +568,37 @@ public final class CoherentDataflowRuntime {
         }
         commit(staged);
         return job.preparation;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from requestStorageJob; statements verbatim; order unchanged.
+     * 作用域：仅处理单条输入需求在 store 提交前的等待登记（未提交则挂起 jobId 记账）或即时解析。
+     */
+    private void awaitOrResolveStorageInput(
+            Stage staged,
+            Frame frame,
+            JobState job,
+            int jobId,
+            DataflowFilePlan.InputDemand demand,
+            DataflowFilePlan.FileId file,
+            double now) {
+        if (storeBackedInputs && frame.replicas.getReplica(file, SOURCE) == null) {
+            job.unresolvedStore.put(file, demand.getReferenceCount());
+            LinkedHashSet<Integer> waiting = frame.storeWaiters.get(file);
+            if (waiting == null) {
+                waiting = new LinkedHashSet<>();
+                frame.storeWaiters.put(file, waiting);
+            }
+            waiting.add(jobId);
+            JsonObject p = staged.event(FileLifecycleEvent.Type.INPUT_WAITING_FOR_STORE, now);
+            if (p != null) {
+                p.addProperty("jobId", jobId);
+                p.add("fileId", FileLifecycleFormat.file(file));
+                p.addProperty("referenceCount", demand.getReferenceCount());
+            }
+        } else {
+            resolveStorageInput(staged, jobId, file, demand.getReferenceCount(), now, false);
+        }
     }
 
     private void resolveStorageInput(

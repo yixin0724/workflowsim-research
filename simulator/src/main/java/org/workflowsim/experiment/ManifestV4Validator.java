@@ -22,34 +22,12 @@ final class ManifestV4Validator {
             FileLifecycleContextValidator.requiresOnlineAssignmentAudit(root);
         }
         JsonObject platform = object(root, "platform");
-        JsonArray inputs = array(root, "inputs");
-        JsonArray paths = array(config, "workflowPaths");
-        JsonArray arrivals = array(config, "workflowArrivalSeconds");
-        if (inputs.size() == 0 || arrivals.size() != inputs.size() || paths.size() != inputs.size()) {
-            throw new IOException("configuration.workflowArrivalSeconds/workflowPaths must cover every input");
-        }
-        JsonArray outcomes = array(object(root, "result"), "workflowOutcomes");
-        if (outcomes.size() != inputs.size()) {
-            throw new IOException("workflowOutcomes must cover every input");
-        }
-        String workingDirectory =
-                text(required(object(object(root, "provenance"), "execution"), "workingDirectory"), "workingDirectory");
-        for (int i = 0; i < arrivals.size(); i++) {
-            validateWorkflowInputAlignment(
-                    i, arrivals.get(i), paths.get(i), inputs.get(i), outcomes.get(i), workingDirectory);
-        }
-        equalText(config, "workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
+        verifyCoveredInputs(root, config);
         JsonArray hosts = array(platform, "hosts");
         JsonArray vms = array(platform, "vms");
         Set<Integer> hostIds = identifiers(hosts, "hosts");
         Set<Integer> vmIds = identifiers(vms, "vms");
-        if (hostIds.isEmpty()
-                || vmIds.isEmpty()
-                || integer(required(config, "vmCount"), "configuration.vmCount") != vms.size()
-                || integer(required(platform, "vmCount"), "platform.vmCount") != vms.size()
-                || integer(required(platform, "hostCount"), "platform.hostCount") != hosts.size()) {
-            throw new IOException("configuration/platform resource counts are inconsistent");
-        }
+        verifyPlatformResourceCounts(config, platform, hosts, vms, hostIds, vmIds);
         validateMatrix(config, root, vmIds);
         DataMovementModel model = readMovement(object(config, "dataMovementModel"));
         if (config.has("networkEvidence")) {
@@ -75,20 +53,54 @@ final class ManifestV4Validator {
         }
     }
 
+    /**
+     * 2026-10-26 complexity extraction from validate(); statements verbatim; order unchanged.
+     * Scope: input/arrival/path/outcome coverage checks and per-input alignment with arrival semantics.
+     */
+    private static void verifyCoveredInputs(JsonObject root, JsonObject config) throws IOException {
+        JsonArray inputs = array(root, "inputs");
+        JsonArray paths = array(config, "workflowPaths");
+        JsonArray arrivals = array(config, "workflowArrivalSeconds");
+        if (inputs.size() == 0 || arrivals.size() != inputs.size() || paths.size() != inputs.size()) {
+            throw new IOException("configuration.workflowArrivalSeconds/workflowPaths must cover every input");
+        }
+        JsonArray outcomes = array(object(root, "result"), "workflowOutcomes");
+        if (outcomes.size() != inputs.size()) {
+            throw new IOException("workflowOutcomes must cover every input");
+        }
+        String workingDirectory =
+                text(required(object(object(root, "provenance"), "execution"), "workingDirectory"), "workingDirectory");
+        for (int i = 0; i < arrivals.size(); i++) {
+            validateWorkflowInputAlignment(
+                    i, arrivals.get(i), paths.get(i), inputs.get(i), outcomes.get(i), workingDirectory);
+        }
+        equalText(config, "workflowArrivalSemantics", "PREDECLARED_AT_TIME_ZERO;SECONDS_FROM_SIMULATION_ZERO");
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validate(); statements verbatim; order unchanged.
+     * Scope: configuration/platform host and VM identifier/count consistency.
+     */
+    private static void verifyPlatformResourceCounts(
+            JsonObject config,
+            JsonObject platform,
+            JsonArray hosts,
+            JsonArray vms,
+            Set<Integer> hostIds,
+            Set<Integer> vmIds)
+            throws IOException {
+        if (hostIds.isEmpty()
+                || vmIds.isEmpty()
+                || integer(required(config, "vmCount"), "configuration.vmCount") != vms.size()
+                || integer(required(platform, "vmCount"), "platform.vmCount") != vms.size()
+                || integer(required(platform, "hostCount"), "platform.hostCount") != hosts.size()) {
+            throw new IOException("configuration/platform resource counts are inconsistent");
+        }
+    }
+
     private static void validateGraph(JsonObject root) throws IOException {
         JsonArray graph = array(root, "workflowGraph");
-        Map<Integer, JsonObject> nodes = new LinkedHashMap<Integer, JsonObject>();
-        for (JsonElement item : graph) {
-            if (!item.isJsonObject()) {
-                throw new IOException("workflowGraph nodes must be objects");
-            }
-            JsonObject node = item.getAsJsonObject();
-            int id = integer(required(node, "taskId"), "workflowGraph.taskId");
-            if (nodes.put(id, node) != null) {
-                throw new IOException("workflowGraph has duplicate taskId");
-            }
-            integer(required(node, "depth"), "workflowGraph.depth");
-        }
+        Map<Integer, JsonObject> nodes = readGraphNodes(graph);
         int edges = 0;
         for (Map.Entry<Integer, JsonObject> entry : nodes.entrySet()) {
             int id = entry.getKey();
@@ -119,6 +131,35 @@ final class ManifestV4Validator {
                 }
             }
         }
+        verifyGraphProfileCounts(root, nodes, edges);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateGraph(); statements verbatim; order unchanged.
+     * Scope: workflowGraph node intake with duplicate taskId and depth field checks.
+     */
+    private static Map<Integer, JsonObject> readGraphNodes(JsonArray graph) throws IOException {
+        Map<Integer, JsonObject> nodes = new LinkedHashMap<Integer, JsonObject>();
+        for (JsonElement item : graph) {
+            if (!item.isJsonObject()) {
+                throw new IOException("workflowGraph nodes must be objects");
+            }
+            JsonObject node = item.getAsJsonObject();
+            int id = integer(required(node, "taskId"), "workflowGraph.taskId");
+            if (nodes.put(id, node) != null) {
+                throw new IOException("workflowGraph has duplicate taskId");
+            }
+            integer(required(node, "depth"), "workflowGraph.depth");
+        }
+        return nodes;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateGraph(); statements verbatim; order unchanged.
+     * Scope: workflowProfile task/edge count agreement with the parsed graph.
+     */
+    private static void verifyGraphProfileCounts(JsonObject root, Map<Integer, JsonObject> nodes, int edges)
+            throws IOException {
         JsonObject profile = object(root, "workflowProfile");
         if (integer(required(profile, "taskCount"), "workflowProfile.taskCount") != nodes.size()
                 || integer(required(profile, "edgeCount"), "workflowProfile.edgeCount") != edges) {
@@ -272,6 +313,15 @@ final class ManifestV4Validator {
                 model.isCoherentStorageDataflowV3()
                         ? "BOUNDED_STORAGE_HOST_ATTACHMENT_V3"
                         : "BYPASS_TOPOLOGY_DESTINATION_ENDPOINT_ONLY");
+        verifyTopologyCapacity(k, cores, hostIds, placements);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from validateTopology(); statements verbatim; order unchanged.
+     * Scope: arithmetic k-parity/capacity and hostEdgePlacements load checks without topology allocation.
+     */
+    private static void verifyTopologyCapacity(
+            int k, Integer cores, Set<Integer> hostIds, Map<Integer, Integer> placements) throws IOException {
         // Check capacities arithmetically: validation must not allocate an untrusted topology.
         if (k < 2 || k % 2 != 0) {
             throw new IOException("networkTopology.k must be even and >= 2");

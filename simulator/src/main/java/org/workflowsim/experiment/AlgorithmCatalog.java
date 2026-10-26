@@ -77,6 +77,18 @@ public final class AlgorithmCatalog {
             case STATIC_MAXMIN:
             case STATIC_SUFFERAGE:
             case STATIC_ROUND_ROBIN:
+                return true;
+            default:
+                return isSupportedResearchPlanningContract(algorithm);
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from isSupportedBySimulationRunner(PlanningAlgorithm); statements verbatim;
+     * order unchanged. Scope: research-catalog planner labels (shared-storage, PSO, LOCAL families).
+     */
+    private static boolean isSupportedResearchPlanningContract(PlanningAlgorithm algorithm) {
+        switch (algorithm) {
             case SHARED_STORAGE_HEFT:
             case SHARED_STORAGE_CPOP:
             case SHARED_STORAGE_DLS:
@@ -301,6 +313,31 @@ public final class AlgorithmCatalog {
             case SHARED_STORAGE_PEFT:
                 sharedStoragePeftPlanner(values);
                 break;
+            case PSO:
+                psoPlanner(values);
+                break;
+            case LOCAL_HEFT:
+                localHeftPlanner(values);
+                break;
+            case LOCAL_CPOP:
+                localCpopPlanner(values);
+                break;
+            case LOCAL_PEFT:
+                localPeftPlanner(values);
+                break;
+            default:
+                independentOrNonePlannerContract(algorithm, values);
+                break;
+        }
+        return values;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from planner(); statements verbatim; order unchanged.
+     * Scope: STATIC_* independent-task planner branches and the shared INVALID/default contract.
+     */
+    private static void independentOrNonePlannerContract(PlanningAlgorithm algorithm, Map<String, Object> values) {
+        switch (algorithm) {
             case STATIC_OLB:
                 independentPlanner(values, "Opportunistic Load Balancing based on least predicted VM availability");
                 break;
@@ -322,18 +359,6 @@ public final class AlgorithmCatalog {
             case STATIC_ROUND_ROBIN:
                 independentPlanner(values, "Deterministic ascending-VM-ID cyclic mapping");
                 break;
-            case PSO:
-                psoPlanner(values);
-                break;
-            case LOCAL_HEFT:
-                localHeftPlanner(values);
-                break;
-            case LOCAL_CPOP:
-                localCpopPlanner(values);
-                break;
-            case LOCAL_PEFT:
-                localPeftPlanner(values);
-                break;
             case INVALID:
             default:
                 values.put("decisionLayer", "NONE");
@@ -345,7 +370,6 @@ public final class AlgorithmCatalog {
                         limitations("Use an online scheduler or select a planner with STATIC dispatch."));
                 break;
         }
-        return values;
     }
 
     /** Catalog switch branch (RANDOM).

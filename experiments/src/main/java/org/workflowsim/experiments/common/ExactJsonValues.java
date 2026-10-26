@@ -24,30 +24,10 @@ public final class ExactJsonValues {
             return first == second;
         }
         if (first.isJsonObject() && second.isJsonObject()) {
-            JsonObject a = first.getAsJsonObject();
-            JsonObject b = second.getAsJsonObject();
-            if (!a.keySet().equals(b.keySet())) {
-                return false;
-            }
-            for (String key : a.keySet()) {
-                if (!equal(a.get(key), b.get(key))) {
-                    return false;
-                }
-            }
-            return true;
+            return equalObjectMembers(first, second);
         }
         if (first.isJsonArray() && second.isJsonArray()) {
-            JsonArray a = first.getAsJsonArray();
-            JsonArray b = second.getAsJsonArray();
-            if (a.size() != b.size()) {
-                return false;
-            }
-            for (int i = 0; i < a.size(); i++) {
-                if (!equal(a.get(i), b.get(i))) {
-                    return false;
-                }
-            }
-            return true;
+            return equalArrayElements(first, second);
         }
         if (first.isJsonPrimitive()
                 && second.isJsonPrimitive()
@@ -60,5 +40,41 @@ public final class ExactJsonValues {
             }
         }
         return first.equals(second);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from equal; statements verbatim; order unchanged.
+     * 作用域：仅比对两个 JSON 对象（成员集合一致且逐成员递归精确相等）。
+     */
+    private static boolean equalObjectMembers(JsonElement first, JsonElement second) {
+        JsonObject a = first.getAsJsonObject();
+        JsonObject b = second.getAsJsonObject();
+        if (!a.keySet().equals(b.keySet())) {
+            return false;
+        }
+        for (String key : a.keySet()) {
+            if (!equal(a.get(key), b.get(key))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from equal; statements verbatim; order unchanged.
+     * 作用域：仅比对两个 JSON 数组（长度一致且按下标递归精确相等）。
+     */
+    private static boolean equalArrayElements(JsonElement first, JsonElement second) {
+        JsonArray a = first.getAsJsonArray();
+        JsonArray b = second.getAsJsonArray();
+        if (a.size() != b.size()) {
+            return false;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            if (!equal(a.get(i), b.get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

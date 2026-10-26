@@ -57,20 +57,7 @@ public final class ExperimentArtifactWriter {
     public static ExperimentArtifacts write(
             SimulationReport report, Path outputDirectory, String runId, ExperimentEvidenceContext evidenceContext)
             throws IOException {
-        if (report == null || outputDirectory == null) {
-            throw new IllegalArgumentException("Report and output directory are required");
-        }
-        validateRunId(runId);
-        if (report.getConfig().getDataflowAssignmentConfig().isEnabled()
-                && !report.getConfig().getNetworkEvidenceConfig().isEnabled()) {
-            throw new UnsupportedOperationException(
-                    "Online assignment certification requires complete matching lifecycle capture; OFF runs cannot"
-                            + "export certified actions");
-        }
-        if (report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3()
-                != (report.getPlatform().getSourceStorage() != null)) {
-            throw new IOException("sourceStorage presence differs from model");
-        }
+        requireExportableReport(report, outputDirectory, runId);
         org.workflowsim.data.NetworkEvidenceConfig option = report.getConfig().getNetworkEvidenceConfig();
         boolean group = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FLUID_GROUP_LEDGER_V1,
                 file = option.getMode() == org.workflowsim.data.NetworkEvidenceConfig.Mode.FILE_LIFECYCLE_V2,
@@ -134,6 +121,28 @@ public final class ExperimentArtifactWriter {
         }
         ExperimentManifestWriter.writeJson(report, manifest, artifacts, evidenceContext);
         return new ExperimentArtifacts(manifest, metrics, events, networkLedger, fileLifecycle, storageLifecycle);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from write; statements verbatim; order unchanged.
+     * 作用域：仅做导出前置校验（参数非空、runId 合法、在线绑定需完整生命周期记录、sourceStorage 与模型匹配）。
+     */
+    private static void requireExportableReport(SimulationReport report, Path outputDirectory, String runId)
+            throws IOException {
+        if (report == null || outputDirectory == null) {
+            throw new IllegalArgumentException("Report and output directory are required");
+        }
+        validateRunId(runId);
+        if (report.getConfig().getDataflowAssignmentConfig().isEnabled()
+                && !report.getConfig().getNetworkEvidenceConfig().isEnabled()) {
+            throw new UnsupportedOperationException(
+                    "Online assignment certification requires complete matching lifecycle capture; OFF runs cannot"
+                            + "export certified actions");
+        }
+        if (report.getConfig().getDataMovementModel().isCoherentStorageDataflowV3()
+                != (report.getPlatform().getSourceStorage() != null)) {
+            throw new IOException("sourceStorage presence differs from model");
+        }
     }
 
     /**

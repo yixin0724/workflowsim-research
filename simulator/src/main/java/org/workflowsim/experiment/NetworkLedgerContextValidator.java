@@ -40,6 +40,8 @@ final class NetworkLedgerContextValidator {
     private final Topology topology;
     private long references;
     private BigDecimal required = BigDecimal.ZERO, requiredError = BigDecimal.ZERO;
+    /** verifyTraceEvents 循环内链路计数：2026-10-26 复杂度抽取时由局部量原样上提，单实例单次核算。 */
+    private long linkCount;
 
     static void validateReport(SimulationReport report) throws IOException {
         if (report.getNetworkEvidence() == null) {
@@ -79,6 +81,22 @@ final class NetworkLedgerContextValidator {
         if (evidence.getTraceSnapshot().getEngineTime() > simulationEnd) {
             throw fail("Network watermark exceeds simulation end");
         }
+        Set<Integer> hosts = verifyPlatformAssignments(platform, result);
+        topology = evidence.getModelKind()
+                        == DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1
+                ? new Topology(object(required(platform, "networkTopology"), "networkTopology"), hosts)
+                : null;
+        verifyJobOutcomes(result);
+        if (evidence.getInputDemand() == null) {
+            throw fail("Run ledger is missing actual input-reference observations");
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from NetworkLedgerContextValidator; statements verbatim; order unchanged.
+     * 范围：平台主机唯一 ID 集合与 result 实际落位/带宽容量的一致性核验。
+     */
+    private Set<Integer> verifyPlatformAssignments(JsonObject platform, JsonObject result) throws IOException {
         JsonObject assignments = obj(result, "actualVmHostAssignments");
         Set<Integer> hosts = new HashSet<Integer>();
         for (JsonElement h : arr(platform, "hosts")) {
@@ -103,10 +121,14 @@ final class NetworkLedgerContextValidator {
         if (assignments.size() != vms.size()) {
             throw fail("Actual VM placement contains extra identities");
         }
-        topology = evidence.getModelKind()
-                        == DataMovementModel.Kind.PRE_EXECUTION_TRANSFER_DELAY_WITH_FAT_TREE_CONTENTION_V1
-                ? new Topology(object(required(platform, "networkTopology"), "networkTopology"), hosts)
-                : null;
+        return hosts;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from NetworkLedgerContextValidator; statements verbatim; order unchanged.
+     * 范围：result 每个 Job 的标识/VM/任务表与起止时间的落账核验。
+     */
+    private void verifyJobOutcomes(JsonObject result) throws IOException {
         for (JsonElement item : arr(result, "jobs")) {
             JsonObject job = object(item, "Job");
             int id = integer(job, "jobId"), vm = integer(job, "vmId"), type = integer(job, "classType");
@@ -122,9 +144,6 @@ final class NetworkLedgerContextValidator {
             if (type == Parameters.ClassType.COMPUTE.value && !vms.containsKey(vm)) {
                 throw fail("Compute Job has unknown VM");
             }
-        }
-        if (evidence.getInputDemand() == null) {
-            throw fail("Run ledger is missing actual input-reference observations");
         }
     }
 
@@ -159,6 +178,14 @@ final class NetworkLedgerContextValidator {
             }
             return;
         }
+        verifyStageInEvent(event, jobId, time);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from acceptEvent; statements verbatim; order unchanged.
+     * 范围：DATA_STAGE_IN_MODELED 事件的模型口径/文件计数核验与引用字节聚会计入。
+     */
+    private void verifyStageInEvent(JsonObject event, int jobId, double time) throws IOException {
         JsonObject attributes = obj(event, "attributes");
         if (!model.equals(text(attributes, "dataMovementModel"))) {
             throw fail("Stage-in event uses another data movement model");
@@ -219,6 +246,17 @@ final class NetworkLedgerContextValidator {
         double largestGroup = trace.largestGroup;
         boolean started = trace.started;
         long linkCount = trace.linkCount;
+        verifyCapacityDeclarations(capacities, started, linkCount, complete);
+        verifyStageAdmissionAggregates(counts, payloads, complete);
+        verifyCompletedRunAggregates(completed, bindings, admitted, input, largestGroup, complete);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from finish; statements verbatim; order unchanged.
+     * 范围：引擎在位时容量声明覆盖全部 VM 端点且数目不多不少的核验。
+     */
+    private void verifyCapacityDeclarations(Set<String> capacities, boolean started, long linkCount, boolean complete)
+            throws IOException {
         if (evidence.isEngineCreated() && (complete || started)) {
             for (Integer vm : vms.keySet()) {
                 if (!capacities.contains(endpoint(vm))) {
@@ -230,6 +268,14 @@ final class NetworkLedgerContextValidator {
                 throw fail("Missing or extra declared network capacities");
             }
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from finish; statements verbatim; order unchanged.
+     * 范围：逐 StageView 的账本组计数/准入字节数不越模型口径的核验。
+     */
+    private void verifyStageAdmissionAggregates(
+            Map<Integer, Integer> counts, Map<Integer, BigDecimal> payloads, boolean complete) throws IOException {
         for (Map.Entry<Integer, StageView> entry : stages.entrySet()) {
             int actual = counts.containsKey(entry.getKey()) ? counts.get(entry.getKey()) : 0;
             if (actual > entry.getValue().groups || (complete && actual != entry.getValue().groups)) {
@@ -244,6 +290,20 @@ final class NetworkLedgerContextValidator {
                 throw fail("Admission payload exceeds modeled input demand");
             }
         }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from finish; statements verbatim; order unchanged.
+     * 范围：complete 轨迹下完成转移/非本地引用/准入字节总额的三段终局核验。
+     */
+    private void verifyCompletedRunAggregates(
+            Set<Long> completed,
+            Map<Long, NetworkFlowBinding> bindings,
+            BigDecimal admitted,
+            NetworkInputDemandSnapshot input,
+            double largestGroup,
+            boolean complete)
+            throws IOException {
         if (complete) {
             if (completed.size() != bindings.size()) {
                 throw fail("Completed run retains unfinished input transfers");
@@ -261,7 +321,10 @@ final class NetworkLedgerContextValidator {
         }
     }
 
-    /** finish() 的绑定校验阶段：外部/父组端点与路由路径核对（逐字搬运转写）。 */
+    /**
+     * 2026-10-26 complexity extraction from finish; statements verbatim; order unchanged.
+     * 范围：外部/父组网络绑定的端点与路由资源路径核对。
+     */
     private Map<Long, NetworkFlowBinding> collectAndVerifyBindings() throws IOException {
         Map<Long, NetworkFlowBinding> bindings = new HashMap<Long, NetworkFlowBinding>();
         Set<Integer> externalJobs = new HashSet<Integer>();
@@ -276,44 +339,56 @@ final class NetworkLedgerContextValidator {
             if (bindings.put(b.getAdmissionOrdinal(), b) != null) {
                 throw fail("Duplicate network binding ordinal");
             }
-            List<String> path = new ArrayList<String>();
-            if (b.getGroupKind() == NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1) {
-                if (!externalJobs.add(b.getJobId())) {
-                    throw fail("V1 permits only one external input group per Job attempt");
-                }
-                if (!"source".equals(b.getSourceEndpoint()) || b.getParentJobId() != null) {
-                    throw fail("External group has an invalid source");
-                }
-                if (topology == null) {
-                    path.add("source");
-                }
-                path.add(endpoint(job.vm));
-            } else {
-                JobView parent = jobs.get(b.getParentJobId());
-                if (parent == null || !vms.containsKey(parent.vm)) {
-                    throw fail("Parent group has an unknown producer Job/VM");
-                }
-                String source = "LOCAL".equals(fileSystem) ? endpoint(parent.vm) : "source";
-                if (!source.equals(b.getSourceEndpoint())) {
-                    throw fail("Constrained source differs from V1 producer/storage policy");
-                }
-                path.add(source);
-                path.add(endpoint(job.vm));
-                if (topology != null) {
-                    if (!"LOCAL".equals(fileSystem)) {
-                        throw fail("Fat-tree capture requires LOCAL inputs");
-                    }
-                    path.addAll(topology.route(vms.get(parent.vm).host, vms.get(job.vm).host));
-                }
-            }
-            if (!path.equals(b.getOccupiedResources())) {
-                throw fail("Binding resource path differs from declared V1 routing");
-            }
+            verifyBindingRoutingPath(b, job, externalJobs);
         }
         return bindings;
     }
 
-    /** finish() 的轨迹事件聚合阶段：容量/准入/完成核算（逐字搬运转写）。 */
+    /**
+     * 2026-10-26 complexity extraction from collectAndVerifyBindings; statements verbatim; order unchanged.
+     * 范围：单条网络绑定外部组/父组路由路径与其声明资源序列的一致性核验。
+     */
+    private void verifyBindingRoutingPath(NetworkFlowBinding b, JobView job, Set<Integer> externalJobs)
+            throws IOException {
+        List<String> path = new ArrayList<String>();
+        if (b.getGroupKind() == NetworkFlowBinding.GroupKind.EXTERNAL_GROUP_V1) {
+            if (!externalJobs.add(b.getJobId())) {
+                throw fail("V1 permits only one external input group per Job attempt");
+            }
+            if (!"source".equals(b.getSourceEndpoint()) || b.getParentJobId() != null) {
+                throw fail("External group has an invalid source");
+            }
+            if (topology == null) {
+                path.add("source");
+            }
+            path.add(endpoint(job.vm));
+        } else {
+            JobView parent = jobs.get(b.getParentJobId());
+            if (parent == null || !vms.containsKey(parent.vm)) {
+                throw fail("Parent group has an unknown producer Job/VM");
+            }
+            String source = "LOCAL".equals(fileSystem) ? endpoint(parent.vm) : "source";
+            if (!source.equals(b.getSourceEndpoint())) {
+                throw fail("Constrained source differs from V1 producer/storage policy");
+            }
+            path.add(source);
+            path.add(endpoint(job.vm));
+            if (topology != null) {
+                if (!"LOCAL".equals(fileSystem)) {
+                    throw fail("Fat-tree capture requires LOCAL inputs");
+                }
+                path.addAll(topology.route(vms.get(parent.vm).host, vms.get(job.vm).host));
+            }
+        }
+        if (!path.equals(b.getOccupiedResources())) {
+            throw fail("Binding resource path differs from declared V1 routing");
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from finish; statements verbatim; order unchanged.
+     * 范围：轨迹事件的容量初始化/准入起算/完成核验的聚合核算。
+     */
     private TraceAggregates verifyTraceEvents(Map<Long, NetworkFlowBinding> bindings) throws IOException {
         TraceAggregates trace = new TraceAggregates();
         Set<String> capacities = new HashSet<String>();
@@ -323,29 +398,9 @@ final class NetworkLedgerContextValidator {
         BigDecimal admitted = BigDecimal.ZERO;
         double largestGroup = 0;
         boolean started = false;
-        long linkCount = 0;
         for (TransferTraceEvent e : evidence.getTraceSnapshot().getEvents()) {
             if (e.getType() == TransferTraceEvent.Type.CAPACITY) {
-                String key = e.getCapacity().getResourceKey();
-                double expected;
-                if (started || e.getEffectiveTime() != 0 || !capacities.add(key)) {
-                    throw fail("Run capacities must be initialized once before admissions");
-                }
-                if (key.startsWith("VM:")) {
-                    VmView vm = vms.get(canonicalInt(key.substring(3)));
-                    if (vm == null) {
-                        throw fail("Unknown VM capacity resource");
-                    }
-                    expected = vm.capacity;
-                } else if (topology != null && topology.validLink(key)) {
-                    expected = topology.capacity;
-                    linkCount++;
-                } else {
-                    throw fail("Unknown or unmodeled capacity resource: " + key);
-                }
-                if (e.getCapacity().getCapacityBytesPerSecond() != expected) {
-                    throw fail("Capacity differs from platform bandwidth");
-                }
+                verifyTraceCapacityEvent(e, started, capacities);
             } else if (e.getType() == TransferTraceEvent.Type.START) {
                 started = true;
                 NetworkFlowBinding b = bindings.get(e.getAdmissionOrdinal());
@@ -369,14 +424,7 @@ final class NetworkLedgerContextValidator {
                         (payloads.containsKey(b.getJobId()) ? payloads.get(b.getJobId()) : BigDecimal.ZERO)
                                 .add(amount));
             } else if (e.getType() == TransferTraceEvent.Type.COMPLETE) {
-                NetworkFlowBinding b = bindings.get(e.getAdmissionOrdinal());
-                if (b == null) {
-                    throw fail("Completion has no retained binding");
-                }
-                if (e.getObservedTime() > jobs.get(b.getJobId()).start) {
-                    throw fail("Job starts before its network inputs are observed complete");
-                }
-                completed.add(e.getAdmissionOrdinal());
+                verifyTraceCompletionEvent(e, bindings, completed);
             }
         }
         trace.capacities = capacities;
@@ -388,6 +436,50 @@ final class NetworkLedgerContextValidator {
         trace.started = started;
         trace.linkCount = linkCount;
         return trace;
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyTraceEvents; statements verbatim; order unchanged.
+     * 范围：单条 CAPACITY 轨迹事件先于准入一次性初始化且数值/资源归类一致。
+     */
+    private void verifyTraceCapacityEvent(TransferTraceEvent e, boolean started, Set<String> capacities)
+            throws IOException {
+        String key = e.getCapacity().getResourceKey();
+        double expected;
+        if (started || e.getEffectiveTime() != 0 || !capacities.add(key)) {
+            throw fail("Run capacities must be initialized once before admissions");
+        }
+        if (key.startsWith("VM:")) {
+            VmView vm = vms.get(canonicalInt(key.substring(3)));
+            if (vm == null) {
+                throw fail("Unknown VM capacity resource");
+            }
+            expected = vm.capacity;
+        } else if (topology != null && topology.validLink(key)) {
+            expected = topology.capacity;
+            linkCount++;
+        } else {
+            throw fail("Unknown or unmodeled capacity resource: " + key);
+        }
+        if (e.getCapacity().getCapacityBytesPerSecond() != expected) {
+            throw fail("Capacity differs from platform bandwidth");
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from verifyTraceEvents; statements verbatim; order unchanged.
+     * 范围：单条 COMPLETE 轨迹事件绑定引回与完成时点核验并计入完成集。
+     */
+    private void verifyTraceCompletionEvent(
+            TransferTraceEvent e, Map<Long, NetworkFlowBinding> bindings, Set<Long> completed) throws IOException {
+        NetworkFlowBinding b = bindings.get(e.getAdmissionOrdinal());
+        if (b == null) {
+            throw fail("Completion has no retained binding");
+        }
+        if (e.getObservedTime() > jobs.get(b.getJobId()).start) {
+            throw fail("Job starts before its network inputs are observed complete");
+        }
+        completed.add(e.getAdmissionOrdinal());
     }
 
     /** finish() 轨迹聚合的私有搬运转写结构（字段直读，无转发行为）。 */
@@ -462,6 +554,14 @@ final class NetworkLedgerContextValidator {
             if (!(capacity > 0) || !Double.isFinite(capacity)) {
                 throw fail("Unrepresentable link capacity");
             }
+            assignEdgePlacements(raw, hosts);
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from Topology; statements verbatim; order unchanged.
+         * 范围：hostEdgePlacements 缺省轮转派位与显式派位的完备性/边界核验。
+         */
+        private void assignEdgePlacements(JsonObject raw, Set<Integer> hosts) throws IOException {
             JsonElement explicit = required(raw, "hostEdgePlacements");
             List<Integer> sorted = new ArrayList<Integer>(hosts);
             Collections.sort(sorted);
@@ -533,18 +633,42 @@ final class NetworkLedgerContextValidator {
 
         boolean directed(String[] a, String[] b) throws IOException {
             if (a.length == 2 && "ACC".equals(a[0]) && b.length == 3 && "EDGE".equals(b[0])) {
-                int[] p = placement.get(canonicalInt(a[1]));
-                return p != null && p[0] == canonicalInt(b[1]) && p[1] == canonicalInt(b[2]);
+                return isAccToEdge(a, b);
             }
             if (a.length == 3 && "EDGE".equals(a[0]) && b.length == 3 && "AGG".equals(b[0])) {
-                int p = canonicalInt(a[1]), e = canonicalInt(a[2]), q = canonicalInt(b[1]), g = canonicalInt(b[2]);
-                return p < k && p == q && e < half && g < half;
+                return isEdgeToAgg(a, b);
             }
             if (a.length == 3 && "AGG".equals(a[0]) && b.length == 2 && "CORE".equals(b[0])) {
-                int p = canonicalInt(a[1]), g = canonicalInt(a[2]), c = canonicalInt(b[1]);
-                return p < k && g < half && c < cores && g == c / half;
+                return isAggToCore(a, b);
             }
             return false;
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from directed; statements verbatim; order unchanged.
+         * 范围：链路形状 ACC→EDGE 的宿主边坐标核对。
+         */
+        private boolean isAccToEdge(String[] a, String[] b) throws IOException {
+            int[] p = placement.get(canonicalInt(a[1]));
+            return p != null && p[0] == canonicalInt(b[1]) && p[1] == canonicalInt(b[2]);
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from directed; statements verbatim; order unchanged.
+         * 范围：链路形状 EDGE→AGG 的 pod/half 边界核对。
+         */
+        private boolean isEdgeToAgg(String[] a, String[] b) throws IOException {
+            int p = canonicalInt(a[1]), e = canonicalInt(a[2]), q = canonicalInt(b[1]), g = canonicalInt(b[2]);
+            return p < k && p == q && e < half && g < half;
+        }
+
+        /**
+         * 2026-10-26 complexity extraction from directed; statements verbatim; order unchanged.
+         * 范围：链路形状 AGG→CORE 的 pod/half/cores 边界核对。
+         */
+        private boolean isAggToCore(String[] a, String[] b) throws IOException {
+            int p = canonicalInt(a[1]), g = canonicalInt(a[2]), c = canonicalInt(b[1]);
+            return p < k && g < half && c < cores && g == c / half;
         }
     }
 

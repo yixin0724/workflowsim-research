@@ -67,6 +67,15 @@ public final class FileLifecycleEvidence {
                 || (dropped > 0 && events.size() != budget)) {
             throw new IllegalArgumentException("Invalid file lifecycle capture shape");
         }
+        validatePrefixOrder(events, observedThrough);
+        return new FileLifecycleEvidence(budget, dropped, observedThrough, shared, plan, fabric, events);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from capture; statements verbatim; order unchanged.
+     * 作用域：仅校验保留事件前缀非空、序号连续递增且观测时间单调不减并不越终点。
+     */
+    private static void validatePrefixOrder(List<FileLifecycleEvent> events, double observedThrough) {
         long sequence = 1;
         double previous = 0;
         for (FileLifecycleEvent event : events) {
@@ -78,7 +87,6 @@ public final class FileLifecycleEvidence {
             }
             previous = event.getObservedTime();
         }
-        return new FileLifecycleEvidence(budget, dropped, observedThrough, shared, plan, fabric, events);
     }
     /** @return complete versus lost prefix */
     public Status getStatus() {

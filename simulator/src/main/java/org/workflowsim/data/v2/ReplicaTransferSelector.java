@@ -119,13 +119,7 @@ public final class ReplicaTransferSelector {
             DataTransferFabric fabric,
             DataflowFilePlan.FileId fileId,
             DataLocation destination) {
-        if (snapshot == null || fabric == null) {
-            throw bad("Visibility snapshot and fabric are required");
-        }
-        fabric.requireLocation(destination);
-        if (destination.getKind() != DataLocation.Kind.VM) {
-            throw bad("NF003 input destination must be a VM");
-        }
+        requireSelectableInputs(snapshot, fabric, destination);
         DataflowFilePlan.FileDefinition file = snapshot.getFile(fileId);
         double now = snapshot.getObservedThrough();
         DataReplicaState.Replica local = snapshot.getReplica(fileId, destination);
@@ -161,6 +155,34 @@ public final class ReplicaTransferSelector {
         if (file.getBytes() == 0) {
             return new Decision(file, destination, now, Outcome.ZERO_BYTE_REFERENCE, selected, null, 0.0, now);
         }
+        return positiveCopyDecision(file, destination, now, selected, selectedRoute);
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from select; statements verbatim; order unchanged.
+     * 作用域：仅校验 select() 的可见性快照与 fabric 非空、目的为已注册 VM 输入位置。
+     */
+    private static void requireSelectableInputs(
+            DataReplicaState.Snapshot snapshot, DataTransferFabric fabric, DataLocation destination) {
+        if (snapshot == null || fabric == null) {
+            throw bad("Visibility snapshot and fabric are required");
+        }
+        fabric.requireLocation(destination);
+        if (destination.getKind() != DataLocation.Kind.VM) {
+            throw bad("NF003 input destination must be a VM");
+        }
+    }
+
+    /**
+     * 2026-10-26 complexity extraction from select; statements verbatim; order unchanged.
+     * 作用域：仅计算正量传输的隔离时长与绝对完成时刻并校验其 binary64 可表示性，再装配 NETWORK_COPY 决议。
+     */
+    private static Decision positiveCopyDecision(
+            DataflowFilePlan.FileDefinition file,
+            DataLocation destination,
+            double now,
+            DataReplicaState.Replica selected,
+            DataTransferFabric.Route selectedRoute) {
         double seconds = file.getBytes() / selectedRoute.getStandaloneRateBytesPerSecond();
         double finish = now + seconds;
         if (!Double.isFinite(seconds) || seconds <= 0 || !Double.isFinite(finish) || finish <= now) {
