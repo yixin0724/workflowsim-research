@@ -178,8 +178,8 @@ public class DistributionGenerator {
 
     /** 使用相同分布和随机流扩展预采样序列。 */
     public void extendSamples() {
-        double[] new_samples = getDistribution(scale, shape).sample(SAMPLE_SIZE);
-        samples = concat(samples, new_samples);
+        double[] newSamples = getDistribution(scale, shape).sample(SAMPLE_SIZE);
+        samples = concat(samples, newSamples);
         updateCumulativeSamples();
     }
 

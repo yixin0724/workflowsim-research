@@ -64,6 +64,10 @@ public final class ExperimentPlan {
         return result;
     }
 
+    /**
+     * Builder for an immutable ExperimentPlan: identified by a validated plan ID, appending cells
+     * (configuration + seed plan pairs) in registration order; see the enclosing class contract.
+     */
     public static final class Builder {
         private final String id;
         private final List<Cell> cells = new ArrayList<Cell>();

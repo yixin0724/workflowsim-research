@@ -42,10 +42,10 @@ class MinMinSchedulingAlgorithmTest {
     void shortestTaskGoesToFastestIdleVm() {
         // 2 个任务、2 个 VM:一次 run() 只能调度 min(tasks, vms) 个
         // 因为 VM 分配后标记 BUSY,后续任务找不到 idle VM 就 break
-        Task short_ = new Task(1, 1000);
-        Task long_ = new Task(2, 3000);
-        cloudlets.add(long_); // 故意不按长度顺序放入
-        cloudlets.add(short_);
+        Task shorter = new Task(1, 1000);
+        Task longer = new Task(2, 3000);
+        cloudlets.add(longer); // 故意不按长度顺序放入
+        cloudlets.add(shorter);
 
         // 2 个 VM:慢(500 MIPS)、快(1000 MIPS)
         CondorVM slow = createVm(0, 500);

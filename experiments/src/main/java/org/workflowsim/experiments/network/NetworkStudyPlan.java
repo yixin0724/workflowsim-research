@@ -617,6 +617,10 @@ public final class NetworkStudyPlan {
                 .append("\" size=\"32000000\"/>");
     }
 
+    /**
+     * Immutable qualified workflow identity in a registered study matrix: id, family, population
+     * (classic or synthetic corpus layer), resolved input path, and source/family metadata.
+     */
     public static final class WorkflowCase {
         public final String id;
         public final String family;

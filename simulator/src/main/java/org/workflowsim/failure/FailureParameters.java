@@ -54,10 +54,9 @@ public class FailureParameters {
         FTCLUSTERING_BLOCK,
         FTCLUSTERING_VERTICAL
     }
-    /*
+    /**
      * 容错监控模式。
      */
-
     public enum FTCMonitor {
         MONITOR_NONE,
         MONITOR_ALL,
@@ -65,10 +64,9 @@ public class FailureParameters {
         MONITOR_JOB,
         MONITOR_VM_JOB
     }
-    /*
+    /**
      * 失效生成器模式。
      */
-
     public enum FTCFailure {
         FAILURE_NONE,
         FAILURE_ALL,

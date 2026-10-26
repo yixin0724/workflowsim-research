@@ -58,7 +58,7 @@ public final class ExampleCliSupport {
     /** 统一机器可读的成功边界前缀。 */
     public static final String COMPLETION_PREFIX = "EXAMPLE_COMPLETED";
 
-    private static final ThreadLocal<String> activeExampleId = new ThreadLocal<String>();
+    private static final ThreadLocal<String> ACTIVE_EXAMPLE_ID = new ThreadLocal<String>();
 
     private ExampleCliSupport() {}
 
@@ -86,7 +86,7 @@ public final class ExampleCliSupport {
         }
         resetLegacyState();
         Parameters.setRandomSeed(rootSeed);
-        activeExampleId.set(exampleId);
+        ACTIVE_EXAMPLE_ID.set(exampleId);
     }
 
     /**
@@ -320,7 +320,7 @@ public final class ExampleCliSupport {
                 failed++;
             }
         }
-        String id = activeExampleId.get();
+        String id = ACTIVE_EXAMPLE_ID.get();
         if (id == null) {
             id = "unregistered";
         }
@@ -340,7 +340,7 @@ public final class ExampleCliSupport {
     /** 清理本线程已登记的示例标识和 WorkflowSim 历史静态状态。 */
     public static void end() {
         resetLegacyState();
-        activeExampleId.remove();
+        ACTIVE_EXAMPLE_ID.remove();
     }
 
     private static void resetLegacyState() {

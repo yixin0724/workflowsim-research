@@ -129,6 +129,10 @@ public final class DataflowVmAssigner {
         }
     }
 
+    /**
+     * A binding decision together with the coherent runtime preparation it triggered; produced
+     * when control-ready assignment is evaluated and consumed by STATIC dispatch and attestation.
+     */
     public static final class Prepared {
         private final Decision decision;
         private final CoherentDataflowRuntime.Preparation preparation;

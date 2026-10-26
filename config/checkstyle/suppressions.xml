@@ -9,6 +9,12 @@
   红线③：测试文件规则可宽松——测试代码只豁免"体量/复杂度/文档性"指标，
   语义防护类（Tier-A：EqualsHashCode、StringLiteralEquality、DefaultComesLast 等）
   对测试同样强制：测试代码里的这些缺陷和主代码一样会腐蚀证据链。
+
+  2026-10-26 豁免区制度化（用户裁决批准）：examples 教学区与 clustering/reclustering
+  历史围栏区按"区域政策"整体豁免风格类规则——这片区域从不参与 Tier-B→A 晋级梯
+  （无清零预期），保留的 warning 只有审计快照意义。豁免后主维护区的 warning 直接
+  变成"真处理对象"的信噪比。语义防护类规则（Tier-A）对这两区不豁免：
+  教学示例的语义代码腐蚀同样会误导读者。
 -->
 <suppressions>
     <!-- 测试体量与复杂度不设门槛（测试允许长 setup / 大参数矩阵） -->
@@ -17,4 +23,21 @@
 
     <!-- 测试类不要求类型级 Javadoc（实验脚手架，非公开 API 面） -->
     <suppress files="[\\/]src[\\/]test[\\/]java[\\/]" checks="MissingJavadocTypeCheck"/>
+
+    <!-- examples 教学区（文献风格保留，非产品面） -->
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="LocalVariableNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="ParameterNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="MemberNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="ConstantNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="MethodLengthCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="CyclomaticComplexityCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]examples[\\/]" checks="MissingJavadocTypeCheck"/>
+
+    <!-- clustering / reclustering 历史围栏区（根 AGENTS.md：可修 bug，不得扩用） -->
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]clustering[\\/]" checks="LocalVariableNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]clustering[\\/]" checks="MemberNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]clustering[\\/]" checks="MethodNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]reclustering[\\/]" checks="LocalVariableNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]reclustering[\\/]" checks="MemberNameCheck"/>
+    <suppress files="[\\/]src[\\/]main[\\/]java[\\/].*[\\/]reclustering[\\/]" checks="MethodNameCheck"/>
 </suppressions>

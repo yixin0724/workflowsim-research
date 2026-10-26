@@ -115,8 +115,8 @@ public class PeriodicalDistributionGenerator extends DistributionGenerator {
     @Override
     public void extendSamples() {
         double currentTime = cumulativeSamples[cumulativeSamples.length - 1];
-        double[] new_samples = generatePeriodicalSamples(currentTime);
-        samples = concat(samples, new_samples);
+        double[] newSamples = generatePeriodicalSamples(currentTime);
+        samples = concat(samples, newSamples);
         updateCumulativeSamples();
     }
 
@@ -127,23 +127,23 @@ public class PeriodicalDistributionGenerator extends DistributionGenerator {
      * @return 新样本数组
      */
     private double[] generatePeriodicalSamples(double currentTime) {
-        RealDistribution distribution_upper = getDistribution(signal.getUpperBound(), shape);
-        RealDistribution distribution_lower = getDistribution(signal.getLowerBound(), shape);
+        RealDistribution distributionUpper = getDistribution(signal.getUpperBound(), shape);
+        RealDistribution distributionLower = getDistribution(signal.getLowerBound(), shape);
         RealDistribution distribution;
         double[] periodicalSamples = new double[SAMPLE_SIZE];
         boolean direction = signal.getDirection();
         for (int i = 0; i < SAMPLE_SIZE; i++) {
             if (currentTime % signal.getPeriod() < signal.getPeriod() * signal.getPortion()) {
                 if (direction) {
-                    distribution = distribution_upper;
+                    distribution = distributionUpper;
                 } else {
-                    distribution = distribution_lower;
+                    distribution = distributionLower;
                 }
             } else {
                 if (direction) {
-                    distribution = distribution_lower;
+                    distribution = distributionLower;
                 } else {
-                    distribution = distribution_upper;
+                    distribution = distributionUpper;
                 }
             }
             periodicalSamples[i] = distribution.sample();

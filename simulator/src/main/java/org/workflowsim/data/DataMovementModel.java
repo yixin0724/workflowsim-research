@@ -9,6 +9,11 @@ package org.workflowsim.data;
  */
 public final class DataMovementModel {
 
+    /**
+     * Immutable contract enumeration for the file-transfer delay families of one simulated run,
+     * from the historical envelope calculation through pre-execution and fat-tree contention variants
+     * to the coherent V2/V3 lifecycles; members are ordered by contract generation.
+     */
     public enum Kind {
         /** 历史共享/本地文件传输计算。 */
         LEGACY_WORKFLOWSIM_V1,

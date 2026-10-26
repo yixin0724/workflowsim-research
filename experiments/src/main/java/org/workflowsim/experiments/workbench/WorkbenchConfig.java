@@ -536,6 +536,10 @@ public final class WorkbenchConfig {
         return candidates.size() * seeds.size();
     }
 
+    /**
+     * One experiment candidate as parsed from Workbench JSON: unique algorithm id plus its fully
+     * validated SimulationConfig; members are deliberately public and final within the package scope.
+     */
     public static final class Candidate {
         public final String id;
         public final SimulationConfig config;

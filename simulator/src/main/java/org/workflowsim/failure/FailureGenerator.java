@@ -45,12 +45,12 @@ public class FailureGenerator {
      * 当现有样本尚未覆盖任务开始时间时，按需扩展分布样本；扩展次数受上限约束，
      * 以避免极高失效率导致无界采样。
      */
-    private static final int maxFailureSizeExtension = 50;
+    private static final int MAX_FAILURE_SIZE_EXTENSION = 50;
     /** 每个生成器独立记录的样本缓存扩展次数，避免多个故障流相互消耗安全额度。 */
-    private static final Map<DistributionGenerator, Integer> failureSizeExtensions =
+    private static final Map<DistributionGenerator, Integer> FAILURE_SIZE_EXTENSIONS =
             new IdentityHashMap<DistributionGenerator, Integer>();
 
-    private static final boolean hasChangeTime = false;
+    private static final boolean HAS_CHANGE_TIME = false;
     /**
      * 按当前配置的分布族创建随机分布。
      *
@@ -102,13 +102,13 @@ public class FailureGenerator {
      * 初始化一次模拟运行的失效生成计数器。
      */
     public static void init() {
-        failureSizeExtensions.clear();
+        FAILURE_SIZE_EXTENSIONS.clear();
         initFailureSamples();
     }
 
     /** 清除已结束模拟运行持有的失效生成计数器。 */
     public static void reset() {
-        failureSizeExtensions.clear();
+        FAILURE_SIZE_EXTENSIONS.clear();
     }
 
     protected static boolean checkFailureStatus(Task task, int vmId) throws Exception {
@@ -162,16 +162,16 @@ public class FailureGenerator {
             generator.extendSamples();
             samples = generator.getCumulativeSamples();
             int extensions = extensionCount(generator) + 1;
-            failureSizeExtensions.put(generator, extensions);
-            if (extensions >= maxFailureSizeExtension) {
-                throw new Exception("Failure arrival sample extension limit " + maxFailureSizeExtension
+            FAILURE_SIZE_EXTENSIONS.put(generator, extensions);
+            if (extensions >= MAX_FAILURE_SIZE_EXTENSION) {
+                throw new Exception("Failure arrival sample extension limit " + MAX_FAILURE_SIZE_EXTENSION
                         + " exceeded while covering task start " + start);
             }
         }
     }
 
     private static int extensionCount(DistributionGenerator generator) {
-        Integer value = failureSizeExtensions.get(generator);
+        Integer value = FAILURE_SIZE_EXTENSIONS.get(generator);
         return value == null ? 0 : value.intValue();
     }
 
