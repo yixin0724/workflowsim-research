@@ -147,7 +147,7 @@ REGISTRY = [
         file="simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmDeclaration.java",
         old="            case ANY:\n                return true;",
         new="            case ANY:\n                return false;",
-        killers="GradStudentSchedulerExerciseIntegrationTest"),
+        killers="AlgorithmDeclarationTest,GradStudentSchedulerExerciseIntegrationTest"),
 ]
 
 
