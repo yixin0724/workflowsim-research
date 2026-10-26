@@ -1,7 +1,5 @@
 # WorkflowSim Documentation Center
 
-**English** · [简体中文](<README.zh.md>)
-
 This center maintains the current usage guides, model contracts, and verification rules.
 First-time users should read quick start → Workbench in order; consult the code-configuration
 guide only when custom Java experiments are needed. Development rounds, completion lists,
@@ -11,7 +9,7 @@ and superseded audit drafts are not long-term entry points.
 
 | Need | Document |
 |---|---|
-| Run an existing configuration and open its report | [Quick start (EN)](<getting-started/QUICK_START.md>) · [快速开始（中文）](<getting-started/QUICK_START.zh.md>) |
+| Run an existing configuration and open its report | [Quick start (EN)](<getting-started/QUICK_START.md>) · [快速开始（中文）](<getting-started/QUICK_START.md>) |
 | Configure, validate, run, and rebuild offline reports | [Workbench guide](<getting-started/WORKBENCH.md>) |
 | Build configurations, platforms, and experiments in Java | [Code-configuration guide](<getting-started/CODE_CONFIG_EXPERIMENTS.md>) |
 | Maven, Python, browser, and Javadoc checks | [Build and verification](<getting-started/BUILD.md>) |
@@ -24,6 +22,7 @@ and superseded audit drafts are not long-term entry points.
 - [Paper-metrics conventions card](<algorithms/METRICS_CARD.md>): per-metric literature-convention differences and citation advice.
 - [Workflow inputs and datasets](<../datasets/README.md>): repository-bundled inputs, optional corpora, provenance, conversion, and format constraints.
 - [Dataflow and network capability matrix](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>): physical models, storage, online assignment, and unimplemented capabilities.
+- [Energy dimension design](<advanced/ENERGY_DIMENSION_DESIGN.md>): requirements analysis, power-model architecture, metric surface, and the honesty scoping of the planned energy extension.
 - [Fat-tree topology and shared model](<advanced/FAT_TREE_DESIGN.md>): structure, placement, deterministic routing, and capacity-allocation boundaries.
 
 ## Dataflow and evidence reference

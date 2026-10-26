@@ -2,7 +2,6 @@
 
 > **Purpose: frozen reference and historical compatibility, not a current getting-started guide.** P7 preserves the comparison matrix of specific inputs, configurations, and online schedulers; it does not summarize the platform's current capabilities, nor does it guarantee that new code reproduces the old implementation's numbers. How to run it and the retained historical values are documented in the [P7 local notes](<../../../experiments/reference/p7/README.md>).
 
-**English** · [简体中文](<P7_PROTOCOL.zh.md>)
 
 ## Frozen Matrix
 

@@ -1,7 +1,5 @@
 # Platform Engineering History
 
-**English** · [简体中文](<PLATFORM_ENGINEERING.zh.md>)
-
 This page is the single narrative record of the engineering waves that shaped the current
 platform. It absorbs the durable facts of the review rounds so that contract documents stay
 contractual: positioning lives in the [science position statement](<../SCIENCE-POSITION.md>),

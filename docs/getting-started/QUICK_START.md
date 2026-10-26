@@ -4,7 +4,6 @@ With **JDK 17+ and Maven 3.6.3+**, run the following commands from the repositor
 Workbench reads the JSON configuration directly — no new Java class is required, and viewing
 the report needs no Node, Python, or web server.
 
-**English** · [简体中文](<QUICK_START.zh.md>)
 
 ## 1. Validate the example configuration
 

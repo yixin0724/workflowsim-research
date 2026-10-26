@@ -10,7 +10,6 @@ Before batch runs, first make the comparison units, baselines, inputs, and model
 
 The generic API lives in the core module; research-specific drivers live in the experiments module. Protocols and retention requirements for new studies are covered by the [studies directory conventions](<../../experiments/studies/README.md>); the [algorithm catalog](<../algorithms/CATALOG.md>) is authoritative for algorithm and physical-model combinations.
 
-**English** · [简体中文](<CAMPAIGNS.zh.md>)
 
 ## Generic Campaign API
 

@@ -1,7 +1,5 @@
 # Study Protocols and Retained Evidence
 
-**English** · [简体中文](<README.zh.md>)
-
 This directory holds study-specific protocols and provenance notes; it is not another Maven
 module and not a platform capability list. Research drivers and tests live in the
 experiment module's standard source directories; general run operations are described in

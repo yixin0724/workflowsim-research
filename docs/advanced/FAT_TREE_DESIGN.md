@@ -1,7 +1,5 @@
 # Fat-tree Topology, Routing, and Sharing Model
 
-**English** · [简体中文](<FAT_TREE_DESIGN.zh.md>)
-
 ## Structure and Scope
 
 [NetworkTopologySpec](<../../simulator/src/main/java/org/workflowsim/network/NetworkTopologySpec.java>) describes the platform topology, and [FatTreeTopology](<../../simulator/src/main/java/org/workflowsim/network/FatTreeTopology.java>) implements the structure, host placement, fixed routing, and directed-link capacities. The transfer service is computed by [TransferContentionEngine](<../../simulator/src/main/java/org/workflowsim/data/TransferContentionEngine.java>), not implemented in the routing layer.

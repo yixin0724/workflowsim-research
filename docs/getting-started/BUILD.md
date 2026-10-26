@@ -2,7 +2,6 @@
 
 The commands below run from the repository root. For day-to-day experiment runs, start from [Quick start](<QUICK_START.md>); this document concentrates on the development and verification tooling and does not require new users to run every quality check first.
 
-**English** · [简体中文](<BUILD.zh.md>)
 
 ## Environment and modules
 

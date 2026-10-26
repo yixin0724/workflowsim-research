@@ -1,7 +1,5 @@
 # Independent Python Network and Dataflow Evidence Checker
 
-**English** · [简体中文](<NETWORK_LEDGER_PYTHON.zh.md>)
-
 ## How to Run
 
 [verify-network-ledger.py](<../../scripts/verify-network-ledger.py>) depends only on the Python standard library (Python 3.9+; CI runs 3.12). A check invokes no JVM, Maven, production solver, or network service, and rewrites no input files.

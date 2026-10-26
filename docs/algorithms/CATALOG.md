@@ -1,7 +1,5 @@
 # Algorithm Catalog and Selection
 
-**English** · [简体中文](<CATALOG.zh.md>)
-
 This page lists the labels and combinations actually supported by the standard runner. The
 authoritative support set is
 [AlgorithmCatalog](<../../simulator/src/main/java/org/workflowsim/experiment/AlgorithmCatalog.java>)'s

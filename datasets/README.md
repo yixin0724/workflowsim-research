@@ -2,7 +2,6 @@
 
 This directory contains the classic Pegasus DAX, WfGen synthetic WfFormat JSON, and WfInstances WfFormat JSON derived from real executions. The latter two share the same JSON format, but their origins and evidence boundaries differ, and they must not be mixed into a single workload population.
 
-**English** · [简体中文](<README.zh.md>)
 
 ## Choosing an Input
 
@@ -12,7 +11,7 @@ This directory contains the classic Pegasus DAX, WfGen synthetic WfFormat JSON, 
 | Use synthetic workflows or extend scale sweeps | `wfformat/` WfGen inputs | The standard checkout guarantees only a single Montage input; other recipes/scales must be prepared separately |
 | Study graph structures derived from real executions | `wfinstances/v1.5/` | The standard checkout carries four small inputs; it is not a source-platform trace replay |
 
-For run entry points see [Quick Start](<../docs/getting-started/QUICK_START.zh.md>). In a Workbench configuration, `workflowPaths` is resolved relative to the directory containing the configuration file; Java examples, when run from the project root, use `datasets/...` paths. Research drivers that accept a dataset-root parameter use the path contract they explicitly prescribe; they do not guess the project location.
+For run entry points see [Quick Start](<../docs/getting-started/QUICK_START.md>). In a Workbench configuration, `workflowPaths` is resolved relative to the directory containing the configuration file; Java examples, when run from the project root, use `datasets/...` paths. Research drivers that accept a dataset-root parameter use the path contract they explicitly prescribe; they do not guess the project location.
 
 ## Standard Checkout Scope
 

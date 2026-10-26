@@ -1,7 +1,5 @@
 # Java API Experiment Guide
 
-**English** · [简体中文](<CODE_CONFIG_EXPERIMENTS.zh.md>)
-
 When you only need to change inputs, resources, or built-in algorithms, prefer the
 [Workbench](<WORKBENCH.md>). This guide is for custom Java experiments, failure models, or
 external policies; see the [algorithm catalog](<../algorithms/CATALOG.md>) for algorithm

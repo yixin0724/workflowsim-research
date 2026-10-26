@@ -2,7 +2,6 @@
 
 V3 adds bounded read/write/NIC resources, a physical storage attachment path, and required-output write-back to the coherent file dataflow. Execution, the standalone sidecar, Java/Python validation, configuration rebuild, exact rerun, and offline reporting all use the same versioned contract; a V3 certificate cannot be converted into, or relabeled as, V2.
 
-**English** · [简体中文](<STORAGE_DATAFLOW_V3_CONTRACT.zh.md>)
 
 ## Model and Configuration
 

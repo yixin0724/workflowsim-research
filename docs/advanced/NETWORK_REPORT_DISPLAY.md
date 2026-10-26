@@ -1,7 +1,5 @@
 # Offline Network and Action Report
 
-**English** · [简体中文](<NETWORK_REPORT_DISPLAY.zh.md>)
-
 ## A Single Validation Source
 
 Workbench's regular run report and `Workbench report <manifest> <new-report.html>` use the same loading chain: artifact references, content, lifecycle/ledger, and run context are validated first, and the display projections are then built from the frozen results. The original manifest and experiment index are not polluted by display fields.

@@ -2,7 +2,6 @@
 
 The tools below depend only on the **Python 3.9+ standard library**; they invoke no Java production algorithm, launch no simulation, and replay no network. Inputs are read-only; audit reports must be written to a new, independent location.
 
-**English** · [简体中文](<STUDY_AUDIT.zh.md>)
 
 | Tool | Inputs | Scope of checks |
 | --- | --- | --- |

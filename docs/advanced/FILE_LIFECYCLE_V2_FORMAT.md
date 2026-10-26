@@ -2,7 +2,6 @@
 
 The V2 certificate describes logical files, the actually visible sources, ordered resource paths, same-destination merges, settlement observations, and CPU input causality. It is **not a per-interval fluid service/rate-area accounting certificate**, and it must not be used to relabel the old V1 group ledger as per-file proof.
 
-**English** · [简体中文](<FILE_LIFECYCLE_V2_FORMAT.zh.md>)
 
 ## Version, Recording, and Run Scope
 

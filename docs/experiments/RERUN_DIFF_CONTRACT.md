@@ -4,7 +4,6 @@ This capability answers: **for a valid piece of manifest v4 evidence, once it ha
 
 Report regeneration is also distinct from the rerun: Workbench's `report` only generates HTML from validated evidence and does not execute the simulator, while the rerun here re-executes the standard `SimulationRunner`. Model applicability is covered in the [algorithm contract](<../algorithms/CONTRACTS.md>) and the recording requirements in the [reproducibility guide](<REPRODUCIBILITY.md>).
 
-**English** · [简体中文](<RERUN_DIFF_CONTRACT.zh.md>)
 
 ## Command and Input Conventions
 

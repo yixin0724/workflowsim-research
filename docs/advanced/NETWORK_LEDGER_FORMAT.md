@@ -1,7 +1,5 @@
 # Network Ledger V1 Codec Contract
 
-**English** · [简体中文](<NETWORK_LEDGER_FORMAT.zh.md>)
-
 ## Purpose and Interfaces
 
 `NetworkLedgerCodec` performs the strict JSON encoding/decoding and the immutable reconstruction of the V1 group ledger; `ExperimentArtifactWriter` writes the complete artifacts, and `ExperimentArtifactValidator` checks the ledger content and the run context. The [independent Python checker](<NETWORK_LEDGER_PYTHON.md>) invokes no Java. The [rerun tooling](<../experiments/RERUN_DIFF_CONTRACT.md>) compares the scientific fields of the complete ledger, and [Workbench](<../getting-started/WORKBENCH.md>) displays only the verified bounded projection.

@@ -2,7 +2,6 @@
 
 Registered identity covers both the **protocol ID and the mode**. An identical parameter matrix is not an identical execution model; a read-only integrity check is not a re-execution under the current code.
 
-**English** · [简体中文](<NETWORK_STUDY_PROTOCOL_REVISIONS.zh.md>)
 
 ## Current and Historical Identities
 

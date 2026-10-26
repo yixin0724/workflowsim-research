@@ -1,7 +1,5 @@
 # Coherent File Dataflow V2
 
-**English** · [简体中文](<COHERENT_DATAFLOW_V2_CONTRACT.zh.md>)
-
 ## Applicable Models and Configuration
 
 `COHERENT_FILE_DATAFLOW_V2` and `COHERENT_FILE_DATAFLOW_NO_CONTENTION_V2` uniformly govern per-file demands, real sources, resource paths, replica visibility, and the CPU input barrier. The two share the same lifecycle and the same single-flow bottlenecks; they differ only in whether capacity is shared between concurrent flows.

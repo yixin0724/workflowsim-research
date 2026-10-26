@@ -1,7 +1,5 @@
 # IntelliJ IDEA Setup
 
-**English** · [简体中文](<IDEA_SETUP.zh.md>)
-
 ## Importing the Maven project
 
 1. Open the repository root or the [root POM](<../../pom.xml>) and import it as a Maven project.

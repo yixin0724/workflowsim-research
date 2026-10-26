@@ -1,7 +1,6 @@
 # Workbench: Configuration, Runs, and Offline Reports
 
 Workbench is the maintained, unified experiment entry point. It reads JSON configuration, runs algorithms within the same decision layer, saves verifiable evidence, and generates self-contained HTML; it starts no web service and loads no CDN. For a first run, see [Quick Start](<QUICK_START.md>).
-**English** · [简体中文](<WORKBENCH.zh.md>)
 
 ## Commands and Paths
 

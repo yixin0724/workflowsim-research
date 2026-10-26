@@ -4,7 +4,6 @@
 > Authoritative definitions are those of the [algorithm, execution, and metrics contract](<CONTRACTS.md>); this card concentrates only on "citation differences" and introduces no new semantics.
 > Review-project provenance: scientific-validity audit chain A (2026-10-20).
 
-**English** · [简体中文](<METRICS_CARD.zh.md>)
 
 ## Time Family
 

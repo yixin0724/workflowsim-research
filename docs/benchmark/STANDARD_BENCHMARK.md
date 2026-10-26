@@ -1,7 +1,5 @@
 # Standard Benchmark `benchmark-standard-v1`
 
-**English** · [简体中文](<STANDARD_BENCHMARK.zh.md>)
-
 The platform's first frozen public benchmark: a standard comparison of the maintained
 algorithm corpus under frozen conditions, with every number backed by a manifest-v4 bundle
 that any third party can independently re-verify with the repository's Python auditor.

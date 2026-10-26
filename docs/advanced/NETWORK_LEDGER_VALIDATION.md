@@ -1,7 +1,5 @@
 # V1 Fluid Ledger Validation and Exact Metrics
 
-**English** · [简体中文](<NETWORK_LEDGER_VALIDATION.zh.md>)
-
 ## Scope and Interfaces
 
 The Java-side semantic validation of the V1 group-level ledger does not invoke the production-side progressive-filling solver to compute "expected rates"; the [Python checker](<NETWORK_LEDGER_PYTHON.md>) independently implements the same contract. A formal export requires the complete bundle, consisting of capture, bindings, aggregated input observations, and derived metrics; OFF produces no network roles. The format is defined in the [encoding/decoding contract](<NETWORK_LEDGER_FORMAT.md>); for display and replay see the [offline report](<NETWORK_REPORT_DISPLAY.md>) and the [rerun difference contract](<../experiments/RERUN_DIFF_CONTRACT.md>) respectively.

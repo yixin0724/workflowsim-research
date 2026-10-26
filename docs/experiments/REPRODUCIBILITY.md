@@ -2,7 +2,6 @@
 
 An interpretable run is defined jointly by **its inputs and their order, the platform, the complete configuration, the random seed, and the actual implementation identity**. Reproducibility does not mean real-platform calibration, WfInstances trace replay, or universal algorithmic superiority. Day-to-day operation is covered in [Workbench](<../getting-started/WORKBENCH.md>); this document states what must be recorded, and what recording cannot prove.
 
-**English** · [简体中文](<REPRODUCIBILITY.zh.md>)
 
 ## Configuration and Defaults
 

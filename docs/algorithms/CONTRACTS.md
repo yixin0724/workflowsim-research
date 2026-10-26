@@ -4,7 +4,6 @@ This document specifies how algorithm results map onto simulated execution and e
 
 Tests are expected to derive expected values from independent arithmetic, external tables, or independent small models, rather than calling the production decision function under test to generate the answer. The test links below state the specific properties covered; they do not mean that every legal configuration has been exercised one by one, and still less do they constitute calibration against real platforms.
 
-**English** · [简体中文](<CONTRACTS.zh.md>)
 
 ## Standard Execution and Workload
 

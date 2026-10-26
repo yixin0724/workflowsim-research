@@ -1,7 +1,5 @@
 # Dataflow State Structure and Performance Measurement
 
-**English** · [简体中文](<DATAFLOW_STATE_COPY_PERFORMANCE.zh.md>)
-
 ## Scope of Transactional State Copying
 
 The coherent dataflow runners separate immutable history from the active working set, reducing the repeated copying of completed records and of the entire file cache on every transaction. This structure does not change the physical model, the source/routing choice, the allocator, the VM assignment policy, the floating-point aggregation order, or the recording budget.

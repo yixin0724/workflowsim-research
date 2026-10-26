@@ -1,7 +1,5 @@
 # Documentation and Source-Comment Standards
 
-**English** · [简体中文](<CODE_STYLE.zh.md>)
-
 ## Documentation Layering
 
 - The [project front page](<../../README.md>) keeps only the project's purpose, run entry points, main capabilities, and research boundaries; phase reports, old rankings, and provisional acceptance records are not piled onto it.

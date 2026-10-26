@@ -1,7 +1,6 @@
 # Control-Ready Online VM Assignment V1
 
 Online assignment selects a fixed target VM once the control dependencies of the logical Task and the workflow-arrival gate have been released, and then prepares the inputs per [Coherent V2](<COHERENT_DATAFLOW_V2_CONTRACT.md>) or [Storage V3](<STORAGE_DATAFLOW_V3_CONTRACT.md>). It is not a new physical Kind and not a re-mapping at CPU dispatch; STATIC dispatches only Jobs that are already assigned, data-ready, and executable.
-**English** · [简体中文](<ONLINE_DATAFLOW_ASSIGNMENT_V1_CONTRACT.zh.md>)
 
 ## Explicit Configuration and Attestation Prerequisites
 

@@ -1,7 +1,5 @@
 # Experiment Module
 
-**English** · [简体中文](<README.zh.md>)
-
 This module's Maven coordinate is `org.workflowsim:workflowsim-workbench:1.0`, depending on
 the core simulator. It carries the Workbench, teaching examples, research drivers, and their
 tests; the [root POM](<../pom.xml>) builds the two modules by default with no extra
