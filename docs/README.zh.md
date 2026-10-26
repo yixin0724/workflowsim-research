@@ -51,7 +51,7 @@
 ## 研究定位与质量
 
 - [科学定位声明](<SCIENCE-POSITION.zh.md>)：研究身份、真实性标准（内部效度）、竞争定位、威胁效度。
-- [审查与科学性工程摘要](<quality/AUDIT-2026-10.zh.md>)：两轮成果、关键数字与方法论沉淀。
+- 两轮工程的耐久记录见[平台工程编年史](<history/PLATFORM_ENGINEERING.zh.md>)。
 
 ## 维护
 

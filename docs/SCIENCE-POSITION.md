@@ -112,8 +112,8 @@ Two declarations that differ from common misunderstandings:
   event level (terminal-clock identity, job-execution-start coverage, and derived
   cross-checks are built into the independent auditors).
 - Legacy defects inherited from original WorkflowSim / CloudSim 3 code paths (6 fixed:
-  F-001/004/005/008/009 + the M5/M7 test blind spots); historical details live in the
-  review-engineering archive.
+  F-001/004/005/008/009 + the M5/M7 test blind spots); the narrative lives in the
+  [platform engineering history](<history/PLATFORM_ENGINEERING.md>).
 
 ---
 **Conclusion sentence (single paragraph, quotable standalone)**: WorkflowSim-yixin is a

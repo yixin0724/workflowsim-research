@@ -48,7 +48,7 @@
 
 - F-006/F-007（事件可观测性缺口）→ **已闭合（2026-10-23 契约修订，用户裁决批准）**：`SIMULATION_TERMINATED` 与 `JOB_EXECUTION_STARTED` 进入 events v1，makespan/终端尾/deadline-slack 与决策→开始/等待族实现事件级独立重算；修订前证据维持原声明边界。复算边界变化见 RERUN_DIFF_CONTRACT。
 - Python 独立复算覆盖 **78/78 标量（100%）**：链 E（2026-10-20）以三态处置收口 deadline 6 项（MET/MISSED_LATE/NOT_REQUESTED 三分支精确复算）与 controlledSharedStorage 4 项（含全部 UNAVAILABLE 分支、矩阵权威语义与 (long) 截断取整）。2026-10-23 的 F-006/F-007 事件契约修订进一步把复算从 manifest 级延伸到事件级（终末时钟身份、Job 执行开始覆盖与派生交叉检查内置于独立审计器）。
-- 原始 WorkflowSim / CloudSim 3 代码路径的遗留缺陷（已修复 6 项：F-001/004/005/008/009 + M5/M7 测试盲区），历史细节见审查工程档案。
+- 原始 WorkflowSim / CloudSim 3 代码路径的遗留缺陷（已修复 6 项：F-001/004/005/008/009 + M5/M7 测试盲区），叙事见[平台工程编年史](<history/PLATFORM_ENGINEERING.zh.md>)。
 
 ---
 **结论句（一段式，可单独引用）**：WorkflowSim-yixin 是面向工作流调度算法研究、以内部效度与证据完整性为真实性标准的仿真实验平台；其可信主张的证据不是物理保真，而是"输出即证据——数字可被第三方逐位重算、复跑判等、双语言审计、口径逐指标声明"。

@@ -54,7 +54,7 @@ and superseded audit drafts are not long-term entry points.
 ## Research, positioning and quality
 
 - [Science position statement](<SCIENCE-POSITION.md>): research identity, validity standard (internal validity), competitive positioning, and threats to validity.
-- [Review and scientific-engineering summary](<quality/AUDIT-2026-10.md>): two-round results, key numbers, and methodology lessons.
+- The durable record of those engineering rounds lives in the [platform engineering history](<history/PLATFORM_ENGINEERING.md>).
 
 ## Maintenance
 
