@@ -63,3 +63,6 @@ output/sensitivity-r13-v2/
 # Independent Python audit reports for the retained R13-v2 evidence.
 output/r13-v2-audit-evidence
 output/r13-v2-audit-statistics
+
+# Standard benchmark frozen local evidence; report lives in docs/benchmark.
+output/benchmark-standard-v1/

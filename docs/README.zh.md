@@ -48,6 +48,10 @@
 
 - [平台工程编年史](<history/PLATFORM_ENGINEERING.zh.md>)：正确性、仪器升级、规范化、可观测性四波工程的单页叙事。
 
+## 标准基准
+
+- [标准基准 `benchmark-standard-v1`](<benchmark/STANDARD_BENCHMARK.zh.md>)：对维护中算轨族的冻结公开对照——160 次已审计运行,每条可用一条 Python 命令独立验证。
+
 ## 研究定位与质量
 
 - [科学定位声明](<SCIENCE-POSITION.zh.md>)：研究身份、真实性标准（内部效度）、竞争定位、威胁效度。

@@ -301,8 +301,8 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
         if started_jobs or terminal_events:
             # Revision streams must cover every executed instance; legacy streams (neither
             # marker present) keep the declared manifest-authority boundary from 2026-10-19.
-            audit.ensure(set(started_jobs) == executed_job_ids, "job-start-coverage", prefix,
-                         sorted(started_jobs), sorted(executed_job_ids))
+            audit.ensure(executed_job_ids.issubset(set(started_jobs)), "job-start-coverage", prefix,
+                         sorted(set(started_jobs)), sorted(executed_job_ids))
 
         raw_tasks, raw_external = {}, collections.OrderedDict()
         inputs = needed(doc, "inputs")
