@@ -462,6 +462,13 @@ public final class ExperimentManifestWriter {
             value.put("imageSizeMb", vm.getImageSizeMb());
             value.put("vmm", vm.getVmm());
             value.put("schedulerMode", vm.getSchedulerMode().name());
+            // BAT-E4（2026-10-27）：每 VM 功率字段进入平台序列化。Python 审计器
+            // （verify-study-evidence.py）以 platform.vms[].idlePowerWatts/maxPowerWatts
+            // 判定 powered/unpowered 分支并复算能耗守恒律；此前 E2 导出缺这两个键，
+            // 带功率运行对审计器静默呈现为无功率，能耗复算被整体跳过（红→绿锚 =
+            // EnergyConservationLawTest.manifestPlatformSerializesPerVmPowerFields）。
+            value.put("idlePowerWatts", vm.getIdlePowerWatts());
+            value.put("maxPowerWatts", vm.getMaxPowerWatts());
             value.put("pinnedHostId", profile.getPinnedVmHostIds().get(vm.getId()));
             value.put("preflightHostId", profile.getVmHostAssignments().get(vm.getId()));
             value.put("costs", vm.hasCosts() ? costs(vm.getCosts()) : null);

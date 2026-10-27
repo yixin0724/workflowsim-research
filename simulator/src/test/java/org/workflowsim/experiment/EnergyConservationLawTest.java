@@ -23,6 +23,7 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -40,6 +41,9 @@ import com.google.gson.JsonParser;
  * 3. VmSpec power-field validation (fail-fast)
  * 4. BAT-E2 manifest energy export: the written energyMetrics section survives full
  *    artifact validation and satisfies the same identities (EDP, peak power, idle floor)
+ * 5. BAT-E4 platform power-field export: every manifest VM serializes idlePowerWatts/
+ *    maxPowerWatts, because the independent Python auditor keys its powered/unpowered
+ *    branch and conservation-law recompute off exactly those manifest fields
  */
 class EnergyConservationLawTest {
 
@@ -180,6 +184,46 @@ class EnergyConservationLawTest {
                 totalEnergyJoules > makespan * 200.0,
                 "totalEnergyJoules must strictly exceed the two-VM idle floor (2 × 100W × makespan);" + " total="
                         + totalEnergyJoules + ", floor=" + (makespan * 200.0));
+    }
+
+    /**
+     * BAT-E4 (2026-10-27): the per-VM power fields must be serialized into the
+     * manifest's {@code platform.vms} array. The independent Python auditor
+     * (scripts/verify-study-evidence.py) reads {@code idlePowerWatts}/{@code maxPowerWatts}
+     * from exactly this section to decide whether a run is powered and to recompute the
+     * conservation law; a powered run whose platform section lacks them is silently
+     * indistinguishable from an unpowered one, making the energy audit vacuous (see
+     * docs/advanced/ENERGY_DIMENSION_DESIGN.md §2.1: the verifier recomputes the identity
+     * from the manifest's own data). Legal expectation source: the Python-auditor
+     * contract, not implementation output.
+     */
+    @Test
+    void manifestPlatformSerializesPerVmPowerFields() throws Exception {
+        SimulationConfig config = SimulationConfig.builder(twoTaskDax().toString(), 2)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .randomSeed(20261027L)
+                .build();
+        PlatformProfile platform = poweredPlatform(100.0, 400.0);
+        SimulationReport report = new SimulationRunner().run(config, platform);
+
+        ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, tempDir.resolve("energy-power-export"), "result", null);
+        ExperimentArtifactValidator.validate(artifacts.getManifest());
+
+        JsonObject manifest = JsonParser.parseString(
+                        new String(Files.readAllBytes(artifacts.getManifest()), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        JsonArray vms = manifest.getAsJsonObject("platform").getAsJsonArray("vms");
+        assertEquals(platform.getVms().size(), vms.size(), "one platform.vms entry per profile VM");
+        for (int i = 0; i < vms.size(); i++) {
+            JsonObject vm = vms.get(i).getAsJsonObject();
+            String where = "platform VM " + vm.get("id").getAsString();
+            assertEquals(100.0, vm.get("idlePowerWatts").getAsDouble(), 0.0, where + " must serialize idlePowerWatts");
+            assertEquals(400.0, vm.get("maxPowerWatts").getAsDouble(), 0.0, where + " must serialize maxPowerWatts");
+        }
     }
 
     @Test
