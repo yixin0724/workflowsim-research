@@ -75,6 +75,44 @@ class ManifestConfigRebuilderTest {
     }
 
     @Test
+    void rebuildForwardsPerVmPowerFields() throws Exception {
+        // BAT-E4.1（2026-10-27）：功率字段必须经重建往返逐位保留——此前重建器只调用
+        // 9 参 VmSpec 构造器，把 250/400 W 静默降级为 0/0（红→绿锚）。
+        Path run = Files.createDirectories(tempDir.resolve("powered-rebuild"));
+        String dax = RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax");
+        SimulationConfig config = SimulationConfig.builder(dax, 2)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .randomSeed(20261027L)
+                .build();
+        PlatformProfile.Builder builder = PlatformProfile.builder("powered-rebuild-fixture");
+        int[] ids = {3, 9};
+        for (int i = 0; i < 2; i++) {
+            builder.addHost(new PlatformProfile.HostSpec(50 + i, 2, 2000, 2048, 10000L, 1000000L))
+                    .addVm(new PlatformProfile.VmSpec(
+                            ids[i],
+                            1000,
+                            1,
+                            512,
+                            1L,
+                            10000L,
+                            "Xen",
+                            PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                            null,
+                            250.0,
+                            400.0))
+                    .pinVmToHost(ids[i], 50 + i);
+        }
+        PlatformProfile expectedPlatform = builder.build();
+        RerunTestSupport.generateEvidence(run, config, expectedPlatform);
+        RerunEvidence evidence = RerunEvidenceReader.read(run);
+        RebuiltConfiguration rebuilt = ManifestConfigRebuilder.rebuild(evidence, RerunInputResolver.resolve(evidence));
+        assertPlatformEquals(expectedPlatform, rebuilt.getPlatform());
+    }
+
+    @Test
     void rebuildsRichStaticPlannerRunFaithfully() throws Exception {
         Path run = Files.createDirectories(tempDir.resolve("rich-static"));
         String dax = RerunTestSupport.resourcePath("/dax/reproducibility-workflow.dax");
@@ -482,6 +520,8 @@ class ManifestConfigRebuilderTest {
             assertEquals(e.getImageSizeMb(), a.getImageSizeMb());
             assertEquals(e.getVmm(), a.getVmm());
             assertEquals(e.getSchedulerMode(), a.getSchedulerMode());
+            assertEquals(e.getIdlePowerWatts(), a.getIdlePowerWatts(), 0.0);
+            assertEquals(e.getMaxPowerWatts(), a.getMaxPowerWatts(), 0.0);
             assertEquals(e.hasCosts(), a.hasCosts());
             if (e.hasCosts()) {
                 assertCostEquals(e.getCosts(), a.getCosts());

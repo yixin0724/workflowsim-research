@@ -418,12 +418,24 @@ public final class WorkbenchConfig {
                 "cpuCostPerSecond",
                 "storageTransferMbPerSecond",
                 "networkTopology",
-                "sourceStorage");
+                "sourceStorage",
+                // BAT-E4.2（2026-10-27）：能耗维度可选声明（均一功率，缺省 0 表示不带功率模型）。
+                "idlePowerWatts",
+                "maxPowerWatts");
         JsonArray mips = array(value, "vmMips");
         if (mips.size() < 1 || mips.size() > 64) {
             throw new IllegalArgumentException("vmMips requires 1..64 VMs");
         }
         int bandwidth = integer(value, "bandwidthMbPerSecond", 1000, 1, 1000000000);
+        // BAT-E4.2（2026-10-27）：可选均一功率（瓦）。两键都以 0 为缺省值 = 不带功率模型；
+        // 单独声明一半（idle>max 缺省 0）由显式校验拒绝，非法值不静默。
+        double idlePowerWatts = optionalPlatformPower(value, "idlePowerWatts");
+        double maxPowerWatts = optionalPlatformPower(value, "maxPowerWatts");
+        if (idlePowerWatts > maxPowerWatts) {
+            throw new IllegalArgumentException(
+                    "platform.idlePowerWatts (" + idlePowerWatts + ") exceeds maxPowerWatts (" + maxPowerWatts
+                            + "); both default to 0 (no power model) when omitted");
+        }
         PlatformProfile.CostSpec costs =
                 new PlatformProfile.CostSpec(decimal(value, "cpuCostPerSecond", 3, false), 0, 0, 0);
         PlatformProfile.Builder result = PlatformProfile.builder("workbench-platform")
@@ -437,7 +449,17 @@ public final class WorkbenchConfig {
             }
             result.addHost(new PlatformProfile.HostSpec(id, 2, speed * 2, 2048, Math.max(10000L, bandwidth), 1000000));
             result.addVm(new PlatformProfile.VmSpec(
-                    id, speed, 1, 512, bandwidth, 10000, "Xen", PlatformProfile.CloudletSchedulerMode.SPACE_SHARED));
+                    id,
+                    speed,
+                    1,
+                    512,
+                    bandwidth,
+                    10000,
+                    "Xen",
+                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                    null,
+                    idlePowerWatts,
+                    maxPowerWatts));
             result.pinVmToHost(id, id);
         }
         applySourceStorage(value, result, mips);
@@ -669,6 +691,17 @@ public final class WorkbenchConfig {
             return fallback;
         }
         return number(value.get(key), key, positive);
+    }
+
+    /**
+     * BAT-E4.2（2026-10-27）：平台功率字段的可选读取；缺省 0.0（不带功率模型），
+     * 显式拒绝非数值与负值（功率是物理量纲，静默接受非法值违反显式失败纪律）。
+     */
+    private static double optionalPlatformPower(JsonObject value, String key) {
+        if (!value.has(key) || value.get(key).isJsonNull()) {
+            return 0.0;
+        }
+        return number(value.get(key), "platform." + key, false);
     }
 
     private static double number(JsonElement value, String field, boolean positive) {

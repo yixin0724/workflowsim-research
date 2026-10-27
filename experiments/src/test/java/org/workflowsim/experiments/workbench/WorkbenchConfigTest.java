@@ -25,6 +25,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.workflowsim.platform.PlatformProfile;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -47,6 +48,41 @@ class WorkbenchConfigTest {
     @AfterEach
     void restoreSimulationLogging() {
         Log.setDisabled(loggingWasDisabled);
+    }
+
+    @Test
+    void platformPowerFieldsRoundTripAndValidate() throws Exception {
+        // BAT-E4.2（2026-10-27）：均一功率声明 → 每台 VmSpec 携带功耗字段；缺省不带；倒置/负数拒绝。
+        Path workflow = workflow(directory, "flow.dax", false);
+        JsonObject powered = configuration(workflow.toString(), 2);
+        powered.getAsJsonObject("platform").addProperty("idlePowerWatts", 250.0);
+        powered.getAsJsonObject("platform").addProperty("maxPowerWatts", 400.0);
+        Path poweredFile = json(directory.resolve("powered.json"), powered);
+        WorkbenchConfig loaded = WorkbenchConfig.read(poweredFile);
+        assertTrue(loaded.getPlatform().getVms().size() == 2, "two VMs");
+        for (PlatformProfile.VmSpec spec : loaded.getPlatform().getVms()) {
+            assertTrue(spec.hasPowerModel(), "declared power must survive the read");
+            assertTrue(spec.getIdlePowerWatts() == 250.0 && spec.getMaxPowerWatts() == 400.0, "uniform power values");
+        }
+        JsonObject unpowered = configuration(workflow.toString(), 2);
+        Path unpoweredFile = json(directory.resolve("unpowered.json"), unpowered);
+        for (PlatformProfile.VmSpec spec :
+                WorkbenchConfig.read(unpoweredFile).getPlatform().getVms()) {
+            assertTrue(!spec.hasPowerModel(), "no declaration -> no power model");
+        }
+        JsonObject inverted = configuration(workflow.toString(), 2);
+        inverted.getAsJsonObject("platform").addProperty("idlePowerWatts", 400.0);
+        inverted.getAsJsonObject("platform").addProperty("maxPowerWatts", 250.0);
+        Path invertedFile = json(directory.resolve("inverted.json"), inverted);
+        IllegalArgumentException rejection =
+                assertThrows(IllegalArgumentException.class, () -> WorkbenchConfig.read(invertedFile));
+        assertTrue(
+                rejection.getMessage().contains("idlePowerWatts"),
+                "rejection must cite the power field: " + rejection.getMessage());
+        JsonObject negative = configuration(workflow.toString(), 2);
+        negative.getAsJsonObject("platform").addProperty("idlePowerWatts", -1.0);
+        Path negativeFile = json(directory.resolve("negative.json"), negative);
+        assertThrows(IllegalArgumentException.class, () -> WorkbenchConfig.read(negativeFile));
     }
 
     @Test

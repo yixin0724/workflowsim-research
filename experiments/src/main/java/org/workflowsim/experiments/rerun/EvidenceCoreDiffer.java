@@ -202,7 +202,11 @@ public final class EvidenceCoreDiffer {
         }
         if (original == null || rerun == null) {
             if (!nullSafeEquals(original, rerun)) {
-                core.add(new Divergence(pointer, describe(original), describe(rerun)));
+                // BAT-E4.1（2026-10-27）：能耗前历史证据侧缺键/缺节 vs 复跑侧规范零值等价
+                // ——仅限能耗维度指针且在场值必须为规范零；任何非零值仍走核心量分歧。
+                if (!isBackwardCompatibleEnergyAbsence(pointer, original, rerun)) {
+                    core.add(new Divergence(pointer, describe(original), describe(rerun)));
+                }
             }
             return;
         }
@@ -284,6 +288,59 @@ public final class EvidenceCoreDiffer {
             core.add(new Divergence(pointer, describe(original), describe(rerun)));
         }
     }
+
+    /**
+     * BAT-E4.1（2026-10-27）：能耗维度的向后兼容缺位等价。
+     *
+     * <p>语义：仅当一侧值缺位（键不存在）、另一侧是<b>规范零</b>时视为相等。适用指针：
+     * {@code /energyMetrics}（整节递归全零，含 vmEnergyJoules 映射）与
+     * {@code /platform/vms/N/(idlePowerWatts|maxPowerWatts)}（数值恰为 0.0）。非零值绝不豁免
+     * ——带功率证据的复跑漂移仍然全量比对（守恒律防线不放松）。这不是易变白名单扩张：
+     * 数值仍是核心量，"E4 前历史证据无该键"与"E4 后合法全零节"同语义。契约依据见
+     * docs/experiments/RERUN_DIFF_CONTRACT.md（BAT-E4.1 段）。</p>
+     */
+    private static boolean isBackwardCompatibleEnergyAbsence(String pointer, JsonElement original, JsonElement rerun) {
+        if (original != null && rerun != null) {
+            return false;
+        }
+        JsonElement present = original != null ? original : rerun;
+        if ("/energyMetrics".equals(pointer)) {
+            return present != null && present.isJsonObject() && jsonTreeIsAllZeroNumbers(present);
+        }
+        if (ENERGY_POWER_LEAF_POINTER.matcher(pointer).matches()) {
+            return present != null
+                    && present.isJsonPrimitive()
+                    && present.getAsJsonPrimitive().isNumber()
+                    && present.getAsDouble() == 0.0;
+        }
+        return false;
+    }
+
+    /** 递归校验：对象/数组树的每个数值叶子恰为 0.0，且不含其它类型叶子。 */
+    private static boolean jsonTreeIsAllZeroNumbers(JsonElement element) {
+        if (element.isJsonObject()) {
+            for (java.util.Map.Entry<String, JsonElement> entry :
+                    element.getAsJsonObject().entrySet()) {
+                if (!jsonTreeIsAllZeroNumbers(entry.getValue())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) {
+                if (!jsonTreeIsAllZeroNumbers(child)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber() && element.getAsDouble() == 0.0;
+    }
+
+    /** 能耗功率叶子指针：/platform/vms/&lt;N&gt;/idlePowerWatts 或 maxPowerWatts。 */
+    private static final java.util.regex.Pattern ENERGY_POWER_LEAF_POINTER =
+            java.util.regex.Pattern.compile("^/platform/vms/\\d+/(idlePowerWatts|maxPowerWatts)$");
 
     // ---- events 逐行比对（行数即事件总数） ----
 

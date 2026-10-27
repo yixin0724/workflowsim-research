@@ -84,6 +84,22 @@ substituting `benchmark-power.json`. Evidence is retained at
 values, not measurements of real hardware.
 
 ## Retention
+### Verifying the power variant
+
+The power variant stores its index at `output/benchmark-standard-power-v1/benchmark-power.json`
+and the same command pattern works per-manifest:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-study-evidence.py \
+  --output /new-path/power-audit.json \
+  $(ls output/benchmark-standard-power-v1/runs/*/result.manifest.json | head -5)
+```
+
+Each powered bundle carries the per-VM `idlePowerWatts`/`maxPowerWatts` in the platform
+section and the `energyMetrics` block; the auditor recomputes the conservation law
+`E = P_idle×T_sim + (P_max−P_idle)×T_busy` from the manifest's own busy intervals. All 160
+bundles audit with zero issues, including a negative control that adds +500 J and is caught.
+
 
 The full evidence bundle (160 runs × v4 evidence package) is retained at
 `output/benchmark-standard-v1/` and as a tagged tar artifact

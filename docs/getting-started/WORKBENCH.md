@@ -54,6 +54,8 @@ Simply replace the configuration argument of `run` with the chosen file. The pai
 | `platform.bandwidthMbPerSecond` | Positive integer endpoint bandwidth, default 1000; decimal MB/s |
 | `platform.cpuCostPerSecond` | Non-negative abstract CPU unit price, default 3; not a calibrated cloud price |
 | `platform.storageTransferMbPerSecond` | Positive integer shared-storage transfer rate, default 15; different data movement models interpret storage differently |
+| `platform.idlePowerWatts` | Optional uniform idle power in watts, default 0 (no power model); `maxPowerWatts` must not be below it; energy metrics appear in the manifest when declared (BAT-E4.2, 2026-10-27) |
+| `platform.maxPowerWatts` | Optional uniform maximum power in watts, default 0 (no power model); with the linear power model the per-VM energy conservation law is `E = P_idle×T_sim + (P_max−P_idle)×T_busy` |
 | `platform.networkTopology` | Optional Fat-tree declaration: `k`, `linkBandwidthMbPerSecond`, `coreSwitchCount`, `hostEdgePlacements`; Workbench supports even k in the range 2–16 |
 | `platform.sourceStorage` | Constrained SOURCE, required only for V3; fields are described below |
 | `simulation.fileSystem` | `SHARED` or `LOCAL`, default SHARED; model/algorithm constraints still apply |

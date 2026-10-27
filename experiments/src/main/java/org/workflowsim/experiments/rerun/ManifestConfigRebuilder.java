@@ -142,7 +142,11 @@ public final class ManifestConfigRebuilder {
                     requireLong(vm, "imageSizeMb", "platform.vms[].imageSizeMb"),
                     requireString(vm, "vmm", "platform.vms[].vmm"),
                     schedulerMode,
-                    optionalCosts(vm.get("costs"), "platform.vms[].costs")));
+                    optionalCosts(vm.get("costs"), "platform.vms[].costs"),
+                    // BAT-E4.1（2026-10-27）：功率字段往返转发（缺键按 0 处理 = 能耗前历史
+                    // manifest；非零值由 VmSpec 构造器的 max>=idle 校验兜底）。
+                    optionalNonNegativeDouble(vm.get("idlePowerWatts"), "platform.vms[].idlePowerWatts"),
+                    optionalNonNegativeDouble(vm.get("maxPowerWatts"), "platform.vms[].maxPowerWatts")));
             Integer pinned = optionalInt(vm.get("pinnedHostId"));
             if (pinned != null) {
                 builder.pinVmToHost(id, pinned.intValue());
@@ -557,5 +561,23 @@ public final class ManifestConfigRebuilder {
 
     private static Double optionalDouble(JsonElement element) {
         return element == null || element.isJsonNull() ? null : Double.valueOf(element.getAsDouble());
+    }
+
+    /**
+     * BAT-E4.1（2026-10-27）：可选非负功率字段；缺键/空值按 0 处理（能耗前历史形态），
+     * 负数与非数值显式拒绝——功率是物理量纲，静默接受非法值违反显式失败纪律。
+     */
+    private static double optionalNonNegativeDouble(JsonElement element, String field) {
+        if (element == null || element.isJsonNull()) {
+            return 0.0;
+        }
+        if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException(field + " must be a JSON number when present");
+        }
+        double value = element.getAsDouble();
+        if (value < 0.0 || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " must be finite and >= 0: " + value);
+        }
+        return value;
     }
 }

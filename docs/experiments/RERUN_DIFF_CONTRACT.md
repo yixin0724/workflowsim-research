@@ -131,6 +131,16 @@ The report contains the `verdict`, the input resolution, JSON pointers and both-
 
 | verdict | CLI exit code | Meaning |
 | --- | ---: | --- |
+### Energy-dimension leaves (BAT-E4.1, 2026-10-27)
+
+The energy extension added per-VM power leaves (`/platform/vms/N/idlePowerWatts`, `/platform/vms/N/maxPowerWatts`) and the `/energyMetrics` section to every fresh manifest. Retained pre-energy evidence has neither. A rerun of pre-energy evidence therefore compares an *absent* key on the original side against a **canonical zero** on the rerun side. These two states are declared **semantically equal**:
+
+- the equivalence applies only to the two pointers above and the whole `/energyMetrics` section, only when one side is absent, and only when every number on the present side is exactly `0.0` (verified recursively, including the `vmEnergyJoules` map);
+- **nonzero energy is never exempt**: powered originals that lose energy on rerun stay `DIVERGED`, and any nonzero-vs-nonzero mismatch stays a core divergence (the conservation-law defense is not weakened);
+- this is deliberately *not* a volatility-whitelist expansion — the values remain core quantities; only the absent-vs-zero state pair was unified.
+
+Configuration rebuilding forwards both power fields from the manifest into the rebuilt `VmSpec` (missing keys read as 0.0; negative or non-numeric values are rejected explicitly). Reruns of powered evidence therefore reproduce the energy metrics bit-exactly: same engine, same seed, identical busy intervals, identical joules. Behavior anchors: [energy rerun compatibility tests](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/EnergyRerunCompatibilityIntegrationTest.java>) and the rebuilder round-trip test.
+
 | `IDENTICAL_CORE` | 0 | All non-exempt JSON core quantities are exactly identical, still subject to capture/model scope limits |
 | `DIVERGED` | 1 | At least one core diff; the divergence list is non-empty |
 | `INPUT_UNRESOLVED` | 2 | The input cannot be resolved |

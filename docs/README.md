@@ -46,6 +46,13 @@ and superseded audit drafts are not long-term entry points.
 - [Protocol identity and historical-evidence boundaries](<experiments/NETWORK_STUDY_PROTOCOL_REVISIONS.md>): which legacy identities remain readable and why legacy results are not conclusions about the current implementation.
 - [Independent study-audit tooling](<../scripts/STUDY_AUDIT.md>): the actual scope of general evidence/statistics checks, distinguished from dataflow-specific certificates.
 
+## Standard benchmark
+
+- [Standard Benchmark `benchmark-standard-v1`](<benchmark/STANDARD_BENCHMARK.md>): the frozen
+  public comparison of the maintained algorithm corpus — 160 audited runs, each verifiable
+  by a third party with one Python command; includes the power variant
+  `benchmark-standard-power-v1`.
+
 ## Platform history
 
 - [Platform engineering history](<history/PLATFORM_ENGINEERING.md>): the single narrative record of the correctness, uplift, regularization, and observability waves.
