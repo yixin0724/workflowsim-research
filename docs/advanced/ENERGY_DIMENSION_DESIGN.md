@@ -160,3 +160,25 @@ This platform will be the **first energy-aware workflow simulator with an eviden
 every joule in the benchmark is backed by a conservation invariant recomputable from the
 manifest alone. The fact that `totalVmModeledBusyIntervalSeconds` already exists means the
 conservation law is testable from Day 1, not retrofitted.
+
+## 6. First energy-aware result (E5, 2026-10-27)
+
+The registry-based comparison `FCFS` vs the registered `ENERGY_LPT_FIRST` provider
+(longest-job-first, declares `powerModelRequired`) on a two-VM powered platform
+(250 W idle / 400 W max each) and a submission-shuffled pure bag (40, 30, 95, 35 —
+the dominant job submitted mid-bag):
+
+| Arm | Makespan (s) | Total energy (J) | EDP (J·s) |
+|---|---:|---:|---:|
+| FCFS (built-in) | 125.21 | 92,621.5 | 1.160×10⁷ |
+| ENERGY_LPT_FIRST (registered) | 105.21 | 82,621.5 | 8.693×10⁶ |
+
+The conservation law closes the gap exactly: the energy difference (10,000 J) equals
+the 20-second makespan difference times the fleet idle power (2 × 250 W). The
+expectation is provable, not a hope: on a pure bag with uniform VMs LPT cannot lose to
+submission order (Graham), and with the linear power model total energy is strictly
+monotone in makespan when total busy work is workload-fixed. Behavior anchor:
+[EnergyAwareSchedulingComparisonIntegrationTest](<../../experiments/src/test/java/org/workflowsim/experiments/registry/EnergyAwareSchedulingComparisonIntegrationTest.java>).
+Honest scope: this is a two-VM, one-bag demonstrator of the end-to-end energy-aware
+path (registry gate → powered run → audited evidence) — not a general performance
+claim about LPT on arbitrary DAGs.
