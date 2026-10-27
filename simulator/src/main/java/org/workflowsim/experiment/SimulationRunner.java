@@ -41,7 +41,7 @@ public final class SimulationRunner {
         if (config == null || platform == null) {
             throw new SimulationConfigurationException("Configuration and platform are required");
         }
-        validateSupportedAlgorithms(config);
+        validateSupportedAlgorithms(config, platform);
         validateSupportedFailureModel(config);
         validateSupportedExecutionModel(config, platform);
         if (config.getVmCount() != platform.getVms().size()) {
@@ -217,7 +217,7 @@ public final class SimulationRunner {
      * 标准运行器仅接受具有维护中语义契约的算法。历史示例仍可使用旧静态 API，
      * 但不得通过此入口悄然生成研究证据。
      */
-    private static void validateSupportedAlgorithms(SimulationConfig config) {
+    private static void validateSupportedAlgorithms(SimulationConfig config, PlatformProfile platform) {
         if (config.getRegisteredSchedulingAlgorithmProvider() != null) {
             // BAT-3（2026-10-26）：注册算轨走自声明契约矩阵；枚举规划/调度都必须为 INVALID。
             if (config.getSchedulingAlgorithm() != SchedulingAlgorithm.INVALID
@@ -231,7 +231,14 @@ public final class SimulationRunner {
             }
             org.workflowsim.experiment.registry.AlgorithmRegistry.validate(
                     config.getRegisteredSchedulingAlgorithmProvider().label(),
-                    new org.workflowsim.experiment.registry.AlgorithmRegistry.ValidationInput(config));
+                    new org.workflowsim.experiment.registry.AlgorithmRegistry.ValidationInput(
+                            config.getFileSystem(),
+                            config.getDataMovementModel(),
+                            config.getTaskCostMatrix() != null
+                                    && !config.getTaskCostMatrix().asMap().isEmpty(),
+                            config.getFailureModel(),
+                            config.getPlanningAlgorithm(),
+                            anyVmHasPowerModel(platform)));
             return;
         }
         if (!AlgorithmCatalog.isSupportedBySimulationRunner(config.getSchedulingAlgorithm())) {
@@ -349,5 +356,15 @@ public final class SimulationRunner {
                         + "only for the verified task-level execution model");
             }
         }
+    }
+
+    /** BAT-E3（2026-10-27）：@return 平台剖面中是否存在任何声明了功率字段的 VM。 */
+    private static boolean anyVmHasPowerModel(PlatformProfile platform) {
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.hasPowerModel()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

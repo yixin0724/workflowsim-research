@@ -1,6 +1,7 @@
 package org.workflowsim.experiment.registry;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -61,5 +62,75 @@ class AlgorithmDeclarationTest {
         assertFalse(declaration.allowsFailureModel());
         assertTrue(declaration.getAllowedDataMovementKinds().contains("LEGACY_WORKFLOWSIM_V1"));
         assertFalse(declaration.getFileSystemScope() == null);
+    }
+
+    @Test
+    void energyFieldsDefaultOffAndImplicationsAreEnforced() {
+        // 默认全关——既有注册零影响
+        AlgorithmDeclaration plain = new AlgorithmDeclaration.Builder()
+                .allowDataMovementKind("LEGACY_WORKFLOWSIM_V1")
+                .build();
+        assertFalse(plain.isEnergyAware());
+        assertFalse(plain.isPowerModelRequired());
+        assertTrue(plain.getEnergyObjectiveWeight() == 0.0);
+
+        // powerModelRequired 蕴含 energyAware
+        AlgorithmDeclaration required =
+                new AlgorithmDeclaration.Builder().powerModelRequired(true).build();
+        assertTrue(required.isPowerModelRequired());
+        assertTrue(required.isEnergyAware());
+
+        // 正权重蕴含 energyAware
+        AlgorithmDeclaration weighted =
+                new AlgorithmDeclaration.Builder().energyObjectiveWeight(1.5).build();
+        assertTrue(weighted.isEnergyAware());
+        assertTrue(weighted.getEnergyObjectiveWeight() == 1.5);
+    }
+
+    @Test
+    void energyWeightMustBeFiniteNonNegative() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AlgorithmDeclaration.Builder()
+                        .energyObjectiveWeight(-0.1)
+                        .build(),
+                "negative weight must be rejected");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AlgorithmDeclaration.Builder()
+                        .energyObjectiveWeight(Double.POSITIVE_INFINITY)
+                        .build(),
+                "infinite weight must be rejected");
+    }
+
+    @Test
+    void registryRejectsPowerRequiredAlgorithmOnUnpoweredPlatform() {
+        // SPI 注册的 EnergyTestSchedulerProvider（simulator 测试 classpath）声明 powerModelRequired=true.
+        // 无功率平台 → powerModelRequired 拒绝
+        IllegalArgumentException unpowered = assertThrows(
+                IllegalArgumentException.class,
+                () -> AlgorithmRegistry.validate(
+                        "ENERGY-TEST-REQUIRED",
+                        new AlgorithmRegistry.ValidationInput(
+                                FileSystem.SHARED,
+                                null,
+                                false,
+                                null,
+                                org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID,
+                                false)),
+                "power-required algorithm must be rejected on unpowered platform");
+        assertTrue(
+                unpowered.getMessage().contains("powerModelRequired"),
+                "message must cite the power clause: " + unpowered.getMessage());
+        // 带功率平台 → 放行
+        AlgorithmRegistry.validate(
+                "ENERGY-TEST-REQUIRED",
+                new AlgorithmRegistry.ValidationInput(
+                        FileSystem.SHARED,
+                        null,
+                        false,
+                        null,
+                        org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID,
+                        true));
     }
 }

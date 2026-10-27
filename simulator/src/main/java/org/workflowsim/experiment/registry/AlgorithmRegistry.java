@@ -38,6 +38,7 @@ public final class AlgorithmRegistry {
         private final boolean taskCostMatrixDeclared;
         private final FailureModelConfig failureModel;
         private final Parameters.PlanningAlgorithm planningAlgorithm;
+        private final boolean platformPowerDeclared;
 
         /** Assembles the validation input from the standard run configuration. */
         public ValidationInput(SimulationConfig config) {
@@ -47,7 +48,18 @@ public final class AlgorithmRegistry {
                     config.getTaskCostMatrix() != null
                             && !config.getTaskCostMatrix().asMap().isEmpty(),
                     config.getFailureModel(),
-                    config.getPlanningAlgorithm());
+                    config.getPlanningAlgorithm(),
+                    false);
+        }
+
+        /** Legacy 5-arg constructor (BAT-E3 前的调用面); power 未声明即 false。 */
+        public ValidationInput(
+                ReplicaCatalog.FileSystem fileSystem,
+                DataMovementModel dataMovementModel,
+                boolean taskCostMatrixDeclared,
+                FailureModelConfig failureModel,
+                Parameters.PlanningAlgorithm planningAlgorithm) {
+            this(fileSystem, dataMovementModel, taskCostMatrixDeclared, failureModel, planningAlgorithm, false);
         }
 
         /** Constructs the validation input explicitly (fixed-field, immutable). */
@@ -56,12 +68,14 @@ public final class AlgorithmRegistry {
                 DataMovementModel dataMovementModel,
                 boolean taskCostMatrixDeclared,
                 FailureModelConfig failureModel,
-                Parameters.PlanningAlgorithm planningAlgorithm) {
+                Parameters.PlanningAlgorithm planningAlgorithm,
+                boolean platformPowerDeclared) {
             this.fileSystem = fileSystem;
             this.dataMovementModel = dataMovementModel;
             this.taskCostMatrixDeclared = taskCostMatrixDeclared;
             this.failureModel = failureModel;
             this.planningAlgorithm = planningAlgorithm;
+            this.platformPowerDeclared = platformPowerDeclared;
         }
 
         /** @return the configured file system */
@@ -87,6 +101,11 @@ public final class AlgorithmRegistry {
         /** @return the configured planning algorithm (INVALID for pure online tracks) */
         public Parameters.PlanningAlgorithm getPlanningAlgorithm() {
             return planningAlgorithm;
+        }
+
+        /** BAT-E3：@return 平台剖面是否声明了任何 VM 功率字段 */
+        public boolean isPlatformPowerDeclared() {
+            return platformPowerDeclared;
         }
     }
 
@@ -176,6 +195,12 @@ public final class AlgorithmRegistry {
             throw new IllegalArgumentException("Registered scheduling algorithm '" + label
                     + "' declares data-movement kinds " + declaration.getAllowedDataMovementKinds()
                     + ", which do not cover the configured " + kind);
+        }
+        // BAT-E3（2026-10-27）：声明 powerModelRequired 的算法在无功率平台剖面上被拒绝
+        if (declaration.isPowerModelRequired() && !input.isPlatformPowerDeclared()) {
+            throw new IllegalArgumentException("Algorithm '" + label + "' declares powerModelRequired, "
+                    + "but the platform profile does not declare any VM power fields "
+                    + "(idlePowerWatts/maxPowerWatts on PlatformProfile.VmSpec)");
         }
         if (input.isTaskCostMatrixDeclared() && !declaration.acceptsTaskCostMatrix()) {
             throw new IllegalArgumentException("Registered scheduling algorithm '" + label

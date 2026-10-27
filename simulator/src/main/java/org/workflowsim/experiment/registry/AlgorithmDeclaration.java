@@ -15,6 +15,12 @@ import org.workflowsim.utils.ReplicaCatalog;
  * <p>The declaration is the algorithm author's contract statement. The platform enforces
  * it fail-fast; it does not verify that the declared class actually implements a
  * literature-grade heuristic — that claim remains the author's responsibility.</p>
+ *
+ * <p>BAT-E3（2026-10-27）能耗维度声明字段：{@code energyAware} 声明算法的评分/选择逻辑
+ * 使用了能耗成本；{@code powerModelRequired} 要求平台剖面提供每 VM 功率字段
+ * （否则注册即拒绝该配置）；{@code energyObjectiveWeight} 是作者声明的能耗权衡权重
+ * （仅正、有限；0 表示未参与目标函数）。三者默认关闭，全部经由
+ * {@link AlgorithmRegistry} 在 validate() 中与平台功率字段联动执行。</p>
  */
 public final class AlgorithmDeclaration {
 
@@ -33,18 +39,27 @@ public final class AlgorithmDeclaration {
     private final boolean acceptsTaskCostMatrix;
     private final boolean allowsFailureModel;
     private final String description;
+    private final boolean energyAware;
+    private final boolean powerModelRequired;
+    private final double energyObjectiveWeight;
 
     private AlgorithmDeclaration(
             FileSystemScope fileSystemScope,
             Set<String> allowedDataMovementKinds,
             boolean acceptsTaskCostMatrix,
             boolean allowsFailureModel,
-            String description) {
+            String description,
+            boolean energyAware,
+            boolean powerModelRequired,
+            double energyObjectiveWeight) {
         this.fileSystemScope = fileSystemScope;
         this.allowedDataMovementKinds = Collections.unmodifiableSet(new LinkedHashSet<>(allowedDataMovementKinds));
         this.acceptsTaskCostMatrix = acceptsTaskCostMatrix;
         this.allowsFailureModel = allowsFailureModel;
         this.description = description;
+        this.energyAware = energyAware;
+        this.powerModelRequired = powerModelRequired;
+        this.energyObjectiveWeight = energyObjectiveWeight;
     }
 
     /** @return the file-system scope this algorithm declares support for */
@@ -73,6 +88,21 @@ public final class AlgorithmDeclaration {
         return description;
     }
 
+    /** BAT-E3：@return 算法是否在其决策逻辑中声明使用能耗成本 */
+    public boolean isEnergyAware() {
+        return energyAware;
+    }
+
+    /** BAT-E3：@return 算法是否要求平台剖面声明每 VM 功率字段 */
+    public boolean isPowerModelRequired() {
+        return powerModelRequired;
+    }
+
+    /** BAT-E3：@return 声明的能耗目标权重（能量-时距乘积的权衡系数；0=不参与） */
+    public double getEnergyObjectiveWeight() {
+        return energyObjectiveWeight;
+    }
+
     /** Returns whether the declared file-system scope covers the given configured system. */
     public boolean coversFileSystem(ReplicaCatalog.FileSystem fileSystem) {
         if (fileSystem == null) {
@@ -97,6 +127,9 @@ public final class AlgorithmDeclaration {
         private boolean acceptsTaskCostMatrix = false;
         private boolean allowsFailureModel = false;
         private String description = "";
+        private boolean energyAware = false;
+        private boolean powerModelRequired = false;
+        private double energyObjectiveWeight = 0.0;
 
         /** Declares the file-system scope this algorithm is valid for (default ANY). */
         public Builder fileSystemScope(FileSystemScope scope) {
@@ -128,6 +161,33 @@ public final class AlgorithmDeclaration {
             return this;
         }
 
+        /** BAT-E3：声明算法的决策逻辑使用能耗成本（默认 false）。 */
+        public Builder energyAware(boolean aware) {
+            this.energyAware = aware;
+            return this;
+        }
+
+        /** BAT-E3：要求配置的平台剖面提供每 VM 功率字段（默认 false）。 */
+        public Builder powerModelRequired(boolean required) {
+            this.powerModelRequired = required;
+            if (required && !energyAware) {
+                this.energyAware = true; // required implies aware
+            }
+            return this;
+        }
+
+        /** BAT-E3：声明能耗目标权重；必须 ≥ 0 且有限（默认 0 表示不参与）。 */
+        public Builder energyObjectiveWeight(double weight) {
+            if (weight < 0.0 || !Double.isFinite(weight)) {
+                throw new IllegalArgumentException("energyObjectiveWeight must be finite and >= 0: " + weight);
+            }
+            this.energyObjectiveWeight = weight;
+            if (weight > 0.0) {
+                this.energyAware = true; // positive weight implies aware
+            }
+            return this;
+        }
+
         /** Sets the one-line description used in errors and documentation. */
         public Builder description(String text) {
             if (text == null) {
@@ -140,7 +200,14 @@ public final class AlgorithmDeclaration {
         /** Builds the immutable declaration; all validation happens here, fail-fast. */
         public AlgorithmDeclaration build() {
             return new AlgorithmDeclaration(
-                    fileSystemScope, allowedDataMovementKinds, acceptsTaskCostMatrix, allowsFailureModel, description);
+                    fileSystemScope,
+                    allowedDataMovementKinds,
+                    acceptsTaskCostMatrix,
+                    allowsFailureModel,
+                    description,
+                    energyAware,
+                    powerModelRequired,
+                    energyObjectiveWeight);
         }
     }
 }
