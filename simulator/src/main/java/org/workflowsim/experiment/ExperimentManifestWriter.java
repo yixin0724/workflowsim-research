@@ -70,7 +70,7 @@ public final class ExperimentManifestWriter {
     /** Minimal no-I/O context for the same preflight checks used by artifact readers. */
     static Map<String, Object> networkContextSnapshot(SimulationReport report) {
         Map<String, Object> root = new LinkedHashMap<String, Object>();
-        root.put("configuration", configuration(report.getConfig()));
+        root.put("configuration", configuration(report));
         root.put("platform", platform(report.getPlatform()));
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         result.put("simulationEndSeconds", report.getSimulationEndSeconds());
@@ -83,7 +83,7 @@ public final class ExperimentManifestWriter {
     /** No-I/O V2 context; uses the same frozen report rather than rereading a manifest path. */
     static Map<String, Object> fileLifecycleContextSnapshot(SimulationReport report) {
         Map<String, Object> root = new LinkedHashMap<String, Object>();
-        root.put("configuration", configuration(report.getConfig()));
+        root.put("configuration", configuration(report));
         root.put("platform", platform(report.getPlatform()));
         root.put("workflowGraph", report.getWorkflowGraph());
         root.put("dataflowPlan", report.getDataflowPlan());
@@ -158,7 +158,7 @@ public final class ExperimentManifestWriter {
             SimulationReport report, List<Map<String, Object>> artifacts, ExperimentEvidenceContext evidenceContext) {
         Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("schema", SCHEMA_V4);
-        manifest.put("configuration", configuration(report.getConfig()));
+        manifest.put("configuration", configuration(report));
         manifest.put("platform", platform(report.getPlatform()));
         manifest.put("inputs", inputs(report));
         manifest.put("workflowProfile", report.getWorkflowProfile());
@@ -195,10 +195,27 @@ public final class ExperimentManifestWriter {
      * @param config explicit simulation configuration
      * @return the same configuration representation used in new manifests
      */
+    /**
+     * BAT-R9（2026-10-27 第九轮审查）manifest 口径：配置基体 + 已解析输入路径覆写——
+     * 与 inputs[].path 同源，ordered-input-paths 不变量对任何喂法按构造成立；
+     * 全部遗留证据两数组本已同为绝对形式，语义零漂移。
+     */
+    private static Map<String, Object> configuration(SimulationReport report) {
+        SimulationConfig config = report.getConfig();
+        Map<String, Object> values = configuration(config);
+        List<String> resolvedInputPaths = new ArrayList<String>();
+        for (org.workflowsim.experiment.SimulationReport.InputArtifact input : report.getInputs()) {
+            resolvedInputPaths.add(input.getPath());
+        }
+        values.put("workflowPaths", resolvedInputPaths);
+        return values;
+    }
+
     public static Map<String, Object> configurationSnapshot(SimulationConfig config) {
         if (config == null) {
             throw new IllegalArgumentException("Configuration is required");
         }
+        // 快照口径 = legacy as-fed（该公开面服务配置比对，不入证据链第 ordered 项）。
         return configuration(config);
     }
 

@@ -71,6 +71,7 @@ class RegisteredPoweredRerunIntegrationTest {
                 .fileSystem(ReplicaCatalog.FileSystem.LOCAL)
                 .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
                 .randomSeed(20261027L)
+                .deadline(400) // BAT-R9：死线并入注册链（R8 立目标时被砍掉的一轴）
                 .registeredSchedulingAlgorithm(provider)
                 .build();
         PlatformProfile platform = poweredPlatform();
@@ -102,6 +103,16 @@ class RegisteredPoweredRerunIntegrationTest {
         assertEquals(
                 original.getAsJsonObject("configuration").get("registeredSchedulingAlgorithm"),
                 repeat.getAsJsonObject("configuration").get("registeredSchedulingAlgorithm"));
+        assertEquals(
+                true,
+                repeat.getAsJsonObject("metrics")
+                        .get("deadlineObservationEnabled")
+                        .getAsBoolean(),
+                "the deadline axis must be observed in metrics alongside the registered label");
+        assertEquals(
+                original.getAsJsonObject("metrics").get("deadlineMet"),
+                repeat.getAsJsonObject("metrics").get("deadlineMet"),
+                "deadline verdicts must replay identically");
     }
 
     private static String dax() {
