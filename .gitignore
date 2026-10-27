@@ -66,3 +66,6 @@ output/r13-v2-audit-statistics
 
 # Standard benchmark frozen local evidence; report lives in docs/benchmark.
 output/benchmark-standard-v1/
+
+# BAT-E4 frozen powered-benchmark local evidence (tar original retained).
+output/benchmark-standard-power-v1/
