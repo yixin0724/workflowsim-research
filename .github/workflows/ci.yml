@@ -38,6 +38,12 @@ jobs:
       - name: Verify independent evidence and statistics checkers
         run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-study-verifiers.py
 
+      - name: Verify mutation gate self-tests (BAT-R4: was missing from CI)
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-mutation-gate.py
+
+      - name: Verify energy portrait analysis (BAT-R4; skips retained-copy test when evidence is absent)
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-energy-portrait.py
+
       - name: Verify independent network checker self-tests
         run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-network-ledger.py
 

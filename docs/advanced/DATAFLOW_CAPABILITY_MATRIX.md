@@ -53,6 +53,7 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   not silently downgraded. See the [energy dimension design](<ENERGY_DIMENSION_DESIGN.md>)
   for the survey anchors and the v2 DVFS/carbon reservations.
 
+- Known follow-up (BAT-R4, 2026-10-27): the offline HTML report embeds the full energyMetrics manifest block but does not yet render a dedicated energy panel; report-side energy visualization is gap-listed, not hidden.
 ## Performance Optimizations Do Not Change the Semantics Above
 
 A transaction copies only the active working set and the changed replica rows; the immutable history index and the terminal summaries are shared, and neither the service allocator, the floating-point arithmetic, the sources/paths, the event order, nor the assignment policy is changed. Wide sets of simultaneously active tasks can still incur near-quadratic cost, and the history-copy optimizations must not be equated with linearizing every input. See [state structure and performance measurement](<DATAFLOW_STATE_COPY_PERFORMANCE.md>).
