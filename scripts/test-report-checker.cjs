@@ -64,7 +64,7 @@ try {
       /Network flows rendered row count/, network);
     const local = path.join(temporary, 'forbidden-sidecar.json'); fs.writeFileSync(local, '{}');
     rejected('network-secondary-file-fetch', inject(content,
-      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      `addEventListener("resize",function(){if(innerWidth<500){const el=document.createElement("script");el.src=${JSON.stringify(pathToFileURL(local).href)};document.body.appendChild(el);}});`),
       /Offline reports must not fetch secondary files/, network);
   }
   const lifecycle = fixtures && (fixtures.reports.find(r => r.name === 'file-lifecycle-typed-stress')
@@ -130,7 +130,7 @@ try {
       /Assignment scope must not imply a fluid replay/, assignment);
     const local = path.join(temporary, 'forbidden-assignment.json');fs.writeFileSync(local, '{}');
     rejected('assignment-secondary-fetch', inject(content,
-      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      `addEventListener("resize",function(){if(innerWidth<500){const el=document.createElement("script");el.src=${JSON.stringify(pathToFileURL(local).href)};document.body.appendChild(el);}});`),
       /Offline reports must not fetch secondary files/, assignment);
   }
   console.log(JSON.stringify({ status: 'PASSED', checks: results }, null, 2));
