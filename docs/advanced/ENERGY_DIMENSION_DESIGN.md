@@ -90,7 +90,11 @@ where `T_sim` = `makespanSeconds` and `T_active` per VM is already `vmIntervals`
 the metrics — all existing fields. The Python verifier recomputes this identity from the
 manifest's own data.
 
-**Metrics** (new SimulationMetrics fields)
+**Metrics** (as built, BAT-R6 note 2026-10-27: the four energy values ship as the
+manifest `energyMetrics` section, computed by the standalone `EnergyAccounting`
+class — `SimulationMetrics` and its constructor are deliberately untouched;
+this deviates from the original plan line "new SimulationMetrics fields",
+recorded here per the doc-follows-behavior discipline)
 | Metric | Formula |
 |---|---|
 | `totalEnergyJoules` | conservation-law result |
@@ -177,7 +181,10 @@ The conservation law closes the gap exactly: the energy difference (10,000 J) eq
 the 20-second makespan difference times the fleet idle power (2 × 250 W). The
 expectation is provable, not a hope: on a pure bag with uniform VMs LPT cannot lose to
 submission order (Graham), and with the linear power model total energy is strictly
-monotone in makespan when total busy work is workload-fixed. Behavior anchor:
+monotone in makespan when total busy work is workload-fixed (true bit-exactly on
+this designed bag; across the full corpus busy drifts up to ~0.2% between policies —
+see the Energy Portrait's departure analysis for the six conditions where that drift,
+not makespan, decides the energy ordering). Behavior anchor:
 [EnergyAwareSchedulingComparisonIntegrationTest](<../../experiments/src/test/java/org/workflowsim/experiments/registry/EnergyAwareSchedulingComparisonIntegrationTest.java>).
 Honest scope: this is a two-VM, one-bag demonstrator of the end-to-end energy-aware
 path (registry gate → powered run → audited evidence) — not a general performance

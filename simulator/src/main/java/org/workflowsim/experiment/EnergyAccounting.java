@@ -74,10 +74,9 @@ public final class EnergyAccounting {
                 total, mean, peak, total * makespanSeconds, java.util.Collections.unmodifiableMap(perVm));
     }
 
-    /** @return an all-zero accounting for runs whose platform has no power model */
-    public static EnergyAccounting unpowered() {
-        return new EnergyAccounting(0.0, 0.0, 0.0, 0.0, java.util.Collections.emptyMap());
-    }
+    // BAT-R6（2026-10-27 审查第六轮）：删除从未被调用的 unpowered() 工厂——
+    // fromFrozenMetrics 对无功率平台天然产出全零（每 VM 0.0 贡献），死者公开面从 E1
+    // 落地起就无调用方；留 public 无主人口属于无审视接口面。
 
     private static PlatformProfile.VmSpec findSpec(PlatformProfile platform, int vmId) {
         for (PlatformProfile.VmSpec spec : platform.getVms()) {
