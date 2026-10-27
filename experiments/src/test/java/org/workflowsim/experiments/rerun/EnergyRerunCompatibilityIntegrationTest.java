@@ -1,6 +1,8 @@
 package org.workflowsim.experiments.rerun;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -94,6 +96,67 @@ class EnergyRerunCompatibilityIntegrationTest {
             diverged = true;
         }
         assertEquals(true, diverged, "nonzero original energy vs stripped rerun must stay core-divergent");
+    }
+
+    @Test
+    void adversariallyCorruptedZeroSectionsStayDivergent() throws Exception {
+        // 豁免面压力测试：缺席侧遇"部分非零"的 energyMetrics 绝不允许被判等价——
+        // jsonTreeIsAllZeroNumbers 必须递归看穿每个数值叶子（含 vmEnergyJoules 映射）。
+        Path original = fixture(false), rerun = fixture(true);
+        stripEnergyDimension(original);
+        // 结果：original 无能耗节；rerun 的 totalEnergyJoules 非零 → 必须分歧。
+        RerunEvidence a = RerunEvidenceReader.read(original);
+        RerunEvidence b = RerunEvidenceReader.read(rerun);
+        boolean diverged = false;
+        try {
+            EvidenceCoreDiffer.DiffResult result = EvidenceCoreDiffer.compare(a, b);
+            diverged = !result.isIdenticalCore();
+        } catch (Exception failure) {
+            diverged = true;
+        }
+        assertEquals(true, diverged, "nonzero rerun energy vs absent original must stay divergent");
+    }
+
+    @Test
+    void rebuilderRejectsStringTypedAndHalfDeclaredPower() throws Exception {
+        // 字符串化功率必须显式拒绝（不是静默 0，也不是 NumberFormatException 裸跑）。
+        Path run = fixture(false);
+        Path manifest = run.resolve("result.manifest.json");
+        JsonObject root = read(manifest);
+        root.getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("idlePowerWatts", "250");
+        Files.write(manifest, root.toString().getBytes(StandardCharsets.UTF_8));
+        RerunEvidence stringTyped = RerunEvidenceReader.read(run);
+        // 契约：重建拒绝走 RECONSTRUCTION_REJECTED 包装（RerunFailureException），
+        // 字段名诊断必须透传到表层消息 —— 研究者在 CLI 上看到的是它。
+        RerunFailureException stringRejection = assertThrows(
+                RerunFailureException.class,
+                () -> ManifestConfigRebuilder.rebuild(stringTyped, RerunInputResolver.resolve(stringTyped)));
+        assertTrue(
+                stringRejection.getMessage().contains("idlePowerWatts"),
+                "rejection must cite the field through the wrapper: " + stringRejection.getMessage());
+        assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, stringRejection.getVerdict());
+
+        // 半声明（idle 在场、max 缺→0）由 VmSpec 校验兜底拒绝。
+        Path run2 = fixture(false);
+        Path manifest2 = run2.resolve("result.manifest.json");
+        JsonObject root2 = read(manifest2);
+        root2.getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(0)
+                .getAsJsonObject()
+                .addProperty("idlePowerWatts", 250.0);
+        Files.write(manifest2, root2.toString().getBytes(StandardCharsets.UTF_8));
+        RerunEvidence halfDeclared = RerunEvidenceReader.read(run2);
+        RerunFailureException halfRejection = assertThrows(
+                RerunFailureException.class,
+                () -> ManifestConfigRebuilder.rebuild(halfDeclared, RerunInputResolver.resolve(halfDeclared)));
+        assertTrue(
+                halfRejection.getMessage().contains("Invalid power fields"),
+                "half-declaration must be rejected by VmSpec validation: " + halfRejection.getMessage());
     }
 
     // ---- fixtures ----
