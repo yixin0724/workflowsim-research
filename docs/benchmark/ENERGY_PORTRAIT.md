@@ -77,3 +77,8 @@ plus its tar original. The analysis schema
 (`workflowsim-energy-portrait-v1`) embeds the run rows, the sign-test
 tallies, the Holm-adjusted p-values, and the monopoly attribution of all six
 departures.
+
+On a fresh clone without the retention tree, the analyzer reports "no run
+manifests" and the self-test's retained-data case skips itself (CI runs the
+statistical and synthetic branches only) — the published numbers require
+the retained evidence or its tar original.

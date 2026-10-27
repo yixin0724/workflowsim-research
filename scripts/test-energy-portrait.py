@@ -128,6 +128,33 @@ class DerivationInvariantsTest(unittest.TestCase):
         self.assertAlmostEqual(entry["holmAdjustedP"], entry["pValue"])
 
 
+class MedianBranchTest(unittest.TestCase):
+    """BAT-R5: median statistics odd/even branches (previous rounds never locked them)."""
+
+    def test_median_odd_and_even_lengths(self):
+        ap = load_portrait_module()
+        # Odd length: the exact middle element of the sorted EDP list.
+        rows = []
+        for i, edp in enumerate((9.0, 1.0, 5.0)):
+            rows.append({"runId": "s%d" % i, "input": "X", "vmCount": 2, "policy": "FCFS",
+                         "kind": "K", "makespan": 1.0, "busy": 1.0, "energy": 1.0,
+                         "edp": edp, "idleSum": 1.0, "deltaVm": 1.0,
+                         "status": "COMPLETED_SUCCESSFULLY"})
+        got = ap.layer_rankings(rows)["ONLINE"][0]
+        self.assertEqual(got["conditions"], 3)
+        self.assertEqual(got["medianEdp"], 5.0)
+        # Even length: the exact mean of the middle two elements.
+        rows.append({"runId": "s3", "input": "X", "vmCount": 2, "policy": "FCFS",
+                     "kind": "K", "makespan": 1.0, "busy": 1.0, "energy": 1.0,
+                     "edp": 7.0, "idleSum": 1.0, "deltaVm": 1.0,
+                     "status": "COMPLETED_SUCCESSFULLY"})
+        got = ap.layer_rankings(rows)["ONLINE"][0]
+        self.assertEqual(got["conditions"], 4)
+        self.assertEqual(got["medianEdp"], 6.0)  # mean(5.0, 7.0)
+        # Rank/mean consistency while we are here.
+        self.assertAlmostEqual(got["meanEdp"], (9.0 + 1.0 + 5.0 + 7.0) / 4)
+
+
 class RetainedBenchmarkInvariantTest(unittest.TestCase):
     """The published portrait numbers lock on the retained powered benchmark."""
 

@@ -134,13 +134,15 @@ def layer_rankings(rows):
     for fam, policies in fam_edp.items():
         entries = []
         for policy, edps in policies.items():
+            ordered = sorted(edps)  # BAT-R5: single sort; the branch was sorted twice inline
+            middle = len(ordered) // 2
             entries.append({
                 "policy": policy,
                 "conditions": len(edps),
                 "meanEdp": sum(edps) / len(edps),
                 "rmsEdp": math.sqrt(sum(e * e for e in edps) / len(edps)),
-                "medianEdp": sorted(edps)[len(edps) // 2] if len(edps) % 2 else 0.5 * (
-                    sorted(edps)[len(edps) // 2 - 1] + sorted(edps)[len(edps) // 2]),
+                "medianEdp": ordered[middle] if len(ordered) % 2 else 0.5 * (
+                    ordered[middle - 1] + ordered[middle]),
             })
         entries.sort(key=lambda e: e["rmsEdp"])
         summary[fam] = entries
