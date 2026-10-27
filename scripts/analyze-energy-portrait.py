@@ -137,12 +137,12 @@ def layer_rankings(rows):
             entries.append({
                 "policy": policy,
                 "conditions": len(edps),
-                "meanEuting": sum(edps) / len(edps),
-                "rmsEuting": math.sqrt(sum(e * e for e in edps) / len(edps)),
-                "medianEuting": sorted(edps)[len(edps) // 2] if len(edps) % 2 else 0.5 * (
+                "meanEdp": sum(edps) / len(edps),
+                "rmsEdp": math.sqrt(sum(e * e for e in edps) / len(edps)),
+                "medianEdp": sorted(edps)[len(edps) // 2] if len(edps) % 2 else 0.5 * (
                     sorted(edps)[len(edps) // 2 - 1] + sorted(edps)[len(edps) // 2]),
             })
-        entries.sort(key=lambda e: e["rmsEuting"])
+        entries.sort(key=lambda e: e["rmsEdp"])
         summary[fam] = entries
     return summary
 
@@ -165,7 +165,7 @@ def comparisons(table):
                 "conditionKey": list(key),
                 "policy": policy,
                 "reference": reference,
-                "deltaEuting": delta,
+                "deltaEdp": delta,
                 "win": 1 if delta < 0 else (0 if delta == 0 else -1),
             })
     result = {}

@@ -200,11 +200,15 @@ public final class EvidenceCoreDiffer {
             }
             return;
         }
-        if (original == null || rerun == null) {
-            if (!nullSafeEquals(original, rerun)) {
+        if (original == null || rerun == null || original.isJsonNull() || rerun.isJsonNull()) {
+            // BAT-R3（2026-10-27 审查第三轮）：JSON null 与“键缺席”同义（均代表未声明），
+            // 与显式 0.0 统一进入缺位判定；三者之外任何取值仍走原文比对。
+            JsonElement normalizedOriginal = original == null || original.isJsonNull() ? null : original;
+            JsonElement normalizedRerun = rerun == null || rerun.isJsonNull() ? null : rerun;
+            if (!nullSafeEquals(normalizedOriginal, normalizedRerun)) {
                 // BAT-E4.1（2026-10-27）：能耗前历史证据侧缺键/缺节 vs 复跑侧规范零值等价
                 // ——仅限能耗维度指针且在场值必须为规范零；任何非零值仍走核心量分歧。
-                if (!isBackwardCompatibleEnergyAbsence(pointer, original, rerun)) {
+                if (!isBackwardCompatibleEnergyAbsence(pointer, normalizedOriginal, normalizedRerun)) {
                     core.add(new Divergence(pointer, describe(original), describe(rerun)));
                 }
             }

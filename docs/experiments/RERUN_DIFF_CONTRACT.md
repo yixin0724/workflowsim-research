@@ -135,7 +135,7 @@ The report contains the `verdict`, the input resolution, JSON pointers and both-
 
 The energy extension added per-VM power leaves (`/platform/vms/N/idlePowerWatts`, `/platform/vms/N/maxPowerWatts`) and the `/energyMetrics` section to every fresh manifest. Retained pre-energy evidence has neither. A rerun of pre-energy evidence therefore compares an *absent* key on the original side against a **canonical zero** on the rerun side. These two states are declared **semantically equal**:
 
-- the equivalence applies only to the two pointers above and the whole `/energyMetrics` section, only when one side is absent, and only when every number on the present side is exactly `0.0` (verified recursively, including the `vmEnergyJoules` map);
+- the equivalence applies only to the two pointers above and the whole `/energyMetrics` section, only when one side is absent — **an explicit JSON `null` token reads as absent** (BAT-R3, 2026-10-27: absent, JSON-null, and canonical `0.0` are the three unified "undeclared" forms; the rebuilder already read null as absent, and the differ now agrees) — and only when every number on the present side is exactly `0.0` (verified recursively, including the `vmEnergyJoules` map);
 - **nonzero energy is never exempt**: powered originals that lose energy on rerun stay `DIVERGED`, and any nonzero-vs-nonzero mismatch stays a core divergence (the conservation-law defense is not weakened);
 - this is deliberately *not* a volatility-whitelist expansion — the values remain core quantities; only the absent-vs-zero state pair was unified.
 

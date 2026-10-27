@@ -159,6 +159,28 @@ class EnergyRerunCompatibilityIntegrationTest {
                 "half-declaration must be rejected by VmSpec validation: " + halfRejection.getMessage());
     }
 
+    @Test
+    void jsonNullPowerFieldsReadAsUnpoweredLegacyForm() throws Exception {
+        // BAT-R3 增补（Round-2 遗留的"已核未锁"面）：显式 JSON null 功率键必须按
+        // 未声明（0.0）读取并完成合法复跑，而非抛错或误读为功率已声明。
+        Path run = fixture(false), output = directory.resolve("null-power-repeat");
+        Path manifest = run.resolve("result.manifest.json");
+        JsonObject root = read(manifest);
+        root.getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(0)
+                .getAsJsonObject()
+                .add("idlePowerWatts", com.google.gson.JsonNull.INSTANCE);
+        root.getAsJsonObject("platform")
+                .getAsJsonArray("vms")
+                .get(1)
+                .getAsJsonObject()
+                .add("maxPowerWatts", com.google.gson.JsonNull.INSTANCE);
+        Files.write(manifest, root.toString().getBytes(StandardCharsets.UTF_8));
+        RerunReport result = RerunDiffExecutor.execute(run, output);
+        assertEquals(RerunVerdict.IDENTICAL_CORE, result.getVerdict(), result.toJson());
+    }
+
     // ---- fixtures ----
 
     /** 生成一份简单双 VM 证据；powered=true 时每 VM 携 250/400 W。 */
