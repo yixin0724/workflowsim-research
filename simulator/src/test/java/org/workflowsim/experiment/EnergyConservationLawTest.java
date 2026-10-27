@@ -23,6 +23,9 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
 import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 /**
  * Energy-dimension conservation-law tests (BAT-E1, 2026-10-27). Red-first: the
  * conservation law (Beloglazov et al. FGCS 2012 Eq.(2), binary SPACE_SHARED) states:
@@ -35,6 +38,8 @@ import org.workflowsim.utils.SimulationConfig;
  * 1. The energy conservation invariant (zero tolerance)
  * 2. Backward compatibility: un-powered profiles yield zero energy
  * 3. VmSpec power-field validation (fail-fast)
+ * 4. BAT-E2 manifest energy export: the written energyMetrics section survives full
+ *    artifact validation and satisfies the same identities (EDP, peak power, idle floor)
  */
 class EnergyConservationLawTest {
 
@@ -106,6 +111,75 @@ class EnergyConservationLawTest {
         EnergyAccounting ea = EnergyAccounting.fromFrozenMetrics(report.getMakespan(), vmMetrics, platform);
         assertEquals(0.0, ea.getTotalEnergyJoules(), 0.0, "no power model → zero energy");
         assertEquals(0.0, ea.getPeakPowerWatts(), 0.0);
+    }
+
+    /**
+     * BAT-E2 (2026-10-27): a powered run must export its energy dimension in the evidence
+     * manifest as an {@code energyMetrics} section that survives full
+     * {@link ExperimentArtifactValidator} validation. The section is independently
+     * recomputable from the manifest's own makespan and per-VM busy intervals, so this test
+     * re-derives the identities from the shipped JSON: peak power equals the fleet maximum
+     * (2 VMs × 400 W), EDP equals totalEnergyJoules × makespan at zero tolerance, per-VM
+     * energy never drops below the idle floor (P_idle × makespan), and total energy strictly
+     * exceeds the two-VM idle floor because the two-task chain (60 s → 40 s, dependent) banks
+     * strictly positive active energy. The DAG is a two-task dependency chain; the platform
+     * is the standard powered profile (100 W idle / 400 W max, 1000 MIPS per VM).
+     */
+    @Test
+    void manifestExportsEnergyMetricsAndSurvivesValidation() throws Exception {
+        SimulationConfig config = SimulationConfig.builder(twoTaskDax().toString(), 2)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .randomSeed(20261027L)
+                .build();
+        PlatformProfile platform = poweredPlatform(100.0, 400.0);
+        SimulationReport report = new SimulationRunner().run(config, platform);
+
+        ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, tempDir.resolve("energy-manifest-test"), "result", null);
+        ExperimentArtifactValidator.validate(artifacts.getManifest());
+
+        JsonObject manifest = JsonParser.parseString(
+                        new String(Files.readAllBytes(artifacts.getManifest()), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        double makespan = manifest.getAsJsonObject("result").get("makespan").getAsDouble();
+        JsonObject energyMetrics = manifest.getAsJsonObject("energyMetrics");
+        assertNotNull(energyMetrics, "powered run must export an energyMetrics section");
+
+        double totalEnergyJoules = energyMetrics.get("totalEnergyJoules").getAsDouble();
+        assertTrue(totalEnergyJoules > 0.0, "total energy must be positive for a powered run");
+        assertTrue(
+                energyMetrics.get("meanVmEnergyJoules").getAsDouble() > 0.0,
+                "mean per-VM energy must be positive for a powered run");
+        assertEquals(
+                800.0,
+                energyMetrics.get("peakPowerWatts").getAsDouble(),
+                0.0,
+                "peak power = fleet maximum of the profile's two 400W VMs");
+        assertEquals(
+                0,
+                Double.compare(
+                        totalEnergyJoules * makespan,
+                        energyMetrics.get("energyMakespanProductJouleSeconds").getAsDouble()),
+                "EDP = totalEnergyJoules × makespan at zero tolerance");
+
+        JsonObject vmEnergyJoules = energyMetrics.getAsJsonObject("vmEnergyJoules");
+        assertEquals(platform.getVms().size(), vmEnergyJoules.size(), "exactly one energy entry per profile VM");
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            String key = String.valueOf(spec.getId());
+            assertTrue(vmEnergyJoules.has(key), "energy entry missing for VM " + key);
+            assertTrue(
+                    spec.getIdlePowerWatts() * makespan
+                            <= vmEnergyJoules.get(key).getAsDouble(),
+                    "VM " + key + " energy cannot fall below its idle floor (P_idle × makespan)");
+        }
+
+        assertTrue(
+                totalEnergyJoules > makespan * 200.0,
+                "totalEnergyJoules must strictly exceed the two-VM idle floor (2 × 100W × makespan);" + " total="
+                        + totalEnergyJoules + ", floor=" + (makespan * 200.0));
     }
 
     @Test
@@ -255,6 +329,24 @@ class EnergyConservationLawTest {
         dax.append("  <child ref=\"t4\"><parent ref=\"t2\"/></child>\n");
         dax.append("</adag>\n");
         Path path = Paths.get(tempDir.toFile().getAbsolutePath(), "energy-test.dax");
+        Files.write(path, dax.toString().getBytes(StandardCharsets.UTF_8));
+        return path;
+    }
+
+    /**
+     * Minimal dependency-chain DAG (t1 60 s → t2 40 s) for the BAT-E2 manifest-energy
+     * export test: two tasks are enough to produce strictly positive busy time, and the
+     * chain guarantees the second task cannot start before the first finishes.
+     */
+    private Path twoTaskDax() throws Exception {
+        StringBuilder dax = new StringBuilder();
+        dax.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        dax.append("<adag version=\"3.3\" count=\"2\">\n");
+        dax.append("  <job id=\"t1\" name=\"a\" runtime=\"60\"/>\n");
+        dax.append("  <job id=\"t2\" name=\"b\" runtime=\"40\"/>\n");
+        dax.append("  <child ref=\"t2\"><parent ref=\"t1\"/></child>\n");
+        dax.append("</adag>\n");
+        Path path = Paths.get(tempDir.toFile().getAbsolutePath(), "energy-manifest-test.dax");
         Files.write(path, dax.toString().getBytes(StandardCharsets.UTF_8));
         return path;
     }

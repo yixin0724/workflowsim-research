@@ -587,6 +587,7 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
         saved_vms = needed(metrics, "vmMetrics")
         audit.ensure(set(saved_vms) == {str(v) for v in vms}, "vm-metric-key-set", prefix)
         busy_values = []
+        busy_by_vm = {}
         for vmid in vms:
             intervals = sorted(vm_intervals[vmid])
             previous_finish = None
@@ -596,6 +597,7 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                 previous_finish = max(finish, previous_finish if previous_finish is not None else finish)
             busy = union_length(intervals)
             busy_values.append(busy)
+            busy_by_vm[vmid] = busy
             saved = needed(saved_vms, str(vmid))
             vm_jobs = [j for j in jobs if j["vmId"] == vmid]
             for key, expected in (("vmId", vmid), ("jobOutcomeCount", len(vm_jobs)), ("modeledBusyIntervalSeconds", busy),
@@ -606,6 +608,37 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
         avg_busy = mean(busy_values)
         cv = math.sqrt(mean([(x - avg_busy) ** 2 for x in busy_values])) / avg_busy if avg_busy > 0 else 0.0
         fairness = math.fsum(busy_values) ** 2 / (len(busy_values) * math.fsum(x*x for x in busy_values)) if any(busy_values) else 1.0
+        # BAT-E2（2026-10-27）：能耗守恒律复算（Beloglazov FGCS 2012 Eq.(2) 二元 SPACE_SHARED
+        # 特化：E_vm = P_idle×T_sim + (P_max−P_idle)×T_busy；无功率字段的 VM 贡献为 0；
+        # 旧 manifest 无 energyMetrics 键 → 每台 VM 全零 → 总耗能必须为 0。
+        vm_power = {}
+        for vmid, vm in vms.items():
+            idle = number(vm.get("idlePowerWatts", 0.0), "VM idlePowerWatts", nonnegative=True)
+            peak = number(vm.get("maxPowerWatts", 0.0), "VM maxPowerWatts", nonnegative=True)
+            if peak < idle:
+                raise CheckError("maxPowerWatts below idlePowerWatts on VM " + str(vmid))
+            vm_power[vmid] = (idle, peak)
+        expected_vm_energy = {}
+        expected_total_energy = 0.0
+        expected_peak_power = 0.0
+        for vmid, (idle, peak) in vm_power.items():
+            e = idle * end + (peak - idle) * busy_by_vm[vmid]
+            expected_vm_energy[vmid] = e
+            expected_total_energy += e
+            expected_peak_power += peak
+        powered = any(p[0] > 0.0 or p[1] > 0.0 for p in vm_power.values())
+        energy_doc = doc.get("energyMetrics")
+        if powered and energy_doc is None:
+            raise CheckError("powered VMs require an energyMetrics section")
+        if powered:
+            for key, expected in (("totalEnergyJoules", expected_total_energy),
+                                  ("meanVmEnergyJoules", expected_total_energy / len(vm_power)),
+                                  ("peakPowerWatts", expected_peak_power),
+                                  ("energyMakespanProductJouleSeconds", expected_total_energy * end)):
+                audit.metric(energy_doc, key, expected, prefix + ":energyMetrics")
+            stored_per_vm = needed(energy_doc, "vmEnergyJoules")
+            for vmid, expected in expected_vm_energy.items():
+                audit.metric(stored_per_vm, str(vmid), expected, prefix + ":energyMetrics:VM:" + str(vmid))
         derived.update(totalVmModeledBusyIntervalSeconds=math.fsum(busy_values), meanVmModeledIntervalUtilization=avg_busy / end if end > 0 else 0.0,
                        vmModeledBusyTimeCoefficientOfVariation=cv, vmUtilizationJainFairnessIndex=fairness,
                        exactTaskTimingObservationCount=sum(t.get("exactJobTiming") is True for t in task_outcomes),

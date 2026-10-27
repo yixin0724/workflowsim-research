@@ -171,6 +171,16 @@ public final class ExperimentManifestWriter {
         }
         manifest.put("result", result(report));
         manifest.put("metrics", report.getMetrics());
+        // BAT-E2（2026-10-27）：energyMetrics section — 4 summary fields + per-VM map；
+        // independently recomputable from the manifest's own vmMetrics busySeconds + platform power fields.
+        Map<String, Object> energy = new LinkedHashMap<String, Object>();
+        EnergyAccounting ea = report.getEnergyAccounting();
+        energy.put("totalEnergyJoules", Double.valueOf(ea.getTotalEnergyJoules()));
+        energy.put("meanVmEnergyJoules", Double.valueOf(ea.getMeanVmEnergyJoules()));
+        energy.put("peakPowerWatts", Double.valueOf(ea.getPeakPowerWatts()));
+        energy.put("energyMakespanProductJouleSeconds", Double.valueOf(ea.getEnergyMakespanProductJouleSeconds()));
+        energy.put("vmEnergyJoules", ea.getVmEnergyJoules());
+        manifest.put("energyMetrics", energy);
         manifest.put("events", eventSummary(report));
         manifest.put("artifacts", new ArrayList<Map<String, Object>>(artifacts));
         manifest.put("provenance", ExperimentProvenance.capture(evidenceContext));

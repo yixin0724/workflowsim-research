@@ -504,6 +504,8 @@ class NetworkEvidenceCaptureIntegrationTest {
 
     @Test
     void offStillWritesTheSameThreeFileBundleAndOldMetricsDocumentShape() throws Exception {
+        // BAT-E2（2026-10-27）：manifest 键集新增 energyMetrics 节（无功率平台输出全零节，
+        // 旧 schema 键集断言随之从 12 键更新为 13 键；metrics v2 sidecar 结构不变）。
         Path workflow = input("off-export.dax", GROUPED_DAX);
         for (boolean fatTree : Arrays.asList(false, true)) {
             SimulationReport off = run(workflow, fatTree, 2, 0);
@@ -526,6 +528,7 @@ class NetworkEvidenceCaptureIntegrationTest {
                             "metrics",
                             "events",
                             "artifacts",
+                            "energyMetrics",
                             "provenance",
                             "runtime")),
                     manifest.keySet());

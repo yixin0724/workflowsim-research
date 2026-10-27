@@ -361,6 +361,43 @@ class IndependentAuditorTests(unittest.TestCase):
             self.assertEqual(value, result["recomputedMetrics"][key], key)
             self.assertIn(key, result["coverage"]["checkedMetrics"])
 
+    def test_energy_conservation_recompute_and_corruption_catch(self):
+        """BAT-E2（2026-10-27）：能耗守恒复算：正例（带功率平台）通过；篡改总能耗被击杀。
+
+        数学（Beloglazov Eq.(2) 二元特化，单一 VM idle=100W max=400W）：
+        E = 100×T_sim + (400−100)×T_busy = 121 + 333 = 454 J（默认时距）。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "powered"
+            make_bundle(root)
+            manifest = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+            # 平台补功率字段
+            manifest["platform"]["vms"][0]["idlePowerWatts"] = 100.0
+            manifest["platform"]["vms"][0]["maxPowerWatts"] = 400.0
+            end = manifest["metrics"]["makespanSeconds"]
+            busy = manifest["metrics"]["vmMetrics"]["0"]["modeledBusyIntervalSeconds"]
+            expected_total = 100.0 * end + 300.0 * busy
+            manifest["energyMetrics"] = {
+                "totalEnergyJoules": expected_total,
+                "meanVmEnergyJoules": expected_total,
+                "peakPowerWatts": 400.0,
+                "energyMakespanProductJouleSeconds": expected_total * end,
+                "vmEnergyJoules": {"0": expected_total},
+            }
+            (root / "run.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            report_path = Path(tmp) / "energy-report.json"
+            evidence.main(["--output", str(report_path), str(root / "run.manifest.json")])
+            self.assertEqual(json.loads(report_path.read_text(encoding="utf-8"))["status"], "PASS")
+            # 反例：篡改总能耗 → 守恒律击杀
+            manifest["energyMetrics"]["totalEnergyJoules"] = expected_total + 500.0
+            (root / "run.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bad_report = Path(tmp) / "energy-bad.json"
+            evidence.main(["--output", str(bad_report), str(root / "run.manifest.json")])
+            bad = json.loads(bad_report.read_text(encoding="utf-8"))
+            self.assertEqual(bad["status"], "FAIL")
+            self.assertTrue(any("totalEnergyJoules" in str(i.get("location", "")) for i in bad["issues"]),
+                            "corrupted total energy must be caught: " + json.dumps(bad["issues"][:2]))
+
     def test_healthy_single_manifest_and_matrix_override(self):
         for name, duration, effective, matrix in (("plain", 1.0, 1000, False), ("matrix", 0.5, 500, True)):
             manifest = make_bundle(self.root / name, duration, effective, matrix)
