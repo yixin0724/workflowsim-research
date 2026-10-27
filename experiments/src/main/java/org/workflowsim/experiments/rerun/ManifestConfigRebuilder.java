@@ -269,6 +269,21 @@ public final class ManifestConfigRebuilder {
                 .failureModel(rebuildFailureModel(requireObject(config, "failureModel", "configuration.failureModel")))
                 .dataMovementModel(rebuildDataMovementModel(
                         requireObject(config, "dataMovementModel", "configuration.dataMovementModel")));
+        // BAT-R7（2026-10-27 第七轮审查，跨缝链首跑即红）：注册标签算法的证据复跑。
+        // manifest 记录 schedulingAlgorithm=INVALID + registeredSchedulingAlgorithm=<label>，
+        // 此前重建器只读前者 → INVALID 无提供者 → RECONSTRUCTION_REJECTED；任何
+        // registry 算法的证据从未被复跑过（各缝单测、链条无人走过）。
+        // 修复：label 经 AlgorithmRegistry.find（SPI）解析回提供者；类路径未注册该
+        // 标签时 fail-fast 拒（复诊断要求算法在复跑机器上可用——与证据链诚实一致）。
+        // 注意（延续 BAT-R4 的三形态纪律）：非注册历史证据里该键以 JSON null 出现
+        // （manifest writer serializeNulls），has() 为真——必须同时排除 null 才是"在声明"。
+        if (config.has("registeredSchedulingAlgorithm")
+                && !config.get("registeredSchedulingAlgorithm").isJsonNull()) {
+            String registeredLabel = requireString(
+                    config, "registeredSchedulingAlgorithm", "configuration.registeredSchedulingAlgorithm");
+            builder.registeredSchedulingAlgorithm(
+                    org.workflowsim.experiment.registry.AlgorithmRegistry.find(registeredLabel));
+        }
         // Historical v4 absence is explicitly OFF; a present extension must never be ignored.
         if (config.has("networkEvidence")) {
             builder.networkEvidence(
