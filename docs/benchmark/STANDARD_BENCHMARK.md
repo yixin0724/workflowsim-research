@@ -68,6 +68,21 @@ the ones rewritten with the standard v4 checksums, validated, and independently 
 4. LOCAL v32 uses k=8 fat-tree (necessary for 32 hosts) — VM count and topology tier are
    simultaneously changed (confound documented in the study protocol).
 
+### Power variant benchmark-standard-power-v1
+
+The same 160-cell matrix (same inputs, VM tiers, layers, seed 11) was re-run on 2026-10-27
+with the registered-study platforms rebuilt with every VM carrying the Beloglazov Eq.(2)
+linear power envelope — idle 250 W, max 400 W (protocol `benchmark-standard-power-v1`, index
+`benchmark-power.json`; 160/160 completed successfully). Every manifest's `energyMetrics`
+section reports `totalEnergyJoules`, `meanVmEnergyJoules`, `peakPowerWatts`
+(= vmCount × 400 W), and `energyMakespanProductJouleSeconds`, and the Python auditor
+recomputed the energy conservation law (`E = Σ P_idle×T_sim + (P_max−P_idle)×T_busy` from
+each manifest's own fields) on all 160 bundles with zero issues — the same command as above,
+substituting `benchmark-power.json`. Evidence is retained at
+`output/benchmark-standard-power-v1/` and as
+`output/benchmark-standard-power-v1-evidence.tar.gz` (21.7 MB); joules are declared-model
+values, not measurements of real hardware.
+
 ## Retention
 
 The full evidence bundle (160 runs × v4 evidence package) is retained at

@@ -32,6 +32,27 @@ Both the Java side and the independent Python side have validators. Online attes
 
 Regular Workbench and standalone reports use only the same verified snapshot. The physical and action panels coexist, numbers are displayed as exact strings; the action/candidate previews have explicit caps, and no extra sidecar is read. For the complete files and new configuration examples see the [Workbench guide](<../getting-started/WORKBENCH.md>).
 
+## Energy dimension
+
+- Per-VM power fields (`idlePowerWatts`/`maxPowerWatts` on `VmSpec`, `max ≥ idle ≥ 0`, both
+  finite) are optional per VM; a platform without them is a legally declared unpowered run whose
+  energy metrics are all zero. The linear power model is a declared simulation model, not a
+  measured power envelope, and heterogeneous per-VM values (including mixed powered/unpowered
+  VMs) remain per-VM explicit in each manifest.
+- Every manifest carries a mandatory `energyMetrics` section (four summary fields plus the
+  per-VM `vmEnergyJoules` map; all-zero is the legal unpowered case), and the platform section
+  serializes each VM's power fields so the dimension is recomputable from the manifest alone.
+- The independent Python
+  [auditor](<../../scripts/verify-study-evidence.py>) recomputes the conservation law
+  conditionally: powered runs must satisfy `totalEnergyJoules = Σ_vm P_idle × T_sim +
+  (P_max − P_idle) × T_busy` recomputed from the manifest's own busy intervals; unpowered runs
+  are skipped by the energy branch (backward compatible).
+- [Algorithm declarations](<../../simulator/src/main/java/org/workflowsim/experiment/registry/AlgorithmDeclaration.java>)
+  gain `energyAware`/`powerModelRequired`/`energyObjectiveWeight`; declaring
+  `powerModelRequired` on a profile without power fields is rejected fail-fast at registration,
+  not silently downgraded. See the [energy dimension design](<ENERGY_DIMENSION_DESIGN.md>)
+  for the survey anchors and the v2 DVFS/carbon reservations.
+
 ## Performance Optimizations Do Not Change the Semantics Above
 
 A transaction copies only the active working set and the changed replica rows; the immutable history index and the terminal summaries are shared, and neither the service allocator, the floating-point arithmetic, the sources/paths, the event order, nor the assignment policy is changed. Wide sets of simultaneously active tasks can still incur near-quadratic cost, and the history-copy optimizations must not be equated with linearizing every input. See [state structure and performance measurement](<DATAFLOW_STATE_COPY_PERFORMANCE.md>).

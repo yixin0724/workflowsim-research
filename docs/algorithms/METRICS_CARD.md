@@ -39,6 +39,15 @@
 | DATA_STAGE_IN_MODELED family | Nominal estimates (contention-free isolated seconds, referenced bytes, real external inputs) | The literature often loosely calls this "traffic" | Distinguish nominal estimates from actual contended wall-clock; state that these are referenced bytes, not transferred bytes |
 | Contended FCT / utilization | Precise accounting from the sidecar ledger | See the NETWORK_LEDGER_VALIDATION contract for details | Cite the conventions of that contract |
 
+## Energy Family
+
+| Metric | Our conventions | Difference from the closest conventions in the literature | Writing advice |
+|---|---|---|---|
+| `totalEnergyJoules` | `Σ_vm [P_idle × T_sim + (P_max − P_idle) × T_busy,vm]` — per-VM rectangles of the linear utilization model, Beloglazov et al. FGCS 2012 Eq.(2), specialized to binary SPACE_SHARED (`u ∈ {0,1}`); `T_sim` = `makespanSeconds`, `T_busy` = that VM's `vmMetrics` modeled busy-interval seconds | The literature integrates `P(u) = P_idle + (P_max − P_idle) × u` over continuous utilization; with one-Job-per-VM execution the integral collapses to idle-and-active rectangles, so the same Eq.(2) yields exact, not approximate, accounting | State the binary specialization and the busy-interval domain together; the identity is recomputed from the manifest alone by the repository's Python auditor |
+| `meanVmEnergyJoules` | `totalEnergyJoules / vmCount` (arithmetic mean over all declared VMs, idle-only VMs included) | The literature usually averages only serving hosts; ours includes every declared VM | State the denominator explicitly (fleet size, not busy-VM count) |
+| `peakPowerWatts` | `Σ_vm P_max` — the fleet's nameplate peak, a declared platform constant | For an observed instantaneous maximum, it is an upper bound, not a measurement | Do not present it as a time-series power trace; it is `vmCount × P_max` by construction |
+| `energyMakespanProductJouleSeconds` | `totalEnergyJoules × makespanSeconds` | The standard energy-delay product (EDP) of the DVFS literature; some papers use `E × D²` or weighted combinations | Name the exact product when comparing: EDP values under different objective forms are not interchangeable |
+
 ## Citation Discipline (Template Sentences for the Performance Evaluation Subsection)
 
 1. Together with every reported metric, give the conventions formula (or cite this card) and the sample domain (whether retries/failures/stage-in are counted).

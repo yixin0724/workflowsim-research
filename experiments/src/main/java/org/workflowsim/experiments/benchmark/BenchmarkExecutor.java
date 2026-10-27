@@ -26,10 +26,13 @@ import org.workflowsim.utils.ReplicaCatalog;
 import org.workflowsim.utils.SimulationConfig;
 
 /**
- * The platform's first public frozen benchmark (2026-10-26): a standard comparison of the
- * maintained algorithm corpus under frozen conditions, with every number backed by a
- * manifest-v4 bundle that third parties can independently re-verify with the repository's
- * Python auditor.
+ * The platform's first public frozen benchmark (2026-10-26), re-run under the energy
+ * dimension as protocol {@code benchmark-standard-power-v1} (BAT-E4, 2026-10-27): the
+ * same 160-cell matrix on the same frozen study conditions, with every VM additionally
+ * carrying the homogeneous Intel-style power envelope (idle 250 W / max 400 W) of the
+ * Beloglazov linear model. Every number is backed by a manifest-v4 bundle whose
+ * {@code energyMetrics} section the repository's Python auditor recomputes from the
+ * manifest's own power fields and per-VM busy intervals.
  *
  * <p>Covered layers — all comparisons are same-layer-only (cross-layer comparisons are
  * structurally invalid and the benchmark forbids them):</p>
@@ -43,13 +46,20 @@ import org.workflowsim.utils.SimulationConfig;
  * </ul>
  *
  * <p>Platform profiles reuse the registered-study factory
- * {@link NetworkStudyPlan#platform(int, String)}. The excluded-input rule from the study
- * family is respected by construction (the conflicting file is simply absent).</p>
+ * {@link NetworkStudyPlan#platform(int, String)} (frozen, never modified here) and are
+ * then rebuilt through {@link #withPower(PlatformProfile)}: every host, VM, pin, storage,
+ * cost, and topology field is copied verbatim and only the two per-VM power fields are
+ * added. The excluded-input rule from the study family is respected by construction (the
+ * conflicting file is simply absent).</p>
  */
 public final class BenchmarkExecutor {
 
     /** Output index file name (per-run rows with identity + metrics — Python-auditable). */
-    static final String INDEX = "benchmark.json";
+    static final String INDEX = "benchmark-power.json";
+
+    static final double POWER_IDLE_WATTS = 250.0;
+
+    static final double POWER_MAX_WATTS = 400.0;
 
     static final List<String> INPUT_PATHS = Collections.unmodifiableList(Arrays.asList(
             "dax/epigenomics/n100/Epigenomics_100.dax",
@@ -207,6 +217,58 @@ public final class BenchmarkExecutor {
     }
 
     /**
+     * Rebuilds the frozen registered-study platform with per-VM power fields (BAT-E4,
+     * 2026-10-27). The frozen factory {@link NetworkStudyPlan#platform(int, String)} is
+     * never modified: every host, VM, pin, storage, cost, and topology entry is copied
+     * verbatim through {@link PlatformProfile.Builder}, and each VM additionally declares
+     * the homogeneous power envelope {@code idlePowerWatts=250.0}/{@code maxPowerWatts=
+     * 400.0}. The rebuild keeps the profile name, so vmHost placements (all pinned) are
+     * bit-identical to the unpowered factory output.
+     */
+    static PlatformProfile withPower(PlatformProfile unpowered) {
+        PlatformProfile.Builder builder = PlatformProfile.builder(unpowered.getName())
+                .storage(unpowered.getStorage())
+                .costs(unpowered.getCosts());
+        for (PlatformProfile.HostSpec host : unpowered.getHosts()) {
+            builder.addHost(new PlatformProfile.HostSpec(
+                    host.getId(),
+                    host.getPes(),
+                    host.getMipsPerPe(),
+                    host.getRamMb(),
+                    host.getBandwidth(),
+                    host.getStorageMb()));
+        }
+        for (PlatformProfile.VmSpec vm : unpowered.getVms()) {
+            if (vm.hasPowerModel()) {
+                throw new IllegalStateException("withPower expects the unpowered registered-study platform, VM "
+                        + vm.getId() + " already declares a power model");
+            }
+            builder.addVm(new PlatformProfile.VmSpec(
+                    vm.getId(),
+                    vm.getMips(),
+                    vm.getPes(),
+                    vm.getRamMb(),
+                    vm.getBandwidth(),
+                    vm.getImageSizeMb(),
+                    vm.getVmm(),
+                    vm.getSchedulerMode(),
+                    vm.getCosts(),
+                    POWER_IDLE_WATTS,
+                    POWER_MAX_WATTS));
+        }
+        for (Map.Entry<Integer, Integer> pin : unpowered.getPinnedVmHostIds().entrySet()) {
+            builder.pinVmToHost(pin.getKey().intValue(), pin.getValue().intValue());
+        }
+        if (unpowered.getNetworkTopology() != null) {
+            builder.networkTopology(unpowered.getNetworkTopology());
+        }
+        if (unpowered.getSourceStorage() != null) {
+            builder.sourceStorage(unpowered.getSourceStorage());
+        }
+        return builder.build();
+    }
+
+    /**
      * Runs one benchmark cell: config construction, full simulation, evidence write +
      * validate. Deterministic algorithms run once at seed 11 (same convention as the
      * study family). Each cell writes the partial-but-valid index after completion, so an
@@ -247,14 +309,15 @@ public final class BenchmarkExecutor {
                     .build();
             PlatformProfile platform =
                     NetworkStudyPlan.platform(vmCount, platformNetwork == null ? "endpoint" : platformNetwork);
+            platform = withPower(platform);
             SimulationReport report = new SimulationRunner().run(config, platform);
             if (!report.getMetrics().isAllLogicalTasksCompletedSuccessfully()) {
                 throw new IllegalStateException("Incomplete workflow");
             }
-            ExperimentEvidenceContext context = ExperimentEvidenceContext.builder("benchmark-standard-v1")
+            ExperimentEvidenceContext context = ExperimentEvidenceContext.builder("benchmark-standard-power-v1")
                     .artifact("org.workflowsim", "benchmark", "1.0")
                     .driver(BenchmarkExecutor.class, "org/workflowsim/experiments/benchmark")
-                    .protocol("benchmark-standard-v1", root.resolve("benchmark-plan.json"))
+                    .protocol("benchmark-standard-power-v1", root.resolve("benchmark-plan.json"))
                     .datasetRoot(inputPath.getParent())
                     .build();
             ExperimentArtifactWriter.ExperimentArtifacts artifacts =
@@ -281,7 +344,7 @@ public final class BenchmarkExecutor {
     private static void writePlan(Path root) throws IOException {
         Map<String, Object> plan = new LinkedHashMap<String, Object>();
         plan.put("schema", "workflowsim-benchmark-plan-v1");
-        plan.put("protocol", "benchmark-standard-v1");
+        plan.put("protocol", "benchmark-standard-power-v1");
         plan.put("javaClass", BenchmarkExecutor.class.getName());
         ExperimentArtifactWriter.writeJson(root.resolve("benchmark-plan.json"), plan);
     }
@@ -289,7 +352,7 @@ public final class BenchmarkExecutor {
     private static void writeIndex(Path root, List<Map<String, Object>> runs) throws IOException {
         Map<String, Object> index = new LinkedHashMap<String, Object>();
         index.put("schema", "workflowsim-benchmark-v1");
-        index.put("protocol", "benchmark-standard-v1");
+        index.put("protocol", "benchmark-standard-power-v1");
         index.put("layers", "SHARED_DAG;LOCAL_DAG;ONLINE");
         index.put("runCount", Integer.valueOf(runs.size()));
         index.put("runs", runs);
