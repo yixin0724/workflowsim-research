@@ -131,6 +131,17 @@ The report contains the `verdict`, the input resolution, JSON pointers and both-
 
 | verdict | CLI exit code | Meaning |
 | --- | ---: | --- |
+### Registered-algorithm evidence (BAT-R7, 2026-10-27)
+
+Rerunning evidence produced by a registry-labeled algorithm resolves
+`configuration.registeredSchedulingAlgorithm` through the SPI registry and fails fast when the
+label is not registered on the rerunning classpath: the algorithm must be present where you
+rerun it — an honest diagnostic, not a silent skip. Behavior anchors: the
+[registered powered rerun chain](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/RegisteredPoweredRerunIntegrationTest.java>)
+and the [axis-reject locks](<../../experiments/src/test/java/org/workflowsim/experiments/rerun/RegisteredAxesRejectIntegrationTest.java>).
+A registered run with a failure model or task-cost matrix the provider's declaration rejects is
+refused at the registry gate before any simulation happens.
+
 ### Energy-dimension leaves (BAT-E4.1, 2026-10-27)
 
 The energy extension added per-VM power leaves (`/platform/vms/N/idlePowerWatts`, `/platform/vms/N/maxPowerWatts`) and the `/energyMetrics` section to every fresh manifest. Retained pre-energy evidence has neither. A rerun of pre-energy evidence therefore compares an *absent* key on the original side against a **canonical zero** on the rerun side. These two states are declared **semantically equal**:
