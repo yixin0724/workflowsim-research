@@ -506,6 +506,8 @@ public final class PlatformProfile {
         private final String vmm;
         private final CloudletSchedulerMode schedulerMode;
         private final CostSpec costs;
+        private final double idlePowerWatts;
+        private final double maxPowerWatts;
 
         /**
          * 创建不带 VM 级别显式计价的 VM 规格。
@@ -529,7 +531,21 @@ public final class PlatformProfile {
                 long imageSizeMb,
                 String vmm,
                 CloudletSchedulerMode schedulerMode) {
-            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null);
+            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null, 0.0, 0.0);
+        }
+
+        /** Convenience constructor: costs only, no power model. Delegates to master. */
+        public VmSpec(
+                int id,
+                double mips,
+                int pes,
+                int ramMb,
+                long bandwidth,
+                long imageSizeMb,
+                String vmm,
+                CloudletSchedulerMode schedulerMode,
+                CostSpec costs) {
+            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, costs, 0.0, 0.0);
         }
 
         /**
@@ -548,6 +564,13 @@ public final class PlatformProfile {
          * @param costs 可选 VM 级别成本规格；是否允许为空由所选成本模型决定
          * @throws IllegalArgumentException 当任一资源参数不合法时抛出
          */
+        /**
+         * Creates a VmSpec with optional power fields for the energy dimension
+         * (BAT-E1, 2026-10-27). This is the master constructor; the two shorter
+         * forms delegate here with zero power defaults.
+         *
+         * @throws IllegalArgumentException when any resource or power parameter is invalid
+         */
         public VmSpec(
                 int id,
                 double mips,
@@ -557,7 +580,9 @@ public final class PlatformProfile {
                 long imageSizeMb,
                 String vmm,
                 CloudletSchedulerMode schedulerMode,
-                CostSpec costs) {
+                CostSpec costs,
+                double idlePowerWatts,
+                double maxPowerWatts) {
             if (id < 0
                     || !positiveFinite(mips)
                     || pes <= 0
@@ -569,6 +594,13 @@ public final class PlatformProfile {
                     || schedulerMode == null) {
                 throw new IllegalArgumentException("Invalid VM specification for ID " + id);
             }
+            if (idlePowerWatts < 0.0
+                    || !Double.isFinite(idlePowerWatts)
+                    || maxPowerWatts < idlePowerWatts
+                    || !Double.isFinite(maxPowerWatts)) {
+                throw new IllegalArgumentException("Invalid power fields for VM " + id + ": idle=" + idlePowerWatts
+                        + " max=" + maxPowerWatts + " (required: maxPower >= idlePower >= 0, both finite)");
+            }
             this.id = id;
             this.mips = mips;
             this.pes = pes;
@@ -578,6 +610,23 @@ public final class PlatformProfile {
             this.vmm = vmm;
             this.schedulerMode = schedulerMode;
             this.costs = costs;
+            this.idlePowerWatts = idlePowerWatts;
+            this.maxPowerWatts = maxPowerWatts;
+        }
+
+        /** @return idle power in watts; 0 when no power model is declared */
+        public double getIdlePowerWatts() {
+            return idlePowerWatts;
+        }
+
+        /** @return max power in watts; 0 when no power model is declared */
+        public double getMaxPowerWatts() {
+            return maxPowerWatts;
+        }
+
+        /** @return true when this VM carries a declared power model (any field > 0) */
+        public boolean hasPowerModel() {
+            return idlePowerWatts > 0.0 || maxPowerWatts > 0.0;
         }
 
         public int getId() {

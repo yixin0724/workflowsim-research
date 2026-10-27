@@ -40,6 +40,7 @@ public final class SimulationReport {
     private final int successfulJobs;
     private final int failedJobs;
     private final List<SimulationEvent> events;
+    private final EnergyAccounting energyAccounting;
     private final WorkflowProfile workflowProfile;
     private final SimulationMetrics metrics;
     private final SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
@@ -99,6 +100,7 @@ public final class SimulationReport {
                 computeRequests == null ? null : Collections.unmodifiableList(new ArrayList<>(computeRequests));
         this.metrics = SimulationMetrics.calculate(
                 makespan, this.jobs, this.vmSummaries, this.events, this.tasks, sourceTasks, config, platform);
+        this.energyAccounting = EnergyAccounting.fromFrozenMetrics(makespan, this.metrics.getVmMetrics(), platform);
         this.workflowOutcomes = computeWorkflowOutcomes();
     }
 
@@ -447,6 +449,11 @@ public final class SimulationReport {
      */
     public SimulationMetrics getMetrics() {
         return metrics;
+    }
+
+    /** BAT-E1（2026-10-27）：@return 每次运行的能耗核算；无功率模型时为全零。 */
+    public EnergyAccounting getEnergyAccounting() {
+        return energyAccounting;
     }
 
     /**
