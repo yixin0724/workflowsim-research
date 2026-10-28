@@ -67,12 +67,11 @@ public final class PlatformProfile {
 
         public CarbonWindow(double startSeconds, double endSeconds, double greenWatts) {
             if (!(startSeconds >= 0.0)
-                    || Double.isNaN(startSeconds)
+                    || !Double.isFinite(startSeconds)
                     || !(endSeconds > startSeconds)
-                    || Double.isNaN(endSeconds)
+                    || !Double.isFinite(endSeconds)
                     || !(greenWatts >= 0.0)
-                    || Double.isNaN(greenWatts)
-                    || Double.isInfinite(greenWatts)) {
+                    || !Double.isFinite(greenWatts)) {
                 throw new IllegalArgumentException("Invalid carbon window: start=" + startSeconds + " end=" + endSeconds
                         + " greenWatts=" + greenWatts);
             }
@@ -675,6 +674,11 @@ public final class PlatformProfile {
                 double idlePowerWatts,
                 double maxPowerWatts,
                 Double carbonIntensityGramsPerKWh) {
+            if (carbonIntensityGramsPerKWh != null
+                    && (carbonIntensityGramsPerKWh.isNaN() || carbonIntensityGramsPerKWh.doubleValue() < 0.0)) {
+                throw new IllegalArgumentException("Invalid carbonIntensityGramsPerKWh for VM " + id + ": "
+                        + carbonIntensityGramsPerKWh + " (required when declared: finite and >= 0)");
+            }
             if (id < 0
                     || !positiveFinite(mips)
                     || pes <= 0
