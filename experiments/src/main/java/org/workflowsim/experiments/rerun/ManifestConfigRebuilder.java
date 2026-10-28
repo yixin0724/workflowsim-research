@@ -146,10 +146,22 @@ public final class ManifestConfigRebuilder {
                     // BAT-E4.1（2026-10-27）：功率字段往返转发（缺键按 0 处理 = 能耗前历史
                     // manifest；非零值由 VmSpec 构造器的 max>=idle 校验兜底）。
                     optionalNonNegativeDouble(vm.get("idlePowerWatts"), "platform.vms[].idlePowerWatts"),
-                    optionalNonNegativeDouble(vm.get("maxPowerWatts"), "platform.vms[].maxPowerWatts")));
+                    optionalNonNegativeDouble(vm.get("maxPowerWatts"), "platform.vms[].maxPowerWatts"),
+                    optionalCarbonIntensity(
+                            vm.get("carbonIntensityGramsPerKWh"), "platform.vms[].carbonIntensityGramsPerKWh")));
             Integer pinned = optionalInt(vm.get("pinnedHostId"));
             if (pinned != null) {
                 builder.pinVmToHost(id, pinned.intValue());
+            }
+        }
+        JsonElement rawWindows = platform.get("carbonWindows");
+        if (rawWindows != null && !rawWindows.isJsonNull()) {
+            for (JsonElement element : rawWindows.getAsJsonArray()) {
+                JsonObject window = element.getAsJsonObject();
+                builder.carbonWindow(
+                        optionalNonNegativeDouble(window.get("startSeconds"), "carbonWindows[].startSeconds"),
+                        optionalNonNegativeDouble(window.get("endSeconds"), "carbonWindows[].endSeconds"),
+                        optionalNonNegativeDouble(window.get("greenWatts"), "carbonWindows[].greenWatts"));
             }
         }
         JsonObject storage = requireObject(platform, "storage", "platform.storage");
@@ -582,6 +594,20 @@ public final class ManifestConfigRebuilder {
      * BAT-E4.1（2026-10-27）：可选非负功率字段；缺键/空值按 0 处理（能耗前历史形态），
      * 负数与非数值显式拒绝——功率是物理量纲，静默接受非法值违反显式失败纪律。
      */
+    private static Double optionalCarbonIntensity(JsonElement element, String field) {
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException(field + " must be a JSON number when present");
+        }
+        double value = element.getAsDouble();
+        if (value < 0.0 || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " must be finite and >= 0: " + value);
+        }
+        return Double.valueOf(value);
+    }
+
     private static double optionalNonNegativeDouble(JsonElement element, String field) {
         if (element == null || element.isJsonNull()) {
             return 0.0;
