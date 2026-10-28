@@ -120,6 +120,19 @@ The matrix covers algorithm/seed tags, multiple seeds, single-report regeneratio
 On macOS, an installed Google Chrome is preferred; otherwise Playwright Chromium is used. On any system, the browser executable can be specified via `WORKFLOWSIM_CHROME`:
 
 ```bash
+On macOS an installed Google Chrome is preferred; otherwise Playwright Chromium is used.
+
+**CI parity note (BAT-R11, 2026-10-28)**: headed Chrome and headless Playwright
+Chromium can make different things observable (headless rejects some `file://`
+fetches at the Fetch API level before any network event is emitted). Before
+trusting a local browser verification, run it through the SAME runtime CI uses:
+
+```bash
+HOME="$PWD/.pwhome" scripts/node_modules/.bin/playwright-core install chromium
+WORKFLOWSIM_CHROME="$PWD/.pwhome/Library/Caches/ms-playwright/chromium-1193/chrome-mac/Chromium.app/Contents/MacOS/Chromium" \
+  node scripts/verify-report.cjs <report.html>
+```
+
 WORKFLOWSIM_CHROME="/absolute/path/to/chrome" \
   node scripts/verify-report.cjs /absolute/experiment/report.html
 ```

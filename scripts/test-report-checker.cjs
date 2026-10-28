@@ -107,6 +107,16 @@ try {
       `addEventListener("resize",function(){if(innerWidth<500){const el=document.createElement("script");el.src=${JSON.stringify(pathToFileURL(local).href)};document.body.appendChild(el);}});`),
       /Offline reports must not fetch secondary files/, lifecycle);
   }
+  const energyFix = fixtures && fixtures.reports.find(r => r.name === 'energy-powered');
+  if (energyFix) {
+    const content = fs.readFileSync(energyFix.path, 'utf8');
+    rejected('energy-hidden-panel', inject(content,
+      'document.getElementById("energy-section").style.display="none";'),
+      /Energy evidence panel must remain visible/, energyFix);
+    rejected('energy-exact-text', inject(content,
+      'function spoilEnergy(){document.getElementById("energy-total").textContent="CORRUPTED";}spoilEnergy();document.getElementById("run-select").addEventListener("change",spoilEnergy);'),
+      /Exact energy text differs at energy-total/, energyFix);
+  }
   const storage = fixtures && (fixtures.reports.find(r => r.name === 'storage-lifecycle-typed-stress')
     || fixtures.reports.find(r => r.storageLifecycle && r.storageLifecycle.some(e => e.state === 'COMPLETE')));
   if (storage) {

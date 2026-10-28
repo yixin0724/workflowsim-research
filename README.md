@@ -1,5 +1,7 @@
 # WorkflowSim
 
+[![CI](https://github.com/yixin0724/workflowsim-research/actions/workflows/ci.yml/badge.svg)](https://github.com/yixin0724/workflowsim-research/actions/workflows/ci.yml)
+
 WorkflowSim is a discrete-event simulator for research on scientific workflow scheduling. It covers task dependencies, compute resources, storage, data transfer, and scheduling decisions in a single declarative model, and emits auditable, replayable experiment results.
 
 Simulation results support controlled, same-condition research comparisons; they are not substitutes for real-cluster monitoring, production-network prediction, or cloud-provider billing. The project provides the Java simulation environment and policy interfaces; it does not include deep-learning trainers.

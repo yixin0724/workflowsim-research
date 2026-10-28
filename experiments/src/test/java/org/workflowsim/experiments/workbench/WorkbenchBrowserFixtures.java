@@ -2,6 +2,7 @@ package org.workflowsim.experiments.workbench;
 
 import static org.workflowsim.experiments.workbench.WorkbenchTestSupport.configuration;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -103,6 +104,44 @@ public final class WorkbenchBrowserFixtures {
         FileLifecycleBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
         StorageLifecycleBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
         DataflowAssignmentBrowserFixtures.append(output, reports, online.resolve("runs/fcfs-s42/result.manifest.json"));
+
+        // BAT-E7（2026-10-28）：能耗面板浏览器夹具——带功率平台的真实 Workbench 运行，
+        // 让验收工具能验证能耗面板文本来自 energyMetrics 且面板保持可见可篡改感知。
+        {
+            Path energyInput = output.resolve("energy-panel.dax");
+            Files.write(
+                    energyInput,
+                    ("<adag><job id=\"a\" name=\"a\" runtime=\"30\"/>"
+                                    + "<job id=\"b\" name=\"b\" runtime=\"55\"/>"
+                                    + "<child ref=\"b\"><parent ref=\"a\"/></child></adag>")
+                            .getBytes(StandardCharsets.UTF_8));
+            JsonObject energyConfig = configuration(energyInput, 2, "FCFS", false);
+            energyConfig.addProperty("name", "energy panel browser fixture");
+            energyConfig.getAsJsonObject("platform").addProperty("idlePowerWatts", 250.0);
+            energyConfig.getAsJsonObject("platform").addProperty("maxPowerWatts", 400.0);
+            Path energyConfigPath = output.resolve("energy-panel.json");
+            ExperimentArtifactWriter.writeJson(energyConfigPath, energyConfig);
+            Path energyExperiment = Workbench.run(energyConfigPath, output.resolve("energy"));
+            reports.add(describe("energy-powered", energyExperiment));
+            // 独立报告夹具：定位能耗实验 UUID 目录内的 manifest（Workbench 输出布局）。
+            java.util.List<Path> energyManifests = new ArrayList<>();
+            try (java.util.stream.Stream<Path> walk = Files.walk(energyExperiment)) {
+                walk.filter(f -> f.getFileName().toString().equals("result.manifest.json"))
+                        .forEach(energyManifests::add);
+            }
+            if (energyManifests.size() != 1) {
+                throw new IOException("Expected exactly one energy run manifest, found " + energyManifests.size());
+            }
+            Path energyStandalone = output.resolve("energy-powered-standalone.html");
+            Workbench.main(new String[] {"report", energyManifests.get(0).toString(), energyStandalone.toString()});
+            Map<String, Object> energyStandaloneSpec = new LinkedHashMap<>();
+            energyStandaloneSpec.put("name", "energy-powered-standalone");
+            energyStandaloneSpec.put("path", energyStandalone.toString());
+            energyStandaloneSpec.put("candidates", Arrays.asList("FCFS"));
+            energyStandaloneSpec.put("seeds", Arrays.asList("42"));
+            energyStandaloneSpec.put("statuses", Arrays.asList("COMPLETED_SUCCESSFULLY"));
+            reports.add(energyStandaloneSpec);
+        }
 
         Map<String, Object> index = new LinkedHashMap<>();
         index.put("schema", "workflowsim-browser-fixtures-v1");

@@ -106,6 +106,16 @@ function fileLifecycleValues(view) {
     'file-lifecycle-admitted': t.admittedPayloadBytes, 'file-lifecycle-settled': t.settledPayloadBytes,
     'file-lifecycle-residual': t.completionResidualBytes, 'file-lifecycle-observed': view.observedThrough };
 }
+async function checkEnergy(page, run) {
+  // BAT-E7: powered runs must keep the energy panel visible and show the exact
+  // manifest text at the summary leaves (tamper-evident display).
+  const metrics = run.manifest && run.manifest.energyMetrics;
+  if (!metrics || !(Number(metrics.totalEnergyJoules) > 0)) return;
+  assert.equal(await page.locator('#energy-section').isVisible(), true, 'Energy evidence panel must remain visible');
+  const exactTotal = String(metrics.totalEnergyJoules);
+  assert.equal(await page.locator('#energy-total').textContent(), exactTotal, 'Exact energy text differs at energy-total');
+}
+
 async function checkFileLifecycle(page, run, expected, hasPanel) {
   if (!hasPanel) { assert.equal(!!expected || fileLifecyclePanel(run), false, 'Expected V2 lifecycle panel is missing'); return; }
   const state = fileLifecycleState(run), visible = !['HIDDEN', 'NO_RESULT'].includes(state);
@@ -288,6 +298,9 @@ async function checkReport(browser, specification, screenshot) {
     const hasFileLifecyclePanel = await page.locator('#file-lifecycle-section').count() === 1;
     const hasStorageLifecyclePanel = await page.locator('#storage-lifecycle-section').count() === 1;
     const hasAssignmentPanel = await page.locator('#dataflow-assignment-section').count() === 1;
+    // BAT-E7: energy panel visibility — powered manifests must surface it visible.
+    const hasEnergyPanel = await page.locator('#energy-section').count() === 1
+      && await page.locator('#energy-section').isVisible();
     if (specification.network) assert.equal(specification.network.length, runCount);
     if (specification.fileLifecycle) assert.equal(specification.fileLifecycle.length, runCount);
     if (specification.storageLifecycle) assert.equal(specification.storageLifecycle.length, runCount);
@@ -367,14 +380,21 @@ async function checkReport(browser, specification, screenshot) {
       await checkFileLifecycle(page, runs[index], specification.fileLifecycle && specification.fileLifecycle[index], hasFileLifecyclePanel);
       await checkStorageLifecycle(page, runs[index], specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
       await checkDataflowAssignment(page, runs[index], specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
+      await checkEnergy(page, runs[index]);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'Long network values must remain inside mobile layout');
     }
     assert.equal(await page.locator('img').count(), 0, 'Network labels must remain literal text after run switching');
     assert.deepEqual(errors, []);
     assert.deepEqual(requests, [], 'Offline reports must remain offline through the final viewport change');
     assert.deepEqual(secondaryFiles, [], 'Offline reports must not fetch secondary files');
+    // BAT-E7: powered manifests must surface a visible energy panel (unpowered ones leave it hidden OFF).
+    const anyPoweredRun = runs.some(r => r.manifest && r.manifest.energyMetrics
+      && Number(r.manifest.energyMetrics.totalEnergyJoules) > 0);
+    if (anyPoweredRun) {
+      assert.equal(hasEnergyPanel, true, 'Powered reports must render a visible energy panel');
+    }    assert.deepEqual(secondaryFiles, [], 'Offline reports must not fetch secondary files');
     return { name: specification.name || path.basename(specification.path), runCount, successful,
-      allRows, vmRows, networkPanelChecked: hasNetworkPanel, fileLifecyclePanelChecked: hasFileLifecyclePanel, storageLifecyclePanelChecked: hasStorageLifecyclePanel, dataflowAssignmentPanelChecked: hasAssignmentPanel, externalRequests: requests.length, secondaryFiles: secondaryFiles.length, browserErrors: errors.length };
+      allRows, vmRows, networkPanelChecked: hasNetworkPanel, fileLifecyclePanelChecked: hasFileLifecyclePanel, storageLifecyclePanelChecked: hasStorageLifecyclePanel, dataflowAssignmentPanelChecked: hasAssignmentPanel, energyPanelChecked: hasEnergyPanel, externalRequests: requests.length, secondaryFiles: secondaryFiles.length, browserErrors: errors.length };
   } finally {
     await page.close();
   }
