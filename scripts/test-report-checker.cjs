@@ -8,6 +8,25 @@ const { spawnSync } = require('node:child_process');
 
 // Verify the verifier using disposable copies only; original reports and evidence remain untouched.
 const input = process.argv[2];
+
+// BAT-R11 self-guard (2026-10-28): tamper injections must never call fetch()
+// inside the injected code. Headless Chromium rejects fetch('file://...') at the
+// Fetch API level, silently emitting no interceptable network event, so such a
+// case passes locally (headed Chrome emits events) while being vacuous on CI --
+// the exact defect class of aab17b8/8f57f05 (four sites, two rounds). This lock
+// re-introduction-proofs the class: it fails the suite at load time.
+{
+  const own = fs.readFileSync(__filename, 'utf8');
+  const injections = own.match(/inject\(content,\s*\n?\s*`[^`]+`/g) || [];
+  for (const injection of injections) {
+    if (/fetch\(/.test(injection) && /pathToFileURL|\.href/.test(injection)) {
+      throw new Error(
+        "Regression lock: a tamper injection calls fetch() on a resolved file URL --\n" +
+        "use a <script> element insertion instead (see network-secondary-file-fetch).\n" +
+        "Offending injection code:\n" + injection);
+    }
+  }
+}
 if (!input) throw new Error('Usage: node scripts/test-report-checker.cjs <good-report.html|browser-fixtures.json>');
 let report = input, fixtures;
 if (input.endsWith('.json')) {
