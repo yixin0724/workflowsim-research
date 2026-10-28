@@ -23,6 +23,9 @@ and superseded audit drafts are not long-term entry points.
 - [Workflow inputs and datasets](<../datasets/README.md>): repository-bundled inputs, optional corpora, provenance, conversion, and format constraints.
 - [Dataflow and network capability matrix](<advanced/DATAFLOW_CAPABILITY_MATRIX.md>): physical models, storage, online assignment, and unimplemented capabilities.
 - [Energy dimension design](<advanced/ENERGY_DIMENSION_DESIGN.md>): requirements analysis, power-model architecture, metric surface, and the honesty scoping of the planned energy extension.
+- [Carbon dimension design](<advanced/CARBON_DIMENSION_DESIGN.md>): the two
+  literature carbon accountings (intensity multiplier vs green-budget excess),
+  the v1 architecture riding the audited energy chain, and the deliberate omissions.
 - [Fat-tree topology and shared model](<advanced/FAT_TREE_DESIGN.md>): structure, placement, deterministic routing, and capacity-allocation boundaries.
 
 ## Dataflow and evidence reference
