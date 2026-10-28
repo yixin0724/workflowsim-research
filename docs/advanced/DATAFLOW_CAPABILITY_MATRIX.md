@@ -54,6 +54,46 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   for the survey anchors and the v2 DVFS/carbon reservations.
 
 - Known follow-up (BAT-R4, 2026-10-27): the offline HTML report embeds the full energyMetrics manifest block but does not yet render a dedicated energy panel; report-side energy visualization is gap-listed, not hidden.
+
+## Carbon dimension
+
+- Two **mutually exclusive** accounting models (BAT-C1, 2026-10-28; survey anchors in the
+  [carbon dimension design](<CARBON_DIMENSION_DESIGN.md>)): the **intensity model** declares per-VM
+  `carbonIntensityGramsPerKWh` (gCO₂/kWh, a grid/region proxy) and reports grams as
+  `Σ_vm E_vm[J] / 3.6e6 × I_vm[g/kWh]` on top of the conservation-audited per-VM joules; the **budget
+  model** declares platform `carbonWindows` (`{startSeconds, endSeconds, greenWatts}`, sorted and
+  non-overlapping) and reports the fleet power integral above each window's green budget. Declaring
+  both on one platform is rejected fail-fast (the two models can disagree about which schedule is
+  "greener" and must not be conflated).
+- Both models ride the **conservation-locked energy chain**: they consume exactly the per-VM busy
+  intervals and power fields the energy dimension already audits — no new simulation physics. Both
+  require a powered profile (`idlePowerWatts`/`maxPowerWatts`); carbon declarations on an unpowered
+  profile are rejected at report construction.
+- The manifest exports a **conditional** `carbonMetrics` section — emitted only when a carbon model
+  is declared. Unlike the always-present `energyMetrics`, absence is the legal no-carbon case, not an
+  all-zero section. Fields: `totalCarbonGrams`, `meanVmCarbonGrams`, `carbonMakespanProductGramSeconds`,
+  `perVmCarbonGrams` (intensity family; all zero under the budget model) and
+  `totalCarbonExcessWattSeconds`, `windowExcessWattSeconds` (budget family; zero under the intensity
+  model).
+- The independent Python [auditor](<../../scripts/verify-study-evidence.py>) recomputes both families
+  from the manifest alone (BAT-C2): grams from the recomputed per-VM energy and the declared intensities;
+  the excess integral from the same compute-job intervals that feed the busy-interval/energy checks
+  (fleet power = Σ idle + concurrent × per-VM active delta; the v1 fleet is homogeneous — the design's
+  stated honest boundary). Declared runs are required to carry the section, and the mutual-exclusion and
+  sorted-window clauses are enforced; undeclared runs are skipped, so legacy manifests are unaffected.
+- Workbench JSON surface (BAT-C3): the uniform `platform.carbonIntensityGramsPerKWh` row, rejected
+  up front when the power fields are absent (carbon multiplies the energy chain, so an unpowered
+  declaration is vacuous). The v1 Workbench does **not** accept `carbonWindows` — budget-window
+  scenarios are research-protocol declarations, not workbench platform knobs.
+- Registry declarations gained `carbonObjectiveWeight` (positive weight implies the carbon/energy-aware
+  flags through the same implication lattice as the energy triple, because both carbon accountings sit
+  on the conserved energy chain); the `CARBON_DEFER_FIRST` demonstrator (C5-lite) exercises the
+  carbon-aware acceptance surface and evidence chain end-to-end with an honest demonstrator heuristic —
+  a real CWM-style deferral engine is follow-up work per the design's scoping table.
+
+- Known follow-up (BAT-C5, 2026-10-28): the offline HTML report does not yet render a dedicated carbon
+  panel; report-side carbon visualization is gap-listed, not hidden.
+
 ## Performance Optimizations Do Not Change the Semantics Above
 
 A transaction copies only the active working set and the changed replica rows; the immutable history index and the terminal summaries are shared, and neither the service allocator, the floating-point arithmetic, the sources/paths, the event order, nor the assignment policy is changed. Wide sets of simultaneously active tasks can still incur near-quadratic cost, and the history-copy optimizations must not be equated with linearizing every input. See [state structure and performance measurement](<DATAFLOW_STATE_COPY_PERFORMANCE.md>).

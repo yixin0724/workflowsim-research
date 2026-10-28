@@ -48,6 +48,18 @@
 | `peakPowerWatts` | `Σ_vm P_max` — the fleet's nameplate peak, a declared platform constant | For an observed instantaneous maximum, it is an upper bound, not a measurement | Do not present it as a time-series power trace; it is `vmCount × P_max` by construction |
 | `energyMakespanProductJouleSeconds` | `totalEnergyJoules × makespanSeconds` | The standard energy-delay product (EDP) of the DVFS literature; some papers use `E × D²` or weighted combinations | Name the exact product when comparing: EDP values under different objective forms are not interchangeable |
 
+## Carbon Family
+
+Conditional section: these metrics appear in a manifest's `carbonMetrics` only when a carbon model is declared; exactly one of the two models may be declared per run (mutual exclusion is enforced fail-fast). Both families ride the energy family's audited quantities — they add accounting, not physics.
+
+| Metric | Our conventions | Difference from the closest conventions in the literature | Writing advice |
+|---|---|---|---|
+| `totalCarbonGrams` | Intensity model: `Σ_vm E_vm[J] / 3.6e6 × I_vm[g/kWh]` — hand formula: each VM's linear-model joules (see `totalEnergyJoules` for the rectangle law) converted to kWh (`J / 3.6e6`) and multiplied by that VM's declared grid intensity (location-based, gCO₂/kWh) | CASPER-family spatial tools (Souza et al., IGSC'23) compute `service_time × carbon_intensity(region, hour)` from live hourly grid data; ours is a static per-VM declared intensity, an explicitly stated proxy | Name the intensity basis as declared-location-based; state that no live grid feed enters the simulation. Zero under the budget model |
+| `meanVmCarbonGrams` | `totalCarbonGrams / vmCount` (arithmetic mean over all declared VMs, idle-only VMs included) | The literature usually reports region-level totals; ours keeps the per-VM denominator explicit | State the denominator explicitly (fleet size, not busy-VM count); zero under the budget model |
+| `carbonMakespanProductGramSeconds` | `totalCarbonGrams × makespanSeconds` | A carbon-delay product in the spirit of EDP; no single standard form exists in the literature | Name the exact product when comparing; zero under the budget model |
+| `totalCarbonExcessWattSeconds` | Budget model: `Σ_windows ∫ max(0, P_fleet(t) − greenWatts) dt` over the window∩segment, with `P_fleet(t) = Σ_vm P_idle + concurrent × (P_max − P_idle)` rebuilt from the compute-job intervals (v1 assumes a homogeneous active delta across the fleet) | CWM/CaWoSched-family temporal scheduling (Schweisgut et al., ICPP 2025) defines carbon as an abstract over-budget excess integral, not gCO₂; both agree that under-budget execution is zero-carbon | State the unit honestly: watt-seconds of excess power, not grams; zero under the intensity model. Under-budget execution counting as zero-carbon must be stated when comparing with gram-based works |
+| `windowExcessWattSeconds` | The budget family's per-window sub-map of `totalCarbonExcessWattSeconds`, keyed by window index; only windows with positive excess appear, and the values sum to the total | The literature reports a single aggregate objective; ours keeps the per-window breakdown so a third party can re-verify each window | Cite the window-declaration basis (declared renewable-availability scenario, not a forecast feed); the sum identity is recomputed by the repository's Python auditor |
+
 ## Citation Discipline (Template Sentences for the Performance Evaluation Subsection)
 
 1. Together with every reported metric, give the conventions formula (or cite this card) and the sample domain (whether retries/failures/stage-in are counted).

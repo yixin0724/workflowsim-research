@@ -574,5 +574,180 @@ class ContractEventAuditTests(unittest.TestCase):
         self.assertGreater(audit.counts.get("job-start-coverage", 0), 0, audit.report())
 
 
+class CarbonDimensionAuditTests(unittest.TestCase):
+    """BAT-C2（2026-10-28）：碳维度复算自测——期望值全部来自量纲定律（E[J]/3.6e6 × I[g/kWh]）
+    与预算超额积分（Σ max(0, P_fleet(t)−green)×dt），即 CARBON_DIMENSION_DESIGN.md §1 的
+    两族模型契约；手推导演，绝不用实现输出当期望值。声明→必查（declared→required）镜像
+    energyMetrics 的 powered→required 规则（corruption 必须被击杀）。"""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def cli(self, script, source, output):
+        return subprocess.run([sys.executable, str(HERE / script), str(source), "--output", str(output)],
+                              capture_output=True, text=True)
+
+    def audit_status(self, manifest, report_name):
+        """跑一次独立审计 CLI，返回报告 dict。"""
+        report = Path(self.temp.name) / (report_name + ".json")
+        evidence.main(["--output", str(report), str(manifest)])
+        return json.loads(report.read_text(encoding="utf-8"))
+
+    @staticmethod
+    def elementary_energy(manifest):
+        """初级量：E = 100×end + 300×busy（fixture 平台 idle=100W max=400W）。"""
+        end = float(manifest["metrics"]["makespanSeconds"])
+        busy = float(manifest["metrics"]["vmMetrics"]["0"]["modeledBusyIntervalSeconds"])
+        return 100.0 * end + 300.0 * busy, end, busy
+
+    def test_carbon_intensity_recompute_and_corruption(self):
+        """正例：强度 380 g/kWh → grams = E/3.6e6 × 380 通过审计；篡改 +5g 必须被捕杀。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "carbon-intensity"
+            make_bundle(root)
+            manifest = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+            manifest["platform"]["vms"][0]["idlePowerWatts"] = 100.0
+            manifest["platform"]["vms"][0]["maxPowerWatts"] = 400.0
+            manifest["platform"]["vms"][0]["carbonIntensityGramsPerKWh"] = 380.0
+            energy, end, _busy = self.elementary_energy(manifest)
+            # energyMetrics 也是声明的（powered→required，已有规则）。
+            manifest["energyMetrics"] = {
+                "totalEnergyJoules": energy, "meanVmEnergyJoules": energy, "peakPowerWatts": 400.0,
+                "energyMakespanProductJouleSeconds": energy * end, "vmEnergyJoules": {"0": energy},
+            }
+            grams = energy / 3.6e6 * 380.0  # 单位律：J → kWh 除 3.6e6，× g/kWh
+            manifest["carbonMetrics"] = {
+                "totalCarbonGrams": grams, "meanVmCarbonGrams": grams / 1,
+                "carbonMakespanProductGramSeconds": grams * end, "perVmCarbonGrams": {"0": grams},
+                "totalCarbonExcessWattSeconds": 0.0, "windowExcessWattSeconds": {},
+            }
+            bundle = root / "run.manifest.json"
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            good = self.audit_status(bundle, "carbon-good")
+            self.assertEqual("PASS", good["status"], json.dumps(good["issues"][:3]))
+            # 反例：篡改总克数 → 复算差异 > 容差 → 审计失败且命中 totalCarbonGrams
+            manifest["carbonMetrics"]["totalCarbonGrams"] = grams + 5.0
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            bad = self.audit_status(bundle, "carbon-bad")
+            self.assertEqual("FAIL", bad["status"])
+            self.assertTrue(any("totalCarbonGrams" in str(i.get("location", "")) for i in bad["issues"]),
+                            "corrupted total carbon must be caught: " + json.dumps(bad["issues"][:2]))
+
+    def test_carbon_missing_when_intensities_declared(self):
+        """BAT-C2 declared→required：声明了碳强度但缺 carbonMetrics 节 → 审计必须失败。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "carbon-missing"
+            make_bundle(root)
+            manifest = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+            manifest["platform"]["vms"][0]["idlePowerWatts"] = 100.0
+            manifest["platform"]["vms"][0]["maxPowerWatts"] = 400.0
+            manifest["platform"]["vms"][0]["carbonIntensityGramsPerKWh"] = 380.0
+            energy, end, _busy = self.elementary_energy(manifest)
+            manifest["energyMetrics"] = {
+                "totalEnergyJoules": energy, "meanVmEnergyJoules": energy, "peakPowerWatts": 400.0,
+                "energyMakespanProductJouleSeconds": energy * end, "vmEnergyJoules": {"0": energy},
+            }
+            # 不写 carbonMetrics（ oxidative：声明→必查）
+            bundle = root / "run.manifest.json"
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            report = self.audit_status(bundle, "carbon-missing")
+            self.assertEqual("FAIL", report["status"],
+                             "intensity declarations without carbonMetrics must fail (BAT-C2 declared→required)")
+            self.assertTrue(any("carbonMetrics" in str(i) for i in report["issues"]),
+                            "failure must cite the carbonMetrics section: " + json.dumps(report["issues"][:3]))
+
+    def test_carbon_budget_window_recompute_and_corruption(self):
+        """预算模型：手推导演 fleet 时间线（计算 Job 区间 +Σidle/并发×ΔP）与逐窗口超额。
+
+        数学（fixture 单 VM idle=100W max=400W；计算 Job 区间 [0.21, 1.21)）：
+        P(t)=400W 于 [0.21,1.21)，100W 其余；窗口 [0,1.5) 绿 250W → 超额 (400−250)×1.0=150 W·s；
+        窗口 [2,5) 绿 250W → 覆盖区间外不叠加 → 0。总量 150 与窗口子图 {"0":150} 一致。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "carbon-budget"
+            make_bundle(root)
+            manifest = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+            manifest["platform"]["vms"][0]["idlePowerWatts"] = 100.0
+            manifest["platform"]["vms"][0]["maxPowerWatts"] = 400.0
+            manifest["platform"]["carbonWindows"] = [
+                {"startSeconds": 0.0, "endSeconds": 1.5, "greenWatts": 250.0},
+                {"startSeconds": 2.0, "endSeconds": 5.0, "greenWatts": 250.0},
+            ]
+            energy, end, _busy = self.elementary_energy(manifest)
+            manifest["energyMetrics"] = {
+                "totalEnergyJoules": energy, "meanVmEnergyJoules": energy, "peakPowerWatts": 400.0,
+                "energyMakespanProductJouleSeconds": energy * end, "vmEnergyJoules": {"0": energy},
+            }
+            manifest["carbonMetrics"] = {
+                "totalCarbonGrams": 0.0, "meanVmCarbonGrams": 0.0,
+                "carbonMakespanProductGramSeconds": 0.0, "perVmCarbonGrams": {},
+                "totalCarbonExcessWattSeconds": 150.0, "windowExcessWattSeconds": {"0": 150.0},
+            }
+            bundle = root / "run.manifest.json"
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            good = self.audit_status(bundle, "budget-good")
+            self.assertEqual("PASS", good["status"], json.dumps(good["issues"][:3]))
+            # 反例一：总量超额被篡改 → 击杀
+            manifest["carbonMetrics"]["totalCarbonExcessWattSeconds"] = 155.0
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            bad1 = self.audit_status(bundle, "budget-bad-total")
+            self.assertEqual("FAIL", bad1["status"])
+            self.assertTrue(any("totalCarbonExcessWattSeconds" in str(i.get("location", "")) for i in bad1["issues"]),
+                            "corrupted total excess must be caught: " + json.dumps(bad1["issues"][:2]))
+            # 反例二：窗口子图与总量不一致（子图 ≠ 复算的逐窗值）→ 击杀
+            manifest["carbonMetrics"]["totalCarbonExcessWattSeconds"] = 150.0
+            manifest["carbonMetrics"]["windowExcessWattSeconds"] = {"0": 100.0}
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            bad2 = self.audit_status(bundle, "budget-bad-window")
+            self.assertEqual("FAIL", bad2["status"])
+            self.assertTrue(any("windowExcess" in str(i) for i in bad2["issues"]),
+                            "corrupted window sub-map must be caught: " + json.dumps(bad2["issues"][:2]))
+            # 反例三：两模型同声明（per-VM 强度 + 平台窗口）→ 契约互斥条款击杀
+            manifest["platform"]["vms"][0]["carbonIntensityGramsPerKWh"] = 380.0
+            manifest["carbonMetrics"]["windowExcessWattSeconds"] = {"0": 150.0}
+            bundle.write_text(json.dumps(manifest), encoding="utf-8")
+            both = self.audit_status(bundle, "budget-bad-both")
+            self.assertEqual("FAIL", both["status"])
+            self.assertTrue(any("mutually exclusive" in str(i) or "intensity" in str(i) for i in both["issues"]),
+                            "dual declaration must be rejected citing the exclusion clause: "
+                            + json.dumps(both["issues"][:2]))
+
+    def test_carbon_windows_must_be_sorted_non_overlapping(self):
+        """窗口重排序校验：乱序/重叠 → 契约条款击杀（镜像 Java builder 校验）。"""
+        for where, windows in (
+            ("overlap", [{"startSeconds": 0.0, "endSeconds": 2.0, "greenWatts": 250.0},
+                         {"startSeconds": 1.0, "endSeconds": 5.0, "greenWatts": 100.0}]),
+            ("unsorted", [{"startSeconds": 2.0, "endSeconds": 5.0, "greenWatts": 250.0},
+                          {"startSeconds": 0.0, "endSeconds": 1.5, "greenWatts": 250.0}]),
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp) / ("carbon-window-" + where)
+                make_bundle(root)
+                manifest = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+                manifest["platform"]["vms"][0]["idlePowerWatts"] = 100.0
+                manifest["platform"]["vms"][0]["maxPowerWatts"] = 400.0
+                manifest["platform"]["carbonWindows"] = windows
+                energy, end, _busy = self.elementary_energy(manifest)
+                manifest["energyMetrics"] = {
+                    "totalEnergyJoules": energy, "meanVmEnergyJoules": energy, "peakPowerWatts": 400.0,
+                    "energyMakespanProductJouleSeconds": energy * end, "vmEnergyJoules": {"0": energy},
+                }
+                manifest["carbonMetrics"] = {
+                    "totalCarbonGrams": 0.0, "meanVmCarbonGrams": 0.0,
+                    "carbonMakespanProductGramSeconds": 0.0, "perVmCarbonGrams": {},
+                    "totalCarbonExcessWattSeconds": 0.0, "windowExcessWattSeconds": {},
+                }
+                bundle = root / "run.manifest.json"
+                bundle.write_text(json.dumps(manifest), encoding="utf-8")
+                report = self.audit_status(bundle, "window-" + where)
+                self.assertEqual("FAIL", report["status"], where)
+                self.assertTrue(any("sorted" in str(i) or "overlapping" in str(i) for i in report["issues"]),
+                                where + ": window order clause must fire: " + json.dumps(report["issues"][:2]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

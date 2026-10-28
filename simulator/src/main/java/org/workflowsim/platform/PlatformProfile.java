@@ -32,6 +32,7 @@ public final class PlatformProfile {
     private final CostSpec costs;
     private final org.workflowsim.network.NetworkTopologySpec networkTopology;
     private final transient org.workflowsim.data.v2.DataflowStorageSpec sourceStorage;
+    private final List<CarbonWindow> carbonWindows;
 
     private PlatformProfile(Builder builder) {
         this.name = builder.name;
@@ -45,6 +46,52 @@ public final class PlatformProfile {
         this.costs = builder.costs;
         this.networkTopology = builder.networkTopology;
         this.sourceStorage = builder.sourceStorage;
+        this.carbonWindows = builder.carbonWindows.isEmpty()
+                ? Collections.<CarbonWindow>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(builder.carbonWindows));
+    }
+
+    /** BAT-C1：@return 预算模型声明的绿电窗口（不可变）；空=未声明该模型 */
+    public List<CarbonWindow> getCarbonWindows() {
+        return carbonWindows;
+    }
+
+    /**
+     * 预算模型的绿电窗口（BAT-C1，2026-10-28）：区间声明 [startSeconds, endSeconds) 上
+     * 的可用绿电功率。排序、不重叠在构建时校验；覆盖完整性由核算端按仿真时长校验。
+     */
+    public static final class CarbonWindow {
+        private final double startSeconds;
+        private final double endSeconds;
+        private final double greenWatts;
+
+        public CarbonWindow(double startSeconds, double endSeconds, double greenWatts) {
+            if (!(startSeconds >= 0.0)
+                    || Double.isNaN(startSeconds)
+                    || !(endSeconds > startSeconds)
+                    || Double.isNaN(endSeconds)
+                    || !(greenWatts >= 0.0)
+                    || Double.isNaN(greenWatts)
+                    || Double.isInfinite(greenWatts)) {
+                throw new IllegalArgumentException("Invalid carbon window: start=" + startSeconds + " end=" + endSeconds
+                        + " greenWatts=" + greenWatts);
+            }
+            this.startSeconds = startSeconds;
+            this.endSeconds = endSeconds;
+            this.greenWatts = greenWatts;
+        }
+
+        public double getStartSeconds() {
+            return startSeconds;
+        }
+
+        public double getEndSeconds() {
+            return endSeconds;
+        }
+
+        public double getGreenWatts() {
+            return greenWatts;
+        }
     }
 
     public String getName() {
@@ -120,6 +167,7 @@ public final class PlatformProfile {
         private final String name;
         private final List<HostSpec> hosts = new ArrayList<>();
         private final List<VmSpec> vms = new ArrayList<>();
+        private final List<CarbonWindow> carbonWindows = new ArrayList<>();
         private final java.util.Map<Integer, Integer> pinnedVmHostIds = new LinkedHashMap<Integer, Integer>();
         private java.util.Map<Integer, Integer> vmHostAssignments = Collections.emptyMap();
         private StorageSpec storage = new StorageSpec(1_000_000_000_000L, 15);
@@ -220,6 +268,20 @@ public final class PlatformProfile {
          * @return 当前构建器
          * @throws IllegalArgumentException 当 {@code value} 为空时抛出
          */
+        /** BAT-C1：追加一个绿电窗口；须按时间升序、不重叠（构建时校验）。 */
+        public Builder carbonWindow(double startSeconds, double endSeconds, double greenWatts) {
+            CarbonWindow window = new CarbonWindow(startSeconds, endSeconds, greenWatts);
+            if (!carbonWindows.isEmpty()) {
+                CarbonWindow last = carbonWindows.get(carbonWindows.size() - 1);
+                if (window.getStartSeconds() < last.getEndSeconds()) {
+                    throw new IllegalArgumentException("Carbon windows must be sorted and non-overlapping: "
+                            + window.getStartSeconds() + " overlaps " + last.getEndSeconds());
+                }
+            }
+            carbonWindows.add(window);
+            return this;
+        }
+
         public Builder networkTopology(org.workflowsim.network.NetworkTopologySpec value) {
             this.networkTopology = requireNonNull(value, "Network topology specification");
             return this;
@@ -508,6 +570,7 @@ public final class PlatformProfile {
         private final CostSpec costs;
         private final double idlePowerWatts;
         private final double maxPowerWatts;
+        private final Double carbonIntensityGramsPerKWh;
 
         /**
          * 创建不带 VM 级别显式计价的 VM 规格。
@@ -531,7 +594,7 @@ public final class PlatformProfile {
                 long imageSizeMb,
                 String vmm,
                 CloudletSchedulerMode schedulerMode) {
-            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null, 0.0, 0.0);
+            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null, 0.0, 0.0, null);
         }
 
         /** Convenience constructor: costs only, no power model. Delegates to master. */
@@ -545,7 +608,35 @@ public final class PlatformProfile {
                 String vmm,
                 CloudletSchedulerMode schedulerMode,
                 CostSpec costs) {
-            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, costs, 0.0, 0.0);
+            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, costs, 0.0, 0.0, null);
+        }
+
+        /** BAT-C1 前的 11 参（含功率）委托：碳强度缺省 null。 */
+        public VmSpec(
+                int id,
+                double mips,
+                int pes,
+                int ramMb,
+                long bandwidth,
+                long imageSizeMb,
+                String vmm,
+                CloudletSchedulerMode schedulerMode,
+                CostSpec costs,
+                double idlePowerWatts,
+                double maxPowerWatts) {
+            this(
+                    id,
+                    mips,
+                    pes,
+                    ramMb,
+                    bandwidth,
+                    imageSizeMb,
+                    vmm,
+                    schedulerMode,
+                    costs,
+                    idlePowerWatts,
+                    maxPowerWatts,
+                    null);
         }
 
         /**
@@ -582,7 +673,8 @@ public final class PlatformProfile {
                 CloudletSchedulerMode schedulerMode,
                 CostSpec costs,
                 double idlePowerWatts,
-                double maxPowerWatts) {
+                double maxPowerWatts,
+                Double carbonIntensityGramsPerKWh) {
             if (id < 0
                     || !positiveFinite(mips)
                     || pes <= 0
@@ -612,6 +704,7 @@ public final class PlatformProfile {
             this.costs = costs;
             this.idlePowerWatts = idlePowerWatts;
             this.maxPowerWatts = maxPowerWatts;
+            this.carbonIntensityGramsPerKWh = carbonIntensityGramsPerKWh;
         }
 
         /** @return idle power in watts; 0 when no power model is declared */
@@ -627,6 +720,11 @@ public final class PlatformProfile {
         /** @return true when this VM carries a declared power model (any field > 0) */
         public boolean hasPowerModel() {
             return idlePowerWatts > 0.0 || maxPowerWatts > 0.0;
+        }
+
+        /** BAT-C1：@return 强度模型声明的每 VM 碳强度（gCO₂/kWh）；null=未声明 */
+        public Double getCarbonIntensityGramsPerKWh() {
+            return carbonIntensityGramsPerKWh;
         }
 
         public int getId() {

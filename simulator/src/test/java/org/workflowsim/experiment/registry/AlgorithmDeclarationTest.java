@@ -104,6 +104,54 @@ class AlgorithmDeclarationTest {
     }
 
     @Test
+    void carbonFieldsDefaultOffAndImplicationsAreEnforced() {
+        // BAT-C5（2026-10-28）：默认全关——既有注册零影响；正权重蕴含 carbonAware 且
+        // 因 v1 两种碳核算都骑在能量链上（设计文档 §2.2）同时蕴含 energyAware。
+        AlgorithmDeclaration plain = new AlgorithmDeclaration.Builder()
+                .allowDataMovementKind("LEGACY_WORKFLOWSIM_V1")
+                .build();
+        assertFalse(plain.isCarbonAware());
+        assertTrue(plain.getCarbonObjectiveWeight() == 0.0);
+        assertFalse(plain.isEnergyAware());
+
+        AlgorithmDeclaration carbonAwareOnly =
+                new AlgorithmDeclaration.Builder().carbonAware(true).build();
+        assertTrue(carbonAwareOnly.isCarbonAware());
+        assertFalse(carbonAwareOnly.isEnergyAware(), "carbonAware alone does not imply energyAware");
+
+        AlgorithmDeclaration weighted =
+                new AlgorithmDeclaration.Builder().carbonObjectiveWeight(1.0).build();
+        assertTrue(weighted.isCarbonAware());
+        assertTrue(weighted.isEnergyAware(), "positive carbon weight rides the energy chain");
+        assertTrue(weighted.getCarbonObjectiveWeight() == 1.0);
+
+        // 声明链接：注册演示器 = powerModelRequired + carbonObjectiveWeight 1.0 + energyAware
+        AlgorithmDeclaration demonstrator = new AlgorithmDeclaration.Builder()
+                .powerModelRequired(true)
+                .carbonObjectiveWeight(1.0)
+                .build();
+        assertTrue(demonstrator.isPowerModelRequired());
+        assertTrue(demonstrator.isEnergyAware());
+        assertTrue(demonstrator.isCarbonAware());
+    }
+
+    @Test
+    void carbonWeightMustBeFiniteNonNegative() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AlgorithmDeclaration.Builder()
+                        .carbonObjectiveWeight(-0.1)
+                        .build(),
+                "negative carbon weight must be rejected");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AlgorithmDeclaration.Builder()
+                        .carbonObjectiveWeight(Double.POSITIVE_INFINITY)
+                        .build(),
+                "infinite carbon weight must be rejected");
+    }
+
+    @Test
     void registryRejectsPowerRequiredAlgorithmOnUnpoweredPlatform() {
         // SPI 注册的 EnergyTestSchedulerProvider（simulator 测试 classpath）声明 powerModelRequired=true.
         // 无功率平台 → powerModelRequired 拒绝

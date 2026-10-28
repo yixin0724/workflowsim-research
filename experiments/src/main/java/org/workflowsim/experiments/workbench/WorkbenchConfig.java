@@ -421,7 +421,11 @@ public final class WorkbenchConfig {
                 "sourceStorage",
                 // BAT-E4.2（2026-10-27）：能耗维度可选声明（均一功率，缺省 0 表示不带功率模型）。
                 "idlePowerWatts",
-                "maxPowerWatts");
+                "maxPowerWatts",
+                // BAT-C3（2026-10-28）：碳维度可选声明（均一 gCO₂/kWh，强度模型）。
+                // 预算模型的 carbonWindows <b>不进 v1 工作台面</b>：窗口属于研究协议声明域
+                // （CARBON_DIMENSION_DESIGN.md §2.5 的 E5 式比较轨），上此处白名单即拒。
+                "carbonIntensityGramsPerKWh");
         JsonArray mips = array(value, "vmMips");
         if (mips.size() < 1 || mips.size() > 64) {
             throw new IllegalArgumentException("vmMips requires 1..64 VMs");
@@ -435,6 +439,22 @@ public final class WorkbenchConfig {
             throw new IllegalArgumentException(
                     "platform.idlePowerWatts (" + idlePowerWatts + ") exceeds maxPowerWatts (" + maxPowerWatts
                             + "); both default to 0 (no power model) when omitted");
+        }
+        // BAT-C3（2026-10-28）：可选均一碳强度（gCO₂/kWh；非负有限，0 合法=已声明的零碳
+        // 强度电网）。碳乘的是能量链（强度模型复算 E），无功率剖面上强度核算真空化——
+        // 报告端同口径 fail-fast（SimulationReport→CarbonAccounting），工作台前置拒绝并
+        // 同时引用两处字段，不给"静默零碳"留缝（守则：显式失败纪律）。
+        Double carbonIntensityGramsPerKWh = value.has("carbonIntensityGramsPerKWh")
+                        && !value.get("carbonIntensityGramsPerKWh").isJsonNull()
+                ? Double.valueOf(
+                        number(value.get("carbonIntensityGramsPerKWh"), "platform.carbonIntensityGramsPerKWh", false))
+                : null;
+        if (carbonIntensityGramsPerKWh != null && idlePowerWatts <= 0.0 && maxPowerWatts <= 0.0) {
+            throw new IllegalArgumentException("platform.carbonIntensityGramsPerKWh ("
+                    + carbonIntensityGramsPerKWh
+                    + ") requires a powered platform: declare platform.idlePowerWatts/maxPowerWatts —"
+                    + " carbon multiplies the energy chain and an unpowered profile makes the accounting"
+                    + " vacuous (BAT-C3)");
         }
         PlatformProfile.CostSpec costs =
                 new PlatformProfile.CostSpec(decimal(value, "cpuCostPerSecond", 3, false), 0, 0, 0);
@@ -459,7 +479,8 @@ public final class WorkbenchConfig {
                     PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
                     null,
                     idlePowerWatts,
-                    maxPowerWatts));
+                    maxPowerWatts,
+                    carbonIntensityGramsPerKWh));
             result.pinVmToHost(id, id);
         }
         applySourceStorage(value, result, mips);

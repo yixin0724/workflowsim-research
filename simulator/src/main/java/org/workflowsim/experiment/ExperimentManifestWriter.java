@@ -181,6 +181,19 @@ public final class ExperimentManifestWriter {
         energy.put("energyMakespanProductJouleSeconds", Double.valueOf(ea.getEnergyMakespanProductJouleSeconds()));
         energy.put("vmEnergyJoules", ea.getVmEnergyJoules());
         manifest.put("energyMetrics", energy);
+        // BAT-C2（2026-10-28）：carbonMetrics 条件导出——未声明两种碳模型时整节缺省
+        // （合法缺省≠全零，与能量节的恒在语义相区分并已在契约文档声明）。
+        CarbonAccounting ca = report.getCarbonAccounting();
+        if (ca != null) {
+            Map<String, Object> carbon = new LinkedHashMap<String, Object>();
+            carbon.put("totalCarbonGrams", Double.valueOf(ca.getTotalCarbonGrams()));
+            carbon.put("meanVmCarbonGrams", Double.valueOf(ca.getMeanVmCarbonGrams()));
+            carbon.put("carbonMakespanProductGramSeconds", Double.valueOf(ca.getCarbonMakespanProductGramSeconds()));
+            carbon.put("perVmCarbonGrams", ca.getPerVmCarbonGrams());
+            carbon.put("totalCarbonExcessWattSeconds", Double.valueOf(ca.getTotalCarbonExcessWattSeconds()));
+            carbon.put("windowExcessWattSeconds", ca.getWindowExcessWattSeconds());
+            manifest.put("carbonMetrics", carbon);
+        }
         manifest.put("events", eventSummary(report));
         manifest.put("artifacts", new ArrayList<Map<String, Object>>(artifacts));
         manifest.put("provenance", ExperimentProvenance.capture(evidenceContext));
@@ -486,6 +499,12 @@ public final class ExperimentManifestWriter {
             // EnergyConservationLawTest.manifestPlatformSerializesPerVmPowerFields）。
             value.put("idlePowerWatts", vm.getIdlePowerWatts());
             value.put("maxPowerWatts", vm.getMaxPowerWatts());
+            // BAT-C2（2026-10-28）：强度键仅声明时序列化（缺键与 null 均等价于"未声明"，
+            // legacy manifest 的平台节字节级不变）；审计器以该键复算 grams = E/3.6e6 × I。
+            // 红锚同理：若缺此键，声明强度的运行对审计器静默呈现为无碳，复算被跳过。
+            if (vm.getCarbonIntensityGramsPerKWh() != null) {
+                value.put("carbonIntensityGramsPerKWh", vm.getCarbonIntensityGramsPerKWh());
+            }
             value.put("pinnedHostId", profile.getPinnedVmHostIds().get(vm.getId()));
             value.put("preflightHostId", profile.getVmHostAssignments().get(vm.getId()));
             value.put("costs", vm.hasCosts() ? costs(vm.getCosts()) : null);
@@ -498,6 +517,19 @@ public final class ExperimentManifestWriter {
         storage.put("maxTransferRateMbPerSecond", profile.getStorage().getMaxTransferRateMbPerSecond());
         values.put("storage", storage);
         values.put("costs", costs(profile.getCosts()));
+        // BAT-C2（2026-10-28）：预算模型窗口仅非空时序列化（空表==未声明）；键序固定
+        // start/end/green，Python 审计器以同列表重建舰队超额积分并校验排序/不重叠。
+        if (!profile.getCarbonWindows().isEmpty()) {
+            List<Map<String, Object>> carbonWindows = new ArrayList<Map<String, Object>>();
+            for (PlatformProfile.CarbonWindow window : profile.getCarbonWindows()) {
+                Map<String, Object> item = new LinkedHashMap<String, Object>();
+                item.put("startSeconds", Double.valueOf(window.getStartSeconds()));
+                item.put("endSeconds", Double.valueOf(window.getEndSeconds()));
+                item.put("greenWatts", Double.valueOf(window.getGreenWatts()));
+                carbonWindows.add(item);
+            }
+            values.put("carbonWindows", carbonWindows);
+        }
         values.put(
                 "networkTopology", networkTopology(profile.getNetworkTopology(), profile.getSourceStorage() != null));
         if (profile.getSourceStorage() != null) {

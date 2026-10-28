@@ -86,6 +86,66 @@ class WorkbenchConfigTest {
     }
 
     @Test
+    void platformCarbonIntensityUniformRoundTripAndValidate() throws Exception {
+        // BAT-C3（2026-10-28）：均一碳强度 380 gCO₂/kWh → 每 VmSpec 携带该值；缺省→null
+        // （合法缺报≠全零）；负数拒绝；碳无功率 → 前置拒绝并引用两处字段（碳乘能量链，
+        // 无功率剖面真空化，与报告端 fail-fast 同口径）；v1 工作台不接受 carbonWindows。
+        Path workflow = workflow(directory, "flow.dax", false);
+        JsonObject powered = configuration(workflow.toString(), 2);
+        powered.getAsJsonObject("platform").addProperty("idlePowerWatts", 250.0);
+        powered.getAsJsonObject("platform").addProperty("maxPowerWatts", 400.0);
+        powered.getAsJsonObject("platform").addProperty("carbonIntensityGramsPerKWh", 380.0);
+        WorkbenchConfig loaded = WorkbenchConfig.read(json(directory.resolve("carbon.json"), powered));
+        for (PlatformProfile.VmSpec spec : loaded.getPlatform().getVms()) {
+            assertTrue(
+                    spec.getCarbonIntensityGramsPerKWh() != null && spec.getCarbonIntensityGramsPerKWh() == 380.0,
+                    "uniform carbon intensity on every VM");
+            assertTrue(spec.hasPowerModel(), "carbon fixture must remain powered");
+        }
+        JsonObject plain = configuration(workflow.toString(), 2);
+        for (PlatformProfile.VmSpec spec : WorkbenchConfig.read(json(directory.resolve("plain.json"), plain))
+                .getPlatform()
+                .getVms()) {
+            assertTrue(spec.getCarbonIntensityGramsPerKWh() == null, "no carbon declaration -> null intensity");
+        }
+        // 碳声明无功率 → 前置拒绝（两字段都要引用，不留静默零碳）
+        JsonObject orphan = configuration(workflow.toString(), 2);
+        orphan.getAsJsonObject("platform").addProperty("carbonIntensityGramsPerKWh", 380.0);
+        IllegalArgumentException orphanRejection = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("orphan.json"), orphan)));
+        assertTrue(
+                orphanRejection.getMessage().contains("carbonIntensityGramsPerKWh")
+                        && orphanRejection.getMessage().contains("idlePowerWatts"),
+                "rejection must cite both fields: " + orphanRejection.getMessage());
+        // 负强度 → 拒绝（非负有限域）
+        JsonObject negative = configuration(workflow.toString(), 2);
+        negative.getAsJsonObject("platform").addProperty("idlePowerWatts", 250.0);
+        negative.getAsJsonObject("platform").addProperty("maxPowerWatts", 400.0);
+        negative.getAsJsonObject("platform").addProperty("carbonIntensityGramsPerKWh", -0.5);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("negative-carbon.json"), negative)));
+        // v1 工作台面不接受预算窗口（研究驱动器按协议声明，见 CARBON_DIMENSION_DESIGN §2.5）
+        JsonObject windows = configuration(workflow.toString(), 2);
+        windows.getAsJsonObject("platform").addProperty("idlePowerWatts", 250.0);
+        windows.getAsJsonObject("platform").addProperty("maxPowerWatts", 400.0);
+        JsonArray someWindow = new JsonArray();
+        JsonObject window = new JsonObject();
+        window.addProperty("startSeconds", 0.0);
+        window.addProperty("endSeconds", 60.0);
+        window.addProperty("greenWatts", 300.0);
+        someWindow.add(window);
+        windows.getAsJsonObject("platform").add("carbonWindows", someWindow);
+        IllegalArgumentException windowRejection = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("windows.json"), windows)));
+        assertTrue(
+                windowRejection.getMessage().contains("carbonWindows"),
+                "carbon windows must be rejected as unknown in the v1 workbench: " + windowRejection.getMessage());
+    }
+
+    @Test
     void resolvesInputsRelativeToConfigurationIncludingSpacesAndAcceptsAbsoluteInputs() throws Exception {
         Path input = workflow(directory.resolve("inputs"), "flow with spaces.dax", true);
         Path config =

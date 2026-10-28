@@ -21,6 +21,12 @@ import org.workflowsim.utils.ReplicaCatalog;
  * （否则注册即拒绝该配置）；{@code energyObjectiveWeight} 是作者声明的能耗权衡权重
  * （仅正、有限；0 表示未参与目标函数）。三者默认关闭，全部经由
  * {@link AlgorithmRegistry} 在 validate() 中与平台功率字段联动执行。</p>
+ *
+ * <p>BAT-C5（2026-10-28）碳维度声明字段：{@code carbonAware} 与
+ * {@code carbonObjectiveWeight} 按同一蕴含格镜像能耗三元组——正权重蕴含 carbonAware，
+ * 且因 v1 两种碳核算（强度/预算）都骑在已审计的能量链上（设计文档 §2.2），同时蕴含
+ * energyAware；预算窗口场景另由碳预算模型（平台 carbonWindows 声明）承载，不新增
+ * 独立的碳平台门槛字段。默认全关（0/未声明的碳权重），既有注册零影响。</p>
  */
 public final class AlgorithmDeclaration {
 
@@ -42,6 +48,8 @@ public final class AlgorithmDeclaration {
     private final boolean energyAware;
     private final boolean powerModelRequired;
     private final double energyObjectiveWeight;
+    private final boolean carbonAware;
+    private final double carbonObjectiveWeight;
 
     private AlgorithmDeclaration(
             FileSystemScope fileSystemScope,
@@ -51,7 +59,9 @@ public final class AlgorithmDeclaration {
             String description,
             boolean energyAware,
             boolean powerModelRequired,
-            double energyObjectiveWeight) {
+            double energyObjectiveWeight,
+            boolean carbonAware,
+            double carbonObjectiveWeight) {
         this.fileSystemScope = fileSystemScope;
         this.allowedDataMovementKinds = Collections.unmodifiableSet(new LinkedHashSet<>(allowedDataMovementKinds));
         this.acceptsTaskCostMatrix = acceptsTaskCostMatrix;
@@ -60,6 +70,8 @@ public final class AlgorithmDeclaration {
         this.energyAware = energyAware;
         this.powerModelRequired = powerModelRequired;
         this.energyObjectiveWeight = energyObjectiveWeight;
+        this.carbonAware = carbonAware;
+        this.carbonObjectiveWeight = carbonObjectiveWeight;
     }
 
     /** @return the file-system scope this algorithm declares support for */
@@ -103,6 +115,16 @@ public final class AlgorithmDeclaration {
         return energyObjectiveWeight;
     }
 
+    /** BAT-C5：@return 算法是否在其决策逻辑中声明使用碳成本（强度或预算模型） */
+    public boolean isCarbonAware() {
+        return carbonAware;
+    }
+
+    /** BAT-C5：@return 声明的碳目标权重（碳-时延权衡系数；0=不参与） */
+    public double getCarbonObjectiveWeight() {
+        return carbonObjectiveWeight;
+    }
+
     /** Returns whether the declared file-system scope covers the given configured system. */
     public boolean coversFileSystem(ReplicaCatalog.FileSystem fileSystem) {
         if (fileSystem == null) {
@@ -130,6 +152,8 @@ public final class AlgorithmDeclaration {
         private boolean energyAware = false;
         private boolean powerModelRequired = false;
         private double energyObjectiveWeight = 0.0;
+        private boolean carbonAware = false;
+        private double carbonObjectiveWeight = 0.0;
 
         /** Declares the file-system scope this algorithm is valid for (default ANY). */
         public Builder fileSystemScope(FileSystemScope scope) {
@@ -188,6 +212,30 @@ public final class AlgorithmDeclaration {
             return this;
         }
 
+        /** BAT-C5：声明算法的决策逻辑使用碳成本（强度或预算模型；默认 false）。 */
+        public Builder carbonAware(boolean aware) {
+            this.carbonAware = aware;
+            return this;
+        }
+
+        /**
+         * BAT-C5：声明碳目标权重；必须 ≥ 0 且有限（默认 0 表示不参与）。正权重蕴含
+         * carbonAware，且因 v1 两种碳核算都定义在已守恒锁定的能量链上
+         * （docs/advanced/CARBON_DIMENSION_DESIGN.md §2.2），同时蕴含 energyAware——
+         * 蕴含格与能量三元组同构，注册入口零特判。
+         */
+        public Builder carbonObjectiveWeight(double weight) {
+            if (weight < 0.0 || !Double.isFinite(weight)) {
+                throw new IllegalArgumentException("carbonObjectiveWeight must be finite and >= 0: " + weight);
+            }
+            this.carbonObjectiveWeight = weight;
+            if (weight > 0.0) {
+                this.carbonAware = true; // positive weight implies aware
+                this.energyAware = true; // v1 carbon rides the conserved energy chain
+            }
+            return this;
+        }
+
         /** Sets the one-line description used in errors and documentation. */
         public Builder description(String text) {
             if (text == null) {
@@ -207,7 +255,9 @@ public final class AlgorithmDeclaration {
                     description,
                     energyAware,
                     powerModelRequired,
-                    energyObjectiveWeight);
+                    energyObjectiveWeight,
+                    carbonAware,
+                    carbonObjectiveWeight);
         }
     }
 }

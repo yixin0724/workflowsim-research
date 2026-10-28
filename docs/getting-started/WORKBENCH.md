@@ -56,6 +56,7 @@ Simply replace the configuration argument of `run` with the chosen file. The pai
 | `platform.storageTransferMbPerSecond` | Positive integer shared-storage transfer rate, default 15; different data movement models interpret storage differently |
 | `platform.idlePowerWatts` | Optional uniform idle power in watts, default 0 (no power model); `maxPowerWatts` must not be below it; energy metrics appear in the manifest when declared (BAT-E4.2, 2026-10-27) |
 | `platform.maxPowerWatts` | Optional uniform maximum power in watts, default 0 (no power model); with the linear power model the per-VM energy conservation law is `E = P_idle×T_sim + (P_max−P_idle)×T_busy` |
+| `platform.carbonIntensityGramsPerKWh` | Optional uniform carbon intensity in gCO₂/kWh, non-negative and finite (BAT-C3, 2026-10-28); requires the power fields — carbon multiplies the energy chain, so a declaration without `idlePowerWatts`/`maxPowerWatts` is rejected up front; emits the conditional `carbonMetrics` section (intensity family) in every run's manifest; carbon windows are not part of the v1 Workbench surface |
 | `platform.networkTopology` | Optional Fat-tree declaration: `k`, `linkBandwidthMbPerSecond`, `coreSwitchCount`, `hostEdgePlacements`; Workbench supports even k in the range 2–16 |
 | `platform.sourceStorage` | Constrained SOURCE, required only for V3; fields are described below |
 | `simulation.fileSystem` | `SHARED` or `LOCAL`, default SHARED; model/algorithm constraints still apply |

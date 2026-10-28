@@ -41,6 +41,7 @@ public final class SimulationReport {
     private final int failedJobs;
     private final List<SimulationEvent> events;
     private final EnergyAccounting energyAccounting;
+    private final CarbonAccounting carbonAccounting;
     private final WorkflowProfile workflowProfile;
     private final SimulationMetrics metrics;
     private final SharedStorageDagPlanTrace sharedStorageDagPlanTrace;
@@ -101,6 +102,20 @@ public final class SimulationReport {
         this.metrics = SimulationMetrics.calculate(
                 makespan, this.jobs, this.vmSummaries, this.events, this.tasks, sourceTasks, config, platform);
         this.energyAccounting = EnergyAccounting.fromFrozenMetrics(makespan, this.metrics.getVmMetrics(), platform);
+        // BAT-C1（2026-10-28）：两种碳模型互斥；未声明→null（合法缺省，非全零）。
+        if (platform.getVms() != null && anyCarbonIntensity(platform)) {
+            if (platform.getCarbonWindows() != null
+                    && !platform.getCarbonWindows().isEmpty()) {
+                throw new IllegalArgumentException("Both carbon models declared (per-VM intensity AND carbonWindows) —"
+                        + " the two accountings are mutually exclusive by contract (BAT-C1)");
+            }
+            this.carbonAccounting = CarbonAccounting.intensityModel(this.metrics, platform, makespan);
+        } else if (platform.getCarbonWindows() != null
+                && !platform.getCarbonWindows().isEmpty()) {
+            this.carbonAccounting = CarbonAccounting.budgetModel(this, platform);
+        } else {
+            this.carbonAccounting = null;
+        }
         this.workflowOutcomes = computeWorkflowOutcomes();
     }
 
@@ -454,6 +469,20 @@ public final class SimulationReport {
     /** BAT-E1（2026-10-27）：@return 每次运行的能耗核算；无功率模型时为全零。 */
     public EnergyAccounting getEnergyAccounting() {
         return energyAccounting;
+    }
+
+    /** BAT-C1：@return 碳核算（强度/预算模型择一）；未声明时为 null。 */
+    public CarbonAccounting getCarbonAccounting() {
+        return carbonAccounting;
+    }
+
+    private static boolean anyCarbonIntensity(PlatformProfile platform) {
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.getCarbonIntensityGramsPerKWh() != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

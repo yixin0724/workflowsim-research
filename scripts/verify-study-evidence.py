@@ -639,6 +639,140 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
             stored_per_vm = needed(energy_doc, "vmEnergyJoules")
             for vmid, expected in expected_vm_energy.items():
                 audit.metric(stored_per_vm, str(vmid), expected, prefix + ":energyMetrics:VM:" + str(vmid))
+        # ── BAT-C2（2026-10-28）：碳维度复算（CARBON_DIMENSION_DESIGN.md §2.2 两族模型）──
+        # 声明→必查、未声明→跳过（legacy manifest 不受影响）；两种模型互斥（BAT-C1 条款）。
+        # 两族都骑在“已过能耗守恒律”的量上：强度模型直接乘 audited E（expected_vm_energy），
+        # 预算模型由同一批计算 Job 区间重建舰队功率时间线 —— 物理同源，无独立漂移面。
+        # 范围诚实说明：强度分支复算 grams 族字段、预算分支复算 excess 族字段；另一族在
+        # 写端恒为零（ExperimentManifestWriter 仅在 accounting 非空时导出碳节），不逐字段
+        # 复算常量零 —— 护漂移的锚点在 C5 注册演示器的集成测试与量纲恒等式。
+        vm_intensities = {}
+        for vmid, vm in vms.items():
+            raw = vm.get("carbonIntensityGramsPerKWh")  # 可选键；null/缺键=未声明（legacy 语义）
+            if raw is not None:
+                vm_intensities[vmid] = number(raw, "VM carbonIntensityGramsPerKWh", nonnegative=True)
+        raw_windows = platform.get("carbonWindows")
+        if raw_windows is not None and not isinstance(raw_windows, list):
+            raise CheckError("platform.carbonWindows must be a list of window objects")
+        carbon_windows = []
+        for window in raw_windows or []:
+            if not isinstance(window, dict):
+                raise CheckError("carbonWindows entries must be objects")
+            wstart = number(needed(window, "startSeconds"), "window startSeconds", nonnegative=True)
+            wend = number(needed(window, "endSeconds"), "window endSeconds", nonnegative=True)
+            green = number(needed(window, "greenWatts"), "window greenWatts", nonnegative=True)
+            if wend <= wstart:
+                raise CheckError("carbon window endSeconds must exceed startSeconds: " + str(window))
+            carbon_windows.append((wstart, wend, green))
+        for earlier, later in zip(carbon_windows, carbon_windows[1:]):
+            # 镜像 Java PlatformProfile.carbonWindow 构建时校验（排序、不重叠）。
+            if later[0] < earlier[1]:
+                raise CheckError("carbonWindows must be sorted and non-overlapping: window start "
+                                 + str(later[0]) + " overlaps previous end " + str(earlier[1]))
+        if vm_intensities and carbon_windows:
+            # BAT-C1 互斥条款：Java SimulationReport 构造期同语义拒绝（低强度电网与绿电预算
+            # 平台会给出相互矛盾的“更绿”调度，模型不可互换 —— 设计文档 §1.3）。
+            raise CheckError("Both carbon models declared (per-VM carbonIntensityGramsPerKWh AND"
+                             " carbonWindows) — the two accountings are mutually exclusive by contract (BAT-C1)")
+        carbon_doc = doc.get("carbonMetrics")
+        if not vm_intensities and not carbon_windows:
+            # 未声明任何碳模型却携带 carbonMetrics 节 → 伪造面（Java 写出器只在声明时导出）。
+            audit.ensure(carbon_doc is None, "carbon-metrics-without-declared-carbon-model",
+                        prefix + ":carbonMetrics")
+        if vm_intensities:
+            # 强度模型（CASPER 族）：grams_vm = E_vm[J] / 3.6e6 × I_vm[g/kWh]（kWh = J/3.6e6）。
+            # 半声明即 fail-fast：镜像 Java CarbonAccounting.intensityModel 的每 VM 完整
+            # 声明要求（每台 VM 都要功率+强度），契约破坏而非零贡献。
+            unpowered = [vmid for vmid, (idle, peak) in vm_power.items() if not (idle > 0.0 or peak > 0.0)]
+            half_declared = [vmid for vmid in vms if vmid not in vm_intensities]
+            if unpowered or half_declared:
+                raise CheckError("Intensity carbon model requires powered VMs with declared"
+                                 " carbonIntensityGramsPerKWh on every VM (BAT-C1); unpowered VMs: "
+                                 + str(unpowered) + "; VMs missing the intensity: " + str(half_declared))
+            if carbon_doc is None:
+                raise CheckError("platform carbon intensity declarations require a carbonMetrics"
+                                 " section (BAT-C2 declared->required)")
+            expected_vm_grams = {}
+            total_grams = 0.0
+            for vmid, intensity in vm_intensities.items():
+                grams = expected_vm_energy[vmid] / 3.6e6 * intensity
+                expected_vm_grams[vmid] = grams
+                total_grams += grams
+            for key, expected in (("totalCarbonGrams", total_grams),
+                                  ("meanVmCarbonGrams", total_grams / len(vm_power)),
+                                  ("carbonMakespanProductGramSeconds", total_grams * end)):
+                audit.metric(carbon_doc, key, expected, prefix + ":carbonMetrics")
+            stored_carbon_vm = needed(carbon_doc, "perVmCarbonGrams")
+            for vmid, expected in expected_vm_grams.items():
+                audit.metric(stored_carbon_vm, str(vmid), expected,
+                             prefix + ":carbonMetrics:VM:" + str(vmid))
+        elif carbon_windows:
+            # 预算模型（CWM/CaWoSched 族）：从计算 Job（classType 2）区间端点折叠舰队并发
+            # 时间线 —— 与 Java CarbonAccounting.budgetModel 逐句同口径（端点合并 +1/−1，
+            # 段内并发数恒定）；P(t) = Σ idle + concurrent × ΔP，ΔP 取首台 VM 的 max−idle
+            # （v1 舰队动态功率均一假设，设计文档 §2.1 诚实边界 —— 归因见该文档 §3）。
+            if not powered:
+                raise CheckError("carbonWindows declarations require platform power fields"
+                                 " (idlePowerWatts/maxPowerWatts); the fleet-power curve cannot be"
+                                 " built on an unpowered profile (BAT-C1)")
+            if carbon_doc is None:
+                raise CheckError("platform carbonWindows declarations require a carbonMetrics"
+                                 " section (BAT-C2 declared->required)")
+            idle_sum = 0.0
+            for idle, _peak in vm_power.values():  # platform 序列化序：镜像 Java profile 求和序
+                idle_sum += idle
+            # ΔP 取首台 VM 的 max−idle（BAT-C2 与 Java 对齐口径）：v1 假设舰队动态功率均一
+            # （设计文档 §2.1 诚实边界）；异质舰队下取首/末台会漂移，两侧统一取首台。
+            first_idle, first_peak = next(iter(vm_power.values()))
+            dynamic_per_vm = first_peak - first_idle
+            fleet = {}
+            for job in computes:  # computes = classType 2 的全部 Job（忙区间只由计算 Job 定义）
+                a = number(job["startTime"], "job start", nonnegative=True)
+                b = number(job["finishTime"], "job finish", nonnegative=True)
+                if b > a:
+                    fleet[a] = fleet.get(a, 0) + 1
+                    fleet[b] = fleet.get(b, 0) - 1
+            segments = []
+            concurrent = 0
+            prev = 0.0
+            for t in sorted(fleet):
+                if t > prev:
+                    segments.append((prev, t, idle_sum + concurrent * dynamic_per_vm))
+                concurrent += fleet[t]
+                prev = t
+            if prev < end:
+                segments.append((prev, end, idle_sum + concurrent * dynamic_per_vm))
+            per_window_excess = []
+            total_excess = 0.0
+            for wstart, wend, green in carbon_windows:
+                excess = 0.0
+                for lo, hi, power in segments:
+                    a = max(lo, wstart)
+                    b = min(hi, wend)
+                    if b > a:
+                        excess += max(0.0, power - green) * (b - a)
+                per_window_excess.append(excess)
+                if excess > 0.0:  # Java 只在正超额时累计（max(0,·) 保证非负）
+                    total_excess += excess
+            audit.metric(carbon_doc, "totalCarbonExcessWattSeconds", total_excess,
+                         prefix + ":carbonMetrics")
+            stored_windows = needed(carbon_doc, "windowExcessWattSeconds")
+            for index, excess in enumerate(per_window_excess):
+                key = str(index)
+                if excess > 0.0 or key in stored_windows:
+                    # Java 只落正超额窗口；>0 的必须精确对上，单独出现的 0 值键也要对上 0。
+                    audit.metric(stored_windows, key, excess,
+                                 prefix + ":carbonMetrics:window:" + key)
+            for key in stored_windows:
+                if not (key.isdigit() and int(key) < len(carbon_windows)):
+                    audit.problem("invalid-window-index", prefix + ":carbonMetrics:windowExcessWattSeconds", key)
+            window_sum = math.fsum(number(value, "window excess", nonnegative=True)
+                                   for value in stored_windows.values())
+            saved_total = number(needed(carbon_doc, "totalCarbonExcessWattSeconds"),
+                                "totalCarbonExcessWattSeconds", nonnegative=True)
+            audit.ensure(math.isclose(window_sum, saved_total, rel_tol=audit.rel_tol, abs_tol=audit.abs_tol),
+                         "carbon-window-sum-equals-total", prefix + ":carbonMetrics:windowExcessWattSeconds",
+                         window_sum, saved_total)
         derived.update(totalVmModeledBusyIntervalSeconds=math.fsum(busy_values), meanVmModeledIntervalUtilization=avg_busy / end if end > 0 else 0.0,
                        vmModeledBusyTimeCoefficientOfVariation=cv, vmUtilizationJainFairnessIndex=fairness,
                        exactTaskTimingObservationCount=sum(t.get("exactJobTiming") is True for t in task_outcomes),
