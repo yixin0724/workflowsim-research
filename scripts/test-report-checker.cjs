@@ -85,7 +85,7 @@ try {
       /V2 must not be mislabeled as V1\/OFF/, lifecycle);
     const local = path.join(temporary, 'forbidden-lifecycle.json');fs.writeFileSync(local, '{}');
     rejected('file-lifecycle-secondary-fetch', inject(content,
-      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      `addEventListener("resize",function(){if(innerWidth<500){const el=document.createElement("script");el.src=${JSON.stringify(pathToFileURL(local).href)};document.body.appendChild(el);}});`),
       /Offline reports must not fetch secondary files/, lifecycle);
   }
   const storage = fixtures && (fixtures.reports.find(r => r.name === 'storage-lifecycle-typed-stress')
@@ -106,7 +106,7 @@ try {
       /V3 must not be mislabeled as V1\/OFF/, storage);
     const local = path.join(temporary, 'forbidden-storage.json');fs.writeFileSync(local, '{}');
     rejected('storage-lifecycle-secondary-fetch', inject(content,
-      `addEventListener("resize",()=>{if(innerWidth<500)fetch(${JSON.stringify(pathToFileURL(local).href)}).catch(()=>{});});`),
+      `addEventListener("resize",function(){if(innerWidth<500){const el=document.createElement("script");el.src=${JSON.stringify(pathToFileURL(local).href)};document.body.appendChild(el);}});`),
       /Offline reports must not fetch secondary files/, storage);
   }
   const assignment = fixtures && (fixtures.reports.find(r => r.name === 'dataflow-assignment-typed-stress')
