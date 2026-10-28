@@ -54,7 +54,9 @@ and superseded audit drafts are not long-term entry points.
 - [Standard Benchmark `benchmark-standard-v1`](<benchmark/STANDARD_BENCHMARK.md>): the frozen
   public comparison of the maintained algorithm corpus — 160 audited runs, each verifiable
   by a third party with one Python command; includes the power variant
-  `benchmark-standard-power-v1`, and its statistical analysis
+  `benchmark-standard-power-v1`, the carbon variant `benchmark-standard-carbon-v1`
+  (intensity grid + budget-model demonstration family), and the power variant's statistical
+  analysis
   [Energy Portrait of the Algorithm Corpus](<benchmark/ENERGY_PORTRAIT.md>) —
   the first auditable energy study of the platform's algorithm corpus
   (conservation on all 160 runs, one Holm-significant EDP finding).

@@ -69,3 +69,6 @@ output/benchmark-standard-v1/
 
 # BAT-E4 frozen powered-benchmark local evidence (tar original retained).
 output/benchmark-standard-power-v1/
+
+# C4 frozen carbon-benchmark local evidence (tar original retained).
+output/benchmark-standard-carbon-v1/

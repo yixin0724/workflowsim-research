@@ -83,7 +83,91 @@ substituting `benchmark-power.json`. Evidence is retained at
 `output/benchmark-standard-power-v1-evidence.tar.gz` (21.7 MB); joules are declared-model
 values, not measurements of real hardware.
 
+### Carbon variant benchmark-standard-carbon-v1
+
+The same 160-cell matrix (same inputs, VM tiers, layers, seed 11) was re-run on 2026-10-28
+under the carbon dimension (job batch C4 of the
+[Carbon dimension design](<../advanced/CARBON_DIMENSION_DESIGN.md>), protocol
+`benchmark-standard-carbon-v1`, index `benchmark-carbon.json`; 160/160 intensity cells
+plus 10 budget cells completed successfully). Every grid cell's platform carries the power
+envelope of the power variant *and* the uniform per-VM carbon intensity
+`carbonIntensityGramsPerKWh = 380.0` (the CASPER-family multiplier accounting); the 10-cell
+demonstration family of the mutually exclusive CWM-family budget scenario declares instead
+— and only — the windows `[0, 3600) @ green 300 W` and `[3600, 7200) @ green 600 W`
+(see [Command](<../../experiments/src/main/java/org/workflowsim/experiments/benchmark/BenchmarkExecutor.java>)).
+No bundle ever declares an intensity together with windows (the BAT-C1 exclusivity is
+enforced both at report construction and by the auditor), and the `carbonMetrics` section
+is present in a manifest exactly when a carbon model is declared.
+
+Median grams per layer (uniform 380.0 gCO₂/kWh; per-VM idle 250 W / max 400 W; grams =
+E[J]/3.6e6 × I, computed from the same conservation-locked per-VM joules):
+
+| Layer | 8-VM median (gCO₂) | 32-VM median (gCO₂) | cells per median |
+|---|---:|---:|---:|
+| SHARED_DAG | 2454 | 4200 | 25 |
+| LOCAL_DAG | 51862 | 196879 | 30 |
+| ONLINE | 14048 | 40607 | 25 |
+
+Cell totals span 900 g (Inspiral_100-v8, SHARED_DAG) to 1,851,335 g (CyberShake_1000-v32,
+LOCAL_DAG fat-tree); the heaviest input family alone (Epigenomics_997 on SHARED_DAG)
+has medians of ~168,488 g (8 VM) and ~175,064 g (32 VM), so the layer medians above are
+not family extremes — carbon inherits the makespan-driven ordering of the energy chain.
+
+Budget-model demonstration family (SHARED_DAG planning, `SHARED_STORAGE_HEFT`, one cell
+per input family × VM tier; the greens sit far below both tiers' idle draw of 2,000/8,000
+W, so **excess is positive in 10 of 10 cells** — window 1 only opens when the workflow
+runs past 3600 s, and sub-hour inputs keep it shut):
+
+| Cell (input × tier) | window 0 excess (W·s) | window 1 excess (W·s) | total excess (W·s) |
+|---|---:|---:|---:|
+| Epigenomics_100-v8 | 10386813 | 9360000 | 19746813 |
+| Epigenomics_100-v32 | 40505316 | 39600000 | 80105316 |
+| Epigenomics_997-v8 | 10433284 | 9360000 | 19793284 |
+| Epigenomics_997-v32 | 44755651 | 43920000 | 88675651 |
+| CyberShake_100-v8 | 9385906 | — | 9385906 |
+| CyberShake_100-v32 | 26965905 | — | 26965905 |
+| CyberShake_1000-v8 | 8802101 | 9360000 | 18162101 |
+| CyberShake_1000-v32 | 33468752 | 4994440 | 38463192 |
+| Inspiral_100-v8 | 7758755 | — | 7758755 |
+| Inspiral_100-v32 | 13516388 | — | 13516388 |
+
+(The `—` rows end inside window 0 — Inspiral_100 at 1,342/2,691 s and CyberShake_100 at
+3,000/3,246 s — so window 1 never opens; the manifest records only positive windows.)
+
+Relative `carbonMetrics` reproduction (from the repository root, no Java required):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-study-evidence.py \
+  --output /new-path/carbon-audit.json \
+  $(ls output/benchmark-standard-carbon-v1/runs/*/result.manifest.json)
+```
+
+All 170 bundles audit with zero issues (5,216,594 automated checks, PASS) — the intensity
+grams are the audited per-VM joules times the declared intensity, and the budget excess is
+the fleet-power timeline rebuilt from the manifest's own compute-job intervals and power
+fields. A negative control that adds +1.0 g to a real bundle's
+`carbonMetrics/totalCarbonGrams` is killed with `metric-mismatch` at exactly that path.
+Evidence is retained at `output/benchmark-standard-carbon-v1/` and as
+`output/benchmark-standard-carbon-v1-evidence.tar.gz` (22.1 MB).
+
+Honest bounds of the carbon variant, beyond the boundary statements of the standard and
+power benchmarks:
+
+- **The spatial axis is not captured.** The platform is single-fleet: this benchmark
+  freezes one uniform intensity (380.0) on every VM, and even heterogeneous per-VM
+  intensities capture only the region heterogeneity of *assigned* work — never the
+  geo-routing/shifting between regions that CASPER optimizes at the systems layer (the
+  design doc's §3 scoping).
+- The budget windows declare a renewable horizon `[0, 7200)` only: fleet power after the
+  last window end contributes no excess (the Epigenomics cells run for days of simulated
+  time). Greens of 300/600 W were chosen deliberately tight against the 2,000/8,000 W idle
+  draw so the family demonstrates binding excess everywhere; under-budget zero-carbon
+  behavior exists in the contract but is not exercised by this family.
+- Grams are location-based, declared-model values at the frozen intensity — not
+  measurements, not marginal-emission accounting (design doc v1 scoping).
+
 ## Retention
+
 ### Verifying the power variant
 
 The power variant stores its index at `output/benchmark-standard-power-v1/benchmark-power.json`
