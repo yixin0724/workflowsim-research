@@ -211,6 +211,8 @@ Honest boundaries recorded with the batch:
   idle + each active Job at its tier's dynamic share) is implemented and
   self-tested from the tier ledger, awaiting the Java-side tiering mirror.
   The intensity model needs no change (it rides the verified energy).
+  (D4 follow-up, 2026-10-29: the intensity half of this gap is now closed —
+  see the as-built note in §2.6; the budget half remains a forward contract.)
 - **Tiered manifests are not yet rerunnable**: `ManifestConfigRebuilder`
   rebuilds neither `frequencyTiers` nor `frequencyPolicy`, so rerunning a
   tiered manifest degrades to a v1 platform today. The rerun diff then goes
@@ -244,6 +246,47 @@ AlgorithmDeclaration:
 Implication lattice: frequencyTiersRequired ⇒ dvfsAware (same as the energy
 and carbon lattices). Registry gate: a frequencyTiersRequired declaration
 on a platform with no declared frequencyTiers → fail-fast citing the clause.
+
+**As-built (D4, 2026-10-29).** Both §2.5/§2.6 surfaces landed as this section
+specifies, with the following pins and one forward contract closed:
+
+- **Workbench platform surface**: `frequencyTiers` is one uniform table applied
+  to every VM (`vmMips`-style uniformity, "at most one declaration per config"
+  enforced by the strict single-key reader); absent = v1 single-tier platform.
+  Domain validation is REUSED, not duplicated: each entry constructs a
+  `PlatformProfile.FrequencyTier` (mips>0 finite, idle≥0, max≥idle) and the
+  strict-descending order is rejected by the `VmSpec` BAT-D1 constructor —
+  the workbench surfaces the same contracts, it does not re-implement them.
+  A declared-but-empty tier array is rejected (mirroring the Python BAT-D3
+  "non-empty when declared" face; `null` JSON and absence are the v1 spelling).
+  The one-source-of-truth rejection (tiers + flat power) and the
+  policy-without-tiers rejection both cite both field faces up front.
+  `frequencyPolicy` resolves to the `SimulationConfig.FrequencyPolicy` enum
+  (DEFAULT absent-default; unknown labels rejected with the legal set) and
+  flows to every candidate's SimulationConfig; the non-DEFAULT-requires-tiers
+  rule is the read-time mirror of the runner's BAT-D2 gate.
+- **Registry surface**: builder implication lattice
+  (`frequencyTiersRequired ⇒ dvfsAware`, setter pulls the aware flag up like
+  `powerModelRequired ⇒ energyAware`), registry validate clause citing the
+  clause + platform field, `ValidationInput` 7-arg master carrying
+  `platformFrequencyTiersDeclared` with the 6-arg/5-arg legacy delegates
+  preserved (tiers default false), and `SimulationRunner` passing
+  `anyVmHasFrequencyTiers(platform)` on the registry track.
+- **Intensity carbon ride-through closed (the forward gap inverted)**: the
+  D3 as-built recorded that a tiered platform "cannot yet reach a real
+  `carbonMetrics` bundle" because both Java carbon models required flat
+  power fields. `CarbonAccounting.intensityModel` now multiplies the frozen
+  per-VM conserved energy (`EnergyAccounting` output — flat law for flat
+  platforms, per-tier law for tiered ones) exactly as the Python auditor
+  does (`grams = audited E / 3.6e6 × I`); a tiered profile counts as
+  powered. Flat-platform results are bit-identical to the previous inline
+  formula (same expression, same summation order — pinned by the existing
+  unit-law test); the tiered branch is pinned by a §2.3-law red→green test.
+- **Honest boundaries unchanged**: `ManifestConfigRebuilder` still rebuilds
+  neither `frequencyTiers` nor `frequencyPolicy` (tiered manifests remain
+  non-rerunnable — the diff fails loud); the registered DVFS-aware
+  demonstrator and the first DVFS-vs-DEFAULT comparison belong to D5/D6;
+  `carbonWindows` stay outside the v1 workbench surface.
 
 ## 3. Honest scoping (v2 deliberate omissions)
 

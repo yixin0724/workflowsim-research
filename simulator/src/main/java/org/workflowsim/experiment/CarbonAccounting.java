@@ -76,25 +76,39 @@ public final class CarbonAccounting {
     }
 
     /**
-     * 强度模型。要求每台 VM 都已声明功率与碳强度——半声明即 fail-fast（契约破坏而非
-     * 零贡献）。
+     * 强度模型。要求每台 VM 都已声明功率（平面字段<b>或</b>频档表——BAT-D1 单一真源
+     * 两路互斥，任一声明即 powered）与碳强度——半声明即 fail-fast（契约破坏而非零贡献）。
+     *
+     * <p>BAT-D4（2026-10-29）tiered ride-through 收口：gram 直接乘<b>已冻结的逐 VM 守恒
+     * 能量</b>（EnergyAccounting 按平面/逐档守恒律复算，SimulationReport 构造序先能量后
+     * 碳）——强度模型不另立能量复算面（同一乘法、同源 E，镜像 Python 审计器
+     * verify-study-evidence.py 的"强度乘 audited E"口径，docs/advanced/
+     * DVFS_DIMENSION_DESIGN.md §1.5/§2.4）。平面平台的逐位结果与此前内联式恒等
+     * （同一式同序求和）；tiered 平台的 E 为逐档守恒律值——此前该路径对 tiered 运行
+     * 整节 fail-fast（tiered VM 平面字段恒 0 被 BAT-C1 闸拒），D3 设计注记的前向缺口
+     * 本批补齐：tiered 平台自此可达真实 carbonMetrics。</p>
+     *
+     * @param profile 平台剖面（功率/频档/强度声明的事实源）
+     * @param verifiedEnergy 已按守恒律冻结的逐 VM 能量（同包 EnergyAccounting 输出）
+     * @param makespanSeconds 仿真结束秒（碳×时距乘积用）
      */
     public static CarbonAccounting intensityModel(
-            SimulationMetrics metrics, PlatformProfile profile, double makespanSeconds) {
+            PlatformProfile profile, EnergyAccounting verifiedEnergy, double makespanSeconds) {
         Map<Integer, Double> perVm = new LinkedHashMap<Integer, Double>();
         double total = 0.0;
-        for (Map.Entry<Integer, SimulationMetrics.VmMetrics> entry :
-                metrics.getVmMetrics().entrySet()) {
+        for (Map.Entry<Integer, Double> entry :
+                verifiedEnergy.getVmEnergyJoules().entrySet()) {
             int vmId = entry.getKey();
             PlatformProfile.VmSpec spec = findSpec(profile, vmId);
-            if (spec == null || !spec.hasPowerModel() || spec.getCarbonIntensityGramsPerKWh() == null) {
+            if (spec == null
+                    || !(spec.hasPowerModel() || spec.hasFrequencyTiers())
+                    || spec.getCarbonIntensityGramsPerKWh() == null) {
                 throw new IllegalArgumentException("Intensity carbon model requires powered VMs with declared"
                         + " carbonIntensityGramsPerKWh on every VM; VM " + vmId + " violates this (BAT-C1)");
             }
-            double energy = spec.getIdlePowerWatts() * makespanSeconds
-                    + (spec.getMaxPowerWatts() - spec.getIdlePowerWatts())
-                            * entry.getValue().getModeledBusyIntervalSeconds();
-            double grams = energy / 3.6e6 * spec.getCarbonIntensityGramsPerKWh().doubleValue();
+            double grams = entry.getValue().doubleValue()
+                    / 3.6e6
+                    * spec.getCarbonIntensityGramsPerKWh().doubleValue();
             perVm.put(vmId, grams);
             total += grams;
         }

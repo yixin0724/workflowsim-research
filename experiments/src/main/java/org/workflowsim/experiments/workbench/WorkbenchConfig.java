@@ -59,10 +59,14 @@ public final class WorkbenchConfig {
         }
         List<String> paths = readWorkflowPaths(path, root);
         List<Double> arrivals = readArrivals(root, paths);
-        PlatformProfile platform = platform(object(root, "platform"));
+        JsonObject platformObject = object(root, "platform");
+        PlatformProfile platform = platform(platformObject);
+        // BAT-D4（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.5）：平台级频档策略
+        // 在 profile 构建之后单一解析（策略无表拒斥需要已装配的频档剖面事实）。
+        SimulationConfig.FrequencyPolicy frequencyPolicy = frequencyPolicy(platformObject, platform);
         SimulationModels models = readSimulationModels(root, platform);
         List<Long> seeds = readSeeds(root);
-        List<Candidate> candidates = readCandidates(root, paths, arrivals, platform, models, seeds);
+        List<Candidate> candidates = readCandidates(root, paths, arrivals, platform, models, seeds, frequencyPolicy);
         return new WorkbenchConfig(name, root.deepCopy(), platform, candidates, seeds);
     }
 
@@ -193,14 +197,18 @@ public final class WorkbenchConfig {
         return seeds;
     }
 
-    /** 算法候选与配置组装（逐字搬运转写）。 */
+    /**
+     * 算法候选与配置组装（逐字搬运转写）。BAT-D4（2026-10-29）追加频档策略参数——
+     * 策略是配置级（SimulationConfig）声明，逐候选同值注入。
+     */
     private static List<Candidate> readCandidates(
             JsonObject root,
             List<String> paths,
             List<Double> arrivals,
             PlatformProfile platform,
             SimulationModels models,
-            List<Long> seeds) {
+            List<Long> seeds,
+            SimulationConfig.FrequencyPolicy frequencyPolicy) {
         List<Candidate> candidates = new ArrayList<Candidate>();
         Set<String> ids = new HashSet<String>();
         String track = null;
@@ -236,7 +244,8 @@ public final class WorkbenchConfig {
                     .dataflowAssignment(assignment)
                     .schedulingAlgorithm(resolved.scheduler)
                     .planningAlgorithm(planner)
-                    .randomSeed(seeds.get(0));
+                    .randomSeed(seeds.get(0))
+                    .frequencyPolicy(frequencyPolicy);
             if (resolved.registeredProvider != null) {
                 configBuilder.registeredSchedulingAlgorithm(resolved.registeredProvider);
             }
@@ -425,7 +434,13 @@ public final class WorkbenchConfig {
                 // BAT-C3（2026-10-28）：碳维度可选声明（均一 gCO₂/kWh，强度模型）。
                 // 预算模型的 carbonWindows <b>不进 v1 工作台面</b>：窗口属于研究协议声明域
                 // （CARBON_DIMENSION_DESIGN.md §2.5 的 E5 式比较轨），上此处白名单即拒。
-                "carbonIntensityGramsPerKWh");
+                "carbonIntensityGramsPerKWh",
+                // BAT-D4（2026-10-29）：DVFS 频档维度可选声明（docs/advanced/
+                // DVFS_DIMENSION_DESIGN.md §2.5）。frequencyTiers 均一 P-state 三元组
+                // 表（严格降序、首档=默认档，逐 VM 同表）；frequencyPolicy 配置级指派
+                // 策略枚举（DEFAULT/MIN_POWER/EDP_HEURISTIC，缺省 DEFAULT=v1 退化）。
+                "frequencyTiers",
+                "frequencyPolicy");
         JsonArray mips = array(value, "vmMips");
         if (mips.size() < 1 || mips.size() > 64) {
             throw new IllegalArgumentException("vmMips requires 1..64 VMs");
@@ -440,21 +455,39 @@ public final class WorkbenchConfig {
                     "platform.idlePowerWatts (" + idlePowerWatts + ") exceeds maxPowerWatts (" + maxPowerWatts
                             + "); both default to 0 (no power model) when omitted");
         }
+        // BAT-D4（2026-10-29）：平台级均一频档表（缺键 = 无档 = v1 单档模式）。域校验
+        // （mips>0 有限、idle≥0、max≥idle）复用 PlatformProfile.FrequencyTier 构造校验，
+        // 表序严格降序由 VmSpec 13 参构造的 BAT-D1 校验拒绝——此处不重复实现域规则。
+        List<PlatformProfile.FrequencyTier> frequencyTiers = frequencyTiers(value);
+        // BAT-D4 镜像 PlatformProfile 的单一真源条款（BAT-D1）：频档表与平面功率字段
+        // 互斥——首档功率对<b>替代</b>平面对（幂等互斥由 VmSpec 构造校验兜底，工作台
+        // 预拒绝时同时引用两处字段，给用户最短修复路径）。
+        if (frequencyTiers != null && (idlePowerWatts > 0.0 || maxPowerWatts > 0.0)) {
+            throw new IllegalArgumentException(
+                    "platform.frequencyTiers and platform.idlePowerWatts/maxPowerWatts are mutually exclusive:"
+                            + " the tier table REPLACES the flat fields — one source of truth"
+                            + " (BAT-D4, DVFS_DIMENSION_DESIGN.md §2.5)");
+        }
         // BAT-C3（2026-10-28）：可选均一碳强度（gCO₂/kWh；非负有限，0 合法=已声明的零碳
         // 强度电网）。碳乘的是能量链（强度模型复算 E），无功率剖面上强度核算真空化——
         // 报告端同口径 fail-fast（SimulationReport→CarbonAccounting），工作台前置拒绝并
         // 同时引用两处字段，不给"静默零碳"留缝（守则：显式失败纪律）。
+        // BAT-D4：频档表即功率声明（镜像 BAT-D2 功率闸 hasPowerModel()||hasFrequencyTiers()
+        // 与 Python 审计器的 tiered-powered 谓词）——tiered 平台上强度核算骑逐档守恒能量。
         Double carbonIntensityGramsPerKWh = value.has("carbonIntensityGramsPerKWh")
                         && !value.get("carbonIntensityGramsPerKWh").isJsonNull()
                 ? Double.valueOf(
                         number(value.get("carbonIntensityGramsPerKWh"), "platform.carbonIntensityGramsPerKWh", false))
                 : null;
-        if (carbonIntensityGramsPerKWh != null && idlePowerWatts <= 0.0 && maxPowerWatts <= 0.0) {
+        if (carbonIntensityGramsPerKWh != null
+                && frequencyTiers == null
+                && idlePowerWatts <= 0.0
+                && maxPowerWatts <= 0.0) {
             throw new IllegalArgumentException("platform.carbonIntensityGramsPerKWh ("
                     + carbonIntensityGramsPerKWh
-                    + ") requires a powered platform: declare platform.idlePowerWatts/maxPowerWatts —"
-                    + " carbon multiplies the energy chain and an unpowered profile makes the accounting"
-                    + " vacuous (BAT-C3)");
+                    + ") requires a powered platform: declare platform.idlePowerWatts/maxPowerWatts"
+                    + " or platform.frequencyTiers — carbon multiplies the energy chain and an unpowered"
+                    + " profile makes the accounting vacuous (BAT-C3)");
         }
         PlatformProfile.CostSpec costs =
                 new PlatformProfile.CostSpec(decimal(value, "cpuCostPerSecond", 3, false), 0, 0, 0);
@@ -480,12 +513,83 @@ public final class WorkbenchConfig {
                     null,
                     idlePowerWatts,
                     maxPowerWatts,
-                    carbonIntensityGramsPerKWh));
+                    carbonIntensityGramsPerKWh,
+                    frequencyTiers));
             result.pinVmToHost(id, id);
         }
         applySourceStorage(value, result, mips);
         applyNetworkTopology(value, result, mips);
         return result.build();
+    }
+
+    /**
+     * BAT-D4（2026-10-29）：platform.frequencyTiers 均一频档表读取。缺键/JSON null →
+     * {@code null}（v1 平台 = 无档）；声明时必须是非空数组、每项是对象且字段白名单恰为
+     * {mips, idlePowerWatts, maxPowerWatts}（全部必填——缺键即拒，不给"缺省档"留缝）。
+     * 数值域由 {@link PlatformProfile.FrequencyTier} 构造校验拒绝（单一域校验真源）。
+     *
+     * @return 声明序频档表；未声明时 {@code null}
+     */
+    private static List<PlatformProfile.FrequencyTier> frequencyTiers(JsonObject value) {
+        if (!value.has("frequencyTiers") || value.get("frequencyTiers").isJsonNull()) {
+            return null;
+        }
+        JsonArray declared = array(value, "frequencyTiers");
+        if (declared.size() == 0) {
+            throw new IllegalArgumentException(
+                    "platform.frequencyTiers must be a non-empty array when declared (BAT-D4;"
+                            + " omit the field for the v1 single-tier platform)");
+        }
+        List<PlatformProfile.FrequencyTier> tiers = new ArrayList<PlatformProfile.FrequencyTier>();
+        for (JsonElement item : declared) {
+            if (!item.isJsonObject()) {
+                throw new IllegalArgumentException("platform.frequencyTiers entries must be objects");
+            }
+            JsonObject tier = item.getAsJsonObject();
+            fields(tier, "frequencyTiers", "mips", "idlePowerWatts", "maxPowerWatts");
+            tiers.add(new PlatformProfile.FrequencyTier(
+                    decimal(tier, "mips", -1, true),
+                    decimal(tier, "idlePowerWatts", -1, false),
+                    decimal(tier, "maxPowerWatts", -1, false)));
+        }
+        return tiers;
+    }
+
+    /**
+     * BAT-D4（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2/§2.5）：
+     * platform.frequencyPolicy 配置级频档指派策略解析。缺键缺省 DEFAULT（v1 退化——
+     * 与平台声明的首档一致）；未知标签显式拒绝并引用字段名与合法标签集；
+     * 非 DEFAULT 策略要求平台实际声明频档表——无表平台上策略会被静默忽略，产生
+     * "以为在研究 DVFS 实际在跑 v1"的误导性结果（镜像 SimulationRunner
+     * .validateFrequencyDimension 的 BAT-D2 运行级闸，工作台前置同口径拒绝）。
+     */
+    private static SimulationConfig.FrequencyPolicy frequencyPolicy(JsonObject value, PlatformProfile platform) {
+        String policyText = text(value, "frequencyPolicy", "DEFAULT");
+        SimulationConfig.FrequencyPolicy policy;
+        try {
+            policy = SimulationConfig.FrequencyPolicy.valueOf(policyText);
+        } catch (IllegalArgumentException unknownPolicy) {
+            throw new IllegalArgumentException(
+                    "platform.frequencyPolicy must be one of DEFAULT, MIN_POWER," + " EDP_HEURISTIC (BAT-D4), got: "
+                            + policyText,
+                    unknownPolicy);
+        }
+        if (policy != SimulationConfig.FrequencyPolicy.DEFAULT && !anyVmHasFrequencyTiers(platform)) {
+            throw new IllegalArgumentException("platform.frequencyPolicy (" + policy
+                    + ") requires platform.frequencyTiers: on an all-plain platform the policy would be"
+                    + " silently inert (BAT-D4)");
+        }
+        return policy;
+    }
+
+    /** BAT-D4：@return 平台剖面中是否存在任何声明了频档表的 VM（均一表 → 全真或全假）。 */
+    private static boolean anyVmHasFrequencyTiers(PlatformProfile platform) {
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.hasFrequencyTiers()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** sourceStorage 子段装配（逐字搬运转写自 platform())。 */

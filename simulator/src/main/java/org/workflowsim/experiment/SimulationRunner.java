@@ -240,7 +240,9 @@ public final class SimulationRunner {
                                     && !config.getTaskCostMatrix().asMap().isEmpty(),
                             config.getFailureModel(),
                             config.getPlanningAlgorithm(),
-                            anyVmHasPowerModel(platform)));
+                            anyVmHasPowerModel(platform),
+                            // BAT-D4（2026-10-29）：注册轨道的频档事实同面注入（§2.6 门槛条款）。
+                            anyVmHasFrequencyTiers(platform)));
             return;
         }
         if (!AlgorithmCatalog.isSupportedBySimulationRunner(config.getSchedulingAlgorithm())) {
@@ -364,6 +366,16 @@ public final class SimulationRunner {
     private static boolean anyVmHasPowerModel(PlatformProfile platform) {
         for (PlatformProfile.VmSpec spec : platform.getVms()) {
             if (spec.hasPowerModel()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** BAT-D4（2026-10-29）：@return 平台剖面中是否存在任何声明了频档表的 VM。 */
+    private static boolean anyVmHasFrequencyTiers(PlatformProfile platform) {
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.hasFrequencyTiers()) {
                 return true;
             }
         }

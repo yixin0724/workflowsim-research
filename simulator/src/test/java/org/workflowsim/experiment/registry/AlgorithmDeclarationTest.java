@@ -181,4 +181,97 @@ class AlgorithmDeclarationTest {
                         org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID,
                         true));
     }
+
+    @Test
+    void dvfsFieldsDefaultOffAndImplicationLatticeIsEnforced() {
+        // BAT-D4（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.6）：默认全关——
+        // 既有注册零影响；frequencyTiersRequired 蕴含 dvfsAware（与
+        // powerModelRequired⇒energyAware 同构的蕴含格：required 标志拉起 aware 标志）。
+        AlgorithmDeclaration plain = new AlgorithmDeclaration.Builder()
+                .allowDataMovementKind("LEGACY_WORKFLOWSIM_V1")
+                .build();
+        assertFalse(plain.isDvfsAware());
+        assertFalse(plain.isFrequencyTiersRequired());
+
+        AlgorithmDeclaration required =
+                new AlgorithmDeclaration.Builder().frequencyTiersRequired(true).build();
+        assertTrue(required.isFrequencyTiersRequired());
+        assertTrue(required.isDvfsAware(), "frequencyTiersRequired must pull dvfsAware up");
+
+        // dvfsAware 单独声明不要求平台频档表（描述性标志，非门槛——门槛语义在 required 上）
+        AlgorithmDeclaration awareOnly =
+                new AlgorithmDeclaration.Builder().dvfsAware(true).build();
+        assertTrue(awareOnly.isDvfsAware());
+        assertFalse(awareOnly.isFrequencyTiersRequired());
+
+        // 声明链接完整对应面：dvfsAware + frequencyTiersRequired（+ 频档算法通常同时
+        // 消费能量链——powerModelRequired 组合不被蕴含格阻碍）
+        AlgorithmDeclaration demonstrator = new AlgorithmDeclaration.Builder()
+                .powerModelRequired(true)
+                .dvfsAware(true)
+                .frequencyTiersRequired(true)
+                .build();
+        assertTrue(demonstrator.isDvfsAware());
+        assertTrue(demonstrator.isFrequencyTiersRequired());
+        assertTrue(demonstrator.isEnergyAware());
+    }
+
+    @Test
+    void registryRejectsFrequencyTiersRequiredAlgorithmOnTierlessPlatform() {
+        // SPI 注册的 DvfsTestSchedulerProvider（simulator 测试 classpath）声明
+        // frequencyTiersRequired=true。无频档平台 → frequencyTiersRequired 拒绝（引用条款）
+        IllegalArgumentException tierless = assertThrows(
+                IllegalArgumentException.class,
+                () -> AlgorithmRegistry.validate(
+                        "DVFS-TEST-REQUIRED",
+                        new AlgorithmRegistry.ValidationInput(
+                                FileSystem.SHARED,
+                                null,
+                                false,
+                                null,
+                                org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID,
+                                false,
+                                false)),
+                "frequency-tiers-required algorithm must be rejected on a tierless platform");
+        assertTrue(
+                tierless.getMessage().contains("frequencyTiersRequired")
+                        && tierless.getMessage().contains("frequencyTiers"),
+                "message must cite the tier clause and the platform field face: " + tierless.getMessage());
+        // 带频档平台 → 放行（all-green 对应面）
+        AlgorithmRegistry.validate(
+                "DVFS-TEST-REQUIRED",
+                new AlgorithmRegistry.ValidationInput(
+                        FileSystem.SHARED,
+                        null,
+                        false,
+                        null,
+                        org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID,
+                        false,
+                        true));
+    }
+
+    @Test
+    void legacyValidationInputConstructorsDefaultTiersToFalse() throws Exception {
+        // BAT-D4：6 参/5 参遗留委托面保留——频档缺省 false，既有调用方零影响；
+        // 7 参完整构造显式携带频档事实。
+        org.workflowsim.utils.SimulationConfig config =
+                org.workflowsim.utils.SimulationConfig.builder("legacy.dax", 1).build();
+        AlgorithmRegistry.ValidationInput fromConfig = new AlgorithmRegistry.ValidationInput(config);
+        assertTrue(
+                !fromConfig.isPlatformFrequencyTiersDeclared(),
+                "SimulationConfig-based assembly defaults the tier fact to false");
+        AlgorithmRegistry.ValidationInput legacyFive = new AlgorithmRegistry.ValidationInput(
+                FileSystem.SHARED, null, false, null, org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID);
+        assertTrue(!legacyFive.isPlatformFrequencyTiersDeclared());
+        AlgorithmRegistry.ValidationInput legacySix = new AlgorithmRegistry.ValidationInput(
+                FileSystem.SHARED, null, false, null, org.workflowsim.utils.Parameters.PlanningAlgorithm.INVALID, true);
+        assertTrue(
+                legacySix.isPlatformPowerDeclared() && !legacySix.isPlatformFrequencyTiersDeclared(),
+                "6-arg legacy keeps power fact, tiers default false");
+        // DVFS-TEST-REQUIRED 在默认 false 的遗留输入上必须被拒（与显式 false 同拒）
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AlgorithmRegistry.validate("DVFS-TEST-REQUIRED", legacyFive),
+                "legacy input faces must not bypass the tier gate");
+    }
 }

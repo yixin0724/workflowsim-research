@@ -39,6 +39,7 @@ public final class AlgorithmRegistry {
         private final FailureModelConfig failureModel;
         private final Parameters.PlanningAlgorithm planningAlgorithm;
         private final boolean platformPowerDeclared;
+        private final boolean platformFrequencyTiersDeclared;
 
         /** Assembles the validation input from the standard run configuration. */
         public ValidationInput(SimulationConfig config) {
@@ -49,20 +50,21 @@ public final class AlgorithmRegistry {
                             && !config.getTaskCostMatrix().asMap().isEmpty(),
                     config.getFailureModel(),
                     config.getPlanningAlgorithm(),
+                    false,
                     false);
         }
 
-        /** Legacy 5-arg constructor (BAT-E3 前的调用面); power 未声明即 false。 */
+        /** Legacy 5-arg constructor (BAT-E3 前的调用面); power/tiers 未声明即 false。 */
         public ValidationInput(
                 ReplicaCatalog.FileSystem fileSystem,
                 DataMovementModel dataMovementModel,
                 boolean taskCostMatrixDeclared,
                 FailureModelConfig failureModel,
                 Parameters.PlanningAlgorithm planningAlgorithm) {
-            this(fileSystem, dataMovementModel, taskCostMatrixDeclared, failureModel, planningAlgorithm, false);
+            this(fileSystem, dataMovementModel, taskCostMatrixDeclared, failureModel, planningAlgorithm, false, false);
         }
 
-        /** Constructs the validation input explicitly (fixed-field, immutable). */
+        /** BAT-E3 的 6 参（含功率）遗留委托面：频档事实缺省 false（BAT-D4 保持兼容）。 */
         public ValidationInput(
                 ReplicaCatalog.FileSystem fileSystem,
                 DataMovementModel dataMovementModel,
@@ -70,12 +72,35 @@ public final class AlgorithmRegistry {
                 FailureModelConfig failureModel,
                 Parameters.PlanningAlgorithm planningAlgorithm,
                 boolean platformPowerDeclared) {
+            this(
+                    fileSystem,
+                    dataMovementModel,
+                    taskCostMatrixDeclared,
+                    failureModel,
+                    planningAlgorithm,
+                    platformPowerDeclared,
+                    false);
+        }
+
+        /**
+         * Constructs the validation input explicitly (fixed-field, immutable).
+         * BAT-D4（2026-10-29）追加频档事实参数（docs/advanced/DVFS_DIMENSION_DESIGN.md §2.6）。
+         */
+        public ValidationInput(
+                ReplicaCatalog.FileSystem fileSystem,
+                DataMovementModel dataMovementModel,
+                boolean taskCostMatrixDeclared,
+                FailureModelConfig failureModel,
+                Parameters.PlanningAlgorithm planningAlgorithm,
+                boolean platformPowerDeclared,
+                boolean platformFrequencyTiersDeclared) {
             this.fileSystem = fileSystem;
             this.dataMovementModel = dataMovementModel;
             this.taskCostMatrixDeclared = taskCostMatrixDeclared;
             this.failureModel = failureModel;
             this.planningAlgorithm = planningAlgorithm;
             this.platformPowerDeclared = platformPowerDeclared;
+            this.platformFrequencyTiersDeclared = platformFrequencyTiersDeclared;
         }
 
         /** @return the configured file system */
@@ -106,6 +131,11 @@ public final class AlgorithmRegistry {
         /** BAT-E3：@return 平台剖面是否声明了任何 VM 功率字段 */
         public boolean isPlatformPowerDeclared() {
             return platformPowerDeclared;
+        }
+
+        /** BAT-D4：@return 平台剖面是否声明了任何 VM 频档表 */
+        public boolean isPlatformFrequencyTiersDeclared() {
+            return platformFrequencyTiersDeclared;
         }
     }
 
@@ -201,6 +231,13 @@ public final class AlgorithmRegistry {
             throw new IllegalArgumentException("Algorithm '" + label + "' declares powerModelRequired, "
                     + "but the platform profile does not declare any VM power fields "
                     + "(idlePowerWatts/maxPowerWatts on PlatformProfile.VmSpec)");
+        }
+        // BAT-D4（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.6）：声明
+        // frequencyTiersRequired 的算法在无频档平台剖面上被拒绝——无档可指派，注册即误导。
+        if (declaration.isFrequencyTiersRequired() && !input.isPlatformFrequencyTiersDeclared()) {
+            throw new IllegalArgumentException("Algorithm '" + label + "' declares frequencyTiersRequired, "
+                    + "but the platform profile does not declare any VM frequencyTiers "
+                    + "(PlatformProfile.VmSpec.frequencyTiers, BAT-D4)");
         }
         if (input.isTaskCostMatrixDeclared() && !declaration.acceptsTaskCostMatrix()) {
             throw new IllegalArgumentException("Registered scheduling algorithm '" + label

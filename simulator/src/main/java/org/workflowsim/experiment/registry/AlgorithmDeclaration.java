@@ -27,6 +27,13 @@ import org.workflowsim.utils.ReplicaCatalog;
  * 且因 v1 两种碳核算（强度/预算）都骑在已审计的能量链上（设计文档 §2.2），同时蕴含
  * energyAware；预算窗口场景另由碳预算模型（平台 carbonWindows 声明）承载，不新增
  * 独立的碳平台门槛字段。默认全关（0/未声明的碳权重），既有注册零影响。</p>
+ *
+ * <p>BAT-D4（2026-10-29）DVFS 维度声明字段（docs/advanced/DVFS_DIMENSION_DESIGN.md
+ * §2.6）：{@code dvfsAware} 声明算法通过频档 API 做逐 Job 变频决策；搭配
+ * {@code powerModelRequired} 时注入因子提醒：频档表<b>替代</b>平面功率字段（BAT-D1
+ * 单一真源），要求频档表的算法不要再声明平面功率门槛——{@code frequencyTiersRequired}
+ * 要求平台剖面对每台（或参与计算的）VM 声明频档表（BAT-D4 蕴含格：
+ * required ⇒ aware）。默认全关，既有注册零影响。</p>
  */
 public final class AlgorithmDeclaration {
 
@@ -50,6 +57,8 @@ public final class AlgorithmDeclaration {
     private final double energyObjectiveWeight;
     private final boolean carbonAware;
     private final double carbonObjectiveWeight;
+    private final boolean dvfsAware;
+    private final boolean frequencyTiersRequired;
 
     private AlgorithmDeclaration(
             FileSystemScope fileSystemScope,
@@ -61,7 +70,9 @@ public final class AlgorithmDeclaration {
             boolean powerModelRequired,
             double energyObjectiveWeight,
             boolean carbonAware,
-            double carbonObjectiveWeight) {
+            double carbonObjectiveWeight,
+            boolean dvfsAware,
+            boolean frequencyTiersRequired) {
         this.fileSystemScope = fileSystemScope;
         this.allowedDataMovementKinds = Collections.unmodifiableSet(new LinkedHashSet<>(allowedDataMovementKinds));
         this.acceptsTaskCostMatrix = acceptsTaskCostMatrix;
@@ -72,6 +83,8 @@ public final class AlgorithmDeclaration {
         this.energyObjectiveWeight = energyObjectiveWeight;
         this.carbonAware = carbonAware;
         this.carbonObjectiveWeight = carbonObjectiveWeight;
+        this.dvfsAware = dvfsAware;
+        this.frequencyTiersRequired = frequencyTiersRequired;
     }
 
     /** @return the file-system scope this algorithm declares support for */
@@ -125,6 +138,16 @@ public final class AlgorithmDeclaration {
         return carbonObjectiveWeight;
     }
 
+    /** BAT-D4：@return 算法是否声明通过频档 API 做逐 Job 变频决策 */
+    public boolean isDvfsAware() {
+        return dvfsAware;
+    }
+
+    /** BAT-D4：@return 算法是否要求平台剖面对 VM 声明频档表（蕴含 dvfsAware） */
+    public boolean isFrequencyTiersRequired() {
+        return frequencyTiersRequired;
+    }
+
     /** Returns whether the declared file-system scope covers the given configured system. */
     public boolean coversFileSystem(ReplicaCatalog.FileSystem fileSystem) {
         if (fileSystem == null) {
@@ -154,6 +177,8 @@ public final class AlgorithmDeclaration {
         private double energyObjectiveWeight = 0.0;
         private boolean carbonAware = false;
         private double carbonObjectiveWeight = 0.0;
+        private boolean dvfsAware = false;
+        private boolean frequencyTiersRequired = false;
 
         /** Declares the file-system scope this algorithm is valid for (default ANY). */
         public Builder fileSystemScope(FileSystemScope scope) {
@@ -236,6 +261,25 @@ public final class AlgorithmDeclaration {
             return this;
         }
 
+        /** BAT-D4：声明算法通过频档 API 做逐 Job 变频决策（默认 false；描述性标志，非门槛）。 */
+        public Builder dvfsAware(boolean aware) {
+            this.dvfsAware = aware;
+            return this;
+        }
+
+        /**
+         * BAT-D4：要求配置的平台剖面对 VM 声明频档表（默认 false）。required ⇒ aware
+         * 蕴含格——与 {@code powerModelRequired ⇒ energyAware} 同构：required 标志在
+         * setter 处拉起 aware 标志，注册入口零特判。
+         */
+        public Builder frequencyTiersRequired(boolean required) {
+            this.frequencyTiersRequired = required;
+            if (required) {
+                this.dvfsAware = true; // required implies aware
+            }
+            return this;
+        }
+
         /** Sets the one-line description used in errors and documentation. */
         public Builder description(String text) {
             if (text == null) {
@@ -257,7 +301,9 @@ public final class AlgorithmDeclaration {
                     powerModelRequired,
                     energyObjectiveWeight,
                     carbonAware,
-                    carbonObjectiveWeight);
+                    carbonObjectiveWeight,
+                    dvfsAware,
+                    frequencyTiersRequired);
         }
     }
 }

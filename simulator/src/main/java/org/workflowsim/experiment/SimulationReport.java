@@ -110,7 +110,7 @@ public final class SimulationReport {
                 throw new IllegalArgumentException("Both carbon models declared (per-VM intensity AND carbonWindows) —"
                         + " the two accountings are mutually exclusive by contract (BAT-C1)");
             }
-            this.carbonAccounting = CarbonAccounting.intensityModel(this.metrics, platform, makespan);
+            this.carbonAccounting = CarbonAccounting.intensityModel(platform, this.energyAccounting, makespan);
         } else if (platform.getCarbonWindows() != null
                 && !platform.getCarbonWindows().isEmpty()) {
             this.carbonAccounting = CarbonAccounting.budgetModel(this, platform);

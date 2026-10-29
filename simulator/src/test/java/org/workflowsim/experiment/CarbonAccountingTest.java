@@ -123,6 +123,93 @@ class CarbonAccountingTest {
                 "rejection must name the exclusivity clause: " + rejection.getMessage());
     }
 
+    @Test
+    void tieredPlatformIntensityRidesTheConservedPerTierEnergy() throws Exception {
+        // BAT-D4（2026-10-29）tiered ride-through 红→绿锚。频档平台（平面功率恒 0，BAT-D1
+        // 单一真源）是已声明功率的剖面：强度碳乘<b>逐档守恒能量</b>
+        // （docs/advanced/DVFS_DIMENSION_DESIGN.md §1.5/§2.4）。此前该路径被 BAT-C1
+        // 平面字段闸整节 fail-fast（tiered 运行无法产出真实 carbonMetrics——D3 设计
+        // 注记的前向缺口）。期望值合法性来源：§2.3 逐档守恒律 × 量纲换算律，输入取
+        // 频档表 + 逐档台账（与能量节同源），TreeMap 升序求和序与 EnergyAccounting
+        // 镜像（浮点决定性纪律），不拷贝碳节自身输出。
+        java.nio.file.Path workflow = java.nio.file.Paths.get(tempDir.toFile().getAbsolutePath(), "dvfs.dax");
+        Files.write(
+                workflow,
+                ("<adag version=\"3.3\" count=\"2\">"
+                                + "<job id=\"a\" name=\"a\" runtime=\"10\"/>"
+                                + "<job id=\"b\" name=\"b\" runtime=\"30\"/></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config = SimulationConfig.builder(workflow.toString(), 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .frequencyPolicy(SimulationConfig.FrequencyPolicy.EDP_HEURISTIC)
+                .randomSeed(20261029L)
+                .build();
+        java.util.List<PlatformProfile.FrequencyTier> tiers = java.util.Arrays.asList(
+                new PlatformProfile.FrequencyTier(2000.0, 250.0, 400.0),
+                new PlatformProfile.FrequencyTier(1000.0, 220.0, 280.0),
+                new PlatformProfile.FrequencyTier(500.0, 210.0, 240.0));
+        PlatformProfile.Builder builder = PlatformProfile.builder("dvfs-carbon-test");
+        builder.addHost(new PlatformProfile.HostSpec(0, 2, 4000, 2048, 10000L, 1000000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0,
+                        2000,
+                        1,
+                        512,
+                        1000L,
+                        10000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                        null,
+                        0.0,
+                        0.0,
+                        380.0,
+                        tiers))
+                .pinVmToHost(0, 0);
+        lastProfile = builder.build();
+        SimulationReport report = new SimulationRunner().run(config, lastProfile);
+        CarbonAccounting carbon = report.getCarbonAccounting();
+        assertTrue(carbon != null, "tiered platform + declared intensity must produce an accounting");
+        assertEquals(1, carbon.getPerVmCarbonGrams().size(), "per-VM map completeness");
+        // §2.3 逐档守恒律：E = P_idle(默认档)×T + Σ档(P_max(档)−P_idle(默认档))×busy(档)
+        double defaultIdle = 250.0;
+        double expectedEnergy = defaultIdle * report.getMakespan();
+        java.util.Map<Double, Double> ledger =
+                report.getMetrics().getPerTierBusySecondsByVm().get(0);
+        assertTrue(ledger != null && !ledger.isEmpty(), "EDP-tiered run must carry the per-tier ledger");
+        for (java.util.Map.Entry<Double, Double> tier : new java.util.TreeMap<Double, Double>(ledger).entrySet()) {
+            double tierMax =
+                    tierMaxOf(lastProfile.getVms().get(0), tier.getKey().doubleValue());
+            expectedEnergy += (tierMax - defaultIdle) * tier.getValue().doubleValue();
+        }
+        double expectedGrams = expectedEnergy / 3.6e6 * 380.0;
+        assertEquals(
+                0,
+                Double.compare(expectedGrams, carbon.getTotalCarbonGrams()),
+                "per-tier intensity law: expected=" + expectedGrams + " actual=" + carbon.getTotalCarbonGrams());
+        assertEquals(
+                0,
+                Double.compare(expectedGrams, carbon.getPerVmCarbonGrams().get(0)),
+                "per-VM grams ride the same conserved energy");
+        assertEquals(
+                0,
+                Double.compare(expectedGrams * report.getMakespan(), carbon.getCarbonMakespanProductGramSeconds()),
+                "carbon×makespan identity on tiered runs");
+        assertTrue(carbon.getTotalCarbonGrams() > 0.0, "tiered powered run must have positive grams");
+    }
+
+    /** BAT-D4：按 MIPS 精确身份查档功率（频档表降序唯一；同 VmSpec.tierByMips 契约）。 */
+    private static double tierMaxOf(PlatformProfile.VmSpec spec, double mips) {
+        for (PlatformProfile.FrequencyTier tier : spec.getFrequencyTiers()) {
+            if (Double.compare(tier.getMips(), mips) == 0) {
+                return tier.getMaxPowerWatts();
+            }
+        }
+        throw new IllegalStateException("tier mips " + mips + " matches no declared tier");
+    }
+
     // ---- fixtures ----
 
     private SimulationReport run(boolean powered, Double intensity, double[][] windows) throws Exception {

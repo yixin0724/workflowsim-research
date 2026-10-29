@@ -18,6 +18,7 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 import org.cloudbus.cloudsim.Log;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.workflowsim.platform.PlatformProfile;
+import org.workflowsim.utils.SimulationConfig;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -143,6 +145,130 @@ class WorkbenchConfigTest {
         assertTrue(
                 windowRejection.getMessage().contains("carbonWindows"),
                 "carbon windows must be rejected as unknown in the v1 workbench: " + windowRejection.getMessage());
+    }
+
+    @Test
+    void platformFrequencyTiersRoundTripAndValidate() throws Exception {
+        // BAT-D4（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.5）：工作台频档声明面。
+        // 3 档 round-trip（每台 VmSpec 携带同表，默认档=表首档）；频档表与平面功率字段
+        // 互斥（单一真源，拒绝同时引用两处字段）；非 DEFAULT 策略无频档表拒绝（引用
+        // policy 与 frequencyTiers 两字段）；未知策略标签拒绝；策略传播 SimulationConfig；
+        // v1 配置（无任何频档键）仍绿且策略缺省 DEFAULT。
+        Path workflow = workflow(directory, "flow.dax", false);
+        JsonObject tiered = configuration(workflow.toString(), 2);
+        JsonObject tieredPlatform = tiered.getAsJsonObject("platform");
+        tieredPlatform.add("frequencyTiers", tiers(2000.0, 250.0, 400.0, 1000.0, 220.0, 280.0, 500.0, 210.0, 240.0));
+        tieredPlatform.addProperty("frequencyPolicy", "EDP_HEURISTIC");
+        WorkbenchConfig loaded = WorkbenchConfig.read(json(directory.resolve("tiered.json"), tiered));
+        for (PlatformProfile.VmSpec spec : loaded.getPlatform().getVms()) {
+            assertTrue(spec.hasFrequencyTiers(), "declared tiers must survive the read");
+            List<PlatformProfile.FrequencyTier> tiers = spec.getFrequencyTiers();
+            assertTrue(tiers.size() == 3, "uniform tier table on every VM");
+            assertTrue(
+                    tiers.get(0).getMips() == 2000.0
+                            && tiers.get(0).getIdlePowerWatts() == 250.0
+                            && tiers.get(0).getMaxPowerWatts() == 400.0,
+                    "first tier is the default tier");
+            assertTrue(tiers.get(1).getMips() == 1000.0 && tiers.get(2).getMips() == 500.0, "declared order kept");
+            assertTrue(
+                    tiers.get(2).getIdlePowerWatts() == 210.0 && tiers.get(2).getMaxPowerWatts() == 240.0,
+                    "third tier power pair");
+            assertTrue(
+                    spec.getIdlePowerWatts() == 0.0 && spec.getMaxPowerWatts() == 0.0,
+                    "tiered VM keeps flat power fields at 0 (one source of truth)");
+        }
+        for (WorkbenchConfig.Candidate candidate : loaded.getCandidates()) {
+            assertTrue(
+                    candidate.config.getFrequencyPolicy() == SimulationConfig.FrequencyPolicy.EDP_HEURISTIC,
+                    "frequency policy must flow into every candidate SimulationConfig");
+        }
+        // v1 配置（无任何频档键）仍绿：缺列 = v1 平台，策略缺省 DEFAULT
+        JsonObject v1 = configuration(workflow.toString(), 2);
+        WorkbenchConfig v1Loaded = WorkbenchConfig.read(json(directory.resolve("v1.json"), v1));
+        for (PlatformProfile.VmSpec spec : v1Loaded.getPlatform().getVms()) {
+            assertTrue(!spec.hasFrequencyTiers(), "no frequencyTiers key -> v1 single-tier platform");
+        }
+        for (WorkbenchConfig.Candidate candidate : v1Loaded.getCandidates()) {
+            assertTrue(
+                    candidate.config.getFrequencyPolicy() == SimulationConfig.FrequencyPolicy.DEFAULT,
+                    "absent policy resolution must be DEFAULT");
+        }
+        // 频档表与平面功率字段互斥：单一真源，两处字段都要引用
+        JsonObject both = configuration(workflow.toString(), 2);
+        JsonObject bothPlatform = both.getAsJsonObject("platform");
+        bothPlatform.add("frequencyTiers", tiers(2000.0, 250.0, 400.0, 1000.0, 220.0, 280.0, 500.0, 210.0, 240.0));
+        bothPlatform.addProperty("idlePowerWatts", 250.0);
+        bothPlatform.addProperty("maxPowerWatts", 400.0);
+        IllegalArgumentException exclusive = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("exclusive.json"), both)));
+        assertTrue(
+                exclusive.getMessage().contains("frequencyTiers")
+                        && exclusive.getMessage().contains("idlePowerWatts"),
+                "mutual-exclusivity rejection must cite both field faces: " + exclusive.getMessage());
+        // 非 DEFAULT 策略 + 无频档表 → 拒绝（引用 policy 与 frequencyTiers）
+        JsonObject policyWithoutTiers = configuration(workflow.toString(), 2);
+        policyWithoutTiers.getAsJsonObject("platform").addProperty("frequencyPolicy", "MIN_POWER");
+        IllegalArgumentException inert = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("policy-without-tiers.json"), policyWithoutTiers)));
+        assertTrue(
+                inert.getMessage().contains("frequencyPolicy")
+                        && inert.getMessage().contains("frequencyTiers"),
+                "policy-without-tiers rejection must cite both fields: " + inert.getMessage());
+        // 非表序降序 → 复用 PlatformProfile 的 BAT-D1 构造校验
+        JsonObject ascending = configuration(workflow.toString(), 2);
+        ascending
+                .getAsJsonObject("platform")
+                .add("frequencyTiers", tiers(500.0, 210.0, 240.0, 1000.0, 220.0, 280.0, 2000.0, 250.0, 400.0));
+        IllegalArgumentException unordered = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("ascending.json"), ascending)));
+        assertTrue(
+                unordered.getMessage().contains("descending"),
+                "non-descending tier column must be rejected: " + unordered.getMessage());
+        // 档值域非法（mips=0）与缺键（maxPowerWatts 缺失）→ 拒绝（显式失败纪律）
+        JsonObject zeroMips = configuration(workflow.toString(), 2);
+        zeroMips.getAsJsonObject("platform").add("frequencyTiers", tiers(0.0, 210.0, 240.0));
+        IllegalArgumentException zero = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("zero-mips.json"), zeroMips)));
+        assertTrue(zero.getMessage().contains("mips"), "tier mips must be positive: " + zero.getMessage());
+        JsonObject missingField = configuration(workflow.toString(), 2);
+        JsonArray half = new JsonArray();
+        JsonObject tier = new JsonObject();
+        tier.addProperty("mips", 1000.0);
+        tier.addProperty("idlePowerWatts", 220.0);
+        half.add(tier);
+        missingField.getAsJsonObject("platform").add("frequencyTiers", half);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("half-tier.json"), missingField)));
+        // 未知策略标签 → 拒绝并引用字段名
+        JsonObject unknownPolicy = configuration(workflow.toString(), 2);
+        unknownPolicy
+                .getAsJsonObject("platform")
+                .add("frequencyTiers", tiers(2000.0, 250.0, 400.0, 1000.0, 220.0, 280.0, 500.0, 210.0, 240.0));
+        unknownPolicy.getAsJsonObject("platform").addProperty("frequencyPolicy", "TURBO_BOOST");
+        IllegalArgumentException unknown = assertThrows(
+                IllegalArgumentException.class,
+                () -> WorkbenchConfig.read(json(directory.resolve("unknown-policy.json"), unknownPolicy)));
+        assertTrue(
+                unknown.getMessage().contains("frequencyPolicy"),
+                "unknown policy must cite the policy field: " + unknown.getMessage());
+    }
+
+    /** BAT-D4：均一频档表 fixture——mips/idle/max 三元组序列原图组装（降序）。 */
+    private static JsonArray tiers(double... mipsIdleMax) {
+        JsonArray table = new JsonArray();
+        for (int i = 0; i < mipsIdleMax.length; i += 3) {
+            JsonObject tier = new JsonObject();
+            tier.addProperty("mips", mipsIdleMax[i]);
+            tier.addProperty("idlePowerWatts", mipsIdleMax[i + 1]);
+            tier.addProperty("maxPowerWatts", mipsIdleMax[i + 2]);
+            table.add(tier);
+        }
+        return table;
     }
 
     @Test
