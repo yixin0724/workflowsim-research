@@ -627,6 +627,120 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
             expected_total_energy += e
             expected_peak_power += peak
         powered = any(p[0] > 0.0 or p[1] > 0.0 for p in vm_power.values())
+        # ── BAT-D3（2026-10-29）：DVFS 逐档能量复算（DVFS_DIMENSION_DESIGN.md §2.3/§2.4）──
+        # 平台节的可选键 platform.vms[].frequencyTiers（{mips,idlePowerWatts,maxPowerWatts}
+        # 表序降序；缺键/空表 = v1 单档平台 = 未声明）。任一 VM 声明频档 → DVFS 模式：
+        # 声明 VM 改用扩展守恒律
+        #   E_vm = P_idle(默认档/表首档)×T_sim + Σ档[(P_max(档)−P_idle(默认档))×busy(档)]
+        # （代数恒等于 idle(默认)×T_idle + Σ档 P_max(档)×busy(档)——逐 Job 一个恒功率
+        # 矩形，与 Java EnergyAccounting 的 BAT-D2 扩展分支同律）。逐档忙秒由审计自身
+        # 的 [start,finish) Job 区间按 Job 携带的 tierMips 分组重建：缺档（v1 兼容运行/
+        # stage-in 簿记信封）归默认档；每 VM 逐档取该档区间的并集（SPACE_SHARED 串行
+        # 下与 Java 台账逐档 executionTime 之和同值）；逐档之和必须覆盖该 VM 总忙并集
+        #（1e-9 秒容差，镜像 Java TIER_SUM_SLACK_SECONDS 的证据链条款）。
+        # 无任何频档声明 → 本块整体短路，审计行为与 D3 前逐位一致（v1 合法缺省）。
+        vm_tiers = {}            # vmid → [(mips, idle, max), ...]（声明降序）
+        tier_max_by_vm = {}      # vmid → {档 mips → P_max}（档按 MIPS 唯一的身份索引）
+        for vmid, vm in vms.items():
+            raw_tiers = vm.get("frequencyTiers")
+            if raw_tiers is None:
+                continue
+            if not isinstance(raw_tiers, list) or not raw_tiers:
+                raise CheckError("VM frequencyTiers must be a non-empty list when declared (BAT-D3)")
+            tiers = []
+            for item in raw_tiers:
+                if not isinstance(item, dict):
+                    raise CheckError("frequencyTiers entries must be objects on VM " + str(vmid))
+                tier_mips = number(needed(item, "mips"), "tier mips", positive=True)
+                tier_idle = number(needed(item, "idlePowerWatts"), "tier idlePowerWatts", nonnegative=True)
+                tier_max = number(needed(item, "maxPowerWatts"), "tier maxPowerWatts", nonnegative=True)
+                if tier_max < tier_idle:
+                    raise CheckError("tier maxPowerWatts below idlePowerWatts on VM " + str(vmid))
+                if tiers and tier_mips >= tiers[-1][0]:
+                    raise CheckError(
+                        "frequencyTiers must be strictly descending by mips on VM " + str(vmid)
+                        + " (BAT-D1 表序契约)")
+                tiers.append((tier_mips, tier_idle, tier_max))
+            if vm_power[vmid][0] > 0.0 or vm_power[vmid][1] > 0.0:
+                raise CheckError("VM " + str(vmid)
+                                 + " declares BOTH frequencyTiers and plain power fields — one source of"
+                                 + " truth required (BAT-D1)")
+            vm_tiers[vmid] = tiers
+            tier_max_by_vm[vmid] = {t[0]: t[2] for t in tiers}
+        tier_of_job = {}          # jobId → 档 MIPS（频档平台上的全部 Job——含簿记信封）
+        tier_intervals_by_vm = {}  # vmid → {档 mips → [(start, finish), ...]}
+        if vm_tiers:
+            # 频档声明 = 功率声明（镜像 Java BAT-D2 对 D1 死闸的修复：平面字段或频档表
+            # 任一声明即 powered——tiered VM 的平面功率字段恒 0，单一真源互斥）。
+            powered = True
+            for job in jobs:
+                jid = job["jobId"]
+                vmid = integer(job["vmId"], "job vmId", True)
+                tiers = vm_tiers.get(vmid)
+                raw = job.get("tierMips")  # 可选键；null/缺键 = v1 兼容/簿记信封
+                if tiers is None:
+                    if raw is not None:
+                        raise CheckError("job " + str(jid) + " on non-tiered VM " + str(vmid)
+                                         + " carries tierMips: the per-Job tier evidence chain is"
+                                         + " broken (BAT-D3)")
+                    continue
+                if raw is None:
+                    tier_mips = tiers[0][0]  # 缺档归默认档（表首档）——Java 台账同口径
+                else:
+                    tier_mips = number(raw, "job tierMips", positive=True)
+                    if tier_mips not in tier_max_by_vm[vmid]:
+                        raise CheckError(
+                            "job " + str(jid) + " carries tier mips " + str(raw)
+                            + " which matches no declared frequency tier of VM " + str(vmid)
+                            + ": the per-Job tier evidence chain is broken (BAT-D2)")
+                tier_of_job[jid] = tier_mips
+                buckets = tier_intervals_by_vm.setdefault(vmid, {})
+                buckets.setdefault(tier_mips, []).append(
+                    (number(job["startTime"], "job start", nonnegative=True),
+                     number(job["finishTime"], "job finish", nonnegative=True)))
+            # 逐档守恒律复算：整体替换 v1 复算值（flat VM 保持同式同算——两路真源互斥）。
+            expected_vm_energy = {}
+            expected_total_energy = 0.0
+            expected_peak_power = 0.0
+            all_at_default_total = 0.0
+            nondefault_busy_observed = False
+            for vmid, (idle, peak) in vm_power.items():
+                tiers = vm_tiers.get(vmid)
+                if tiers is None:
+                    e = idle * end + (peak - idle) * busy_by_vm[vmid]
+                    expected_peak_power += peak
+                    all_at_default_total += e
+                else:
+                    default_mips, default_idle, default_max = tiers[0]
+                    # MIPS 升序 = 确定性求和序（镜像 Java TreeMap；AGENTS #9）。
+                    ordered_tiers = sorted(
+                        (m, union_length(w)) for m, w in tier_intervals_by_vm.get(vmid, {}).items())
+                    attributed = ordered_sum([busy for _, busy in ordered_tiers])
+                    if abs(attributed - busy_by_vm[vmid]) > 1e-9:
+                        raise CheckError(
+                            "per-tier busy seconds of VM " + str(vmid) + " (sum=" + str(attributed)
+                            + ") do not equal its total modeled busy interval ("
+                            + str(busy_by_vm[vmid]) + "): the per-tier conservation evidence chain"
+                            + " is broken (BAT-D2)")
+                    e = default_idle * end
+                    for tier_mips, tier_busy in ordered_tiers:
+                        e += (tier_max_by_vm[vmid][tier_mips] - default_idle) * tier_busy
+                        if tier_mips != default_mips and tier_busy > 0.0:
+                            nondefault_busy_observed = True
+                    expected_peak_power += default_max
+                    all_at_default_total += (default_idle * end
+                                             + (default_max - default_idle) * busy_by_vm[vmid])
+                expected_vm_energy[vmid] = e
+                expected_total_energy += e
+            # 诚实观察（非断言，D3 任务契约）：任何落在非默认档的忙秒都使逐档律偏离
+            # D1"整段默认档"口径；全默认档运行（DEFAULT 策略/缺档归因）两律恒等——
+            # 两条都是台账可证的性质，审计不把"存在分档"升级为断言（守恒律断言兜底）。
+            audit.notes.append({
+                "code": "dvfs-tier-accounting-observation",
+                "perTierTotalEnergyJoules": expected_total_energy,
+                "allAtDefaultEnergyJoules": all_at_default_total,
+                "nonDefaultTierBusyObserved": nondefault_busy_observed,
+            })
         energy_doc = doc.get("energyMetrics")
         if powered and energy_doc is None:
             raise CheckError("powered VMs require an energyMetrics section")
@@ -683,7 +797,10 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
             # 强度模型（CASPER 族）：grams_vm = E_vm[J] / 3.6e6 × I_vm[g/kWh]（kWh = J/3.6e6）。
             # 半声明即 fail-fast：镜像 Java CarbonAccounting.intensityModel 的每 VM 完整
             # 声明要求（每台 VM 都要功率+强度），契约破坏而非零贡献。
-            unpowered = [vmid for vmid, (idle, peak) in vm_power.items() if not (idle > 0.0 or peak > 0.0)]
+            # BAT-D3：频档 VM 视为已声明功率（其能量已按逐档律复算进 expected_vm_energy，
+            # 强度模型直接乘同一能量数——物理同源"ride-through"，无独立复算面）。
+            unpowered = [vmid for vmid, (idle, peak) in vm_power.items()
+                         if not (idle > 0.0 or peak > 0.0) and vmid not in vm_tiers]
             half_declared = [vmid for vmid in vms if vmid not in vm_intensities]
             if unpowered or half_declared:
                 raise CheckError("Intensity carbon model requires powered VMs with declared"
@@ -719,29 +836,67 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                 raise CheckError("platform carbonWindows declarations require a carbonMetrics"
                                  " section (BAT-C2 declared->required)")
             idle_sum = 0.0
-            for idle, _peak in vm_power.values():  # platform 序列化序：镜像 Java profile 求和序
-                idle_sum += idle
-            # ΔP 取首台 VM 的 max−idle（BAT-C2 与 Java 对齐口径）：v1 假设舰队动态功率均一
-            # （设计文档 §2.1 诚实边界）；异质舰队下取首/末台会漂移，两侧统一取首台。
-            first_idle, first_peak = next(iter(vm_power.values()))
-            dynamic_per_vm = first_peak - first_idle
-            fleet = {}
-            for job in computes:  # computes = classType 2 的全部 Job（忙区间只由计算 Job 定义）
-                a = number(job["startTime"], "job start", nonnegative=True)
-                b = number(job["finishTime"], "job finish", nonnegative=True)
-                if b > a:
-                    fleet[a] = fleet.get(a, 0) + 1
-                    fleet[b] = fleet.get(b, 0) - 1
-            segments = []
-            concurrent = 0
-            prev = 0.0
-            for t in sorted(fleet):
-                if t > prev:
-                    segments.append((prev, t, idle_sum + concurrent * dynamic_per_vm))
-                concurrent += fleet[t]
-                prev = t
-            if prev < end:
-                segments.append((prev, end, idle_sum + concurrent * dynamic_per_vm))
+            if vm_tiers:
+                # BAT-D3：频档平台的舰队功率时间线。每台 VM 的静态分量 = P_idle(默认档)
+                #（卡顿频率的怠速功率，与守恒律同源）；活跃 Job 以其档的动态分量
+                #(P_max(其档) − P_idle(默认档)) 叠加——端点折叠的 ±1 计数改为 ±该 Job
+                # 动态瓦特，段内总功率 = Σ idle(默认档) + Σ(活跃档动态) 逐时刻恒等于
+                # Σ卡顿 VM P_max(其档) + Σ闲置 VM P_idle(默认档)（DVFS_DIMENSION_
+                # DESIGN.md §1.5 "per-tier fleet-power curve"）。档身份 = 逐档守恒块
+                # 已校验过的 tierMips 归因（同一归因，一次校验）；flat VM 保持
+                # max−idle 的 v1 贡献（混合舰队合法）。Java 端（CarbonAccounting
+                # .budgetModel）v1 只认平面功率字段、频档平台在报告构造期即被拒绝
+                # ——本分支是 D3 前向口径，真机 manifest 尚不能同时携带两者（Java
+                # 侧对齐落在后续批次；自测以手推台账锚定本分支）。
+                for vmid, (idle, _peak) in vm_power.items():  # platform 序列化序：镜像 Java profile 求和序
+                    idle_sum += vm_tiers[vmid][0][1] if vmid in vm_tiers else idle
+                fleet = {}
+                for job in computes:  # computes = classType 2 的全部 Job（忙区间只由计算 Job 定义）
+                    a = number(job["startTime"], "job start", nonnegative=True)
+                    b = number(job["finishTime"], "job finish", nonnegative=True)
+                    if b > a:
+                        vmid = integer(job["vmId"], "job vmId", True)
+                        if vmid in vm_tiers:
+                            job_tier = tier_of_job[job["jobId"]]  # 逐档守恒块已完成归因与校验
+                            dyn = tier_max_by_vm[vmid][job_tier] - vm_tiers[vmid][0][1]
+                        else:
+                            dyn = vm_power[vmid][1] - vm_power[vmid][0]
+                        fleet[a] = fleet.get(a, 0.0) + dyn
+                        fleet[b] = fleet.get(b, 0.0) - dyn
+                segments = []
+                dynamic = 0.0
+                prev = 0.0
+                for t in sorted(fleet):
+                    if t > prev:
+                        segments.append((prev, t, idle_sum + dynamic))
+                    dynamic += fleet[t]
+                    prev = t
+                if prev < end:
+                    segments.append((prev, end, idle_sum + dynamic))
+            else:
+                for idle, _peak in vm_power.values():  # platform 序列化序：镜像 Java profile 求和序
+                    idle_sum += idle
+                # ΔP 取首台 VM 的 max−idle（BAT-C2 与 Java 对齐口径）：v1 假设舰队动态功率均一
+                # （设计文档 §2.1 诚实边界）；异质舰队下取首/末台会漂移，两侧统一取首台。
+                first_idle, first_peak = next(iter(vm_power.values()))
+                dynamic_per_vm = first_peak - first_idle
+                fleet = {}
+                for job in computes:  # computes = classType 2 的全部 Job（忙区间只由计算 Job 定义）
+                    a = number(job["startTime"], "job start", nonnegative=True)
+                    b = number(job["finishTime"], "job finish", nonnegative=True)
+                    if b > a:
+                        fleet[a] = fleet.get(a, 0) + 1
+                        fleet[b] = fleet.get(b, 0) - 1
+                segments = []
+                concurrent = 0
+                prev = 0.0
+                for t in sorted(fleet):
+                    if t > prev:
+                        segments.append((prev, t, idle_sum + concurrent * dynamic_per_vm))
+                    concurrent += fleet[t]
+                    prev = t
+                if prev < end:
+                    segments.append((prev, end, idle_sum + concurrent * dynamic_per_vm))
             per_window_excess = []
             total_excess = 0.0
             for wstart, wend, green in carbon_windows:

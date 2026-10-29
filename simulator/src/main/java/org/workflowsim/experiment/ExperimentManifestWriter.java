@@ -499,6 +499,26 @@ public final class ExperimentManifestWriter {
             // EnergyConservationLawTest.manifestPlatformSerializesPerVmPowerFields）。
             value.put("idlePowerWatts", vm.getIdlePowerWatts());
             value.put("maxPowerWatts", vm.getMaxPowerWatts());
+            // BAT-D2 后续收口（2026-10-29，D3 前提）：每 VM 频档表仅非空时序列化（空表
+            // == v1 单档平台 == 未声明，legacy manifest 的平台节字节级不变）；键序固定
+            // mips/idlePowerWatts/maxPowerWatts，Python 审计器以同表复算扩展守恒律
+            // E_vm = P_idle(默认档)×T_sim + Σ档[(P_max(档)−P_idle(默认档))×busy(档)]
+            // （DVFS_DIMENSION_DESIGN.md §2.3/§2.4）。此前频档运行的平台节缺此键，tiered
+            // 运行对审计器静默呈现为无功率平台，逐档能耗复算被整体跳过（D2 提交时标记的
+            // 证据面缺口）。v1 平台功率与频档两路互斥（VmSpec 构造校验的单一真源），因此
+            // tiered VM 的平面功率字段恒为 0.0，不与此节冲突。红锚上移到本批：
+            // FrequencyTierAssignmentTest.manifestPlatformSerializesPerVmFrequencyTiers。
+            if (vm.hasFrequencyTiers()) {
+                List<Map<String, Object>> frequencyTiers = new ArrayList<Map<String, Object>>();
+                for (PlatformProfile.FrequencyTier tier : vm.getFrequencyTiers()) {
+                    Map<String, Object> item = new LinkedHashMap<String, Object>();
+                    item.put("mips", Double.valueOf(tier.getMips()));
+                    item.put("idlePowerWatts", Double.valueOf(tier.getIdlePowerWatts()));
+                    item.put("maxPowerWatts", Double.valueOf(tier.getMaxPowerWatts()));
+                    frequencyTiers.add(item);
+                }
+                value.put("frequencyTiers", frequencyTiers);
+            }
             // BAT-C2（2026-10-28）：强度键仅声明时序列化（缺键与 null 均等价于"未声明"，
             // legacy manifest 的平台节字节级不变）；审计器以该键复算 grams = E/3.6e6 × I。
             // 红锚同理：若缺此键，声明强度的运行对审计器静默呈现为无碳，复算被跳过。

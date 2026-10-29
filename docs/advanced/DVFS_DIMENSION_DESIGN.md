@@ -175,6 +175,49 @@ frequencyTiers by mips match — tiers are unique by mips), verify per-VM and
 total energy. The carbon models follow with NO additional recompute logic
 (their multipliers operate on the already-verified energy).
 
+**As-built (D3, 2026-10-29).** The prerequisite export landed with it: the
+manifest platform section serializes per-VM `frequencyTiers` as
+`{mips, idlePowerWatts, maxPowerWatts}` triples in declared (descending)
+order, the key omitted when the table is empty — v1 manifests stay
+byte-identical (same omit-when-undeclared contract as `carbonWindows`).
+Two consequences pinned by tests:
+
+- A tiered VM keeps its flat `idlePowerWatts`/`maxPowerWatts` at `0.0`
+  (single source of truth, BAT-D1), and tiered platforms count as *powered*
+  on both sides — the Java power gate (`hasPowerModel() || hasFrequencyTiers()`,
+  BAT-D2) and the Python `powered` predicate — so tiered runs can never again
+  present themselves to the auditor as unpowered.
+- The audit recompute confirms the attribution documented in §2.2: per-Job
+  `tierMips` groups the audit's own [start, finish) intervals per tier (union
+  per tier), jobs without a `tierMips` key run at the VM's default (first)
+  tier. This includes the stage-in bookkeeping envelope — the same
+  bookkeeping-counts-as-busy envelope that computed jobs partition, mirrored
+  from the Java per-tier ledger.
+
+Honest boundaries recorded with the batch:
+
+- **Observation, not assertion**: when any busy second lands on a non-default
+  tier, the per-tier law and D1's all-at-default formula differ; when the run
+  is all-at-default (DEFAULT policy or unassigned), the two laws coincide
+  exactly. The auditor records both numbers plus a `nonDefaultTierBusyObserved`
+  flag in `notes` (`dvfs-tier-accounting-observation`) and asserts only the
+  per-tier law — the discriminator pair (a split-tier fixture passing at the
+  per-tier value while an all-at-default forgery is killed) is pinned in the
+  Python self-tests.
+- **Budget carbon under tiers is a forward contract**: the Java
+  `CarbonAccounting` models still require flat power fields, so a tiered
+  platform cannot yet reach a real `carbonMetrics` bundle; the Python tiered
+  budget branch (per-instant fleet power = Σ parked VMs at their default-tier
+  idle + each active Job at its tier's dynamic share) is implemented and
+  self-tested from the tier ledger, awaiting the Java-side tiering mirror.
+  The intensity model needs no change (it rides the verified energy).
+- **Tiered manifests are not yet rerunnable**: `ManifestConfigRebuilder`
+  rebuilds neither `frequencyTiers` nor `frequencyPolicy`, so rerunning a
+  tiered manifest degrades to a v1 platform today. The rerun diff then goes
+  red (platform/energy leaf differences are not whitelisted), so the failure
+  is loud; the proper rebuild belongs to a later batch and should fail fast
+  until then.
+
 ### 2.5 Workbench JSON surface
 
 ```json

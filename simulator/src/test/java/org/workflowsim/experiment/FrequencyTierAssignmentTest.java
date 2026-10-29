@@ -358,6 +358,78 @@ class FrequencyTierAssignmentTest {
     }
 
     // ------------------------------------------------------------------
+    // 5b. 证据面：manifest 平台节的 frequencyTiers（D3 前提，Python 审计器消费）
+    // ------------------------------------------------------------------
+
+    /**
+     * BAT-D2 后续收口（2026-10-29）：平台节逐 VM 序列化频档表。tiered 运行 →
+     * {@code platform.vms[].frequencyTiers} 为表序（声明降序）的
+     * {@code {mips,idlePowerWatts,maxPowerWatts}} 三元组列表——与声明表逐值相等（期望值
+     * 三源：契约 DVFS_DIMENSION_DESIGN.md §2.5 的档表 schema × 测试声明的平台表，非实现
+     * 输出抄录）；v1 平面功率运行 → 全文不含 "frequencyTiers" 键（legacy 平台节逐位不变，
+     * 与 carbonWindows 的"仅非空时序列化"同款键缺省合同）。tiered VM 的平面
+     * idlePowerWatts/maxPowerWatts 恒为 0.0（单一真源），同步锚定——审计器据此区分
+     * powered 的两路真源。
+     */
+    @Test
+    void manifestPlatformSerializesPerVmFrequencyTiers() throws Exception {
+        SimulationReport tiered = run(threeTierPlatform(), FrequencyPolicy.MIN_POWER);
+        Map<String, Object> tieredManifest =
+                ExperimentManifestWriter.toManifest(tiered, new ArrayList<Map<String, Object>>(), null);
+        List<?> tieredVms = (List<?>) ((Map<?, ?>) tieredManifest.get("platform")).get("vms");
+        assertEquals(2, tieredVms.size(), "fixture platform declares two VMs");
+        for (Object entry : tieredVms) {
+            Map<?, ?> vm = (Map<?, ?>) entry;
+            assertTrue(vm.containsKey("frequencyTiers"), "tiered VM must carry its frequencyTiers table: " + vm);
+            List<?> tiers = (List<?>) vm.get("frequencyTiers");
+            assertEquals(3, tiers.size(), "three-tier platform must serialize three tiers");
+            double[][] declared = {{2000.0, 250.0, 400.0}, {1000.0, 220.0, 280.0}, {500.0, 210.0, 260.0}};
+            for (int index = 0; index < tiers.size(); index++) {
+                Map<?, ?> tier = (Map<?, ?>) tiers.get(index);
+                assertTrue(
+                        tier.containsKey("mips")
+                                && tier.containsKey("idlePowerWatts")
+                                && tier.containsKey("maxPowerWatts"),
+                        "tier triple must expose mips/idlePowerWatts/maxPowerWatts: " + tier);
+                assertEquals(declared[index][0], ((Number) tier.get("mips")).doubleValue(), 0.0, "tier mips");
+                assertEquals(
+                        declared[index][1],
+                        ((Number) tier.get("idlePowerWatts")).doubleValue(),
+                        0.0,
+                        "tier idlePowerWatts");
+                assertEquals(
+                        declared[index][2],
+                        ((Number) tier.get("maxPowerWatts")).doubleValue(),
+                        0.0,
+                        "tier maxPowerWatts");
+            }
+            // 单一真源：tiered VM 的平面功率字段在平台节必须为 0（两路互斥由 VmSpec 保证）。
+            assertEquals(
+                    0.0,
+                    ((Number) vm.get("idlePowerWatts")).doubleValue(),
+                    0.0,
+                    "tiered VM keeps its flat power fields at zero (one source of truth)");
+            assertEquals(
+                    0.0,
+                    ((Number) vm.get("maxPowerWatts")).doubleValue(),
+                    0.0,
+                    "tiered VM keeps its flat power fields at zero (one source of truth)");
+        }
+
+        SimulationReport plain = run(plainPoweredPlatform(), null);
+        Map<String, Object> plainManifest =
+                ExperimentManifestWriter.toManifest(plain, new ArrayList<Map<String, Object>>(), null);
+        String serialized = new com.google.gson.GsonBuilder()
+                .serializeNulls()
+                .setPrettyPrinting()
+                .create()
+                .toJson(plainManifest);
+        assertFalse(
+                serialized.contains("frequencyTiers"),
+                "v1 plain-power manifests must NOT carry a frequencyTiers key (empty table = undeclared = v1 legacy)");
+    }
+
+    // ------------------------------------------------------------------
     // 6. 前提拒绝：非 DEFAULT 策略不可在全无档平台上静默失效
     // ------------------------------------------------------------------
 
