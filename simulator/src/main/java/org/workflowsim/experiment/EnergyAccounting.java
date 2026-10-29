@@ -63,11 +63,29 @@ public final class EnergyAccounting {
                 perVm.put(vmId, Double.valueOf(0.0));
                 continue;
             }
-            double e = spec.getIdlePowerWatts() * makespanSeconds
-                    + (spec.getMaxPowerWatts() - spec.getIdlePowerWatts()) * m.getModeledBusyIntervalSeconds();
+            // BAT-D1（2026-10-29）：频档模式 → 默认档的怠速 + 全部分配档的逐档满载矩形。
+            // 单档退化为同一个公式（首个 tier 的 idle/max 正是把 v1 字段搬进列表）。
+            double e;
+            if (spec.hasFrequencyTiers()) {
+                // v2: E_vm = P_idle(default)×T_sim + Σ档 [P_max(档次) − P_idle(default)]×busy(档)×
+                // 简化守恒律的不变式——每档满载 = 默认怠速 + 该档动态（对 rectangle 面积合并
+                // 为 P_idle(default)×T + Σ(P_max(档)−P_idle(默认))×busy(档)；空档不计）。v1
+                // 退化：单档即为 idle×T+(max−idle)×busy。
+                e = spec.defaultFrequencyTier().getIdlePowerWatts() * makespanSeconds;
+                // busy time 松散分布（v1 WmMetrics 只有总时长）；份额按整段全跑默认档核算
+                // → v2 逐档 rect 需 D2 的 tierMips 才能 split; 在 D1 阶段先给"整段默认档"
+                // 的退化行为（tierMips == null → the Job ran at the DEFAULT tier）。
+                double dyn = spec.defaultFrequencyTier().getMaxPowerWatts()
+                        - spec.defaultFrequencyTier().getIdlePowerWatts();
+                e += dyn * m.getModeledBusyIntervalSeconds();
+                peak += spec.defaultFrequencyTier().getMaxPowerWatts();
+            } else {
+                e = spec.getIdlePowerWatts() * makespanSeconds
+                        + (spec.getMaxPowerWatts() - spec.getIdlePowerWatts()) * m.getModeledBusyIntervalSeconds();
+                peak += spec.getMaxPowerWatts();
+            }
             perVm.put(vmId, Double.valueOf(e));
             total += e;
-            peak += spec.getMaxPowerWatts();
         }
         double mean = perVm.isEmpty() ? 0.0 : total / perVm.size();
         return new EnergyAccounting(

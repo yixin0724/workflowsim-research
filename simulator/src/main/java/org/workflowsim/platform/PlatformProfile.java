@@ -93,6 +93,51 @@ public final class PlatformProfile {
         }
     }
 
+    /**
+     * DVFS 频档（BAT-D1，2026-10-29）。一个 P-state 三元组：MIPS 速度 + 该档的怠速与
+     * 满载功率。表序严格按 MIPS 降序（首档=默认档）。守恒律的推演：
+     *
+     * <pre>
+     * E_vm = P_idle(默认档)×T_idle + Σ档 [P_max(该档)×T_busy(该档)]
+     * </pre>
+     *
+     * <p>单档链表（或空）在语义上退化为 v1 的线性律（等价一个 tier）。
+     * 空链表 = v1 模式；非空链表 = DVFS 模式。</p>
+     */
+    public static final class FrequencyTier {
+        private final double mips;
+        private final double idlePowerWatts;
+        private final double maxPowerWatts;
+
+        public FrequencyTier(double mips, double idlePowerWatts, double maxPowerWatts) {
+            if (!(mips > 0.0)
+                    || !Double.isFinite(mips)
+                    || !(idlePowerWatts >= 0.0)
+                    || !Double.isFinite(idlePowerWatts)
+                    || maxPowerWatts < idlePowerWatts
+                    || !Double.isFinite(maxPowerWatts)) {
+                throw new IllegalArgumentException("Invalid frequency tier: mips=" + mips
+                        + " idle=" + idlePowerWatts + " max=" + maxPowerWatts
+                        + " (required: mips>0, idle≥0, max≥idle, all finite)");
+            }
+            this.mips = mips;
+            this.idlePowerWatts = idlePowerWatts;
+            this.maxPowerWatts = maxPowerWatts;
+        }
+
+        public double getMips() {
+            return mips;
+        }
+
+        public double getIdlePowerWatts() {
+            return idlePowerWatts;
+        }
+
+        public double getMaxPowerWatts() {
+            return maxPowerWatts;
+        }
+    }
+
     public String getName() {
         return name;
     }
@@ -570,6 +615,7 @@ public final class PlatformProfile {
         private final double idlePowerWatts;
         private final double maxPowerWatts;
         private final Double carbonIntensityGramsPerKWh;
+        private final List<FrequencyTier> frequencyTiers;
 
         /**
          * 创建不带 VM 级别显式计价的 VM 规格。
@@ -593,7 +639,37 @@ public final class PlatformProfile {
                 long imageSizeMb,
                 String vmm,
                 CloudletSchedulerMode schedulerMode) {
-            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null, 0.0, 0.0, null);
+            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, null, 0.0, 0.0, null, null);
+        }
+
+        /** BAT-D1 前的 12 参（含碳）委托：频档缺省 null。 */
+        public VmSpec(
+                int id,
+                double mips,
+                int pes,
+                int ramMb,
+                long bandwidth,
+                long imageSizeMb,
+                String vmm,
+                CloudletSchedulerMode schedulerMode,
+                CostSpec costs,
+                double idlePowerWatts,
+                double maxPowerWatts,
+                Double carbonIntensityGramsPerKWh) {
+            this(
+                    id,
+                    mips,
+                    pes,
+                    ramMb,
+                    bandwidth,
+                    imageSizeMb,
+                    vmm,
+                    schedulerMode,
+                    costs,
+                    idlePowerWatts,
+                    maxPowerWatts,
+                    carbonIntensityGramsPerKWh,
+                    null);
         }
 
         /** Convenience constructor: costs only, no power model. Delegates to master. */
@@ -607,7 +683,7 @@ public final class PlatformProfile {
                 String vmm,
                 CloudletSchedulerMode schedulerMode,
                 CostSpec costs) {
-            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, costs, 0.0, 0.0, null);
+            this(id, mips, pes, ramMb, bandwidth, imageSizeMb, vmm, schedulerMode, costs, 0.0, 0.0, null, null);
         }
 
         /** BAT-C1 前的 11 参（含功率）委托：碳强度缺省 null。 */
@@ -635,6 +711,7 @@ public final class PlatformProfile {
                     costs,
                     idlePowerWatts,
                     maxPowerWatts,
+                    null,
                     null);
         }
 
@@ -673,7 +750,24 @@ public final class PlatformProfile {
                 CostSpec costs,
                 double idlePowerWatts,
                 double maxPowerWatts,
-                Double carbonIntensityGramsPerKWh) {
+                Double carbonIntensityGramsPerKWh,
+                List<FrequencyTier> frequencyTiers) {
+            // BAT-D1：频档链表非空 → v1 功率字段不得并存（单一真源）。
+            if (frequencyTiers != null && !frequencyTiers.isEmpty()) {
+                if (idlePowerWatts > 0.0 || maxPowerWatts > 0.0) {
+                    throw new IllegalArgumentException(
+                            "VM " + id + " declares BOTH frequencyTiers and plain idlePowerWatts/"
+                                    + "maxPowerWatts — one source of truth required (BAT-D1)");
+                }
+                for (int t = 1; t < frequencyTiers.size(); t++) {
+                    if (frequencyTiers.get(t).getMips()
+                            >= frequencyTiers.get(t - 1).getMips()) {
+                        throw new IllegalArgumentException("Frequency tiers on VM " + id
+                                + " must be strictly descending by mips: tier " + t + " mips="
+                                + frequencyTiers.get(t).getMips());
+                    }
+                }
+            }
             if (carbonIntensityGramsPerKWh != null
                     && (carbonIntensityGramsPerKWh.isNaN() || carbonIntensityGramsPerKWh.doubleValue() < 0.0)) {
                 throw new IllegalArgumentException("Invalid carbonIntensityGramsPerKWh for VM " + id + ": "
@@ -709,6 +803,9 @@ public final class PlatformProfile {
             this.idlePowerWatts = idlePowerWatts;
             this.maxPowerWatts = maxPowerWatts;
             this.carbonIntensityGramsPerKWh = carbonIntensityGramsPerKWh;
+            this.frequencyTiers = frequencyTiers == null || frequencyTiers.isEmpty()
+                    ? Collections.<FrequencyTier>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<>(frequencyTiers));
         }
 
         /** @return idle power in watts; 0 when no power model is declared */
@@ -729,6 +826,21 @@ public final class PlatformProfile {
         /** BAT-C1：@return 强度模型声明的每 VM 碳强度（gCO₂/kWh）；null=未声明 */
         public Double getCarbonIntensityGramsPerKWh() {
             return carbonIntensityGramsPerKWh;
+        }
+
+        /** BAT-D1：@return 频档表（不可变；空 = v1 单档模式） */
+        public List<FrequencyTier> getFrequencyTiers() {
+            return frequencyTiers;
+        }
+
+        /** BAT-D1：@return 本 VM 是否声明了 DVFS 频档 */
+        public boolean hasFrequencyTiers() {
+            return frequencyTiers != null && !frequencyTiers.isEmpty();
+        }
+
+        /** BAT-D1：@return 默认档（= 表首档；调用方须先验 hasFrequencyTiers） */
+        public FrequencyTier defaultFrequencyTier() {
+            return frequencyTiers.get(0);
         }
 
         public int getId() {
