@@ -52,6 +52,8 @@ public final class SimulationSession implements AutoCloseable {
         Parameters.setRuntimeScale(config.getRuntimeScale());
         Parameters.setRuntimeReferenceMips(config.getRuntimeReferenceMips());
         Parameters.setCostModel(config.getCostModel());
+        // BAT-D2（2026-10-29）：派发时刻频档策略随会话装载（与调度枚举同一载体语义）。
+        Parameters.setFrequencyPolicy(config.getFrequencyPolicy());
         if (config.getRegisteredSchedulingAlgorithmProvider() != null) {
             // BAT-3 (2026-10-26): registered SPI algorithm — carried through the same
             // session-managed legacy Parameters carrier as the scheduling enum; reset()

@@ -22,10 +22,11 @@ import org.workflowsim.utils.SimulationConfig;
  *
  * <p><b>MethodLength 判例（2026-10-23）。</b>本类唯二的超限段落——
  * 构造器与 {@code assembleMetrics(...)}——是结构性不可约：一个
- * ~77 字段不可变指标账本的逐一赋值构造 + 单一 77 参数原子快照调用。任何"提取"
+ * ~79 字段不可变指标账本的逐一赋值构造 + 单一 79 参数原子快照调用。任何"提取"
  * 只会制造人工碎片、破坏快照组装的内聚性，且经逐字段核对不存在可分组的语义簇。
  * 依据 MethodLength Tier-B 判例账，此两处登记为 documented irreducible，不强制清零；
- * 清该判例的唯一正当路径是指标字段的契约性重组（属于 schema 提案，非风格重构）。</p>
+ * 清该判例的唯一正当路径是指标字段的契约性重组（属于 schema 提案，非风格重构）。
+ * （BAT-D2，2026-10-29：+2 字段为逐档忙秒账本 pair，判例登记随账本同步。）</p>
  */
 public final class SimulationMetrics {
 
@@ -111,6 +112,20 @@ public final class SimulationMetrics {
     private final double vmModeledBusyTimeCoefficientOfVariation;
     /** VM 利用率 Jain 公平性指数 ∈ (0,1]；同窗口非零负载下等于 1/(1+CV²)。 */
     private final double vmUtilizationJainFairnessIndex;
+
+    /**
+     * BAT-D2（2026-10-29）：逐 VM 逐档忙秒账——{@code vmId → (档 MIPS → 忙秒)}。
+     *
+     * <p>每个 Job attempt 的 [startTime, finishTime) 区间按其指派档归因；
+     * {@code tierMips == null} 的 Job（无档 VM 之外不可能出现——无档 VM 整体
+     * 不入账）按该 VM 的默认档（表首档）归因。空 map = v1 无频档运行（守恒律
+     * 退化为 D1 的"全部默认档"口径）。transient：manifest metrics 节的序列化
+     * 面不随本账本扩展（证据面变更属 D3/D4 台账批），Java 侧经 getter 供
+     * 能量守恒核算与测试使用。</p>
+     */
+    private final transient Map<Integer, Map<Double, Double>> perTierBusySecondsByVm;
+    /** BAT-D2：舰队合计逐档忙秒——{@code 档 MIPS → 忙秒}（TreeMap 升序确定性）。 */
+    private final transient Map<Double, Double> fleetPerTierBusySeconds;
 
     private final boolean controlledSharedStorageCriticalPathReferenceAvailable;
     private final String controlledSharedStorageCriticalPathReferenceScope;
@@ -201,7 +216,9 @@ public final class SimulationMetrics {
             double deadlineSlackSeconds,
             double deadlineTardinessSeconds,
             int exactTaskTimingObservationCount,
-            int modeledApproximateTaskTimingObservationCount) {
+            int modeledApproximateTaskTimingObservationCount,
+            Map<Integer, Map<Double, Double>> perTierBusySecondsByVm,
+            Map<Double, Double> fleetPerTierBusySeconds) {
         this.makespanSeconds = makespanSeconds;
         this.logicalTaskCompletionSeconds = logicalTaskCompletionSeconds;
         this.logicalTaskCompletionStatus = logicalTaskCompletionStatus;
@@ -282,6 +299,11 @@ public final class SimulationMetrics {
         this.deadlineTardinessSeconds = deadlineTardinessSeconds;
         this.exactTaskTimingObservationCount = exactTaskTimingObservationCount;
         this.modeledApproximateTaskTimingObservationCount = modeledApproximateTaskTimingObservationCount;
+        // BAT-D2（2026-10-29）：逐档账本冻结——TreeMap 键序保证确定性（AGENTS #9）。
+        this.perTierBusySecondsByVm =
+                Collections.unmodifiableMap(new LinkedHashMap<Integer, Map<Double, Double>>(perTierBusySecondsByVm));
+        this.fleetPerTierBusySeconds =
+                Collections.unmodifiableMap(new java.util.TreeMap<Double, Double>(fleetPerTierBusySeconds));
     }
 
     /**
@@ -316,9 +338,19 @@ public final class SimulationMetrics {
         Set<Integer> retryJobIds = retryJobIds(events, jobsById);
         EventTiming timing = scanTimingEvents(events);
 
+        // BAT-D2（2026-10-29）：逐 VM 默认档 MIPS（表首档）——无档 VM 不入映射，
+        // 其忙秒不进逐档账本（v1 逐位退化）；有档 VM 上未指派 Job 的区间按默认档归因。
+        Map<Integer, Double> defaultTierMipsByVm = new LinkedHashMap<Integer, Double>();
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.hasFrequencyTiers()) {
+                defaultTierMipsByVm.put(
+                        Integer.valueOf(spec.getId()),
+                        Double.valueOf(spec.defaultFrequencyTier().getMips()));
+            }
+        }
         Map<Integer, MutableVmMetrics> vm = new LinkedHashMap<Integer, MutableVmMetrics>();
         for (Integer vmId : summaries.keySet()) {
-            vm.put(vmId, new MutableVmMetrics(vmId));
+            vm.put(vmId, new MutableVmMetrics(vmId, defaultTierMipsByVm.get(vmId)));
         }
         JobAccumulators acc = accumulateJobOutcomes(jobs, retryJobIds, timing, vm);
 
@@ -459,18 +491,36 @@ public final class SimulationMetrics {
         double failedComputeCost;
     }
 
-    /** VM 冻结阶段（逐字搬运转写自 calculate()）。 */
+    /** VM 冻结阶段（逐字搬运转写自 calculate()；BAT-D2 追加逐档账本冻结）。 */
     private static FrozenVms freezeVmMetrics(double makespan, Map<Integer, MutableVmMetrics> vm) {
         Map<Integer, VmMetrics> frozenVm = new LinkedHashMap<Integer, VmMetrics>();
         List<Double> busyTimes = new ArrayList<Double>();
         double totalBusyInterval = 0.0;
+        // BAT-D2：逐 VM 逐档 + 舰队合计（TreeMap 键升序——确定性遍历）。
+        Map<Integer, Map<Double, Double>> perTierBusy = new LinkedHashMap<Integer, Map<Double, Double>>();
+        java.util.TreeMap<Double, Double> fleetPerTierBusy = new java.util.TreeMap<Double, Double>();
         for (Map.Entry<Integer, MutableVmMetrics> entry : vm.entrySet()) {
             VmMetrics metrics = entry.getValue().freeze(makespan);
             frozenVm.put(entry.getKey(), metrics);
             busyTimes.add(metrics.getModeledBusyIntervalSeconds());
             totalBusyInterval += metrics.getModeledBusyIntervalSeconds();
+            if (!entry.getValue().tierBusySeconds.isEmpty()) {
+                perTierBusy.put(
+                        entry.getKey(),
+                        Collections.unmodifiableMap(
+                                new java.util.TreeMap<Double, Double>(entry.getValue().tierBusySeconds)));
+                for (Map.Entry<Double, Double> tier :
+                        entry.getValue().tierBusySeconds.entrySet()) {
+                    fleetPerTierBusy.merge(tier.getKey(), tier.getValue(), Double::sum);
+                }
+            }
         }
-        return new FrozenVms(frozenVm, busyTimes, totalBusyInterval);
+        return new FrozenVms(
+                frozenVm,
+                busyTimes,
+                totalBusyInterval,
+                Collections.unmodifiableMap(perTierBusy),
+                Collections.unmodifiableMap(fleetPerTierBusy));
     }
 
     /** calculate() VM 冻结阶段的私有搬运转写结构。 */
@@ -478,11 +528,22 @@ public final class SimulationMetrics {
         final Map<Integer, VmMetrics> frozenVm;
         final List<Double> busyTimes;
         final double totalBusyInterval;
+        /** BAT-D2（2026-10-29）：逐 VM 逐档忙秒 + 舰队合计逐档忙秒（不可变）。 */
+        final Map<Integer, Map<Double, Double>> perTierBusySecondsByVm;
 
-        FrozenVms(Map<Integer, VmMetrics> frozenVm, List<Double> busyTimes, double totalBusyInterval) {
+        final Map<Double, Double> fleetPerTierBusySeconds;
+
+        FrozenVms(
+                Map<Integer, VmMetrics> frozenVm,
+                List<Double> busyTimes,
+                double totalBusyInterval,
+                Map<Integer, Map<Double, Double>> perTierBusySecondsByVm,
+                Map<Double, Double> fleetPerTierBusySeconds) {
             this.frozenVm = frozenVm;
             this.busyTimes = busyTimes;
             this.totalBusyInterval = totalBusyInterval;
+            this.perTierBusySecondsByVm = perTierBusySecondsByVm;
+            this.fleetPerTierBusySeconds = fleetPerTierBusySeconds;
         }
     }
 
@@ -740,7 +801,10 @@ public final class SimulationMetrics {
                 deadline.slack,
                 deadline.tardiness,
                 deadline.exactTaskTimingCount,
-                taskOutcomes.size() - deadline.exactTaskTimingCount);
+                taskOutcomes.size() - deadline.exactTaskTimingCount,
+                // BAT-D2（2026-10-29）：逐档忙秒账本——空 = v1 无频档运行（守恒退化）。
+                frozen.perTierBusySecondsByVm,
+                frozen.fleetPerTierBusySeconds);
     }
 
     /** 事件计时扫描阶段（逐字搬运转写自 calculate()，PLAT-16 重复事件 fail-fast 原位保留）。 */
@@ -1371,6 +1435,29 @@ public final class SimulationMetrics {
         return vmUtilizationJainFairnessIndex;
     }
     /**
+     * BAT-D2（2026-10-29）：返回逐 VM 逐档忙秒账 {@code vmId → (档 MIPS → 忙秒)}。
+     *
+     * <p>每个 Job attempt 的执行区间按其指派档归因（未指派尝试按 VM 默认档）；
+     * 总忙秒与 {@code VmMetrics.getModeledBusyIntervalSeconds()} 同一区间口径。
+     * 空 map = v1 无频档运行（逐档守恒退化为 D1 的全默认档口径）。</p>
+     *
+     * @return 不可变的逐 VM 逐档忙秒映射；无档运行为空
+     */
+    public Map<Integer, Map<Double, Double>> getPerTierBusySecondsByVm() {
+        return perTierBusySecondsByVm;
+    }
+    /**
+     * BAT-D2（2026-10-29）：返回舰队合计的逐档忙秒 {@code 档 MIPS → 忙秒}。
+     *
+     * <p>档按 MIPS 值跨 VM 合并（档按 MIPS 唯一，可经平台 frequencyTiers 匹配复原
+     * 功率对）；TreeMap 升序键序保证确定性。空 map = v1 无频档运行。</p>
+     *
+     * @return 不可变的舰队逐档忙秒映射；无档运行为空
+     */
+    public Map<Double, Double> getFleetPerTierBusySeconds() {
+        return fleetPerTierBusySeconds;
+    }
+    /**
      * 返回受控共享存储关键路径参考是否适用于本次运行的模型范围。
      *
      * <p>要求 NONE 聚类、无故障、无开销及 SPACE_SHARED VM。数据移动仅接受历史串行
@@ -1537,15 +1624,30 @@ public final class SimulationMetrics {
         private final List<Interval> intervals = new ArrayList<Interval>();
         private int jobs;
         private double cpuTime;
+        /**
+         * BAT-D2（2026-10-29）：本 VM 的默认档 MIPS（表首档）；null = v1 无档 VM
+         * （整台 VM 不进逐档账本）。构造期由 calculate() 按平台声明解析，之后只读。
+         */
+        private final Double defaultTierMips;
+        /** BAT-D2：档 MIPS → 忙秒（TreeMap 键升序——遍历确定性）。 */
+        private final java.util.TreeMap<Double, Double> tierBusySeconds = new java.util.TreeMap<Double, Double>();
 
-        private MutableVmMetrics(int vmId) {
+        private MutableVmMetrics(int vmId, Double defaultTierMips) {
             this.vmId = vmId;
+            this.defaultTierMips = defaultTierMips;
         }
 
         private void add(SimulationReport.JobOutcome job) {
             jobs++;
             cpuTime += job.getCpuTime();
             intervals.add(new Interval(job.getStartTime(), job.getFinishTime()));
+            // BAT-D2：逐档归因——指派档缺失的 Job（非计算尝试）按 VM 默认档；
+            // 忙秒与 busy 并集同源（SPACE_SHARED 单 Job 序列下逐档之和==并集总忙秒）。
+            if (defaultTierMips != null) {
+                double tier =
+                        job.getTierMips() != null ? job.getTierMips().doubleValue() : defaultTierMips.doubleValue();
+                tierBusySeconds.merge(Double.valueOf(tier), Double.valueOf(job.getExecutionTime()), Double::sum);
+            }
         }
 
         private VmMetrics freeze(double makespan) {

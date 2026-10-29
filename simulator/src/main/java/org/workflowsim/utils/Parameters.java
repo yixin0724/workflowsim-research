@@ -242,6 +242,15 @@ public class Parameters {
     private static CostModel costModel = CostModel.DATACENTER;
 
     /**
+     * BAT-D2（2026-10-29）：会话内生效的 DVFS 频档指派策略。
+     *
+     * <p>与调度算法枚举相同的会话管理 legacy Parameters 载体（BAT-3 判例）：由
+     * {@link SimulationSession#open} 从 {@link SimulationConfig} 装载，由
+     * {@link #reset()} 清回缺省。</p>
+     */
+    private static SimulationConfig.FrequencyPolicy frequencyPolicy = SimulationConfig.FrequencyPolicy.DEFAULT;
+
+    /**
      * R5 动态到达：每个工作流输入的提交时刻（模拟秒），与输入路径一一对应。
      *
      * <p>{@code null} 或全零表示全部输入在 t=0 提交（历史行为）。</p>
@@ -464,6 +473,23 @@ public class Parameters {
         costModel = model;
     }
 
+    /**
+     * BAT-D2（2026-10-29）：设置会话内生效的 DVFS 频档指派策略（随 reset() 清回缺省）。
+     *
+     * @param policy 策略枚举，不能为 {@code null}
+     */
+    public static void setFrequencyPolicy(SimulationConfig.FrequencyPolicy policy) {
+        if (policy == null) {
+            throw new IllegalArgumentException("Frequency policy cannot be null");
+        }
+        frequencyPolicy = policy;
+    }
+
+    /** BAT-D2：@return 会话内生效的 DVFS 频档指派策略；缺省 {@code DEFAULT}（v1 退化） */
+    public static SimulationConfig.FrequencyPolicy getFrequencyPolicy() {
+        return frequencyPolicy;
+    }
+
     /** @return 当前运行时间缩放系数 */
     public static double getRuntimeScale() {
         return runtime_scale;
@@ -529,6 +555,7 @@ public class Parameters {
         runtimeReferenceMips = 1000.0;
         randomSeed = 0L;
         costModel = CostModel.DATACENTER;
+        frequencyPolicy = SimulationConfig.FrequencyPolicy.DEFAULT;
         workflowArrivalSeconds = null;
         SimulationRandom.reset(randomSeed);
     }

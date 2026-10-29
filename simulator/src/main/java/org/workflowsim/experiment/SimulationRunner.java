@@ -53,6 +53,8 @@ public final class SimulationRunner {
             throw new SimulationConfigurationException(
                     "Bounded sourceStorage must be present exactly for the storage V3 dataflow model");
         }
+        // BAT-D2（2026-10-29）：DVFS 频档维度前提（docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2）。
+        validateFrequencyDimension(config, platform);
         // Fat-tree 链路争用模型：在会话外装配拓扑并校验模型与拓扑声明的双向契约
         // （配置异常在此直接以 SimulationConfigurationException 抛出，不被执行期
         // 包装；拓扑构造是纯配置计算，不触碰 CloudSim 状态）。
@@ -366,5 +368,37 @@ public final class SimulationRunner {
             }
         }
         return false;
+    }
+
+    /**
+     * BAT-D2（2026-10-29）：DVFS 频档维度的运行级前提。
+     *
+     * <p>（1）非 DEFAULT 策略要求平台至少有一台 VM 声明频档表——在全无档平台上，
+     * MIN_POWER/EDP_HEURISTIC 会被静默忽略，产生"以为在研究 DVFS 实际在跑 v1"的
+     * 误导性结果；（2）任务×VM 成本矩阵与频档表互斥：STATIC 派发路径在数据中心提交
+     * 时以矩阵折算的 MI 为真源重构 Job 长度（{@code projectComputeExecutionLength}），
+     * 会覆盖派发时的频档缩放长度、静默丢弃变频减速（与 R8 审计 P1-1 矩阵×规划器
+     * 分叉同族）。两处都显式拒绝。</p>
+     */
+    private static void validateFrequencyDimension(SimulationConfig config, PlatformProfile platform) {
+        boolean anyTieredVm = false;
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.hasFrequencyTiers()) {
+                anyTieredVm = true;
+                break;
+            }
+        }
+        if (config.getFrequencyPolicy() != SimulationConfig.FrequencyPolicy.DEFAULT && !anyTieredVm) {
+            throw new SimulationConfigurationException(
+                    "FrequencyPolicy " + config.getFrequencyPolicy() + " requires at least one VM with "
+                            + "declared frequencyTiers; on an all-plain platform the policy would be "
+                            + "silently inert (BAT-D2)");
+        }
+        if (config.getTaskCostMatrix() != null && anyTieredVm) {
+            throw new SimulationConfigurationException("A task cost matrix cannot be combined with frequency"
+                    + " tiers: the STATIC dispatch path re-derives Job MI from matrix seconds at datacenter"
+                    + " submission (projectComputeExecutionLength) and would silently discard the "
+                    + "tier-scaled length (BAT-D2)");
+        }
     }
 }

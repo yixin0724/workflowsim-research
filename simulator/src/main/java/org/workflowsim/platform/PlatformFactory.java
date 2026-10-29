@@ -91,9 +91,10 @@ public final class PlatformFactory {
         }
         List<CondorVM> vms = new ArrayList<>();
         for (PlatformProfile.VmSpec spec : profile.getVms()) {
+            CondorVM vm;
             if (spec.hasCosts()) {
                 PlatformProfile.CostSpec costs = spec.getCosts();
-                vms.add(new CondorVM(
+                vm = new CondorVM(
                         spec.getId(),
                         userId,
                         spec.getMips(),
@@ -106,9 +107,9 @@ public final class PlatformFactory {
                         costs.getMemory(),
                         costs.getStorage(),
                         costs.getBandwidth(),
-                        createScheduler(spec)));
+                        createScheduler(spec));
             } else {
-                vms.add(new CondorVM(
+                vm = new CondorVM(
                         spec.getId(),
                         userId,
                         spec.getMips(),
@@ -117,8 +118,13 @@ public final class PlatformFactory {
                         spec.getBandwidth(),
                         spec.getImageSizeMb(),
                         spec.getVmm(),
-                        createScheduler(spec)));
+                        createScheduler(spec));
             }
+            // BAT-D2（2026-10-29）：频档表随装配注入 VM（空表保持 v1 模式）。
+            if (spec.hasFrequencyTiers()) {
+                vm.setFrequencyTiers(spec.getFrequencyTiers());
+            }
+            vms.add(vm);
         }
         return vms;
     }

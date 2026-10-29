@@ -20,6 +20,24 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
  */
 public final class SimulationConfig {
 
+    /**
+     * BAT-D2（2026-10-29）：配置级 DVFS 频档指派策略（docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2）。
+     *
+     * <p>{@code DEFAULT}（未配置时的缺省值，v1 退化）：每个计算 Job 运行在 VM 频档表的
+     * <b>首档</b>（平台声明序即默认档）——绝无频档的平台行为与 v1 逐位一致；
+     * {@code MIN_POWER}：每个计算 Job 运行在<b>末档</b>（最低频，节电上限/速度下限）；
+     * {@code EDP_HEURISTIC}：派发时刻对每个候选档贪心最小化 EDP（v1 逐 Job 独立估计，
+     * 全局最优 EDP 是 NP-hard 跨 Job 问题，留给注册 DVFS-aware 算轨）。</p>
+     */
+    public enum FrequencyPolicy {
+        /** 每个 Job 运行在频档表首档（=平台声明的默认档）。 */
+        DEFAULT,
+        /** 每个 Job 运行在频档表末档（最低 MIPS）。 */
+        MIN_POWER,
+        /** 每个 Job 派发时贪心选择 EDP 最小的档（v1 逐 Job 独立估计）。 */
+        EDP_HEURISTIC
+    }
+
     private final List<String> workflowPaths;
     private final List<Double> workflowArrivalSeconds;
     private final int vmCount;
@@ -42,6 +60,7 @@ public final class SimulationConfig {
     private final TaskCostMatrix taskCostMatrix;
     private final transient org.workflowsim.experiment.registry.SchedulingAlgorithmProvider
             registeredSchedulingAlgorithmProvider;
+    private final FrequencyPolicy frequencyPolicy;
 
     private SimulationConfig(Builder builder) {
         this.workflowPaths = Collections.unmodifiableList(new ArrayList<>(builder.workflowPaths));
@@ -65,6 +84,7 @@ public final class SimulationConfig {
         this.dataflowAssignmentConfig = builder.dataflowAssignmentConfig;
         this.taskCostMatrix = builder.taskCostMatrix;
         this.registeredSchedulingAlgorithmProvider = builder.registeredSchedulingAlgorithmProvider;
+        this.frequencyPolicy = builder.frequencyPolicy;
     }
 
     /**
@@ -190,6 +210,14 @@ public final class SimulationConfig {
     }
 
     /**
+     * BAT-D2（2026-10-29）：@return 本次运行的 DVFS 频档指派策略；缺省 {@code DEFAULT}
+     * （无频档平台上的 v1 兼容运行绝不静默改变行为）
+     */
+    public FrequencyPolicy getFrequencyPolicy() {
+        return frequencyPolicy;
+    }
+
+    /**
      * 返回以当前全部配置值初始化的构建器。
      *
      * <p>实验活动可据此显式修改每个重复的种子，而不依赖可变的全局
@@ -216,7 +244,8 @@ public final class SimulationConfig {
                 .dataMovementModel(dataMovementModel)
                 .networkEvidence(networkEvidenceConfig)
                 .dataflowAssignment(dataflowAssignmentConfig)
-                .taskCostMatrix(taskCostMatrix);
+                .taskCostMatrix(taskCostMatrix)
+                .frequencyPolicy(frequencyPolicy);
     }
 
     /**
@@ -275,6 +304,9 @@ public final class SimulationConfig {
 
         private TaskCostMatrix taskCostMatrix;
 
+        /** BAT-D2（2026-10-29）：DVFS 频档指派策略；缺省 DEFAULT（v1 退化档）。 */
+        private FrequencyPolicy frequencyPolicy = FrequencyPolicy.DEFAULT;
+
         private Builder(List<String> workflowPaths, int vmCount) {
             if (workflowPaths == null || workflowPaths.isEmpty()) {
                 throw new IllegalArgumentException("At least one workflow input is required");
@@ -302,6 +334,22 @@ public final class SimulationConfig {
         /** @param value 开销模型 @return 当前构建器 */
         public Builder overheadModel(OverheadModelConfig value) {
             this.overheadModel = value;
+            return this;
+        }
+
+        /**
+         * BAT-D2（2026-10-29）：设置 DVFS 频档指派策略。
+         *
+         * @param value 策略枚举，不能为 {@code null}（不设置即为缺省 {@code DEFAULT}）
+         * @return 当前构建器
+         * @throws IllegalArgumentException 当 {@code value} 为 {@code null} 时抛出
+         */
+        public Builder frequencyPolicy(FrequencyPolicy value) {
+            if (value == null) {
+                throw new IllegalArgumentException(
+                        "Frequency policy cannot be null; leave it unset for the DEFAULT default");
+            }
+            this.frequencyPolicy = value;
             return this;
         }
 

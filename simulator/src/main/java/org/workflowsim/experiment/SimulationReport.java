@@ -101,7 +101,8 @@ public final class SimulationReport {
                 computeRequests == null ? null : Collections.unmodifiableList(new ArrayList<>(computeRequests));
         this.metrics = SimulationMetrics.calculate(
                 makespan, this.jobs, this.vmSummaries, this.events, this.tasks, sourceTasks, config, platform);
-        this.energyAccounting = EnergyAccounting.fromFrozenMetrics(makespan, this.metrics.getVmMetrics(), platform);
+        this.energyAccounting = EnergyAccounting.fromFrozenMetrics(
+                makespan, this.metrics.getVmMetrics(), this.metrics.getPerTierBusySecondsByVm(), platform);
         // BAT-C1（2026-10-28）：两种碳模型互斥；未声明→null（合法缺省，非全零）。
         if (platform.getVms() != null && anyCarbonIntensity(platform)) {
             if (platform.getCarbonWindows() != null
@@ -662,6 +663,19 @@ public final class SimulationReport {
         private final double modeledProcessingCost;
         private final int taskCount;
         private final List<Integer> taskIds;
+        /**
+         * BAT-D2（2026-10-29）：派发时刻指派的 DVFS 频档 MIPS。
+         *
+         * <p>{@code null} = v1 无频档模式（兼容运行与结果清单中的合法缺省）；
+         * 非 null = 本 Job 的 [startTime, finishTime) 区间按该档速度执行的频档身份
+         * （档唯一性可由 MIPS 值对平台 frequencyTiers 匹配复原——档按 MIPS 唯一）。
+         * 字段声明在末位：序列化键序对既有 manifest 逐位稳定，新键只追加。
+         * <b>transient：</b>manifest 外层 Gson 配置 {@code serializeNulls()}，非
+         * transient 的 null 档会在每个 v1 legacy Job 上多出 {@code "tierMips":null}
+         * 键——证据面要求 null=缺键（v1 legacy），该键只由
+         * {@code ExperimentManifestWriter} 在值非 null 时显式追加。</p>
+         */
+        private final transient Double tierMips;
 
         JobOutcome(
                 int jobId,
@@ -705,6 +719,38 @@ public final class SimulationReport {
                 double modeledDeclaredFileBytes,
                 int taskCount,
                 List<Integer> taskIds) {
+            this(
+                    jobId,
+                    vmId,
+                    status,
+                    classType,
+                    submissionTime,
+                    startTime,
+                    finishTime,
+                    cpuTime,
+                    modeledCpuEnvelopeCost,
+                    modeledDeclaredFileBandwidthCost,
+                    modeledDeclaredFileBytes,
+                    taskCount,
+                    taskIds,
+                    null);
+        }
+
+        JobOutcome(
+                int jobId,
+                int vmId,
+                int status,
+                int classType,
+                double submissionTime,
+                double startTime,
+                double finishTime,
+                double cpuTime,
+                double modeledCpuEnvelopeCost,
+                double modeledDeclaredFileBandwidthCost,
+                double modeledDeclaredFileBytes,
+                int taskCount,
+                List<Integer> taskIds,
+                Double tierMips) {
             this.jobId = jobId;
             this.vmId = vmId;
             this.status = status;
@@ -723,6 +769,12 @@ public final class SimulationReport {
             this.modeledProcessingCost = modeledCpuEnvelopeCost + modeledDeclaredFileBandwidthCost;
             this.taskCount = taskCount;
             this.taskIds = Collections.unmodifiableList(new ArrayList<>(taskIds));
+            // BAT-D2：非正值档不是合法缺省——证据链拒绝而不是静默置 null（无档=null）。
+            if (tierMips != null
+                    && !(tierMips.doubleValue() > 0.0 && tierMips.isInfinite() == false && tierMips.isNaN() == false)) {
+                throw new IllegalArgumentException("Invalid tier mips on Job " + jobId + ": " + tierMips);
+            }
+            this.tierMips = tierMips;
         }
 
         private static JobOutcome fromJob(Job job) {
@@ -743,7 +795,8 @@ public final class SimulationReport {
                     job.getModeledDeclaredFileBandwidthCost(),
                     job.getModeledDeclaredFileBytes(),
                     job.getTaskList().size(),
-                    taskIds);
+                    taskIds,
+                    job.getTierMips());
         }
 
         public int getJobId() {
@@ -839,6 +892,16 @@ public final class SimulationReport {
 
         public List<Integer> getTaskIds() {
             return taskIds;
+        }
+
+        /**
+         * BAT-D2（2026-10-29）：返回派发时刻指派的 DVFS 频档 MIPS。
+         *
+         * @return 指派档的 MIPS；{@code null} = v1 无频档模式（结果清单中的合法缺省，
+         *         序列化为缺键而非显式 null）
+         */
+        public Double getTierMips() {
+            return tierMips;
         }
     }
 

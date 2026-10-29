@@ -616,12 +616,48 @@ public final class ExperimentManifestWriter {
         values.put("successfulJobs", report.getSuccessfulJobs());
         values.put("failedJobs", report.getFailedJobs());
         values.put("vmSummaries", report.getVmSummaries().values());
-        values.put("jobs", report.getJobs());
+        values.put("jobs", jobOutcomeSerializationView(report));
         values.put("tasks", report.getTasks());
         values.put("actualVmHostAssignments", report.getActualVmHostAssignments());
         values.put("workflowOutcomes", report.getWorkflowOutcomes());
         values.put("sharedStorageDagPlanTrace", report.getSharedStorageDagPlanTrace());
         return values;
+    }
+
+    /**
+     * BAT-D2（2026-10-29）：JobOutcome 的结果清单序列化视图。
+     *
+     * <p>v1 路径（没有任何 Job 携带频档）原样返回对象列表，manifest 字节级不变；
+     * 一旦任一 Job 携带非 null 的 {@code tierMips}（D2 起平台声明了频档表），改走
+     * Gson 树视图：基础字段由反射生成（字段名/序/值与 v1 路径同源），"tierMips"
+     * 键<b>仅在非 null 时追加</b>——null/缺键 = v1 legacy 的合法缺省（证据合同），
+     * 任务×D2 台账的档身份以 MIPS 值对平台 frequencyTiers 匹配复原。</p>
+     *
+     * @param report 已完成仿真的不可变报告
+     * @return v1 惰性路径的 JobOutcome 列表，或逐 Job 的 JSON 树视图列表
+     */
+    private static Object jobOutcomeSerializationView(SimulationReport report) {
+        boolean anyTierAssignment = false;
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            if (job.getTierMips() != null) {
+                anyTierAssignment = true;
+                break;
+            }
+        }
+        if (!anyTierAssignment) {
+            return report.getJobs();
+        }
+        // 反射默认 Gson（不序列化 null）——transient tierMips 由本视图显式追加。
+        com.google.gson.Gson reflection = new com.google.gson.Gson();
+        List<Object> view = new ArrayList<Object>();
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            com.google.gson.JsonObject item = reflection.toJsonTree(job).getAsJsonObject();
+            if (job.getTierMips() != null) {
+                item.addProperty("tierMips", job.getTierMips());
+            }
+            view.add(item);
+        }
+        return view;
     }
 
     private static Map<String, Object> eventSummary(SimulationReport report) {

@@ -32,6 +32,7 @@ import org.cloudbus.cloudsim.lists.VmList;
 import org.workflowsim.exception.SimulationConfigurationException;
 import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
+import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.scheduling.BaseSchedulingAlgorithm;
 import org.workflowsim.scheduling.DataAwareSchedulingAlgorithm;
 import org.workflowsim.scheduling.FCFSSchedulingAlgorithm;
@@ -48,6 +49,7 @@ import org.workflowsim.scheduling.StaticSchedulePlan;
 import org.workflowsim.scheduling.StaticSchedulingAlgorithm;
 import org.workflowsim.utils.Parameters;
 import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
+import org.workflowsim.utils.SimulationConfig;
 
 /**
  * 代表一个工作流用户执行运行时调度的 CloudSim Broker。
@@ -459,6 +461,11 @@ public class WorkflowScheduler extends DatacenterBroker {
                             Parameters.getSchedulingAlgorithm().name(),
                             "queueDelaySeconds",
                             delay));
+            // BAT-D2（2026-10-29）：调度算法已敲定 VM 指派 → 本中心化派发点统一做
+            // 频档决策（所有 online/STATIC/注册算轨路径的 setVmId 都汇入本方法）。
+            // 置于事件记录之后：events v1 schema 不携带频档字段（F-006 领域裁决），
+            // 频档证据链走 JobOutcome.tierMips。
+            assignFrequencyTier(job);
             schedule(getVmsToDatacentersMap().get(vmId), delay, CloudSimTags.CLOUDLET_SUBMIT, cloudlet);
             eventRecorder.record(
                     SimulationEventType.JOB_DISPATCHED,
@@ -466,6 +473,114 @@ public class WorkflowScheduler extends DatacenterBroker {
                     job,
                     SimulationEventRecorder.attributes("queueDelaySeconds", delay));
         }
+    }
+
+    /**
+     * BAT-D2（2026-10-29）：为刚获得 VM 指派的计算 Job 决定唯一频档并缩放作业长度。
+     *
+     * <p>语义契约（docs/advanced/DVFS_DIMENSION_DESIGN.md §1.4/§2.2）：assignment at
+     * admission——每个计算 Job 在派发到 VM 的时刻获得恰好一个频档，全 Job 时长固定
+     * 不做中途变频，保持 one-rectangle-per-Job 的可审计结构。仿真级语义的"低档变慢"
+     * 由缩放作业 MI 表达：执行时长 = work/档速，在 CloudSim 按声明 MIPS 执行的机器上
+     * 等价于把长度乘 {@code vm.mips / tier.mips}（数据中心提交前的
+     * {@code projectComputeExecutionLength} 以 effectiveExecutionLengthMi 为真源重构
+     * Job 长度，故此处同时写入 effective 值与 Cloudlet 长度）。stage-in 注入的
+     * 传输 MI 发生在其后，按 VM 声明速执行（网络传输不随 CPU 频档伸缩）。</p>
+     *
+     * <p>非计算 Job（stage-in 平台准备）与无频档 VM（v1 平台或混合平台的无档 VM）
+     * 不获得频档：tierMips 保持 null，长度不变——v1 运行逐位不变。</p>
+     *
+     * @param job 刚被调度算法指派 VM 的计算 Job
+     */
+    private void assignFrequencyTier(Job job) {
+        if (job.getClassType() != Parameters.ClassType.COMPUTE.value) {
+            // 非计算 Job（stage-in/stage-out/cleanup 平台簿记）不占用计算频档。
+            return;
+        }
+        CondorVM vm = findCreatedVm(job.getVmId());
+        if (!vm.hasFrequencyTiers()) {
+            return;
+        }
+        List<PlatformProfile.FrequencyTier> tiers = vm.getFrequencyTiers();
+        PlatformProfile.FrequencyTier selected = selectFrequencyTier(job, tiers);
+        long scaledWork = scaledTierWorkMi(job, vm, selected);
+        // 证据链：Job 在报告捕获时把该值冻结进 JobOutcome.tierMips。
+        job.setTierMips(selected.getMips());
+        job.setEffectiveExecutionLengthMi(scaledWork);
+        job.setCloudletLength(scaledWork);
+    }
+
+    /** BAT-D2：按会话频档策略选择 VM 频档表中的唯一档（表序=降序、首档=默认档）。 */
+    private PlatformProfile.FrequencyTier selectFrequencyTier(Job job, List<PlatformProfile.FrequencyTier> tiers) {
+        SimulationConfig.FrequencyPolicy policy = Parameters.getFrequencyPolicy();
+        switch (policy) {
+            case MIN_POWER:
+                // 节电上限：每个 Job 都在最低频档（表末档）执行。
+                return tiers.get(tiers.size() - 1);
+            case EDP_HEURISTIC:
+                return selectMinEdpTier(job, tiers);
+            case DEFAULT:
+                // 缺省（含未配置）：首档=平台声明的默认档（绝不静默"挑最快"——
+                // 默认档身份来自表序声明，而非隐式 max()）。
+                return tiers.get(0);
+            default:
+                throw new IllegalStateException("Unknown frequency policy " + policy);
+        }
+    }
+
+    /**
+     * BAT-D2：v1 诚实贪心 EDP——派发时刻逐档估值，取 EDP 最小的档。
+     *
+     * <p>每个候选档 t 估计（只用派发可观测状态，无千里眼）：
+     * {@code T_t = work/档速}；
+     * makespan 估计取贪心关键路径下界 {@code clock + T_t}（本 Job 至少把日程推到自身
+     * 完成，任何更小的估计都在否认本 Job 自己的运行区间）。按任务契约：
+     * {@code EDP_t = (P_max(t)·T_t + P_idle(default)·makespan_est) × T_t}。全局最优 EDP
+     * 是 NP-hard 跨 Job 问题（设计 §3 诚实弃项），v2 目标是每 Job 独立贪心；并列时
+     * 严格 {@code <} 保表序首位（确定性 tie-break，AGENTS #9）。</p>
+     *
+     * @param job 待派发的计算 Job（提供声明的每 PE 计算 MI）
+     * @param tiers 候选频档表（降序）
+     * @return EDP 估计最小的档
+     */
+    private PlatformProfile.FrequencyTier selectMinEdpTier(Job job, List<PlatformProfile.FrequencyTier> tiers) {
+        long workMi = job.getEffectiveExecutionLengthMi();
+        double clock = CloudSim.clock();
+        PlatformProfile.FrequencyTier defaultTier = tiers.get(0);
+        PlatformProfile.FrequencyTier best = null;
+        double bestEdp = Double.NaN;
+        for (PlatformProfile.FrequencyTier tier : tiers) {
+            double estimatedSeconds = workMi / tier.getMips();
+            double makespanEstimate = clock + estimatedSeconds;
+            double energyEstimate =
+                    tier.getMaxPowerWatts() * estimatedSeconds + defaultTier.getIdlePowerWatts() * makespanEstimate;
+            double edp = energyEstimate * estimatedSeconds;
+            if (best == null || edp < bestEdp) {
+                best = tier;
+                bestEdp = edp;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * BAT-D2：把声明的每 PE 计算 MI 按档速折算为 CloudSim 长度。
+     *
+     * <p>{@code scaled = round(work × vm.mips / tier.mips)}：CloudSim 以声明 MIPS 执行
+     * 该长度所得时长恰为 {@code work / tier.mips}（work/档速）。工作不变——Job 的工作
+     * 语义量（MI）只随档速换算计时基准，声明任务长度（TaskOutcome.lengthMi）不变。
+     * 溢出/塌缩到不可表示值显式失败，不静默截断。</p>
+     */
+    private long scaledTierWorkMi(Job job, CondorVM vm, PlatformProfile.FrequencyTier tier) {
+        long declaredWorkMi = job.getEffectiveExecutionLengthMi();
+        double factor = vm.getMips() / tier.getMips();
+        double scaled = declaredWorkMi * factor;
+        if (!Double.isFinite(scaled) || scaled >= (double) Long.MAX_VALUE) {
+            throw new IllegalStateException("Frequency tier " + tier.getMips() + " scaling overflows Job "
+                    + job.getCloudletId() + " work of " + declaredWorkMi + " MI");
+        }
+        return org.workflowsim.utils.TaskExecutionModel.requireRepresentableLength(
+                Math.round(scaled), job.getNumberOfPes());
     }
 
     /**

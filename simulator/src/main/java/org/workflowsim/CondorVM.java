@@ -15,6 +15,8 @@
  */
 package org.workflowsim;
 
+import java.util.List;
+
 import org.cloudbus.cloudsim.CloudletScheduler;
 import org.cloudbus.cloudsim.Vm;
 
@@ -35,6 +37,41 @@ public class CondorVM extends Vm {
      * BUSY 标签。
      */
     private int state;
+
+    /*
+     * BAT-D2（2026-10-29）：本 VM 的 DVFS 频档表（P-state 表）。
+     *
+     * <p>与 {@link org.workflowsim.platform.PlatformProfile.VmSpec#getFrequencyTiers()}
+     * 同构：空表 = v1 单档模式（无 DVFS 语义）；非空表按 MIPS 降序、首档=默认档。
+     * 由 {@link org.workflowsim.platform.PlatformFactory} 在 VM 装配时一次性注入，
+     * 运行期只读——把频档表放在 VM 上是因为 P-state 表是硬件属性，派发路径
+     * （WorkflowScheduler）无需回查平台剖面即可做频档决策。</p>
+     */
+    private List<org.workflowsim.platform.PlatformProfile.FrequencyTier> frequencyTiers =
+            java.util.Collections.emptyList();
+
+    /**
+     * BAT-D2：安装本 VM 的 DVFS 频档表（装配期一次性调用；运行期只读）。
+     *
+     * @param tiers 平台声明序频档表；null 或空表保持 v1 模式
+     */
+    public void setFrequencyTiers(final List<org.workflowsim.platform.PlatformProfile.FrequencyTier> tiers) {
+        this.frequencyTiers = tiers == null || tiers.isEmpty()
+                ? java.util.Collections.emptyList()
+                : java.util.Collections.unmodifiableList(new java.util.ArrayList<>(tiers));
+    }
+
+    /**
+     * BAT-D2：@return 本 VM 的 DVFS 频档表（不可变；空 = v1 单档模式）
+     */
+    public List<org.workflowsim.platform.PlatformProfile.FrequencyTier> getFrequencyTiers() {
+        return this.frequencyTiers;
+    }
+
+    /** BAT-D2：@return 本 VM 是否声明了 DVFS 频档表 */
+    public boolean hasFrequencyTiers() {
+        return this.frequencyTiers != null && !this.frequencyTiers.isEmpty();
+    }
 
     /** 内存资源单价。 */
     private double costPerMem = 0.0;

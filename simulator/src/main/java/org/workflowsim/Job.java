@@ -36,6 +36,16 @@ public class Job extends Task {
     private List<Task> taskList;
 
     /**
+     * BAT-D2（2026-10-29）：本 Job 被派发时由调度器确定的 DVFS 频档 MIPS。
+     *
+     * <p>不可变的"派发时刻指派"：null = v1 无频档模式（平台未声明频档，或本 Job 不是
+     * 计算 Job）；非 null = 该 Job 的 [startTime, finishTime) 区间按此档速度执行。
+     * 由 {@code WorkflowScheduler} 在 VM 指派后写入，经 {@code JobOutcome.fromJob}
+     * 进入证据链；运行前由报告捕获冻结。</p>
+     */
+    private Double tierMips;
+
+    /**
      * 创建一个聚类作业。
      *
      * @param jobId 作业唯一编号
@@ -50,6 +60,28 @@ public class Job extends Task {
     /** @return 组成该作业的原始任务列表 */
     public List<Task> getTaskList() {
         return this.taskList;
+    }
+
+    /**
+     * BAT-D2：返回本 Job 派发时指派的频档 MIPS。
+     *
+     * @return 指派档的 MIPS；null = v1 无频档模式（v1 兼容与 stage-in Job）
+     */
+    public Double getTierMips() {
+        return this.tierMips;
+    }
+
+    /**
+     * BAT-D2：记录派发时刻的频档指派（每 Job 恰一次；调度器派发路径专用）。
+     *
+     * @param tierMips 指派档的 MIPS；必须为正有限值
+     * @throws IllegalArgumentException 当值非正或非有限时抛出
+     */
+    public void setTierMips(final Double tierMips) {
+        if (tierMips == null || !(tierMips.doubleValue() > 0.0) || tierMips.isNaN() || tierMips.isInfinite()) {
+            throw new IllegalArgumentException("Frequency tier mips must be positive and finite: " + tierMips);
+        }
+        this.tierMips = tierMips;
     }
 
     /**
