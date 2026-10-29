@@ -221,10 +221,24 @@ Honest boundaries recorded with the batch:
   see the as-built note in §2.6; the budget half remains a forward contract.)
 - **Tiered manifests are not yet rerunnable**: `ManifestConfigRebuilder`
   rebuilds neither `frequencyTiers` nor `frequencyPolicy`, so rerunning a
-  tiered manifest degrades to a v1 platform today. The rerun diff then goes
-  red (platform/energy leaf differences are not whitelisted), so the failure
-  is loud; the proper rebuild belongs to a later batch and should fail fast
-  until then.
+  tiered manifest degrades to a v1 platform today; the proper rebuild
+  belongs to a later batch and should fail fast until then. The failure
+  form is loud on both shapes (adversarial V4 round, 2026-10-29, as-built):
+  a tiered bundle *without* carbon degrades to an unpowered v1 replay whose
+  diff goes red on the evidence face (`/platform/vms/N/frequencyTiers`,
+  per-job `tierMips`, and `/energyMetrics` are not whitelisted);
+  a *tri-dimensional* bundle (the frozen `benchmark-standard-dvfs-v1` shape,
+  whose per-VM carbon intensities survive the rebuild) cannot even start —
+  the run-phase half-declaration law rejects the rebuilt platform, and
+  `RerunDiffExecutor` maps that rejection to `RECONSTRUCTION_REJECTED`
+  (report files written, exit 4) instead of crashing out as a usage-class
+  exit with no report (BAT-V4.1 fix; contract text in
+  `docs/experiments/RERUN_DIFF_CONTRACT.md`). v1 tierless evidence keeps
+  the `IDENTICAL_CORE` identity: the manifest now emits the
+  `configuration.frequencyPolicy` key only when the policy is live (tiered
+  platform or non-DEFAULT declaration), restoring the pre-D4 key-absent
+  shape for tierless runs whose unconditional emission had fabricated a
+  core divergence against every frozen v1 bundle (BAT-V4.2 fix).
 
 ### 2.5 Workbench JSON surface
 

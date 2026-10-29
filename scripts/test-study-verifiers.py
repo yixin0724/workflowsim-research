@@ -1008,6 +1008,53 @@ class DvfsTierAuditTests(unittest.TestCase):
         self.assertFalse([n for n in report["notes"] if n["code"] == "dvfs-tier-accounting-observation"],
                          str(report["notes"]))
 
+    # ── BAT-V1/V3（2026-10-29 测试工程师对抗轮 / DVFS 第五轮）── manifest 面补充锚 ──
+
+    def test_declared_but_empty_tier_list_is_killed(self):
+        """BAT-V1 manifest 面：frequencyTiers 声明为空表 → BAT-D3 条款击杀
+        （declared-but-empty；镜像 workbench JSON 面的"非空数组"拒绝——
+        编程面 null/List 空表是 D1 的 v1 退化，manifest 发射器从不产出空表）。"""
+        bundle, doc = self.make_tier_manifest("dvfs-empty-tiers")
+        self.store_energy(doc, 254.0)
+        doc["platform"]["vms"][0]["frequencyTiers"] = []
+        bundle.write_text(json.dumps(doc), encoding="utf-8")
+        report = self.audit_status(bundle, "tier-empty")
+        self.assertEqual("FAIL", report["status"])
+        self.assertTrue(any("non-empty" in str(i) for i in report["issues"]),
+                        "empty declared tier table must be rejected citing the clause: "
+                        + json.dumps(report["issues"][:2]))
+
+    def test_platform_default_tier_idle_corruption_is_killed(self):
+        """BAT-V3(c)（真实冻结 bundle 上的探针数字同步到合成回归锚）：平台首档（默认档）
+        idlePowerWatts 100→110（10W 静息虚增）→ 守恒律的怠速系数被篡改 → 复算能量
+        全族失配 → 击杀。手推：E = 110×1.21 + (400−110)×0.11 + (200−110)×1.0
+        = 133.1+31.9+90 = 255 J ≠ 存档 254 J。"""
+        bundle, doc = self.make_tier_manifest("dvfs-idle-corrupt")
+        self.store_energy(doc, 254.0)
+        doc["platform"]["vms"][0]["frequencyTiers"][0]["idlePowerWatts"] = 110.0
+        bundle.write_text(json.dumps(doc), encoding="utf-8")
+        report = self.audit_status(bundle, "tier-idle-corrupt")
+        self.assertEqual("FAIL", report["status"])
+        self.assertTrue(any("totalEnergyJoules" in str(i.get("location", "")) for i in report["issues"]),
+                        "corrupted default-tier idle must break the conserved energy: "
+                        + json.dumps(report["issues"][:2]))
+
+    def test_law_inert_nondefault_tier_corruption_is_honest_observation(self):
+        """BAT-V3 诚实边界（守卫缝披露，非修复）：改一个<b>无忙秒归因</b>的非默认档
+        idlePowerWatts（域内合法：≤max）→ 逐档守恒律只消费默认档 idle 与各被归因档
+        max；无第二事实源可比对 → 审计行为不变。这是单源证据的固有边界：束内任何
+        常量都与平台节自洽（冻结 tar 的 manifest 哈希才是存档级防篡改面）；锁本行为
+        防未来回归误报（把"协调自洽"误当伪造）。"""
+        bundle, doc = self.make_tier_manifest("dvfs-inert-corrupt")
+        self.store_energy(doc, 254.0)
+        # 1000 档（有归因 1.0s）不动；2000 档是默认档——两档都律内。本 fixture 只有
+        # 两档，故把非默认+有归因档改 max 才会击杀；为构造"无归因+非默认"需要第三档：
+        doc["platform"]["vms"][0]["frequencyTiers"] = [dict(t) for t in self.THREE_TIERS]
+        doc["platform"]["vms"][0]["frequencyTiers"][2]["idlePowerWatts"] = 85.5  # 500 档：无归因
+        bundle.write_text(json.dumps(doc), encoding="utf-8")
+        report = self.audit_status(bundle, "tier-inert-corrupt")
+        self.assertEqual("PASS", report["status"], json.dumps(report["issues"][:3]))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

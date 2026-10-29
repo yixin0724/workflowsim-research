@@ -123,6 +123,26 @@ public final class RerunDiffExecutor {
                     RerunVerdict.RECONSTRUCTION_REJECTED,
                     "模拟执行阶段被当前代码拒绝复现（历史证据与当前语义不兼容）: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
                     Collections.<String>emptyList());
+        } catch (IllegalArgumentException
+                | IllegalStateException
+                | org.workflowsim.exception.SimulationConfigurationException e) {
+            // BAT-V4.1（2026-10-29 测试工程师对抗轮 / DVFS 第五轮，红→绿）：执行阶段的
+            // 运行期法拒绝必须留在 verdict 契约内，不得冒泡为 usage 类（exit 64、两份报告
+            // 一页不写——那是契约 §"Classified simulation-execution exceptions … map to
+            // RECONSTRUCTION_REJECTED"要消灭的崩溃类失败）。现实命中路径：tiered+carbon
+            // 三维证据在重建时被 ManifestConfigRebuilder 剥离频档（D5 前向契约），重建出
+            // 的"无功率+碳强度"半声明平台在 SimulationReport 构造期被 BAT-C1 半声明律以
+            // IllegalArgumentException 拒绝——语义上这就是"历史证据与当前代码不兼容"的
+            // 合法暴露（DVFS_DIMENSION_DESIGN.md §2.4 的记录失败路径），应当落
+            // RECONSTRUCTION_REJECTED + 报告照写（exit 4），而不是崩溃。重建阶段的同类
+            // 异常已由 ManifestConfigRebuilder 包成 RerunFailureException（上一 catch）；
+            // 未包装抵达本处的此类异常只可能来自模拟执行/写盘阶段。
+            report = failureReport(
+                    builder,
+                    evidence,
+                    RerunVerdict.RECONSTRUCTION_REJECTED,
+                    "模拟执行阶段被当前代码拒绝复现（历史证据与当前语义不兼容）: " + e.getClass().getSimpleName() + ": " + e.getMessage(),
+                    Collections.<String>emptyList());
         }
         writeReports(absoluteOutput, report);
         return report;

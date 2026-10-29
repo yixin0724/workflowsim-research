@@ -216,12 +216,37 @@ public final class ExperimentManifestWriter {
     private static Map<String, Object> configuration(SimulationReport report) {
         SimulationConfig config = report.getConfig();
         Map<String, Object> values = configuration(config);
+        // BAT-V4.2（2026-10-29 测试工程师对抗轮 / DVFS 第五轮，红→绿）：v1 无档运行的
+        // 配置节不得携带 frequencyPolicy 键。D4 起该键无条件发射（含 tierless+DEFAULT
+        // 的惰性值）——每一份 D4 前冻结的 v1 证据（power-v1/carbon-v1/standard-v1
+        // 基准的全部 bundle）在 EvidenceCoreDiffer 复跑时都会新增假核心分歧
+        // /configuration/frequencyPolicy &lt;missing&gt; vs "DEFAULT"，整批历史证据从
+        // IDENTICAL_CORE 退化为 DIVERGED（本轮对三套冻结基准的实证）。发射规则对齐
+        // tierMips/frequencyTiers/carbonWindows 的"声明→出现、缺省→键缺省"文化：
+        // 仅当策略行为活性（配置声明非 DEFAULT，或平台声明频档——tiered 平台上
+        // 策略是复跑语义的一部分，D5 三维基准的 DEFAULT 单元仍显式记录）才写。
+        if (!values.containsKey("frequencyPolicy") && anyFrequencyTiers(report.getPlatform())) {
+            values.put("frequencyPolicy", config.getFrequencyPolicy().name());
+        }
         List<String> resolvedInputPaths = new ArrayList<String>();
         for (org.workflowsim.experiment.SimulationReport.InputArtifact input : report.getInputs()) {
             resolvedInputPaths.add(input.getPath());
         }
         values.put("workflowPaths", resolvedInputPaths);
         return values;
+    }
+
+    /** BAT-V4.2：@return 平台剖面中是否存在任何声明了频档表的 VM（配置节发射谓词）。 */
+    private static boolean anyFrequencyTiers(PlatformProfile platform) {
+        if (platform == null || platform.getVms() == null) {
+            return false;
+        }
+        for (PlatformProfile.VmSpec spec : platform.getVms()) {
+            if (spec.hasFrequencyTiers()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static Map<String, Object> configurationSnapshot(SimulationConfig config) {
@@ -274,10 +299,15 @@ public final class ExperimentManifestWriter {
                         : config.getRegisteredSchedulingAlgorithmProvider().label());
         // BAT-D5（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2/D5 复现面）：配置级
         // 频档策略入 manifest 配置节（跟随 registeredSchedulingAlgorithm 模式）——策略是
-        // 复跑语义的一部分：v1 能量前 manifest 无该键（历史缺省即 DEFAULT）；档表与策略
-        // 的平台重建（ManifestConfigRebuilder 频档前向契约）仍属后续批次，tiered manifest
-        // 复跑按记录的红差异失败（文档化失效路径，不静默）。
-        values.put("frequencyPolicy", config.getFrequencyPolicy().name());
+        // 复跑语义的一部分。BAT-V4.2（2026-10-29 对抗轮修正）：发射规则收紧为"行为活性
+        // 才写"——非 DEFAULT 必写（任何平台：这是运行语义的非缺省声明）；DEFAULT 仅在
+        // tiered 平台上写（configuration(report) 视野补写）。v1 无档 + 缺省策略 = 键缺省
+        // ——D4 前历史证据的逐位形状（tierMips/frequencyTiers/carbonWindows 同款
+        // "声明→出现"文化；档表与策略的 manifest→平台重建仍是 D5 文档化的前向契约，
+        // tiered manifest 复跑按记录的红差异失败，不静默）。
+        if (config.getFrequencyPolicy() != SimulationConfig.FrequencyPolicy.DEFAULT) {
+            values.put("frequencyPolicy", config.getFrequencyPolicy().name());
+        }
         values.put("planningAlgorithm", config.getPlanningAlgorithm().name());
         values.put("algorithmContract", AlgorithmCatalog.forConfiguration(config));
         values.put("reduceMethod", config.getReduceMethod());
