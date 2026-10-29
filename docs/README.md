@@ -26,6 +26,10 @@ and superseded audit drafts are not long-term entry points.
 - [Carbon dimension design](<advanced/CARBON_DIMENSION_DESIGN.md>): the two
   literature carbon accountings (intensity multiplier vs green-budget excess),
   the v1 architecture riding the audited energy chain, and the deliberate omissions.
+- [DVFS dimension design](<advanced/DVFS_DIMENSION_DESIGN.md>): the third axis of
+  the energy trilogy (measure → price → control) — per-tier frequency tables,
+  the admission-assignment PE contract, the extended conservation law, and the
+  three dispatch policies (DEFAULT / MIN_POWER / EDP_HEURISTIC).
 - [Fat-tree topology and shared model](<advanced/FAT_TREE_DESIGN.md>): structure, placement, deterministic routing, and capacity-allocation boundaries.
 
 ## Dataflow and evidence reference
