@@ -128,7 +128,11 @@ public final class AlgorithmRegistry {
             return planningAlgorithm;
         }
 
-        /** BAT-E3：@return 平台剖面是否声明了任何 VM 功率字段 */
+        /**
+         * BAT-E3：@return 平台剖面是否声明了任何 VM 功率面。BAT-D6（2026-10-29）口径：
+         * 平面功率字段（idle/max）或频档表任一声明即 true——与能量链的 BAT-D2
+         * powered 谓词同源（频档表替代平面字段，二者互斥、任一即出真实能量账本）。
+         */
         public boolean isPlatformPowerDeclared() {
             return platformPowerDeclared;
         }
@@ -226,11 +230,15 @@ public final class AlgorithmRegistry {
                     + "' declares data-movement kinds " + declaration.getAllowedDataMovementKinds()
                     + ", which do not cover the configured " + kind);
         }
-        // BAT-E3（2026-10-27）：声明 powerModelRequired 的算法在无功率平台剖面上被拒绝
+        // BAT-E3（2026-10-27）：声明 powerModelRequired 的算法在无功率平台剖面上被拒绝。
+        // BAT-D6（2026-10-29）：功率事实的判定口径与能量链一致（BAT-D2 powered 谓词：
+        // 平面功率字段 OR 频档表任一声明即 powered——频档表替代平面字段的单一真源
+        // 结构下，声明频档的剖面必然产出真实能量账本），拒绝消息同时引用两种声明面。
         if (declaration.isPowerModelRequired() && !input.isPlatformPowerDeclared()) {
             throw new IllegalArgumentException("Algorithm '" + label + "' declares powerModelRequired, "
-                    + "but the platform profile does not declare any VM power fields "
-                    + "(idlePowerWatts/maxPowerWatts on PlatformProfile.VmSpec)");
+                    + "but the platform profile declares neither per-VM power fields "
+                    + "(idlePowerWatts/maxPowerWatts on PlatformProfile.VmSpec) nor a frequencyTier "
+                    + "table (BAT-D2 powered predicate: either face counts as powered)");
         }
         // BAT-D4（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.6）：声明
         // frequencyTiersRequired 的算法在无频档平台剖面上被拒绝——无档可指派，注册即误导。

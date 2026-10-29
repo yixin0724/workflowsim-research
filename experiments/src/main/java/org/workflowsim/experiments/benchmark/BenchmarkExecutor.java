@@ -27,19 +27,24 @@ import org.workflowsim.utils.SimulationConfig;
 
 /**
  * The platform's first public frozen benchmark (2026-10-26), re-run under the energy
- * dimension as protocol {@code benchmark-standard-power-v1} (BAT-E4, 2026-10-27) and
- * under the carbon dimension as protocol {@code benchmark-standard-carbon-v1} (design
- * doc docs/advanced/CARBON_DIMENSION_DESIGN.md §5, job batch C4, 2026-10-28): the same
- * 160-cell matrix on the same frozen study conditions, with every VM additionally
- * carrying the homogeneous Intel-style power envelope (idle 250 W / max 400 W) of the
- * Beloglazov linear model and the uniform carbon intensity 380.0 gCO₂/kWh (intensity
- * model, CASPER family), plus one 10-cell budget-model demonstration family (CWM
- * family; two declared green-power windows). The two carbon models are mutually
- * exclusive per run, so no cell ever declares an intensity together with windows.
- * Every number is backed by a manifest-v4 bundle whose {@code energyMetrics} and
- * conditional {@code carbonMetrics} sections the repository's Python auditor recomputes
- * from the manifest's own power fields, per-VM busy intervals, and compute-job fleet
- * timeline.
+ * dimension as protocol {@code benchmark-standard-power-v1} (BAT-E4, 2026-10-27), under
+ * the carbon dimension as protocol {@code benchmark-standard-carbon-v1} (design doc
+ * docs/advanced/CARBON_DIMENSION_DESIGN.md §5, job batch C4, 2026-10-28), and under
+ * the DVFS dimension as protocol {@code benchmark-standard-dvfs-v1} (design doc
+ * docs/advanced/DVFS_DIMENSION_DESIGN.md §4, batches D5+D6, 2026-10-29 — the first
+ * tri-dimensional run: every cell's platform declares the frozen 5-tier P-state table
+ * AND the uniform 380.0 gCO₂/kWh intensity riding the per-tier conserved energy, with
+ * per-Job tier assignments in the evidence bundle). The first three protocols share
+ * the same 160-cell matrix on the same frozen study conditions, with every VM
+ * additionally carrying the homogeneous Intel-style power envelope (idle 250 W /
+ * max 400 W) of the Beloglazov linear model and the uniform carbon intensity 380.0
+ * gCO₂/kWh (intensity model, CASPER family), plus one 10-cell budget-model
+ * demonstration family (CWM family; two declared green-power windows). The two carbon
+ * models are mutually exclusive per run, so no cell ever declares an intensity
+ * together with windows. Every number is backed by a manifest-v4 bundle whose
+ * {@code energyMetrics} and conditional {@code carbonMetrics} sections the
+ * repository's Python auditor recomputes from the manifest's own power fields,
+ * per-VM busy intervals, and compute-job fleet timeline.
  *
  * <p>Covered layers — all comparisons are same-layer-only (cross-layer comparisons are
  * structurally invalid and the benchmark forbids them):</p>
@@ -75,9 +80,12 @@ public final class BenchmarkExecutor {
 
     /**
      * Uniform per-VM carbon intensity (gCO₂/kWh) declared on the 160-cell intensity grid
-     * (CASPER-family multiplier model; docs/advanced/CARBON_DIMENSION_DESIGN.md §2.1).
+     * (CASPER-family multiplier model; docs/advanced/CARBON_DIMENSION_DESIGN.md §2.1) and
+     * on every cell of the tri-dimensional DVFS variant. Public since
+     * {@code benchmark-standard-dvfs-v1}: the D6 demonstrator fleet (experiments test
+     * scope) reuses the frozen value for its tri-dimensional evidence bundle.
      */
-    static final double CARBON_INTENSITY_GRAMS_PER_KWH = 380.0;
+    public static final double CARBON_INTENSITY_GRAMS_PER_KWH = 380.0;
 
     /**
      * Budget-model demonstration family (CWM family), job batch C4: the declared
@@ -97,6 +105,67 @@ public final class BenchmarkExecutor {
 
     /** Budget-family policy: the canonical first SHARED_DAG planner of the matrix. */
     static final PlanningAlgorithm BUDGET_PLANNER = PlanningAlgorithm.SHARED_STORAGE_HEFT;
+
+    /**
+     * Output index file name of the DVFS variant (per-run rows with identity + tier
+     * mix + tri-dimensional metrics — Python-auditable).
+     */
+    static final String DVFS_INDEX = "benchmark-dvfs.json";
+
+    /** Protocol identity of the whole DVFS run (single literal — freezing discipline). */
+    static final String DVFS_PROTOCOL = "benchmark-standard-dvfs-v1";
+
+    /**
+     * The frozen 5-tier P-state table of the DVFS fleet (D5, 2026-10-29 —
+     * docs/advanced/DVFS_DIMENSION_DESIGN.md §4): one uniform table per VM, mips
+     * 2×/1×/0.5×/0.25×/0.125× of the 1000-MIPS fleet base (2000/1000/500/250/125),
+     * strictly descending with the FIRST tier the declared default.
+     *
+     * <p>Declared values and their two motivating laws (frozen constants, not generator
+     * output — a declared model, faithful to the P-state table schema shared by the
+     * surveyed DVFS literature):</p>
+     * <ul>
+     *   <li><b>dynamic power</b>: at/below the nominal 1000 tier the exact cubic
+     *       {@code 150 W × (mips/1000)³} (150 W = the Beloglazov dynamic of the
+     *       power-v1 envelope, so the nominal tier IS
+     *       benchmark-standard-power-v1's per-VM envelope 250 W idle / 400 W max);
+     *       above it, the turbo tier declares 3750 W dynamic — a heavily overvolted
+     *       state (real turbo escalates steeper than the cubic trend that holds
+     *       below the efficient point).</li>
+     *   <li><b>idle power</b>: 250 W at/above nominal (the power-v1 fleet idle
+     *       anchor); strictly below nominal, linear voltage-leakage scaling at
+     *       0.2 W per MIPS (500→100, 250→50, 125→25).</li>
+     * </ul>
+     *
+     * <p>Consequences pinned by construction: per-MI busy energy falls monotonically
+     * toward the deepest tier (2.0 / 0.4 / 0.2375 / 0.209375 / 0.20234375 J/MI) — the
+     * density side of the break-even ruling — while the parked draw stays the default
+     * tier's 250 W ×vm — the idle-exposure side; and the greedy EDP coefficients
+     * (P_max+P_idle)/m² make the interior 1000 tier the early-dispatch winner, so the
+     * EDP_HEURISTIC mechanism is distinguishable from DEFAULT (all-turbo) and
+     * MIN_POWER (all-eighth).</p>
+     */
+    static final List<PlatformProfile.FrequencyTier> DVFS_TIERS = Collections.unmodifiableList(Arrays.asList(
+            new PlatformProfile.FrequencyTier(2000.0, 250.0, 4000.0),
+            new PlatformProfile.FrequencyTier(1000.0, 250.0, 400.0),
+            new PlatformProfile.FrequencyTier(500.0, 100.0, 100.0 + 150.0 / 8.0),
+            new PlatformProfile.FrequencyTier(250.0, 50.0, 50.0 + 150.0 / 64.0),
+            new PlatformProfile.FrequencyTier(125.0, 25.0, 25.0 + 150.0 / 512.0)));
+
+    /** The three config-level frequency policies the DVFS variant compares (frozen order). */
+    static final List<SimulationConfig.FrequencyPolicy> DVFS_POLICIES = Collections.unmodifiableList(Arrays.asList(
+            SimulationConfig.FrequencyPolicy.DEFAULT,
+            SimulationConfig.FrequencyPolicy.MIN_POWER,
+            SimulationConfig.FrequencyPolicy.EDP_HEURISTIC));
+
+    /** DVFS matrix layer representative 1: the canonical SHARED_DAG planner. */
+    static final PlanningAlgorithm DVFS_SHARED_PLANNER = PlanningAlgorithm.SHARED_STORAGE_HEFT;
+
+    /** DVFS matrix layer representative 2: the canonical LOCAL_DAG planner (endpoint network). */
+    static final PlanningAlgorithm DVFS_LOCAL_PLANNER = PlanningAlgorithm.LOCAL_HEFT;
+
+    /** DVFS matrix layer representative 3: the canonical ONLINE label. */
+    static final SchedulingAlgorithm DVFS_ONLINE_LABEL = SchedulingAlgorithm.FCFS;
 
     static final List<String> INPUT_PATHS = Collections.unmodifiableList(Arrays.asList(
             "dax/epigenomics/n100/Epigenomics_100.dax",
@@ -130,12 +199,21 @@ public final class BenchmarkExecutor {
     private BenchmarkExecutor() {}
 
     /**
-     * Entry. The output directory must not pre-exist (retention discipline — never
+     * Entry. Usage: {@code BenchmarkExecutor <datasets-root> <new-output-directory>}
+     * (the carbon/standard variant) or
+     * {@code BenchmarkExecutor dvfs <datasets-root> <new-output-directory>} (the DVFS
+     * variant). The output directory must not pre-exist (retention discipline — never
      * overwrite).
      */
     public static void main(String[] args) throws Exception {
+        if (args.length == 3 && "dvfs".equals(args[0])) {
+            Path result = executeDvfs(Paths.get(args[1]), Paths.get(args[2]));
+            System.out.println("BENCHMARK PASSED " + result);
+            return;
+        }
         if (args.length != 2) {
-            throw new IllegalArgumentException("Usage: BenchmarkExecutor <datasets-root> <new-output-directory>");
+            throw new IllegalArgumentException(
+                    "Usage: BenchmarkExecutor [dvfs] <datasets-root>" + " <new-output-directory>");
         }
         Path result = execute(Paths.get(args[0]), Paths.get(args[1]));
         System.out.println("BENCHMARK PASSED " + result);
@@ -266,6 +344,328 @@ public final class BenchmarkExecutor {
             }
             System.out.println("[benchmark] BUDGET-" + inputId(input) + ": " + runs.size());
         }
+    }
+
+    // ---------- DVFS variant (D5, 2026-10-29) ----------
+
+    /**
+     * Executes the frozen DVFS benchmark variant: 5 inputs × 2 VM tiers × 3 frequency
+     * policies × a 3-algorithm representative subset (one per decision layer:
+     * SHARED_STORAGE_HEFT / LOCAL_HEFT / FCFS) = 90 cells, each on the tri-dimensional
+     * fleet (frozen 5-tier P-state table + uniform 380 g/kWh intensity).
+     *
+     * <p><b>Honest sizing disclosure</b> (recorded verbatim in the plan JSON and the
+     * benchmark doc): the full grid would be 480 cells (all 16 algorithm combinations
+     * × 3 policies). At the full grid the wall-clock budget of the frozen variant
+     * (minutes, not tens of minutes — the three prior variants each run the whole
+     * 160-cell matrix once, and this variant multiplies by three policies) is missed,
+     * so the variant freezes the 90-cell representative subset: every input family and
+     * both VM tiers are covered in full, each decision layer contributes its canonical
+     * algorithm, and the DVFS comparison axis (policy × policy within one algorithm)
+     * stays same-layer-only exactly as the standard matrix prescribes.</p>
+     */
+    static Path executeDvfs(Path datasetsRoot, Path outputDirectory) throws Exception {
+        Path datasets = datasetsRoot.toAbsolutePath().normalize();
+        Path root = outputDirectory.toAbsolutePath().normalize();
+        if (Files.exists(root)) {
+            throw new IOException("Benchmark output already exists: " + root);
+        }
+        boolean prior = Log.isDisabled();
+        Log.disable();
+        try {
+            Files.createDirectories(root);
+            writeDvfsPlan(root);
+            List<Map<String, Object>> runs = new ArrayList<Map<String, Object>>();
+            for (String input : INPUT_PATHS) {
+                Path path = resolveInput(datasets, input);
+                for (int vm : VM_TIERS) {
+                    // SHARED_DAG layer representative on the legacy shared envelope.
+                    dvfsCell(
+                            runs,
+                            root,
+                            path,
+                            inputId(input),
+                            vm,
+                            DVFS_SHARED_PLANNER,
+                            null,
+                            ReplicaCatalog.FileSystem.SHARED,
+                            DataMovementModel.legacyWorkflowsimV1(),
+                            "endpoint");
+                    // LOCAL_DAG layer representative on the endpoint contention network.
+                    dvfsCell(
+                            runs,
+                            root,
+                            path,
+                            inputId(input),
+                            vm,
+                            DVFS_LOCAL_PLANNER,
+                            null,
+                            ReplicaCatalog.FileSystem.LOCAL,
+                            NetworkStudyPlan.movement("endpoint"),
+                            "endpoint");
+                    // ONLINE layer representative (plain online track).
+                    dvfsCell(
+                            runs,
+                            root,
+                            path,
+                            inputId(input),
+                            vm,
+                            null,
+                            DVFS_ONLINE_LABEL,
+                            ReplicaCatalog.FileSystem.LOCAL,
+                            DataMovementModel.legacyWorkflowsimV1(),
+                            "endpoint");
+                }
+                System.out.println("[benchmark-dvfs] " + inputId(input) + ": " + runs.size());
+            }
+            writeDvfsIndex(root, runs);
+            return root.resolve(DVFS_INDEX);
+        } finally {
+            Log.setDisabled(prior);
+        }
+    }
+
+    /** The frozen 5-tier table accessor (read-only copy; the D6 demonstrator fleet reuses its top rows). */
+    public static List<PlatformProfile.FrequencyTier> benchmarkDvfsTiers() {
+        return DVFS_TIERS;
+    }
+
+    /**
+     * Rebuilds the frozen registered-study platform into the tri-dimensional DVFS fleet
+     * (D5): every host, VM, pin, storage, cost, and topology field is copied verbatim
+     * from the {@link NetworkStudyPlan#platform(int, String)} factory and each VM is
+     * rebuilt through the 14-argument {@link PlatformProfile.VmSpec} with FLAT power
+     * fields kept at 0.0 (BAT-D1 one source of truth — the tier table replaces them),
+     * the frozen {@link #DVFS_TIERS} table, and the uniform carbon intensity of the
+     * carbon variant. The rebuild keeps the profile name, so vmHost placements are
+     * bit-identical to the unpowered factory output.
+     */
+    static PlatformProfile dvfsSetup(PlatformProfile unpowered) {
+        for (PlatformProfile.VmSpec vm : unpowered.getVms()) {
+            if (vm.hasPowerModel()) {
+                throw new IllegalStateException("dvfsSetup expects the unpowered registered-study platform, VM "
+                        + vm.getId() + " already declares a power model");
+            }
+            if (vm.hasFrequencyTiers()) {
+                throw new IllegalStateException("dvfsSetup expects the tierless registered-study platform, VM "
+                        + vm.getId() + " already declares a frequency tier table");
+            }
+            if (vm.getCarbonIntensityGramsPerKWh() != null) {
+                throw new IllegalStateException("dvfsSetup expects the carbon-free registered-study" + " platform, VM "
+                        + vm.getId() + " already declares a carbon intensity");
+            }
+        }
+        PlatformProfile.Builder builder = PlatformProfile.builder(unpowered.getName())
+                .storage(unpowered.getStorage())
+                .costs(unpowered.getCosts());
+        for (PlatformProfile.HostSpec host : unpowered.getHosts()) {
+            builder.addHost(new PlatformProfile.HostSpec(
+                    host.getId(),
+                    host.getPes(),
+                    host.getMipsPerPe(),
+                    host.getRamMb(),
+                    host.getBandwidth(),
+                    host.getStorageMb()));
+        }
+        for (PlatformProfile.VmSpec vm : unpowered.getVms()) {
+            builder.addVm(new PlatformProfile.VmSpec(
+                    vm.getId(),
+                    vm.getMips(),
+                    vm.getPes(),
+                    vm.getRamMb(),
+                    vm.getBandwidth(),
+                    vm.getImageSizeMb(),
+                    vm.getVmm(),
+                    vm.getSchedulerMode(),
+                    vm.getCosts(),
+                    // BAT-D1 单一真源：频档表替代平面功率字段（平面恒 0），强度模型骑档表能量链。
+                    0.0,
+                    0.0,
+                    Double.valueOf(CARBON_INTENSITY_GRAMS_PER_KWH),
+                    DVFS_TIERS));
+        }
+        for (Map.Entry<Integer, Integer> pin : unpowered.getPinnedVmHostIds().entrySet()) {
+            builder.pinVmToHost(pin.getKey().intValue(), pin.getValue().intValue());
+        }
+        if (unpowered.getNetworkTopology() != null) {
+            builder.networkTopology(unpowered.getNetworkTopology());
+        }
+        if (unpowered.getSourceStorage() != null) {
+            builder.sourceStorage(unpowered.getSourceStorage());
+        }
+        return builder.build();
+    }
+
+    /** Run id of a DVFS cell: input/tier/algorithm/policy in one frozen spelling. */
+    static String dvfsRunId(String inputId2, int vm, String algorithm, String policy) {
+        return inputId2 + "-v" + vm + "-DVFS-" + algorithm + "-" + policy + "-s11";
+    }
+
+    /** The algorithm label of a DVFS subset cell (planner name or online label). */
+    static String dvfsAlgorithmLabel(PlanningAlgorithm planner, SchedulingAlgorithm scheduler) {
+        return planner != null ? planner.name() : scheduler.name();
+    }
+
+    /**
+     * Runs one DVFS cell for each of the three frozen frequency policies: config
+     * construction, full simulation, evidence write + validate. Deterministic
+     * algorithms run once at seed 11 (the standard convention). Every policy cell of a
+     * (input, tier, algorithm) triple reuses the same rebuilt tri-dimensional platform.
+     */
+    private static void dvfsCell(
+            List<Map<String, Object>> runs,
+            Path root,
+            Path inputPath,
+            String inputId2,
+            int vmCount,
+            PlanningAlgorithm planner,
+            SchedulingAlgorithm scheduler,
+            ReplicaCatalog.FileSystem fileSystem,
+            DataMovementModel model,
+            String platformNetwork)
+            throws IOException {
+        PlatformProfile platform = dvfsSetup(NetworkStudyPlan.platform(vmCount, platformNetwork));
+        String algorithm = dvfsAlgorithmLabel(planner, scheduler);
+        String modelKind = model.getKind().name();
+        for (SimulationConfig.FrequencyPolicy policy : DVFS_POLICIES) {
+            String runId = dvfsRunId(inputId2, vmCount, algorithm, policy.name());
+            Map<String, Object> record = new LinkedHashMap<String, Object>();
+            record.put("runId", runId);
+            record.put("inputId", inputId2);
+            record.put("vmCount", Integer.valueOf(vmCount));
+            record.put(
+                    "layer",
+                    planner != null
+                            ? (fileSystem == ReplicaCatalog.FileSystem.SHARED ? "SHARED_DAG" : "LOCAL_DAG")
+                            : "ONLINE");
+            record.put("planner", planner != null ? planner.name() : null);
+            record.put("scheduler", scheduler != null ? scheduler.name() : null);
+            record.put("model", modelKind);
+            record.put("frequencyPolicy", policy.name());
+            record.put("carbonIntensityGramsPerKWh", Double.valueOf(CARBON_INTENSITY_GRAMS_PER_KWH));
+            try {
+                SimulationConfig config = SimulationConfig.builder(inputPath.toString(), vmCount)
+                        .planningAlgorithm(planner != null ? planner : PlanningAlgorithm.INVALID)
+                        .schedulingAlgorithm(
+                                scheduler != null
+                                        ? scheduler
+                                        : (planner != null ? SchedulingAlgorithm.STATIC : SchedulingAlgorithm.INVALID))
+                        .fileSystem(fileSystem)
+                        .dataMovementModel(model)
+                        .randomSeed(11L)
+                        .frequencyPolicy(policy)
+                        .build();
+                SimulationReport report = new SimulationRunner().run(config, platform);
+                if (!report.getMetrics().isAllLogicalTasksCompletedSuccessfully()) {
+                    throw new IllegalStateException("Incomplete workflow");
+                }
+                // Failures stay explicit: every DVFS cell declares the tri-dimensional
+                // chain — a missing accounting or a tierless evidence bundle is a
+                // contract break, not a zero-energy cell.
+                if (report.getCarbonAccounting() == null) {
+                    throw new IllegalStateException("DVFS benchmark cell declared no carbon accounting");
+                }
+                if (report.getEnergyAccounting().getTotalEnergyJoules() <= 0.0) {
+                    throw new IllegalStateException(
+                            "DVFS benchmark cell conserved no energy (tiered fleet is powered)");
+                }
+                ExperimentEvidenceContext context = ExperimentEvidenceContext.builder(DVFS_PROTOCOL)
+                        .artifact("org.workflowsim", "benchmark", "1.0")
+                        .driver(BenchmarkExecutor.class, "org/workflowsim/experiments/benchmark")
+                        .protocol(DVFS_PROTOCOL, root.resolve("benchmark-dvfs-plan.json"))
+                        .datasetRoot(inputPath.getParent())
+                        .build();
+                ExperimentArtifactWriter.ExperimentArtifacts artifacts = ExperimentArtifactWriter.write(
+                        report, root.resolve("runs").resolve(runId), "result", context);
+                ExperimentArtifactValidator.validate(artifacts.getManifest());
+                record.put("status", "COMPLETED_SUCCESSFULLY");
+                record.put(
+                        "manifest",
+                        root.relativize(artifacts.getManifest()).toString().replace('\\', '/'));
+                record.put("makespanSeconds", Double.valueOf(report.getMakespan()));
+                record.put(
+                        "totalEnergyJoules",
+                        Double.valueOf(report.getEnergyAccounting().getTotalEnergyJoules()));
+                record.put(
+                        "energyMakespanProductJouleSeconds",
+                        Double.valueOf(report.getEnergyAccounting().getEnergyMakespanProductJouleSeconds()));
+                record.put(
+                        "totalCarbonGrams",
+                        Double.valueOf(report.getCarbonAccounting().getTotalCarbonGrams()));
+                record.put(
+                        "meanVmUtilization", Double.valueOf(report.getMetrics().getMeanVmModeledIntervalUtilization()));
+                // 台账面（tier mix 证据）：fleet per-tier busy seconds（键=档 mips 升序）。
+                record.put("fleetPerTierBusySeconds", report.getMetrics().getFleetPerTierBusySeconds());
+            } catch (Exception failure) {
+                record.put("status", "FAILED");
+                record.put("error", failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            }
+            runs.add(record);
+            writeDvfsIndex(root, runs);
+        }
+    }
+
+    /** The frozen DVFS plan (matrix, tier table, laws, policies, and the sizing disclosure). */
+    private static void writeDvfsPlan(Path root) throws IOException {
+        Map<String, Object> plan = new LinkedHashMap<String, Object>();
+        plan.put("schema", "workflowsim-benchmark-plan-v1");
+        plan.put("protocol", DVFS_PROTOCOL);
+        plan.put("javaClass", BenchmarkExecutor.class.getName());
+        plan.put(
+                "fleet",
+                "tri-dimensional: 5-tier DVFS P-state table + per-VM power-free flat fields"
+                        + " (tier table replaces them, BAT-D1) + uniform carbon intensity 380 g/kWh riding"
+                        + " the per-tier conserved energy");
+        List<Map<String, Object>> tiers = new ArrayList<Map<String, Object>>();
+        for (PlatformProfile.FrequencyTier tier : DVFS_TIERS) {
+            Map<String, Object> row = new LinkedHashMap<String, Object>();
+            row.put("mips", Double.valueOf(tier.getMips()));
+            row.put("idlePowerWatts", Double.valueOf(tier.getIdlePowerWatts()));
+            row.put("maxPowerWatts", Double.valueOf(tier.getMaxPowerWatts()));
+            tiers.add(row);
+        }
+        plan.put("frequencyTiers", tiers);
+        plan.put(
+                "frequencyTierLaws",
+                Arrays.asList(
+                        "dynamic = 150 W x (mips/1000)^3 at/below the nominal 1000 tier (the Beloglazov"
+                                + " dynamic of benchmark-standard-power-v1); the 2000 turbo tier declares"
+                                + " 3750 W dynamic (overvolted above the efficient point)",
+                        "idle = 250 W at/above nominal; strictly below nominal linear leakage 0.2 W/MIPS"
+                                + " (500->100, 250->50, 125->25)",
+                        "declared values are frozen constants (a declared model), not generator output"));
+        List<String> policies = new ArrayList<String>();
+        for (SimulationConfig.FrequencyPolicy policy : DVFS_POLICIES) {
+            policies.add(policy.name());
+        }
+        plan.put("frequencyPolicies", policies);
+        plan.put(
+                "algorithms",
+                Arrays.asList(
+                        DVFS_SHARED_PLANNER.name() + " (SHARED_DAG layer representative)",
+                        DVFS_LOCAL_PLANNER.name() + " (LOCAL_DAG layer representative, endpoint contention)",
+                        DVFS_ONLINE_LABEL.name() + " (ONLINE layer representative)"));
+        plan.put(
+                "cellSizing",
+                "90 cells = 5 inputs x 2 VM tiers x 3 policies x 3 layer-representative"
+                        + " algorithms; the full grid would be 480 cells (16 algorithm combinations x 3"
+                        + " policies) and would miss the frozen wall-clock budget of minutes — the"
+                        + " 90-cell representative subset covers every input family, both VM tiers, and all"
+                        + " three decision layers, and keeps the policy x policy comparison same-layer-only");
+        plan.put("carbonIntensityGramsPerKWh", Double.valueOf(CARBON_INTENSITY_GRAMS_PER_KWH));
+        ExperimentArtifactWriter.writeJson(root.resolve("benchmark-dvfs-plan.json"), plan);
+    }
+
+    private static void writeDvfsIndex(Path root, List<Map<String, Object>> runs) throws IOException {
+        Map<String, Object> index = new LinkedHashMap<String, Object>();
+        index.put("schema", "workflowsim-benchmark-v1");
+        index.put("protocol", DVFS_PROTOCOL);
+        index.put("layers", "SHARED_DAG;LOCAL_DAG;ONLINE");
+        index.put("frequencyPolicies", "DEFAULT;MIN_POWER;EDP_HEURISTIC");
+        index.put("carbonModel", "CARBON_INTENSITY_V1");
+        index.put("runCount", Integer.valueOf(runs.size()));
+        index.put("runs", runs);
+        ExperimentArtifactWriter.writeJson(root.resolve(DVFS_INDEX), index);
     }
 
     // ---------- helpers ----------

@@ -867,6 +867,65 @@ class DvfsTierAuditTests(unittest.TestCase):
         self.assertTrue(any("descending" in str(i) for i in report["issues"]),
                         "non-descending tier table must be rejected: " + json.dumps(report["issues"][:2]))
 
+    # ── BAT-D6（2026-10-29）：任务窗期望秒数 = work/指派档速（Java/Python 同律缝）──
+
+    THREE_TIERS = [
+        {"mips": 2000.0, "idlePowerWatts": 100.0, "maxPowerWatts": 400.0},
+        {"mips": 1000.0, "idlePowerWatts": 90.0, "maxPowerWatts": 200.0},
+        {"mips": 500.0, "idlePowerWatts": 85.0, "maxPowerWatts": 150.0},
+    ]
+
+    def test_tier_speed_drives_task_window_recompute(self):
+        """正例：1000 MI 任务挂 500 档 → 期望窗 = 1000/500 = 2.0s（非 VM 基速的 1.0s）。
+
+        手推（make_bundle(duration=2.0)）：任务/Job 窗 [0.21, 2.21)，end=2.21，
+        busy=0.11+2.0=2.11；逐档能量
+        E = 100×2.21 + (400−100)×0.11(簿记默认档) + (150−100)×2.0(计算 500 档)
+          = 221 + 33 + 100 = 354 J；全默认口径观察值 = 221 + 300×2.11 = 854 J。
+        """
+        root = self.root / "tier-speed"
+        make_bundle(root, 2.0, 1000)
+        doc = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+        doc["platform"]["vms"][0]["frequencyTiers"] = [dict(t) for t in self.THREE_TIERS]
+        compute = next(j for j in doc["result"]["jobs"] if j["classType"] == 2)
+        compute["tierMips"] = 500.0
+        self.store_energy(doc, 354.0)
+        bundle = root / "run.manifest.json"
+        bundle.write_text(json.dumps(doc), encoding="utf-8")
+        report = self.audit_status(bundle, "tier-speed-good")
+        self.assertEqual("PASS", report["status"], json.dumps(report["issues"][:3]))
+        note = next((n for n in report["notes"] if n["code"] == "dvfs-tier-accounting-observation"), None)
+        self.assertIsNotNone(note, "DVFS 观察备注必须存在")
+        self.assertAlmostEqual(354.0, note["perTierTotalEnergyJoules"], delta=1e-9)
+        self.assertAlmostEqual(854.0, note["allAtDefaultEnergyJoules"], delta=1e-9)
+        self.assertTrue(note["nonDefaultTierBusyObserved"])
+
+    def test_v1_speed_task_window_with_slow_tier_claim_is_killed(self):
+        """反例五（缝击杀）：时长仍按 VM 基速（1.0s）却申报 500 档 → 期望 2.0s 不符。
+
+        旧口径（任务窗恒按 VM 声明速）在该清单上"通过"；档速口径必须以
+        effective-task-window / cpu-lower-bound 逐项击杀——这是 BAT-D6 Java/Python
+        同律缝（WorkflowDatacenter.updateTaskExecTime 取指派档速）的回归钉。
+        能量（手推：100×1.21 + 300×0.11 + 50×1.0 = 204 J）按逐档律填写，失败必须
+        来自时间窗而非能量噪声。
+        """
+        root = self.root / "tier-speed-stale"
+        make_bundle(root, 1.0, 1000)
+        doc = json.loads((root / "run.manifest.json").read_text(encoding="utf-8"))
+        doc["platform"]["vms"][0]["frequencyTiers"] = [dict(t) for t in self.THREE_TIERS]
+        compute = next(j for j in doc["result"]["jobs"] if j["classType"] == 2)
+        compute["tierMips"] = 500.0
+        self.store_energy(doc, 204.0)
+        bundle = root / "run.manifest.json"
+        bundle.write_text(json.dumps(doc), encoding="utf-8")
+        report = self.audit_status(bundle, "tier-speed-stale")
+        self.assertEqual("FAIL", report["status"])
+        codes = {i["code"] for i in report["issues"]}
+        self.assertIn("effective-task-window", codes, "时长/档速不符必须命中窗复算: "
+                        + json.dumps(report["issues"][:3]))
+        self.assertIn("cpu-lower-bound", codes, "Job 信封不得小于档速工作量: "
+                        + json.dumps(report["issues"][:3]))
+
     def test_tiered_carbon_budget_uses_per_tier_fleet_power(self):
         """预算模型逐档舰队功率：手推时间线（计算 Job [0.21,1.21) @1000 档）。
 

@@ -357,6 +357,49 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                          "raw-profile-task-count", prefix)
         logical_ids = set(raw_tasks) if parsed_complete else set(graph)
 
+        # ── BAT-D6（2026-10-29）：功率/频档平台面置前解析（任务窗与能量两路复用）──
+        # 平面功率字段（BAT-E2）与频档表（BAT-D3）都在 Job 循环前就位：①逐 Job 频档
+        # 身份的采集随 Job 循环进行（缺档=默认档/表首档；表外档=证据链断裂）；②任务窗
+        # 复算的期望秒数改用本 Job 的指派档速（工作不变，时长 = work/档速——与 Java
+        # WorkflowDatacenter.updateTaskExecTime 的 BAT-D6 口径严格同源；无档 VM 上的
+        # Job 沿用 VM 声明速 = v1 逐位不变）。能量块沿用此处已建的三张表。
+        vm_power = {}
+        for vmid, vm in vms.items():
+            idle = number(vm.get("idlePowerWatts", 0.0), "VM idlePowerWatts", nonnegative=True)
+            peak = number(vm.get("maxPowerWatts", 0.0), "VM maxPowerWatts", nonnegative=True)
+            if peak < idle:
+                raise CheckError("maxPowerWatts below idlePowerWatts on VM " + str(vmid))
+            vm_power[vmid] = (idle, peak)
+        vm_tiers = {}            # vmid → [(mips, idle, max), ...]（声明降序）
+        tier_max_by_vm = {}      # vmid → {档 mips → P_max}（档按 MIPS 唯一的身份索引）
+        for vmid, vm in vms.items():
+            raw_tiers = vm.get("frequencyTiers")
+            if raw_tiers is None:
+                continue
+            if not isinstance(raw_tiers, list) or not raw_tiers:
+                raise CheckError("VM frequencyTiers must be a non-empty list when declared (BAT-D3)")
+            tiers = []
+            for item in raw_tiers:
+                if not isinstance(item, dict):
+                    raise CheckError("frequencyTiers entries must be objects on VM " + str(vmid))
+                tier_mips = number(needed(item, "mips"), "tier mips", positive=True)
+                tier_idle = number(needed(item, "idlePowerWatts"), "tier idlePowerWatts", nonnegative=True)
+                tier_max = number(needed(item, "maxPowerWatts"), "tier maxPowerWatts", nonnegative=True)
+                if tier_max < tier_idle:
+                    raise CheckError("tier maxPowerWatts below idlePowerWatts on VM " + str(vmid))
+                if tiers and tier_mips >= tiers[-1][0]:
+                    raise CheckError(
+                        "frequencyTiers must be strictly descending by mips on VM " + str(vmid)
+                        + " (BAT-D1 表序契约)")
+                tiers.append((tier_mips, tier_idle, tier_max))
+            if vm_power[vmid][0] > 0.0 or vm_power[vmid][1] > 0.0:
+                raise CheckError("VM " + str(vmid)
+                                 + " declares BOTH frequencyTiers and plain power fields — one source of"
+                                 + " truth required (BAT-D1)")
+            vm_tiers[vmid] = tiers
+            tier_max_by_vm[vmid] = {t[0]: t[2] for t in tiers}
+        tier_of_job = {}          # jobId → 档 MIPS（频档平台上的全部 Job——含簿记信封）
+        tier_intervals_by_vm = {}  # vmid → {档 mips → [(start, finish), ...]}
         jobs, task_outcomes = needed(result, "jobs"), needed(result, "tasks")
         jobs_by_id, jobs_by_task, vm_intervals = {}, collections.defaultdict(list), collections.defaultdict(list)
         first_success = {}
@@ -375,6 +418,29 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
             audit.ensure(submission <= start + tolerance(submission, start) and start <= finish + tolerance(start, finish)
                          and finish <= end + tolerance(finish, end), "job-interval", prefix, {"jobId": jid, "submission": submission, "start": start, "finish": finish, "end": end})
             vm_intervals[vmid].append((start, finish))
+            # BAT-D6（2026-10-29）：逐 Job 频档身份采集（原 BAT-D3 能量块内的重建规则
+            # 原样上移）：无档 VM 上的 Job 不得携带 tierMips；有档 VM 上的 Job 缺档归
+            # 默认档（表首档）——簿记信封/v1 兼容同口径；表外档 = 证据链断裂。
+            tiers = vm_tiers.get(vmid)
+            raw = job.get("tierMips")  # 可选键；null/缺键 = v1 兼容/簿记信封
+            if tiers is None:
+                if raw is not None:
+                    raise CheckError("job " + str(jid) + " on non-tiered VM " + str(vmid)
+                                     + " carries tierMips: the per-Job tier evidence chain is"
+                                     " broken (BAT-D3)")
+            else:
+                if raw is None:
+                    tier_mips = tiers[0][0]  # 缺档归默认档（表首档）——Java 台账同口径
+                else:
+                    tier_mips = number(raw, "job tierMips", positive=True)
+                    if tier_mips not in tier_max_by_vm[vmid]:
+                        raise CheckError(
+                            "job " + str(jid) + " carries tier mips " + str(raw)
+                            + " which matches no declared frequency tier of VM " + str(vmid)
+                            + ": the per-Job tier evidence chain is broken (BAT-D2)")
+                tier_of_job[jid] = tier_mips
+                buckets = tier_intervals_by_vm.setdefault(vmid, {})
+                buckets.setdefault(tier_mips, []).append((start, finish))
             for name, expected in (("waitingTime", max(0.0, start - submission)), ("executionTime", max(0.0, finish - start)),
                                    ("responseTime", max(0.0, finish - submission)), ("cpuTime", max(0.0, finish - start))):
                 time_metric(job, name, expected, prefix + ":job:" + str(jid), submission, start, finish)
@@ -436,7 +502,12 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                     audit.ensure(integer(task["effectiveExecutionLengthMi"], "effective MI", True) == effective, "effective-mi-declaration", prefix, [tid, task["effectiveExecutionLengthMi"]], effective)
             start, finish = number(needed(task, "startTime"), nonnegative=True), number(needed(task, "finishTime"), nonnegative=True)
             jstart, jfinish = number(job["startTime"]), number(job["finishTime"])
-            expected_seconds = effective / mips
+            # BAT-D6（2026-10-29）：期望窗秒数用执行速 = 本 Job 的指派档速（有档 VM 上
+            # 的 Job 必有 tier_of_job 记录；无档 Job/v1 沿用 VM 声明速）——与 Java 侧
+            # 任务窗模型（updateTaskExecTime 取 job.getTierMips()）及 Job 云let 长度的
+            # 档速缩放（时长 = work/档速）同律。量化容差口径（1/VM MIPS）不变：Job
+            # 云let 仍在 VM 声明速上执行（缩放后的长度）。
+            expected_seconds = effective / (tier_of_job[jid] if jid in tier_of_job else mips)
             allowance = 1.0 / mips + tolerance(start, finish, jstart, jfinish)
             audit.ensure(start + tolerance(start, jstart) >= jstart and finish <= jfinish + allowance and finish + tolerance(start, finish) >= start,
                          "task-window-within-job", prefix, {"taskId": tid, "jobId": jid, "start": start, "finish": finish, "jobStart": jstart, "jobFinish": jfinish}, allowance)
@@ -611,13 +682,8 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
         # BAT-E2（2026-10-27）：能耗守恒律复算（Beloglazov FGCS 2012 Eq.(2) 二元 SPACE_SHARED
         # 特化：E_vm = P_idle×T_sim + (P_max−P_idle)×T_busy；无功率字段的 VM 贡献为 0；
         # 旧 manifest 无 energyMetrics 键 → 每台 VM 全零 → 总耗能必须为 0。
-        vm_power = {}
-        for vmid, vm in vms.items():
-            idle = number(vm.get("idlePowerWatts", 0.0), "VM idlePowerWatts", nonnegative=True)
-            peak = number(vm.get("maxPowerWatts", 0.0), "VM maxPowerWatts", nonnegative=True)
-            if peak < idle:
-                raise CheckError("maxPowerWatts below idlePowerWatts on VM " + str(vmid))
-            vm_power[vmid] = (idle, peak)
+        # BAT-D6（2026-10-29）：vm_power/vm_tiers/tier_of_job 已在 Job 循环前置解析（任务
+        # 窗与能量两路同源），此处直接消费。
         expected_vm_energy = {}
         expected_total_energy = 0.0
         expected_peak_power = 0.0
@@ -639,65 +705,12 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
         # 下与 Java 台账逐档 executionTime 之和同值）；逐档之和必须覆盖该 VM 总忙并集
         #（1e-9 秒容差，镜像 Java TIER_SUM_SLACK_SECONDS 的证据链条款）。
         # 无任何频档声明 → 本块整体短路，审计行为与 D3 前逐位一致（v1 合法缺省）。
-        vm_tiers = {}            # vmid → [(mips, idle, max), ...]（声明降序）
-        tier_max_by_vm = {}      # vmid → {档 mips → P_max}（档按 MIPS 唯一的身份索引）
-        for vmid, vm in vms.items():
-            raw_tiers = vm.get("frequencyTiers")
-            if raw_tiers is None:
-                continue
-            if not isinstance(raw_tiers, list) or not raw_tiers:
-                raise CheckError("VM frequencyTiers must be a non-empty list when declared (BAT-D3)")
-            tiers = []
-            for item in raw_tiers:
-                if not isinstance(item, dict):
-                    raise CheckError("frequencyTiers entries must be objects on VM " + str(vmid))
-                tier_mips = number(needed(item, "mips"), "tier mips", positive=True)
-                tier_idle = number(needed(item, "idlePowerWatts"), "tier idlePowerWatts", nonnegative=True)
-                tier_max = number(needed(item, "maxPowerWatts"), "tier maxPowerWatts", nonnegative=True)
-                if tier_max < tier_idle:
-                    raise CheckError("tier maxPowerWatts below idlePowerWatts on VM " + str(vmid))
-                if tiers and tier_mips >= tiers[-1][0]:
-                    raise CheckError(
-                        "frequencyTiers must be strictly descending by mips on VM " + str(vmid)
-                        + " (BAT-D1 表序契约)")
-                tiers.append((tier_mips, tier_idle, tier_max))
-            if vm_power[vmid][0] > 0.0 or vm_power[vmid][1] > 0.0:
-                raise CheckError("VM " + str(vmid)
-                                 + " declares BOTH frequencyTiers and plain power fields — one source of"
-                                 + " truth required (BAT-D1)")
-            vm_tiers[vmid] = tiers
-            tier_max_by_vm[vmid] = {t[0]: t[2] for t in tiers}
-        tier_of_job = {}          # jobId → 档 MIPS（频档平台上的全部 Job——含簿记信封）
-        tier_intervals_by_vm = {}  # vmid → {档 mips → [(start, finish), ...]}
+        # BAT-D6（2026-10-29）：vm_tiers/tier_max_by_vm/tier_of_job/tier_intervals_by_vm
+        # 已在 Job 循环前置解析/采集（任务窗复算同用），此处原样消费，不再重复构建。
         if vm_tiers:
             # 频档声明 = 功率声明（镜像 Java BAT-D2 对 D1 死闸的修复：平面字段或频档表
             # 任一声明即 powered——tiered VM 的平面功率字段恒 0，单一真源互斥）。
             powered = True
-            for job in jobs:
-                jid = job["jobId"]
-                vmid = integer(job["vmId"], "job vmId", True)
-                tiers = vm_tiers.get(vmid)
-                raw = job.get("tierMips")  # 可选键；null/缺键 = v1 兼容/簿记信封
-                if tiers is None:
-                    if raw is not None:
-                        raise CheckError("job " + str(jid) + " on non-tiered VM " + str(vmid)
-                                         + " carries tierMips: the per-Job tier evidence chain is"
-                                         + " broken (BAT-D3)")
-                    continue
-                if raw is None:
-                    tier_mips = tiers[0][0]  # 缺档归默认档（表首档）——Java 台账同口径
-                else:
-                    tier_mips = number(raw, "job tierMips", positive=True)
-                    if tier_mips not in tier_max_by_vm[vmid]:
-                        raise CheckError(
-                            "job " + str(jid) + " carries tier mips " + str(raw)
-                            + " which matches no declared frequency tier of VM " + str(vmid)
-                            + ": the per-Job tier evidence chain is broken (BAT-D2)")
-                tier_of_job[jid] = tier_mips
-                buckets = tier_intervals_by_vm.setdefault(vmid, {})
-                buckets.setdefault(tier_mips, []).append(
-                    (number(job["startTime"], "job start", nonnegative=True),
-                     number(job["finishTime"], "job finish", nonnegative=True)))
             # 逐档守恒律复算：整体替换 v1 复算值（flat VM 保持同式同算——两路真源互斥）。
             expected_vm_energy = {}
             expected_total_energy = 0.0

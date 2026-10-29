@@ -240,7 +240,10 @@ public final class SimulationRunner {
                                     && !config.getTaskCostMatrix().asMap().isEmpty(),
                             config.getFailureModel(),
                             config.getPlanningAlgorithm(),
-                            anyVmHasPowerModel(platform),
+                            // BAT-D6（2026-10-29）：注册轨道的功率事实与能量链同源（BAT-D2
+                            // powered 谓词）——平面功率字段或频档表任一声明即 powered，
+                            // 频档平台上的 powerModelRequired 声明不再被平面-only 口径误拒。
+                            anyVmPowered(platform),
                             // BAT-D4（2026-10-29）：注册轨道的频档事实同面注入（§2.6 门槛条款）。
                             anyVmHasFrequencyTiers(platform)));
             return;
@@ -370,6 +373,17 @@ public final class SimulationRunner {
             }
         }
         return false;
+    }
+
+    /**
+     * BAT-D6（2026-10-29）：@return 平台剖面中是否存在任何"powered"VM——平面功率字段
+     * 或频档表任一声明（BAT-D2 powered 谓词，与
+     * {@code EnergyAccounting.fromFrozenMetrics} 的功率闸同源：频档表替代平面字段的
+     * 单一真源结构下，声明频档即产出真实能量账本）。注册轨道的 powerModelRequired
+     * 门槛消费此口径。
+     */
+    private static boolean anyVmPowered(PlatformProfile platform) {
+        return anyVmHasPowerModel(platform) || anyVmHasFrequencyTiers(platform);
     }
 
     /** BAT-D4（2026-10-29）：@return 平台剖面中是否存在任何声明了频档表的 VM。 */

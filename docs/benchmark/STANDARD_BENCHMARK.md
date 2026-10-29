@@ -166,6 +166,130 @@ power benchmarks:
 - Grams are location-based, declared-model values at the frozen intensity — not
   measurements, not marginal-emission accounting (design doc v1 scoping).
 
+### DVFS variant benchmark-standard-dvfs-v1
+
+The same frozen study conditions (identical inputs, VM tiers, seed 11 — but see the honest
+sizing disclosure below) re-run on 2026-10-29 under the DVFS dimension (batch D5 of the
+[DVFS dimension design](<../advanced/DVFS_DIMENSION_DESIGN.md>), protocol
+`benchmark-standard-dvfs-v1`, index `benchmark-dvfs.json`) — the platform's first
+**tri-dimensional** benchmark: every cell's platform declares the frozen 5-tier DVFS
+P-state table *and* the uniform per-VM carbon intensity `carbonIntensityGramsPerKWh =
+380.0` of the carbon variant, so `energyMetrics` follows the per-tier conservation law,
+per-Job `tierMips` assignments ride the evidence chain, and `carbonMetrics` multiplies
+the per-tier-conserved joules (see
+[Command](<../../experiments/src/main/java/org/workflowsim/experiments/benchmark/BenchmarkExecutor.java>)).
+
+**Frozen fleet.** Every VM (1000-MIPS base) carries the one uniform P-state table below
+(first tier = declared default; `mips` strictly descending; declared values, not generator
+output — a *declared* model):
+
+| tier | mips | idlePowerWatts | maxPowerWatts | motivating law |
+|---|---:|---:|---:|---|
+| turbo (default) | 2000 | 250 | 4000 | overvolted above the efficient point (3750 W dynamic) |
+| nominal | 1000 | 250 | 400 | = the power variant's Beloglazov envelope (150 W dynamic) |
+| half | 500 | 100 | 118.75 | dynamic 150×(0.5)³ (exact cubic); idle 0.2 W/MIPS |
+| quarter | 250 | 50 | 52.34375 | dynamic 150×(0.25)³; idle 0.2 W/MIPS |
+| eighth | 125 | 25 | 25.29296875 | dynamic 150×(0.125)³; idle 0.2 W/MIPS |
+
+The parked draw is the *default tier's* idle (250 W × vmCount — identical to the power
+variant's fleet idle), while busy rectangles draw each job's *assigned* tier max — so
+per-MI busy energy falls monotonically toward the deepest tier (2.0 / 0.4 / 0.2375 /
+0.209 / 0.202 J/MI) while idle exposure scales with makespan: this is the two-sided
+break-even the results below expose.
+
+**Honest sizing disclosure (recorded verbatim in the plan JSON).** The full grid would be
+480 cells (the standard matrix's 16 algorithm combinations × 3 frequency policies); at
+that size the variant's wall-clock budget (minutes, not tens) is missed, so the frozen
+variant is a **90-cell representative subset**: 5 inputs × 2 VM tiers × 3 policies × 3
+layer-representative algorithms (`SHARED_STORAGE_HEFT` for SHARED_DAG, `LOCAL_HEFT` on the
+endpoint contention network for LOCAL_DAG, `FCFS` for ONLINE). Every input family and both
+VM tiers are covered in full; each decision layer contributes its canonical algorithm; the
+policy × policy comparison stays same-layer-only. The full run took ~20 s and the Python
+audit below ~12 s.
+
+Per-policy medians (30 cells each policy; medians per VM tier are over that tier's 15 cells):
+
+| Policy | 8-VM med makespan (s) | 8-VM med energy (J) | 32-VM med makespan (s) | 32-VM med energy (J) | 8-VM med EDP (J·s) | 32-VM med EDP (J·s) |
+|---|---:|---:|---:|---:|---:|---:|
+| DEFAULT (all jobs @ turbo 2000) | 42,894 | 8.31e8 | 25,940 | 1.23e9 | 4.25e13 | 3.77e13 |
+| MIN_POWER (all jobs @ eighth 125) | 290,220 | 1.80e8 | 239,713 | 1.19e9 | 8.18e13 | 2.85e14 |
+| EDP_HEURISTIC (per-job greedy) | 54,835 | 2.24e8 | 37,726 | 4.12e8 | 1.23e13 | 1.55e13 |
+
+Across all 30 cells per policy (medians; min–max): makespan — DEFAULT 4.16e4 s
+(675 … 4.17e5), MIN_POWER 2.45e5 s (4.96e3 … 4.10e6), EDP_HEURISTIC 4.19e4 s
+(1.33e3 … 4.17e5); totalEnergyJoules — DEFAULT 8.85e8 (4.27e7 … 8.56e9), MIN_POWER
+2.68e8 (2.29e6 … 3.29e9), EDP_HEURISTIC 3.34e8 (1.41e7 … 8.06e9); EDP (J·s) — DEFAULT
+4.01e13 (3.08e10 … 3.36e15), MIN_POWER 9.35e13 (1.50e10 … 5.18e15), EDP_HEURISTIC
+1.48e13 (1.88e10 … 3.36e15); totalCarbonGrams — DEFAULT 9.35e4 (4.51e3 … 9.03e5),
+MIN_POWER 2.83e4 (2.41e2 … 3.47e5), EDP_HEURISTIC 3.52e4 (1.49e3 … 8.51e5) — carbon
+ratios are exactly the energy ratios at the frozen single intensity. The three policies'
+tier mixes are cleanly separated by the fleet per-tier busy ledger: DEFAULT = all
+compute busy at 2000; MIN_POWER = all compute busy at 125 (bookkeeping envelopes stay at
+2000); EDP_HEURISTIC = mixed 2000/1000 on 25 of 30 cells and all-2000 on the 5
+LOCAL_DAG cells.
+
+**The break-even ruling, honestly observed (not asserted):**
+
+- **MIN_POWER is *worse* in total energy than DEFAULT on 6 of 30 cells** (up to
+  ×1.322 on Epigenomics_100-v32-LOCAL_HEFT and ×1.301 on
+  Epigenomics_100-v32-SHARED_STORAGE_HEFT; also Inspiral_100-v32 both layers and the two
+  CyberShake LOCAL_HEFT cells). Energy's idle-exposure side (31 extra parked VMs at
+  250 W over a ~15× stretched makespan) exceeded the deep-tier busy savings — precisely
+  the pathological side of the design's §1.4 break-even law. On the other 24 cells
+  MIN_POWER *saves* energy, down to ×0.007 (−99.3%) on CyberShake_100-v8-FCFS, the only
+  ≥98%-utilization cell of the matrix — the slack/density side of the same law. The
+  published 5–30% average savings range of the DVFS literature sits inside this observed
+  [−99.3%, +32.2%] span, and the direction is decided by utilization, not by the policy.
+- **Are EDP cells worse than DEFAULT? On energy: no (0 of 30 — 25 better, 5 equal). On
+  the EDP product itself: one cell is worse** — Epigenomics_997-v8-SHARED_STORAGE_HEFT at
+  ×1.0061 (makespan ×1.1424 while energy improves ×0.881): the per-job greedy can win
+  energy and still lose the product when its makespan estimate misses the fleet idle
+  exposure — exactly the honesty point of the design §3 ("exact EDP optimization"
+  deliberately omitted; the greedy is dispatch-local). Its medians: energy ×0.377,
+  EDP ×0.369 vs DEFAULT.
+- MIN_POWER's medians show the *austerity trade*: −69.7% energy and carbon but ×5.9
+  makespan — its median EDP product is ×2.33 worse than DEFAULT's.
+- The EDP_HEURISTIC tier mix is *clock-dependent* (the greedy's makespan estimate charges
+  each candidate tier's idle exposure at dispatch): early LONG jobs take the 1000 tier,
+  late/short jobs stay at 2000 — and on the transfer-dominated LOCAL_DAG cells every
+  dispatch clock is late enough that the greedy collapses to all-2000 (the 5 "equal"
+  cells).
+
+Relative verification (from the repository root, no Java required):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify-study-evidence.py \
+  --output /new-path/dvfs-audit.json \
+  $(ls output/benchmark-standard-dvfs-v1/runs/*/result.manifest.json)
+```
+
+All 90 bundles audit with **PASS, 0 issues (2,761,384 automated checks)** — the per-tier
+conservation law (per-Job `tierMips` groups, union per tier, default-tier idle seconds,
+BAT-D2 slack), the tier-speed task-window recompute (BAT-D6), and the intensity grams
+riding the per-tier joules are all recomputed from each manifest's own fields. Negative
+controls in the Python self-test suite kill the v1-speed window forgery and per-tier
+attribution corruptions. Evidence is retained at
+`output/benchmark-standard-dvfs-v1/` and as
+`output/benchmark-standard-dvfs-v1-evidence.tar.gz` (12 MB); joules and grams are
+declared-model values at the frozen P-state table, not measurements.
+
+Honest bounds of the DVFS variant, beyond the boundary statements of the standard, power,
+and carbon benchmarks:
+
+- **The tier table is a declared model.** The cubic dynamic / linear leakage laws motivate
+  the frozen values but the numbers are declared constants (the deep tiers' busy max lies
+  below the default tier's *idle* — a parked-turbo VM draws more than a deep-tier busy
+  one; a real P-state table's deep idle would close this, and the declared form keeps the
+  per-tier law deterministic and auditable either way).
+- **Assignment is dispatch-local**: one tier per job at admission, no mid-job switching
+  (design §3 deliberately omits it); MIN_POWER/EDP are fleet-uniform or per-job-greedy
+  *policies*, not schedulers — the registered DVFS-aware track (EDP_GREEDY, batch D6)
+  is the demonstrator for real co-scheduling, and its fixture ledger is honest about
+  trading time for energy.
+- No re-runnable tiered evidence yet: the manifest now records
+  `configuration.frequencyPolicy`, but a tiered bundle's rerun still fails loud on the
+  platform face (the tier-table rebuild is a documented forward contract, §2.6).
+
 ## Retention
 
 ### Verifying the power variant

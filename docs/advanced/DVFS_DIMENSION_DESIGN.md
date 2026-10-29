@@ -2,8 +2,14 @@
 
 This document designs the DVFS (Dynamic Voltage and Frequency Scaling) extension —
 the third and final axis of the platform's energy trilogy (measure → price → control).
-No code has been written yet — this is the contract-first design, following the
-proven energy/carbon arc: survey → design → implementation batches → adversarial rounds.
+**AS BUILT (D1–D6, 2026-10-29):** the batches D1–D6 have all landed (D1 data model and
+conservation law; D2 per-Job assignment + per-tier ledger; D3 Python per-tier auditor;
+D4 Workbench JSON + registry surface + carbon ride-through; D5 the frozen tri-dimensional
+benchmark `benchmark-standard-dvfs-v1`; D6 the registered `EDP_GREEDY` demonstrator and
+the first DVFS-aware scheduling comparison). The original contract text is kept verbatim
+below, with the as-built notes inline (§2.3/§2.4/§2.6) recording where the build pinned,
+extended, or honestly bounded the contract — following the proven energy/carbon arc:
+survey → design → implementation batches → adversarial rounds.
 
 ## 1. Primary-source survey: how the field models frequency control
 
@@ -287,6 +293,55 @@ specifies, with the following pins and one forward contract closed:
   non-rerunnable — the diff fails loud); the registered DVFS-aware
   demonstrator and the first DVFS-vs-DEFAULT comparison belong to D5/D6;
   `carbonWindows` stay outside the v1 workbench surface.
+
+**As-built (D5+D6, 2026-10-29).** Both closing batches landed; the contract sections
+above held, with the following pins, one seam closed, and one honest demonstrator
+ledger:
+
+- **D5 — the frozen tri-dimensional benchmark `benchmark-standard-dvfs-v1`**
+  (index `benchmark-dvfs.json`; see the
+  [benchmark doc](<../benchmark/STANDARD_BENCHMARK.md>) for the full tables and
+  how-to-verify). 90/90 cells completed in ~20 s wall clock (the honest sizing
+  disclosure — the 480-cell full grid would miss the minutes budget — is recorded in
+  the plan JSON and the doc); the Python auditor passed all 90 bundles with zero
+  issues (per-tier conservation law, tier-speed windows, intensity grams riding the
+  per-tier joules). The 5-tier fleet table is frozen in `BenchmarkExecutor.DVFS_TIERS`
+  (turbo 2000 = the declared overvolted state; nominal 1000 = the power-v1 envelope
+  anchor; the deep tiers follow the exact cubic dynamic and the 0.2 W/MIPS leakage
+  idle). Break-even honesty, observed not asserted: MIN_POWER is *worse* in energy on
+  6/30 cells (up to ×1.32, the idle-exposure side) and saves up to −99.3% on the one
+  ≥98%-utilization cell (the slack side); EDP_HEURISTIC places the per-cell energy
+  trade at 25 better / 5 equal / 0 worse, but its *EDP product* loses on 1/30 cells
+  (×1.006) — the greedy's dispatch-local blindness, exactly §3's deliberate omission.
+- **D6 — the scheduling-time per-Job tier API and the EDP_GREEDY demonstrator.** The
+  registry face of §2.2 is realized as
+  `org.workflowsim.scheduling.FrequencyTierSelector`: the active scheduling policy
+  instance elects a per-Job tier at dispatch, the session policy stays the fallback
+  (selector output is validated against the declared table by mips identity; null or
+  undeclared tiers fail fast citing the admission/evidence-chain clauses).
+  `EDP_GREEDY` (experiments test registry, SPI-registered) declares the full
+  implication chain `dvfsAware + frequencyTiersRequired + powerModelRequired` — which
+  surfaced and closed one real seam: the registry track's power fact now follows the
+  energy chain's BAT-D2 "powered" predicate (`flat fields OR a tier table`), so a
+  tiered fleet can no longer be misread as unpowered at the registry gate. The
+  demonstrator's heuristic is the documented length-based tier split (long jobs to the
+  last tier, short jobs to the default tier) on inherited FCFS placement — a
+  demonstrator, not an optimizer: its honest ledger on the 3-tier tri-dimensional
+  fixture trades **energy −32.4% (406,768 J → 274,955 J) for makespan ×3.27
+  (62.71 s → 205.21 s), losing the EDP product ×2.21** — the first DVFS-aware
+  scheduling result, tier mix 3×2000+1×500 against FCFS's all-2000, with the manifest
+  evidence audited clean by the Python auditor inside the integration test.
+- **One Java/Python seam closed under D5/D6 discipline (BAT-D6)**: the task-level
+  model windows were still computed at VM base speed while Jobs execute at assigned
+  tier speed (task windows landing *outside* their job envelope under any tier ≠
+  base). Both sides now use the tier speed —
+  `WorkflowDatacenter.updateTaskExecTime` and the auditor's
+  `effective-task-window`/`cpu-lower-bound` recompute — pinned by a paired Python
+  self-test (the v1-speed forgery next to a slow-tier claim is killed).
+- **Manifest face**: every new manifest serializes `configuration.frequencyPolicy`
+  (following the registered-label pattern); the tier table and per-Job `tierMips`
+  serialize as specified in §2.4. Tiered bundles remain honestly non-rerunnable
+  (the loud failure is the design's pinned behavior, not a regression).
 
 ## 3. Honest scoping (v2 deliberate omissions)
 

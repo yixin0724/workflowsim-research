@@ -1,2 +1,5 @@
 org.workflowsim.experiment.registry.EnergyTestSchedulerProvider
 org.workflowsim.experiment.registry.DvfsTestSchedulerProvider
+org.workflowsim.experiment.registry.SelectorTierDvfsTestSchedulerProvider
+org.workflowsim.experiment.registry.SelectorNullTierDvfsTestSchedulerProvider
+org.workflowsim.experiment.registry.SelectorUndeclaredTierDvfsTestSchedulerProvider

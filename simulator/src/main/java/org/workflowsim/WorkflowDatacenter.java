@@ -845,8 +845,16 @@ public class WorkflowDatacenter extends Datacenter {
      * 依据模型推导 Job 内每个原始 Task 的连续计算时间窗，并写入任务级证据事件。
      *
      * <p>第一个 Task 在 Job 的执行开始时间加上生效阶段输入耗时后开始，后续 Task 按
-     * {@code taskLengthMi / vmMips} 顺序串行推进。这里更新的是任务级模型时间窗；CloudSim
-     * 不允许在此处直接改写 Job 的真实结束时间，因此两者不能混为同一执行证据。
+     * {@code taskLengthMi / 执行速} 顺序串行推进。这里更新的是任务级模型时间窗；CloudSim
+     * 不允许在此处直接改写 Job 的真实结束时间，因此两者不能混为同一执行证据。</p>
+     *
+     * <p>BAT-D6（2026-10-29）：执行速 = 本 Job 派发时刻指派的频档速
+     * （{@code job.getTierMips()}，档按 MIPS 唯一）；无档 Job（v1 平台/混合平台的无档
+     * VM/非计算簿记）沿用 VM 声明速——与 {@code WorkflowScheduler.assignFrequencyTier}
+     * 的 Job 长度缩放（工作不变，时长 = work/档速）严格同源。此前的口径（恒 VM 速）
+     * 在频档 ≠ VM 基速时产生"Task 在其 Job 结束之后才结束"的窗外任务窗——独立
+     * Python 审计的 {@code task-window-within-job}/{@code cpu-lower-bound} 即刻捕获
+     * （D2 遗漏缝，非可保留行为）。</p>
      *
      * @param job 已提交的聚类 Job
      * @param vm 执行 VM
@@ -875,9 +883,14 @@ public class WorkflowDatacenter extends Datacenter {
                         "modeledJobStartSeconds",
                         Double.valueOf(startTime)));
         boolean firstTask = true;
+        // BAT-D6（2026-10-29）：任务级模型窗的执行速取本 Job 的指派档速（无档 = VM
+        // 声明速）——与调度器对 Job 云let 长度的缩放口径一致，任务窗保持在 Job
+        // 实际执行窗之内（工作不变声明 MI，时长 = work/档速）。
+        Double assignedTierMips = job.getTierMips();
+        double executionSpeedMips = assignedTierMips != null ? assignedTierMips.doubleValue() : vm.getMips();
         for (Task task : job.getTaskList()) {
             task.setExecStartTime(startTime);
-            double taskRuntime = task.getEffectiveExecutionLengthMi() / vm.getMips();
+            double taskRuntime = task.getEffectiveExecutionLengthMi() / executionSpeedMips;
             startTime += taskRuntime;
             // CloudSim 不支持在这里直接重写 Job 的结束时间，只记录 Task 级模型结束时刻。
             task.setTaskFinishTime(startTime);

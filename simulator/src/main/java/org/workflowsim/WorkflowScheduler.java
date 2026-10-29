@@ -38,6 +38,7 @@ import org.workflowsim.scheduling.DataAwareSchedulingAlgorithm;
 import org.workflowsim.scheduling.FCFSSchedulingAlgorithm;
 import org.workflowsim.scheduling.FastestVmSchedulingAlgorithm;
 import org.workflowsim.scheduling.FirstFitIdleSchedulingAlgorithm;
+import org.workflowsim.scheduling.FrequencyTierSelector;
 import org.workflowsim.scheduling.LjfFastestIdleSchedulingAlgorithm;
 import org.workflowsim.scheduling.ReadyBatchMCTSchedulingAlgorithm;
 import org.workflowsim.scheduling.ReadyBatchMaxMinSchedulingAlgorithm;
@@ -510,10 +511,23 @@ public class WorkflowScheduler extends DatacenterBroker {
         job.setCloudletLength(scaledWork);
     }
 
-    /** BAT-D2：按会话频档策略选择 VM 频档表中的唯一档（表序=降序、首档=默认档）。 */
+    /**
+     * BAT-D2：按会话频档策略选择 VM 频档表中的唯一档（表序=降序、首档=默认档）。
+     *
+     * <p>BAT-D6（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2 注册面）：活动
+     * 调度策略实例实现 {@link FrequencyTierSelector} 时，逐 Job 档选择权归算法——第一类
+     * 调度时刻 API 的消费点，注册 DVFS-aware 算轨（如 EDP_GREEDY 示范）表达异质档位
+     * 策略的唯一通道；会话级策略（BASE 路径）退为无 selector 算法的缺省斜切。两条
+     * 路径的返回值都送 {@link #validateDeclaredTier(Job, PlatformProfile.FrequencyTier, List)}
+     * 做声明档成员校验（档按 MIPS 唯一），表外/空档按证据链断裂显式拒绝（不静默回退）。</p>
+     */
     private PlatformProfile.FrequencyTier selectFrequencyTier(Job job, List<PlatformProfile.FrequencyTier> tiers) {
-        SimulationConfig.FrequencyPolicy policy = Parameters.getFrequencyPolicy();
-        switch (policy) {
+        BaseSchedulingAlgorithm policy = getSchedulingPolicy();
+        if (policy instanceof FrequencyTierSelector) {
+            return validateDeclaredTier(job, ((FrequencyTierSelector) policy).selectFrequencyTier(job, tiers), tiers);
+        }
+        SimulationConfig.FrequencyPolicy policyValue = Parameters.getFrequencyPolicy();
+        switch (policyValue) {
             case MIN_POWER:
                 // 节电上限：每个 Job 都在最低频档（表末档）执行。
                 return tiers.get(tiers.size() - 1);
@@ -524,8 +538,44 @@ public class WorkflowScheduler extends DatacenterBroker {
                 // 默认档身份来自表序声明，而非隐式 max()）。
                 return tiers.get(0);
             default:
-                throw new IllegalStateException("Unknown frequency policy " + policy);
+                throw new IllegalStateException("Unknown frequency policy " + policyValue);
         }
+    }
+
+    /**
+     * BAT-D6：selector 返回档的声明成员校验——null 或不在本 VM 声明频档表内
+     * （按 mips 精确身份，档按 mips 唯一）= 频档证据链断裂，显式失败。
+     *
+     * <p>本校验与 Java/Python 台账的同名条款（EnergyAccounting.tierByMips、
+     * verify-study-evidence.py）同源：自由构造的档身份在这里被挡下，不会以
+     * "伪声明档"流入 JobOutcome.tierMips 污染守恒律复算。</p>
+     */
+    private PlatformProfile.FrequencyTier validateDeclaredTier(
+            Job job, PlatformProfile.FrequencyTier selected, List<PlatformProfile.FrequencyTier> tiers) {
+        if (selected == null) {
+            throw new IllegalStateException("DVFS frequency-tier selector "
+                    + policyLabel() + " returned no tier for Job " + job.getCloudletId()
+                    + " (BAT-D6): assignment at admission requires exactly one declared tier");
+        }
+        for (PlatformProfile.FrequencyTier tier : tiers) {
+            if (Double.compare(tier.getMips(), selected.getMips()) == 0) {
+                return tier;
+            }
+        }
+        throw new IllegalStateException("DVFS frequency-tier selector " + policyLabel() + " returned tier mips "
+                + selected.getMips() + " which matches no declared frequency tier of the target VM (Job "
+                + job.getCloudletId() + ", BAT-D6): the per-Job tier evidence chain would be broken");
+    }
+
+    /** BAT-D6：selector 拒绝消息引用的活动策略身份（注册标签优先于枚举名）。 */
+    private String policyLabel() {
+        if (Parameters.getRegisteredSchedulingAlgorithmProvider() != null) {
+            String label = Parameters.getRegisteredSchedulingAlgorithmProvider().label();
+            if (label != null) {
+                return label;
+            }
+        }
+        return String.valueOf(Parameters.getSchedulingAlgorithm());
     }
 
     /**

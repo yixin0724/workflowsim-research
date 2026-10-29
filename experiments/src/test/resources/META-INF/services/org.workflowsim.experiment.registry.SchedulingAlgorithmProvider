@@ -1,3 +1,4 @@
 org.workflowsim.experiments.registry.GradStudentSchedulerExerciseIntegrationTest$GradStudentBwFirstSchedulerProvider
 org.workflowsim.experiments.registry.EnergyLptFirstSchedulerProvider
 org.workflowsim.experiments.registry.CarbonDeferFirstSchedulerProvider
+org.workflowsim.experiments.registry.EdpGreedySchedulerProvider

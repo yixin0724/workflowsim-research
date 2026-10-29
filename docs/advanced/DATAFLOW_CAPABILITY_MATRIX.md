@@ -94,6 +94,47 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
 - Known follow-up (BAT-C5, 2026-10-28): the offline HTML report does not yet render a dedicated carbon
   panel; report-side carbon visualization is gap-listed, not hidden.
 
+## DVFS dimension
+
+- Per-VM `frequencyTiers` tables (BAT-D1, 2026-10-29; survey and semantics in the
+  [DVFS dimension design](<DVFS_DIMENSION_DESIGN.md>)):
+  `{mips, idlePowerWatts, maxPowerWatts}`, `mips` strictly descending, first tier =
+  the declared default, powers satisfying `max ≥ idle ≥ 0` — and **mutually exclusive**
+  with the flat power fields (the tier table replaces them, one source of truth). A tiered
+  VM counts as *powered* for the energy and carbon chains; a non-tiered platform is the
+  v1 single-tier mode and stays bit-identical.
+- **Assignment at admission** (BAT-D2): each compute Job gets exactly one tier when
+  dispatched to a VM — no mid-Job switching, keeping the one-rectangle-per-Job
+  auditability. Job length carries the `vm.mips/tier.mips` scaling while the declared
+  work stays untouched; per-task model windows use the assigned tier speed (BAT-D6 —
+  the Python auditor kills a v1-speed window next to a slow-tier claim). The
+  config-level `frequencyPolicy` (`DEFAULT` / `MIN_POWER` / `EDP_HEURISTIC`) selects
+  the session-wide fallback selection; non-DEFAULT on an all-plain platform is
+  rejected fail-fast (a silently inert policy is misleading evidence).
+- The **extended conservation law** `E_vm = P_idle(default)×T_sim +
+  Σ_tier[(P_max(tier) − P_idle(default))×busy(tier)]` degenerates exactly to the v1 law
+  without tiers; the per-tier busy ledger is reconstructable from the manifest's per-Job
+  `tierMips` keys alone (tiers unique by mips), and the independent Python
+  [auditor](<../../scripts/verify-study-evidence.py>) recomputes per-tier energy and the
+  carbon models riding it with the same kill faces as the flat law (tier-attribution and
+  window forgeries are caught, not rounded).
+- Registry declarations carry `dvfsAware` / `frequencyTiersRequired` (required ⇒ aware,
+  same implication lattice as the energy family); the power face's predicate counts tier
+  tables (*either* flat fields *or* a tier table = powered, BAT-D2/BAT-D6), so the
+  EDP_GREEDY demonstrator (batch D6) declares the full chain
+  `dvfsAware + frequencyTiersRequired + powerModelRequired` and is the first SPI
+  consumer of the scheduling-time per-Job tier API
+  ([FrequencyTierSelector](<../../simulator/src/main/java/org/workflowsim/scheduling/FrequencyTierSelector.java>)).
+- The frozen tri-dimensional benchmark `benchmark-standard-dvfs-v1` (5-tier P-state table
+  + uniform 380 g/kWh intensity; 90-cell representative subset, honest disclosure and
+  results in the [benchmark doc](<../benchmark/STANDARD_BENCHMARK.md>)) is the
+  dimension's public comparison surface, incl. the two-sided break-even observation.
+- Known follow-up (BAT-D5/D6, 2026-10-29): tiered manifest bundles are not yet
+  re-runnable (the tier-table rebuild is a documented forward contract — the rerun
+  fails loud on the platform face); the budget-carbon model under tiers is implemented
+  and self-tested Python-side only; `configuration.frequencyPolicy` serializes in every
+  new manifest.
+
 ## Performance Optimizations Do Not Change the Semantics Above
 
 A transaction copies only the active working set and the changed replica rows; the immutable history index and the terminal summaries are shared, and neither the service allocator, the floating-point arithmetic, the sources/paths, the event order, nor the assignment policy is changed. Wide sets of simultaneously active tasks can still incur near-quadratic cost, and the history-copy optimizations must not be equated with linearizing every input. See [state structure and performance measurement](<DATAFLOW_STATE_COPY_PERFORMANCE.md>).

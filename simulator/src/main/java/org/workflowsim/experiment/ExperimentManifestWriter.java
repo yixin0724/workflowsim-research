@@ -272,6 +272,12 @@ public final class ExperimentManifestWriter {
                 config.getRegisteredSchedulingAlgorithmProvider() == null
                         ? null
                         : config.getRegisteredSchedulingAlgorithmProvider().label());
+        // BAT-D5（2026-10-29，docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2/D5 复现面）：配置级
+        // 频档策略入 manifest 配置节（跟随 registeredSchedulingAlgorithm 模式）——策略是
+        // 复跑语义的一部分：v1 能量前 manifest 无该键（历史缺省即 DEFAULT）；档表与策略
+        // 的平台重建（ManifestConfigRebuilder 频档前向契约）仍属后续批次，tiered manifest
+        // 复跑按记录的红差异失败（文档化失效路径，不静默）。
+        values.put("frequencyPolicy", config.getFrequencyPolicy().name());
         values.put("planningAlgorithm", config.getPlanningAlgorithm().name());
         values.put("algorithmContract", AlgorithmCatalog.forConfiguration(config));
         values.put("reduceMethod", config.getReduceMethod());

@@ -73,6 +73,9 @@ output/benchmark-standard-power-v1/
 # C4 frozen carbon-benchmark local evidence (tar original retained).
 output/benchmark-standard-carbon-v1/
 
+# D5 frozen DVFS tri-dimensional benchmark local evidence (tar original retained).
+output/benchmark-standard-dvfs-v1/
+
 # BAT-D3 DVFS tier-audit smoke bundle (one real 2-tier run; regenerable via a temporary
 # SimulationRunner driver — the smoke path is documented in DVFS_DIMENSION_DESIGN.md §2.4).
 output/dvfs-tier-audit-smoke/
