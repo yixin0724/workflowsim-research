@@ -87,6 +87,29 @@ class WorkbenchConfigTest {
         assertThrows(IllegalArgumentException.class, () -> WorkbenchConfig.read(negativeFile));
     }
 
+    /**
+     * C1 复核（2026-11-02）：工作台在<b>校验期</b>就拒绝碳延后标签——窗口声明不进 v1
+     * 工作台面，若放行会让用户 validate 通过、run 到一半才失败。拒绝信息必须指路。
+     */
+    @Test
+    void workbenchRejectsTheCarbonDeferralLabelWithAPointer() throws Exception {
+        Path workflow = workflow(directory, "defer-flow.dax", false);
+        JsonObject configuration = configuration(workflow.toString(), 2);
+        JsonObject algorithm = configuration.getAsJsonArray("algorithms").get(0).getAsJsonObject();
+        algorithm.addProperty("scheduler", "CARBON_WINDOW_DEFER");
+        Path file = json(directory.resolve("defer.json"), configuration);
+
+        IllegalArgumentException rejection =
+                assertThrows(IllegalArgumentException.class, () -> WorkbenchConfig.read(file));
+        assertTrue(
+                rejection.getMessage().contains("CARBON_WINDOW_DEFER"),
+                "the refusal must name the label: " + rejection.getMessage());
+        assertTrue(
+                rejection.getMessage().contains("SimulationRunner")
+                        || rejection.getMessage().contains("carbonWindows"),
+                "the refusal must point at the supported route: " + rejection.getMessage());
+    }
+
     @Test
     void platformCarbonIntensityUniformRoundTripAndValidate() throws Exception {
         // BAT-C3（2026-10-28）：均一碳强度 380 gCO₂/kWh → 每 VmSpec 携带该值；缺省→null

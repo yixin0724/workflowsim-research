@@ -96,7 +96,11 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   The real CWM-style deferral engine landed as the core label `CARBON_WINDOW_DEFER` (C1,
   2026-11-02): it defers the ready batch into the next strictly-cleaner declared window (each Job
   at most once) and the scheduler arms the wake-up event; see the as-built note in
-  [the carbon design](<CARBON_DIMENSION_DESIGN.md>) §2.5.
+  [the carbon design](<CARBON_DIMENSION_DESIGN.md>) §2.5. Because the engine reads
+  `carbonWindows` and the v1 workbench surface deliberately excludes budget windows, the
+  Workbench rejects this label at validation time (with a pointer to the SimulationRunner
+  API) instead of letting a run fail halfway; a platform without windows is refused by the
+  runner itself rather than silently degraded to plain FCFS.
 
 - Report surface (closed 2026-11-02): the offline HTML report renders a dedicated carbon panel for
   manifests carrying `carbonMetrics`. The badge names the accounting family — `INTENSITY` shows grams

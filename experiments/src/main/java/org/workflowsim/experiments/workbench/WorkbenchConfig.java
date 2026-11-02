@@ -234,6 +234,7 @@ public final class WorkbenchConfig {
             Parameters.PlanningAlgorithm planner =
                     Parameters.PlanningAlgorithm.valueOf(text(algorithm, "planner", "INVALID"));
             ResolvedScheduler resolved = resolveSchedulerPolicy(algorithm, assignment, planner);
+            rejectWorkbenchExcludedScheduler(resolved.scheduler);
             track = requireSameDecisionLayer(track, assignment, planner);
             org.workflowsim.utils.SimulationConfig.Builder configBuilder = SimulationConfig.builder(
                             paths, platform.getVms().size())
@@ -284,6 +285,21 @@ public final class WorkbenchConfig {
      * 2026-10-26 complexity extraction from readCandidates; statements verbatim; order unchanged.
      * 作用域：仅解析候选算轨的调度策略（默认标签、枚举解析、SPI 外部注册回退与维护面资格审查）。
      */
+    /**
+     * C1（2026-11-02 复核轮）：延后引擎需要 {@code platform.carbonWindows}，而预算窗口
+     * 属于研究协议声明域、刻意不进 v1 工作台面（CARBON_DIMENSION_DESIGN §2.3）。因此
+     * 工作台在<b>校验期</b>就拒绝这个标签并指明去处，而不是让用户 validate 通过、
+     * run 到一半才被运行期拒绝。
+     */
+    private static void rejectWorkbenchExcludedScheduler(Parameters.SchedulingAlgorithm scheduler) {
+        if (scheduler == Parameters.SchedulingAlgorithm.CARBON_WINDOW_DEFER) {
+            throw new IllegalArgumentException("Workbench does not accept SchedulingAlgorithm.CARBON_WINDOW_DEFER:"
+                    + " the deferral engine needs platform.carbonWindows, and budget windows are research-protocol"
+                    + " declarations outside the v1 workbench surface (CARBON_DIMENSION_DESIGN.md 2.3). Run it"
+                    + " through the SimulationRunner API instead.");
+        }
+    }
+
     private static ResolvedScheduler resolveSchedulerPolicy(
             JsonObject algorithm,
             org.workflowsim.data.v2.DataflowAssignmentConfig assignment,

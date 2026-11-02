@@ -181,6 +181,27 @@ class DvfsRerunLoudRedIntegrationTest {
         assertEquals(0, report.getExitCode());
     }
 
+    /**
+     * A1×A2 交互（2026-11-02 复核轮）：分档 + 碳窗口（预算模型）的 bundle 重跑必须
+     * 依旧 IDENTICAL_CORE。这条路径同时压到两个新东西：频档表重建（A1）与逐档舰队
+     * 功率曲线（A2）——窗口由重建器独立重建，档表由 VmSpec 重建，两侧都对上才算数。
+     */
+    @Test
+    void tieredBudgetCarbonEvidenceRerunsIdentically() throws Exception {
+        Path study = directory.resolve("tiered-budget");
+        Path run = runAndWriteEvidence(study, "runs/tiered-budget", tieredBudgetPlatform(), FrequencyPolicy.MIN_POWER);
+
+        RerunReport report = RerunDiffExecutor.execute(run, study.resolve("out"));
+        assertEquals(RerunVerdict.IDENTICAL_CORE, report.getVerdict(), report.toJson());
+        assertEquals(0, report.getExitCode(), "IDENTICAL_CORE exit code");
+
+        String rerunManifest =
+                new String(Files.readAllBytes(study.resolve("out/rerun/result.manifest.json")), StandardCharsets.UTF_8);
+        assertTrue(rerunManifest.contains("carbonWindows"), "the rebuilt side must carry the window table");
+        assertTrue(rerunManifest.contains("frequencyTiers"), "the rebuilt side must carry the tier table");
+        assertTrue(rerunManifest.contains("carbonMetrics"), "the rebuilt run must produce budget carbon again");
+    }
+
     // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------
@@ -389,6 +410,35 @@ class DvfsRerunLoudRedIntegrationTest {
         builder.addVm(plainVm(0));
         builder.addHost(new PlatformProfile.HostSpec(1, 2, 2000, 2048, 10000L, 1000000L));
         builder.addVm(plainVm(1));
+        return builder.build();
+    }
+
+    /** 分档 + 碳窗口平台：频档表与预算窗口同时声明（A1×A2 交互面）。 */
+    private static PlatformProfile tieredBudgetPlatform() {
+        PlatformProfile.Builder builder = PlatformProfile.builder("v4-tiered-budget");
+        java.util.List<PlatformProfile.FrequencyTier> tiers = java.util.Arrays.asList(
+                new PlatformProfile.FrequencyTier(1000.0, 250.0, 400.0),
+                new PlatformProfile.FrequencyTier(500.0, 100.0, 118.75));
+        for (int id = 0; id < 2; id++) {
+            builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000, 2048, 10000L, 1000000L));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id,
+                    1000.0,
+                    1,
+                    512,
+                    1000L,
+                    10000L,
+                    "Xen",
+                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                    null,
+                    0.0,
+                    0.0,
+                    null,
+                    tiers));
+            builder.pinVmToHost(id, id);
+        }
+        builder.carbonWindow(0.0, 60.0, 200.0);
+        builder.carbonWindow(60.0, 4000.0, 300.0);
         return builder.build();
     }
 

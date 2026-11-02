@@ -638,9 +638,11 @@ public final class ManifestConfigRebuilder {
         if (element == null || element.isJsonNull()) {
             return SimulationConfig.FrequencyPolicy.DEFAULT;
         }
-        // 类型错误必须是用法类重建失败（IllegalArgumentException → RECONSTRUCTION_REJECTED），
-        // 不能让它退化到 getAsString() 的 IllegalStateException——后者会被 CLI 映射成
-        // usage 退出码，绕过 verdict 契约（A1 复核轮）。
+        // 类型错误在这里显式拒绝，而不是让 getAsString() 抛 Gson 的 IllegalStateException：
+        // 两者最终都落 RECONSTRUCTION_REJECTED（RerunDiffExecutor.execute 同时捕获
+        // IllegalArgumentException 与 IllegalStateException），但显式拒绝能给出
+        // "哪个字段、期望什么类型"的可操作信息，而不是一句框架级报错（A1 复核轮，
+        // 诊断质量修正；复核时曾误判为 verdict 契约漏洞，已实测证伪）。
         if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
             throw new IllegalArgumentException("configuration.frequencyPolicy must be a JSON string when present");
         }

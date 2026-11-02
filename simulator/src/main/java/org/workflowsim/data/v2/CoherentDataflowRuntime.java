@@ -1006,7 +1006,14 @@ public final class CoherentDataflowRuntime {
      * B1（2026-11-02）：取一个可安全写入的作业状态——若该条目仍与源帧共享，先复制再写。
      * 所有会改变 JobState 的路径都必须经此取得对象；只读路径可继续用 {@code frame.jobs.get}。
      */
-    private static JobState mutable(Frame frame, int jobId) {
+    private JobState mutable(Frame frame, int jobId) {
+        // 防御闸：可写句柄只能取自暂存帧。若对已提交状态（current）就地改写，事务的
+        // 回滚语义与「上一帧不可变」不变量会同时失效，且不会有任何测试红灯——必须显式
+        // 失败（B1 复核轮）。
+        if (frame == current) {
+            throw new IllegalStateException(
+                    "mutable() must be called on a staged frame; the committed state is immutable");
+        }
         JobState job = frame.jobs.get(jobId);
         if (job == null) {
             return null;
