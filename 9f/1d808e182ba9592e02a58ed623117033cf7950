@@ -1,0 +1,14 @@
+docs/experiments/REPRODUCIBILITY.md
+  h_adc77830afcf4d 80-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9f1d808e182ba9592e02a58ed623117033cf7950",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
