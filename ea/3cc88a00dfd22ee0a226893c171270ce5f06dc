@@ -1,0 +1,25 @@
+.gitignore
+  s_dfd76f683cfd2c::t_fc919081995244 76-78
+Makefile
+  s_dfd76f683cfd2c::t_2026ce313e8a83 59,62
+config/checkstyle/checkstyle.xml
+  s_dfd76f683cfd2c::t_4bc4e9f55ebee1 12
+simulator/src/test/java/org/workflowsim/utils/SessionResetMatrixTest.java
+  s_dfd76f683cfd2c::t_3e03bd6494a87e 38-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ea3cc88a00dfd22ee0a226893c171270ce5f06dc",
+  "prompts": {},
+  "sessions": {
+    "s_dfd76f683cfd2c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18a73-43db-7ad2-a5c7-a77ef2d51736",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
