@@ -1,0 +1,22 @@
+docs/getting-started/WORKBENCH.md
+  h_adc77830afcf4d 176-177
+experiments/src/main/resources/workbench/report.html
+  h_adc77830afcf4d 107-118,137,141
+experiments/src/test/java/org/workflowsim/experiments/workbench/WorkbenchBrowserFixtures.java
+  h_adc77830afcf4d 146-185
+scripts/test-report-checker.cjs
+  h_adc77830afcf4d 120-132
+scripts/verify-report.cjs
+  h_adc77830afcf4d 118-151,361,419
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "168dc5986d56eb42cbb10d55807045fd7415e7fb",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
