@@ -398,6 +398,44 @@ class IndependentAuditorTests(unittest.TestCase):
             self.assertTrue(any("totalEnergyJoules" in str(i.get("location", "")) for i in bad["issues"]),
                             "corrupted total energy must be caught: " + json.dumps(bad["issues"][:2]))
 
+    def test_event_stream_order_sequence_and_blank_lines_are_killed(self):
+        """复核轮：事件流的顺序/序号/空行检查此前没有负例钉住（实现了但无人验证）。
+
+        三类形态各取一个：时间倒退（event-clock-order）、重复序号（event-sequence）、
+        空行（blank line）。判定以审计器子进程的退出码为准（硬错误与 FAIL 都必须非零）。
+        """
+        def run_case(mutate):
+            root = Path(self.root / f"stream-{len(list(self.root.iterdir()))}")
+            make_bundle(root)
+            events_path = root / "run.events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            mutate(events, events_path)
+            output = root / "stream-report.json"
+            completed = self.cli("verify-study-evidence.py", root / "run.manifest.json", output)
+            body = output.read_text(encoding="utf-8") if output.exists() else ""
+            return completed.returncode, body
+
+        def clock_backwards(events, path):
+            events[1]["simulationTime"] = 0.0
+            path.write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+
+        def duplicate_sequence(events, path):
+            events[1]["sequence"] = events[0]["sequence"]
+            path.write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+
+        def blank_line(events, path):
+            body = "\n".join(json.dumps(e) for e in events)
+            path.write_text(body.replace("\n", "\n\n", 1) + "\n", encoding="utf-8")
+
+        for name, mutate, needle in (
+                ("clock-order", clock_backwards, "event-clock-order"),
+                ("sequence", duplicate_sequence, "event-sequence"),
+                ("blank-line", blank_line, "blank")):
+            code, body = run_case(mutate)
+            self.assertNotEqual(0, code, name + " must be rejected")
+            if body:
+                self.assertIn(needle, body, name + " must be reported with its contract code")
+
     def test_event_sequence_bounds_must_match_the_stream(self):
         """复核轮（跨语言模糊测试发现）：清单自报的 first/lastSequence 必须绑定事件流。
 
