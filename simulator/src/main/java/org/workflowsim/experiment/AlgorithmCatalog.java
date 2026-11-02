@@ -43,6 +43,7 @@ public final class AlgorithmCatalog {
             case DATA:
             case STATIC:
             case RL_POLICY:
+            case CARBON_WINDOW_DEFER:
                 return true;
             case MINMIN:
             case MAXMIN:
@@ -149,6 +150,21 @@ public final class AlgorithmCatalog {
     private static Map<String, Object> scheduler(SchedulingAlgorithm algorithm) {
         Map<String, Object> values = base(algorithm.name());
         switch (algorithm) {
+            case CARBON_WINDOW_DEFER:
+                values.put("decisionLayer", "ONLINE_READY_JOB_WITH_DECLARED_WINDOW_DEFERRAL");
+                values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");
+                values.put(
+                        "decisionRule",
+                        "Defer the whole ready batch to the next declared carbon window with strictly"
+                                + " higher green power (each Job at most once), then dispatch FCFS to the"
+                                + " smallest idle compatible VM");
+                values.put("verification", "CONTROLLED_MODEL_REGRESSION_COVERED");
+                values.put(
+                        "limitations",
+                        limitations("Deferral is driven by the declared window table, not by a live fleet-load"
+                                + " forecast; it trades completion time for lower excess and the engine"
+                                + " makes no superiority claim."));
+                break;
             case FCFS:
                 values.put("decisionLayer", "ONLINE_READY_JOB");
                 values.put("inputDomain", "VALID_DAG_AFTER_ENGINE_DEPENDENCY_RELEASE");

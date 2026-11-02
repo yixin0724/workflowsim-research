@@ -61,6 +61,9 @@ public final class SimulationRunner {
         org.workflowsim.network.FatTreeTopology fatTreeTopology = prepareFatTreeTopology(config, platform);
 
         try (SimulationSession session = SimulationSession.open(config)) {
+            // C1（2026-11-02）：绿色预算窗口随会话装载（碳感知延后调度的事实源）。
+            // 会话外为空列表；跨运行不得残留（Parameters.reset 已归零）。
+            org.workflowsim.utils.Parameters.setCarbonWindows(platform.getCarbonWindows());
             return executeWithinSession(session, config, platform, fatTreeTopology);
         } catch (SimulationExecutionException e) {
             throw e;

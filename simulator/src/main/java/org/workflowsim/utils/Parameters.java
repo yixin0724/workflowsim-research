@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.cloudbus.cloudsim.Log;
+import org.workflowsim.platform.PlatformProfile;
 
 /**
  * WorkflowSim 历史全局参数仓库。
@@ -66,6 +67,13 @@ public class Parameters {
          * 直接用 {@code SimulationRunner} 运行会因缺少注册策略而显式失败。
          */
         RL_POLICY,
+        /**
+         * C1（2026-11-02）：碳感知延后在线调度。把就绪作业压后到平台声明的、绿色功率
+         * 更高的下一个碳窗口再执行（CWM 时间平移的在线版本）。每个作业至多压后一次；
+         * 延后周期由调度器排唤醒事件推进时钟，无唤醒时刻即显式失败（不静默挂起）。
+         * 需要 {@code carbonWindows} 预算模型声明；无窗口时退化为 FCFS 同序派发。
+         */
+        CARBON_WINDOW_DEFER,
         INVALID
     }
 
@@ -256,6 +264,11 @@ public class Parameters {
      * <p>{@code null} 或全零表示全部输入在 t=0 提交（历史行为）。</p>
      */
     private static List<Double> workflowArrivalSeconds;
+    /**
+     * C1（2026-11-02）：本次运行声明的绿色预算窗口（平台剖面的事实源，由
+     * {@code SimulationRunner} 在会话内注入）。空列表 = 未声明预算模型。
+     */
+    private static List<PlatformProfile.CarbonWindow> carbonWindows = Collections.emptyList();
 
     /**
      * 初始化单输入工作流的历史全局参数。
@@ -557,7 +570,24 @@ public class Parameters {
         costModel = CostModel.DATACENTER;
         frequencyPolicy = SimulationConfig.FrequencyPolicy.DEFAULT;
         workflowArrivalSeconds = null;
+        carbonWindows = Collections.emptyList();
         SimulationRandom.reset(randomSeed);
+    }
+
+    /**
+     * C1（2026-11-02）：设置本次运行的绿色预算窗口（会话作用域）。
+     *
+     * @param windows 平台声明的窗口列表；{@code null} 视为未声明
+     */
+    public static void setCarbonWindows(List<PlatformProfile.CarbonWindow> windows) {
+        carbonWindows = windows == null
+                ? Collections.<PlatformProfile.CarbonWindow>emptyList()
+                : Collections.unmodifiableList(new ArrayList<PlatformProfile.CarbonWindow>(windows));
+    }
+
+    /** @return 本次运行的绿色预算窗口；未声明时为空列表（永不返回 {@code null}） */
+    public static List<PlatformProfile.CarbonWindow> getCarbonWindows() {
+        return carbonWindows;
     }
 
     /** @return 不可修改的多输入路径列表；单输入配置时为 {@code null} */

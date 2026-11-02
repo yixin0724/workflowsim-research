@@ -92,8 +92,11 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
 - Registry declarations gained `carbonObjectiveWeight` (positive weight implies the carbon/energy-aware
   flags through the same implication lattice as the energy triple, because both carbon accountings sit
   on the conserved energy chain); the `CARBON_DEFER_FIRST` demonstrator (C5-lite) exercises the
-  carbon-aware acceptance surface and evidence chain end-to-end with an honest demonstrator heuristic —
-  a real CWM-style deferral engine is follow-up work per the design's scoping table.
+  carbon-aware acceptance surface and evidence chain end-to-end with an honest demonstrator heuristic.
+  The real CWM-style deferral engine landed as the core label `CARBON_WINDOW_DEFER` (C1,
+  2026-11-02): it defers the ready batch into the next strictly-cleaner declared window (each Job
+  at most once) and the scheduler arms the wake-up event; see the as-built note in
+  [the carbon design](<CARBON_DIMENSION_DESIGN.md>) §2.5.
 
 - Report surface (closed 2026-11-02): the offline HTML report renders a dedicated carbon panel for
   manifests carrying `carbonMetrics`. The badge names the accounting family — `INTENSITY` shows grams

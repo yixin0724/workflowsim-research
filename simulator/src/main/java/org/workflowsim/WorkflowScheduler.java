@@ -34,7 +34,9 @@ import org.workflowsim.experiment.SimulationEventRecorder;
 import org.workflowsim.experiment.SimulationEventType;
 import org.workflowsim.platform.PlatformProfile;
 import org.workflowsim.scheduling.BaseSchedulingAlgorithm;
+import org.workflowsim.scheduling.CarbonWindowDeferSchedulingAlgorithm;
 import org.workflowsim.scheduling.DataAwareSchedulingAlgorithm;
+import org.workflowsim.scheduling.DeferralAwareSchedulingAlgorithm;
 import org.workflowsim.scheduling.FCFSSchedulingAlgorithm;
 import org.workflowsim.scheduling.FastestVmSchedulingAlgorithm;
 import org.workflowsim.scheduling.FirstFitIdleSchedulingAlgorithm;
@@ -256,6 +258,9 @@ public class WorkflowScheduler extends DatacenterBroker {
             case DATA:
                 algorithm = new DataAwareSchedulingAlgorithm();
                 break;
+            case CARBON_WINDOW_DEFER:
+                algorithm = new CarbonWindowDeferSchedulingAlgorithm();
+                break;
             case STATIC:
                 algorithm = new StaticSchedulingAlgorithm();
                 break;
@@ -423,6 +428,36 @@ public class WorkflowScheduler extends DatacenterBroker {
         getCloudletList().removeAll(scheduledList);
         getCloudletSubmittedList().addAll(scheduledList);
         cloudletsSubmitted += scheduledList.size();
+        armDeferralWakeUp(scheduler, scheduledList);
+    }
+
+    /**
+     * C1（2026-11-02）：延后策略的唤醒/死锁契约。
+     *
+     * <p>碳感知延后引擎会在"本轮一个都不派发"时保持就绪队列不变，并给出未来唤醒时刻；
+     * 调度器在此排一个 {@code CLOUDLET_UPDATE} 事件把仿真时钟推进过去，下一周期重新
+     * 调度。若策略既没派发、又拿不出未来时刻，就绪作业将永远等不到下一周期——这是
+     * 死锁，必须显式失败（守则：失败必须显式，禁止静默挂起）。</p>
+     */
+    private void armDeferralWakeUp(BaseSchedulingAlgorithm policy, List<Cloudlet> scheduledList) {
+        if (!(policy instanceof DeferralAwareSchedulingAlgorithm)) {
+            return;
+        }
+        if (!scheduledList.isEmpty() || getCloudletList().isEmpty()) {
+            // 有派发，或已无可派发作业：无需唤醒。
+            return;
+        }
+        DeferralAwareSchedulingAlgorithm deferral = (DeferralAwareSchedulingAlgorithm) policy;
+        double wakeSeconds = deferral.getNextWakeSeconds();
+        double now = org.cloudbus.cloudsim.core.CloudSim.clock();
+        if (!Double.isFinite(wakeSeconds) || wakeSeconds <= now) {
+            throw new IllegalStateException("Deferral-aware scheduling policy "
+                    + policy.getClass().getSimpleName() + " left "
+                    + getCloudletList().size()
+                    + " ready Job(s) unscheduled without a future wake time (wake=" + wakeSeconds
+                    + ", now=" + now + "): the workflow would deadlock");
+        }
+        schedule(this.getId(), wakeSeconds - now, WorkflowSimTags.CLOUDLET_UPDATE);
     }
 
     /** processCloudletUpdate 的调度周期事件阶段（事件键序原样）。 */

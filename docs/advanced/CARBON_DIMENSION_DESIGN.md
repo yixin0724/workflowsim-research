@@ -126,6 +126,22 @@ work into declared cheap windows (budget model) — the CWM temporal-shift spiri
 online label. First result: carbon grams/excess vs carbon-agnostic baseline, statistical
 signs per layering discipline.
 
+**As-built (C1, 2026-11-02): the real deferral engine replaced the demonstrator.** The
+standard scheduler label `CARBON_WINDOW_DEFER` now ships in the core: it reads the
+declared `carbonWindows`, finds the next window whose green power is *strictly* higher
+than the current one, and holds the entire ready batch until that window starts — each Job
+at most once, so starvation is bounded and the deferral is attributable per Job. The
+scheduler arms a wake-up event for the window start; a deferral-aware policy that leaves
+ready Jobs unscheduled with no future wake time fails loudly rather than hanging.
+
+Honest scope: the rule is driven by the declared window table, not by a live fleet-load
+forecast, and it trades completion time for lower excess — the engine claims no
+superiority. Hand-checked fixture (`CarbonWindowDeferSchedulingIntegrationTest`): with a
+dirty `[0,100)` window (120 W green) and a clean `[100,400)` window (400 W green) on a
+300 W active platform, plain FCFS incurs positive excess while the engine skips the dirty
+window entirely and leaves zero excess at a longer makespan; without a window table the
+label reproduces plain FCFS exactly.
+
 ## 3. Honest scoping (v1 deliberate omissions)
 
 | Omitted | Reason |

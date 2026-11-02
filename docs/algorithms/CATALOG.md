@@ -42,11 +42,18 @@ The table below is the complete set of labels accepted at the standard entry poi
 | `DATA` | chooses the idle compatible VM with the fewest non-local real input bytes; requires LOCAL |
 | `RL_POLICY` | the policy registered via `RlEnvironment.runEpisode(...)` selects the VM list index |
 | `STATIC` | executes an existing mapping/binding; with a full static plan it additionally enforces the per-VM order — it is not an independent optimization algorithm |
+| `CARBON_WINDOW_DEFER` | defers the whole ready batch to the next declared carbon window whose green power is strictly higher (each Job at most once), then dispatches FCFS to the smallest idle compatible VM; needs `carbonWindows`, falls back to plain FCFS without them (C1, 2026-11-02) |
 
 The ready-batch ECT comparison quantity is `length/MIPS`; it excludes future availability,
 input transfer, or contention. For fixed positive lengths and identical candidate sets, the
 minimum ECT is equivalent to the maximum MIPS; different labels alone do not imply different
 mappings. `DATA` compares bytes, not transfer seconds.
+
+A deferral-aware label is the one exception to "ready Jobs are dispatched immediately":
+`CARBON_WINDOW_DEFER` may leave the whole batch in the ready queue and asks the scheduler to
+wake it up at the start of the chosen window. The scheduler schedules that wake-up event; a
+deferral-aware policy that leaves ready Jobs unscheduled *without* a future wake time fails
+loudly instead of hanging the workflow.
 
 Ordinary online policies and RL dispatch at most one Job per VM per cycle; remaining Jobs
 wait for later updates. `RL_POLICY` cannot be an ordinary Workbench JSON candidate; it must
