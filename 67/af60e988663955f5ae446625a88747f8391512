@@ -1,0 +1,27 @@
+docs/README.md
+  s_dfd76f683cfd2c::t_96142756e213d7 52-54
+docs/experiments/AUDIT_COVERAGE.md
+  s_dfd76f683cfd2c::t_66046a1f02ba72 1-85
+experiments/src/test/java/org/workflowsim/experiments/rerun/SeedSensitivityRerunIntegrationTest.java
+  s_dfd76f683cfd2c::t_3bd9b70a051296 1-166
+experiments/src/test/java/org/workflowsim/experiments/rerun/TmpSeedSensitivity.java
+  s_dfd76f683cfd2c::t_43cedd5ac49d58 1-70
+scripts/test-study-verifiers.py
+  s_dfd76f683cfd2c::t_f157cd5cb7c96f 401-438
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "67af60e988663955f5ae446625a88747f8391512",
+  "prompts": {},
+  "sessions": {
+    "s_dfd76f683cfd2c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18a73-43db-7ad2-a5c7-a77ef2d51736",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
