@@ -1,0 +1,21 @@
+AGENTS.md
+  s_572532c133bc06::t_a9fce76368bc21 9
+docs/advanced/CARBON_DIMENSION_DESIGN.md
+  s_572532c133bc06::t_e3c79580be317c 137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e511bef29ac74572fabeab7cf3ce3e00411a3ce9",
+  "prompts": {},
+  "sessions": {
+    "s_572532c133bc06": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1626a-7b6d-7e61-bdaa-82544f3a9ac7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
