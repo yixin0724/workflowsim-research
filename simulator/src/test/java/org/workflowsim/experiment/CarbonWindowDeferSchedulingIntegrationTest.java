@@ -215,6 +215,36 @@ class CarbonWindowDeferSchedulingIntegrationTest {
         return new SimulationRunner().run(config, builder.build());
     }
 
+    /**
+     * 可复现性（复核轮）：同一输入连跑两次，作业起点、完工时间与超额必须逐位一致——
+     * 延后引擎的状态（已压后集合、唤醒时刻）不得跨运行残留或受浮点迭代序影响。
+     */
+    @Test
+    void repeatedRunsProduceIdenticalDeferralDecisions() throws Exception {
+        SimulationReport first = run(SchedulingAlgorithm.CARBON_WINDOW_DEFER, true);
+        SimulationReport second = run(SchedulingAlgorithm.CARBON_WINDOW_DEFER, true);
+
+        assertEquals(
+                0,
+                Double.compare(first.getMakespan(), second.getMakespan()),
+                "makespan must be reproducible: " + first.getMakespan() + " vs " + second.getMakespan());
+        assertEquals(
+                0,
+                Double.compare(
+                        first.getCarbonAccounting().getTotalCarbonExcessWattSeconds(),
+                        second.getCarbonAccounting().getTotalCarbonExcessWattSeconds()),
+                "carbon excess must be reproducible");
+        assertEquals(first.getJobs().size(), second.getJobs().size(), "same job count");
+        for (int index = 0; index < first.getJobs().size(); index++) {
+            assertEquals(
+                    0,
+                    Double.compare(
+                            first.getJobs().get(index).getStartTime(),
+                            second.getJobs().get(index).getStartTime()),
+                    "job " + index + " start must be identical across runs");
+        }
+    }
+
     /** 运行夹具：单 VM（idle 100 / max 300），窗口 [0,100)=120W 脏、[100,400)=400W 干净。 */
     private SimulationReport run(SchedulingAlgorithm algorithm, boolean declareWindows) throws Exception {
         return run(algorithm, declareWindows, 120.0);
