@@ -1,0 +1,21 @@
+docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md
+  s_24f59fb6b2f10b::t_b09a136e88dd3c 151-154
+docs/advanced/DVFS_DIMENSION_DESIGN.md
+  s_24f59fb6b2f10b::t_fda56eb7669c25 213-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6358dbc85771957fea5fb1b43e96f828eebc02b5",
+  "prompts": {},
+  "sessions": {
+    "s_24f59fb6b2f10b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15261-5714-7e81-a927-1927a8caa494",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
