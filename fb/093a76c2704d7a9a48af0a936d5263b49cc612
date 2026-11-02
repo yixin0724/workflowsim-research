@@ -1,0 +1,35 @@
+experiments/src/main/java/org/workflowsim/experiments/rerun/ManifestConfigRebuilder.java
+  s_24f59fb6b2f10b::t_990f17f78fb20b 641-645
+experiments/src/main/java/org/workflowsim/experiments/workbench/WorkbenchConfig.java
+  s_572532c133bc06::t_913e927557c576 237,288-302
+experiments/src/test/java/org/workflowsim/experiments/rerun/DvfsRerunLoudRedIntegrationTest.java
+  s_572532c133bc06::t_2034b10066188c 184-204,416-444
+experiments/src/test/java/org/workflowsim/experiments/workbench/WorkbenchConfigTest.java
+  s_572532c133bc06::t_7218125674cac4 90-112
+simulator/src/main/java/org/workflowsim/data/v2/CoherentDataflowRuntime.java
+  s_24f59fb6b2f10b::t_3e27dd309d82d7 1009-1016
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fb093a76c2704d7a9a48af0a936d5263b49cc612",
+  "prompts": {},
+  "sessions": {
+    "s_24f59fb6b2f10b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15261-5714-7e81-a927-1927a8caa494",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    },
+    "s_572532c133bc06": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1626a-7b6d-7e61-bdaa-82544f3a9ac7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
