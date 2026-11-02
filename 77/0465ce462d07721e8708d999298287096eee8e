@@ -1,0 +1,22 @@
+docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md
+  h_adc77830afcf4d 146-152
+docs/advanced/DVFS_DIMENSION_DESIGN.md
+  h_adc77830afcf4d 222-228
+docs/benchmark/STANDARD_BENCHMARK.md
+  h_adc77830afcf4d 289-294
+experiments/src/main/java/org/workflowsim/experiments/rerun/ManifestConfigRebuilder.java
+  h_adc77830afcf4d 151-155,281-283,600-644
+experiments/src/test/java/org/workflowsim/experiments/rerun/DvfsRerunLoudRedIntegrationTest.java
+  h_adc77830afcf4d 60-65,86-90,93,99,101-105,107-108,112-113,116,118,121-123,126-149,189-302,363-367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "770465ce462d07721e8708d999298287096eee8e",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
