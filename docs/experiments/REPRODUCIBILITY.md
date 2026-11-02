@@ -77,6 +77,13 @@ These content hashes are not Git commit numbers, author authentication, or relea
   `lastSequence`) are bound to the event stream on both sides — the Java artifact validator and
   the independent Python auditor reject a manifest whose declared bounds disagree with the
   JSONL, where previously only the event count was checked.
+- **Declaration-only fields**: some recorded values have no independent counterpart in the
+  artifacts, so no recompute can cross-check them — for example `platform.vms[].pes` (which enters
+  no audited formula for the single-PE workloads here) and the `taskIds` of a stage-in bookkeeping
+  envelope (empty by construction). Tampering with them is not detectable from the bundle alone;
+  they are context, not evidence. Fields that *do* feed a recomputed quantity — energies, carbon,
+  per-tier busy seconds, job intervals, tier identity, window table, event count and sequence
+  bounds — are all bound on both sides, as the cross-language fuzz sweep (2026-11-02) confirms.
 - **Actual rerun**: rebuilds the configuration from the recorded conditions, re-executes under the current code, and compares; it is not restoring a historical process, reusing cached results, or substituting events for the simulation. Concrete support and the precise whitelist are in the [rerun difference contract](<RERUN_DIFF_CONTRACT.md>).
 - **Identity differences**: JVM/OS, source identity, paths, and wall-clock nanoseconds may change and must be recorded. Simulation time, input identity, algorithm tags, execution semantics, and non-whitelisted fields do not gain tolerance or exemptions on that account.
 
