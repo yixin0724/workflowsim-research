@@ -71,7 +71,12 @@ These content hashes are not Git commit numbers, author authentication, or relea
 
 ## Validation, Rerun, and Retention
 
-- **Integrity validation**: checks schema, relative references, hashes, counts, and context; the validators can read supported older manifests but do not automatically fill in missing semantics.
+- **Integrity validation**: checks schema, relative references, hashes, counts, and context; the
+  validators can read supported older manifests but do not automatically fill in missing semantics.
+  Since 2026-11-02 the declared event-sequence bounds (`events.firstSequence` /
+  `lastSequence`) are bound to the event stream on both sides — the Java artifact validator and
+  the independent Python auditor reject a manifest whose declared bounds disagree with the
+  JSONL, where previously only the event count was checked.
 - **Actual rerun**: rebuilds the configuration from the recorded conditions, re-executes under the current code, and compares; it is not restoring a historical process, reusing cached results, or substituting events for the simulation. Concrete support and the precise whitelist are in the [rerun difference contract](<RERUN_DIFF_CONTRACT.md>).
 - **Identity differences**: JVM/OS, source identity, paths, and wall-clock nanoseconds may change and must be recorded. Simulation time, input identity, algorithm tags, execution semantics, and non-whitelisted fields do not gain tolerance or exemptions on that account.
 

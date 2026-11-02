@@ -398,6 +398,34 @@ class IndependentAuditorTests(unittest.TestCase):
             self.assertTrue(any("totalEnergyJoules" in str(i.get("location", "")) for i in bad["issues"]),
                             "corrupted total energy must be caught: " + json.dumps(bad["issues"][:2]))
 
+    def test_event_sequence_bounds_must_match_the_stream(self):
+        """复核轮（跨语言模糊测试发现）：清单自报的 first/lastSequence 必须绑定事件流。
+
+        此前两侧（Java 校验器与 Python 审计器）都只核对 eventCount，篡改序号边界可以
+        整份通过——声明的上下文与证据不一致却无人发现。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "sequence"
+            make_bundle(root)
+            manifest_path = root / "run.manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            events = [json.loads(line) for line in (root / "run.events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            manifest["events"]["firstSequence"] = events[0]["sequence"]
+            manifest["events"]["lastSequence"] = events[-1]["sequence"]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            good = Path(tmp) / "seq-good.json"
+            evidence.main(["--output", str(good), str(manifest_path)])
+            self.assertEqual(json.loads(good.read_text(encoding="utf-8"))["status"], "PASS")
+
+            manifest["events"]["lastSequence"] = events[-1]["sequence"] + 1
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            bad = Path(tmp) / "seq-bad.json"
+            evidence.main(["--output", str(bad), str(manifest_path)])
+            report = json.loads(bad.read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "FAIL")
+            self.assertTrue(any("lastSequence" in json.dumps(issue) for issue in report["issues"]),
+                            "corrupted lastSequence must be caught: " + json.dumps(report["issues"][:2]))
+
     def test_healthy_single_manifest_and_matrix_override(self):
         for name, duration, effective, matrix in (("plain", 1.0, 1000, False), ("matrix", 0.5, 500, True)):
             manifest = make_bundle(self.root / name, duration, effective, matrix)

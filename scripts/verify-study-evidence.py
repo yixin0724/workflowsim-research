@@ -271,8 +271,17 @@ def inspect_manifest(path, audit, historical=False, input_roots=(), cache=None):
                 if typ == "SIMULATION_TERMINATED":
                     terminal_events.append(event)
                 events.append(event)
-        audit.ensure(len(events) == integer(needed(needed(doc, "events"), "eventCount"), "event count", True),
-                     "event-count", prefix, len(events), doc["events"].get("eventCount"))
+        event_summary = needed(doc, "events")
+        audit.ensure(len(events) == integer(needed(event_summary, "eventCount"), "event count", True),
+                     "event-count", prefix, len(events), event_summary.get("eventCount"))
+        # 2026-11-02 复核轮（跨语言模糊测试发现）：清单自报的事件序号边界此前无人核对——
+        # 篡改 firstSequence/lastSequence 可以整份通过。边界属于"声明的上下文"，必须与
+        # 事件流本身绑定；键缺省（空流的历史形态）保持兼容，不新增强制字段。
+        if events:
+            for key, bound in (("firstSequence", events[0]["sequence"]), ("lastSequence", events[-1]["sequence"])):
+                if key in event_summary:
+                    audit.ensure(integer(needed(event_summary, key), "event " + key, True) == bound,
+                                 "event-" + key, prefix, bound, event_summary.get(key))
         # F-006 contract revision (2026-10-23): when the terminal event is present (revision
         # streams), the makespan family becomes event-recomputable; bind the clocks exactly.
         # Legacy streams without the event keep the declared manifest-authority boundary.

@@ -68,10 +68,17 @@ public final class ExperimentArtifactValidator {
                 fileLifecycle = bundles.fileLifecycle,
                 storageLifecycle = bundles.storageLifecycle;
         boolean groupRequested = bundles.groupRequested;
-        int actualEvents = validateEvents(events, networkContext, fileContext);
+        long[] eventStream = validateEvents(events, networkContext, fileContext);
+        int actualEvents = (int) eventStream[0];
         if (actualEvents != expectedEvents) {
             throw new IOException("Event count mismatch: manifest declares " + expectedEvents + " but JSONL contains "
                     + actualEvents);
+        }
+        // 2026-11-02 复核轮：清单自报的事件序号边界此前无人核对（Python 审计器同批修复）。
+        // 边界属于"声明的上下文"，必须与事件流绑定；键缺省（空流）保持兼容。
+        if (actualEvents > 0) {
+            checkDeclaredSequenceBound(eventSummary, "firstSequence", eventStream[1]);
+            checkDeclaredSequenceBound(eventSummary, "lastSequence", eventStream[2]);
         }
         if (networkContext != null) {
             networkContext.finish();
@@ -457,10 +464,11 @@ public final class ExperimentArtifactValidator {
                 || "COHERENT_STORAGE_DATAFLOW_NO_CONTENTION_V3".equals(kind.getAsString());
     }
 
-    private static int validateEvents(
+    private static long[] validateEvents(
             Path path, NetworkLedgerContextValidator networkContext, FileLifecycleContextValidator fileContext)
             throws IOException {
         int count = 0;
+        long firstSequence = -1L;
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -476,6 +484,9 @@ public final class ExperimentArtifactValidator {
                     throw new IOException("Invalid JSONL event " + count + " in " + path.getFileName(), exception);
                 }
                 long sequence = requireLong(event, "sequence", "JSONL event");
+                if (count == 0) {
+                    firstSequence = sequence;
+                }
                 if (sequence != count) {
                     throw new IOException("JSONL event sequence mismatch at line " + (count + 1) + ": expected " + count
                             + " but found " + sequence);
@@ -495,7 +506,20 @@ public final class ExperimentArtifactValidator {
                 count++;
             }
         }
-        return count;
+        long lastSequence = count == 0 ? -1L : count - 1L;
+        return new long[] {count, firstSequence, lastSequence};
+    }
+
+    /** 声明的序号边界存在时必须等于事件流边界；缺省（空流历史形态）保持兼容。 */
+    private static void checkDeclaredSequenceBound(JsonObject summary, String key, long actual) throws IOException {
+        if (!summary.has(key) || summary.get(key).isJsonNull()) {
+            return;
+        }
+        long declared = summary.get(key).getAsLong();
+        if (declared != actual) {
+            throw new IOException(
+                    "Declared " + key + " " + declared + " does not match the event stream bound " + actual);
+        }
     }
 
     private static Path required(Map<String, Path> paths, String role) throws IOException {

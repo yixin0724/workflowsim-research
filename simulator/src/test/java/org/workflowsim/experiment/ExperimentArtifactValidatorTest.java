@@ -92,6 +92,37 @@ class ExperimentArtifactValidatorTest {
         assertTrue(exception.getMessage().contains("sequence mismatch"));
     }
 
+    /**
+     * 复核轮（2026-11-02）：清单自报的事件序号边界必须与事件流绑定——篡改 lastSequence
+     * 必须被拒。此前两侧都只核对 eventCount，边界声明无人验证。
+     */
+    @Test
+    void rejectsADeclaredSequenceBoundThatDoesNotMatchTheStream(@TempDir Path output) throws Exception {
+        Log.disable();
+        SimulationReport report = new SimulationRunner()
+                .run(
+                        SimulationConfig.builder(resourcePath("/dax/reproducibility-workflow.dax"), 2)
+                                .schedulingAlgorithm(Parameters.SchedulingAlgorithm.FCFS)
+                                .build(),
+                        PlatformProfiles.homogeneousLocal("validator-sequence", 2));
+        ExperimentArtifactWriter.ExperimentArtifacts artifacts =
+                ExperimentArtifactWriter.write(report, output, "sequence-validator-run");
+
+        JsonObject manifest = JsonParser.parseString(
+                        new String(Files.readAllBytes(artifacts.getManifest()), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        JsonObject summary = manifest.getAsJsonObject("events");
+        long declaredLast = summary.get("lastSequence").getAsLong();
+        summary.addProperty("lastSequence", declaredLast + 1);
+        Files.write(artifacts.getManifest(), JSON.toJson(manifest).getBytes(StandardCharsets.UTF_8));
+
+        java.io.IOException exception = assertThrows(
+                java.io.IOException.class, () -> ExperimentArtifactValidator.validate(artifacts.getManifest()));
+        assertTrue(
+                exception.getMessage().contains("lastSequence"),
+                "the refusal must name the declared bound: " + exception.getMessage());
+    }
+
     @Test
     void rejectsArtifactPathsThatEscapeTheBundleDirectory(@TempDir Path output) throws Exception {
         Log.disable();
