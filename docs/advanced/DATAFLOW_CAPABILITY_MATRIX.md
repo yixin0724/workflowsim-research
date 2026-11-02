@@ -53,7 +53,11 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   not silently downgraded. See the [energy dimension design](<ENERGY_DIMENSION_DESIGN.md>)
   for the survey anchors and the v2 DVFS/carbon reservations.
 
-- Known follow-up (BAT-R4, 2026-10-27): the offline HTML report embeds the full energyMetrics manifest block but does not yet render a dedicated energy panel; report-side energy visualization is gap-listed, not hidden.
+- Report surface (closed BAT-E7, 2026-10-28): the offline HTML report renders a dedicated energy
+  panel for powered runs, showing the manifest's `energyMetrics` values verbatim; the earlier
+  BAT-R4 gap (2026-10-27) is retired. Tiered platforms count as powered on this surface too
+  (2026-11-02 fix: the panel's gate now mirrors `hasPowerModel() || hasFrequencyTiers()`, and the
+  per-VM power columns report the default tier instead of the always-zero flat fields).
 
 ## Carbon dimension
 
@@ -91,8 +95,12 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   carbon-aware acceptance surface and evidence chain end-to-end with an honest demonstrator heuristic —
   a real CWM-style deferral engine is follow-up work per the design's scoping table.
 
-- Known follow-up (BAT-C5, 2026-10-28): the offline HTML report does not yet render a dedicated carbon
-  panel; report-side carbon visualization is gap-listed, not hidden.
+- Report surface (closed 2026-11-02): the offline HTML report renders a dedicated carbon panel for
+  manifests carrying `carbonMetrics`. The badge names the accounting family — `INTENSITY` shows grams
+  from the per-VM multipliers, `BUDGET` shows excess watt-seconds and marks the gram fields as not
+  applicable (a budget run's zero grams is not zero emissions) — and a manifest carrying carbon
+  metrics without any platform declaration renders as `INCONSISTENT` instead of numbers. The earlier
+  BAT-C5 gap (2026-10-28) is retired; values are displayed verbatim and never recomputed in the browser.
 
 ## DVFS dimension
 
@@ -129,6 +137,12 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   + uniform 380 g/kWh intensity; 90-cell representative subset, honest disclosure and
   results in the [benchmark doc](<../benchmark/STANDARD_BENCHMARK.md>)) is the
   dimension's public comparison surface, incl. the two-sided break-even observation.
+- Report surface (2026-11-02): the offline HTML report renders a frequency-tier panel for platforms
+  declaring `frequencyTiers`. The per-tier ledger is transient in `SimulationMetrics` (never a
+  manifest field), so the panel re-derives per-tier busy seconds from the artifact's job intervals
+  under the auditor's law and cross-checks the sums against `metrics.vmMetrics[].modeledBusyIntervalSeconds`;
+  a mismatch renders `MISMATCH` instead of numbers. This also closed the tiered energy-panel gap
+  noted under the energy dimension.
 - Known follow-up (BAT-D5/D6, 2026-10-29): tiered manifest bundles are not yet
   re-runnable (the tier-table rebuild is a documented forward contract — the rerun
   fails loud on the platform face); the budget-carbon model under tiers is implemented
