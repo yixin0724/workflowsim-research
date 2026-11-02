@@ -1,0 +1,14 @@
+config/checkstyle/checkstyle.xml
+  h_adc77830afcf4d 141-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e8673d75bc477a30df5a5747b0faf2ad05135ae0",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
