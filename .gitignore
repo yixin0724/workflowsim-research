@@ -75,6 +75,8 @@ output/benchmark-standard-dvfs-v1/
 
 # make mutation-gate 报告（可重生成，不入库）
 output/mutation-gate/
+# 报告面板截图（由浏览器夹具重生成，不入库）
+output/report-panels/
 
 # BAT-D3 DVFS tier-audit smoke bundle (one real 2-tier run; regenerable via a temporary
 # SimulationRunner driver — the smoke path is documented in DVFS_DIMENSION_DESIGN.md §2.4).
