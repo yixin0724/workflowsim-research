@@ -1,0 +1,20 @@
+docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md
+  h_adc77830afcf4d 14-36
+output/b1-profile/after/all.jsonl
+  h_adc77830afcf4d 1-10
+output/b1-profile/before/all.jsonl
+  h_adc77830afcf4d 1-10
+simulator/src/main/java/org/workflowsim/data/v2/CoherentDataflowRuntime.java
+  h_adc77830afcf4d 7,378,545,769,796,830,950,961,1000-1016,1197-1200,1216-1218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ea1e0ef7dc678ef40e4824c44d88302c192e0e11",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
