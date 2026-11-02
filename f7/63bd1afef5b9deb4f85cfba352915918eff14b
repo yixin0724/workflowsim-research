@@ -1,0 +1,19 @@
+simulator/src/test/java/org/workflowsim/experiment/CarbonWindowDeferSchedulingIntegrationTest.java
+  s_24f59fb6b2f10b::t_cb7e574a6ebb20 153-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f763bd1afef5b9deb4f85cfba352915918eff14b",
+  "prompts": {},
+  "sessions": {
+    "s_24f59fb6b2f10b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15261-5714-7e81-a927-1927a8caa494",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
