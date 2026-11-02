@@ -143,6 +143,46 @@ public final class WorkbenchBrowserFixtures {
             reports.add(energyStandaloneSpec);
         }
 
+        // 碳维度面板夹具（2026-11-02）：带强度声明的真实运行。数值必须来自清单
+        // carbonMetrics（强度乘数链），验收工具据此断言面板文本逐位相等——面板重算
+        // 或批量取整都会被测试抓住。
+        {
+            Path carbonInput = output.resolve("carbon-panel.dax");
+            Files.write(
+                    carbonInput,
+                    ("<adag><job id=\"a\" name=\"a\" runtime=\"30\"/>"
+                                    + "<job id=\"b\" name=\"b\" runtime=\"55\"/>"
+                                    + "<child ref=\"b\"><parent ref=\"a\"/></child></adag>")
+                            .getBytes(StandardCharsets.UTF_8));
+            JsonObject carbonConfig = configuration(carbonInput, 2, "FCFS", false);
+            carbonConfig.addProperty("name", "carbon panel browser fixture");
+            carbonConfig.getAsJsonObject("platform").addProperty("idlePowerWatts", 250.0);
+            carbonConfig.getAsJsonObject("platform").addProperty("maxPowerWatts", 400.0);
+            carbonConfig.getAsJsonObject("platform").addProperty("carbonIntensityGramsPerKWh", 380.0);
+            Path carbonConfigPath = output.resolve("carbon-panel.json");
+            ExperimentArtifactWriter.writeJson(carbonConfigPath, carbonConfig);
+            Path carbonExperiment = Workbench.run(carbonConfigPath, output.resolve("carbon"));
+            reports.add(describe("carbon-intensity", carbonExperiment));
+
+            java.util.List<Path> carbonManifests = new ArrayList<>();
+            try (java.util.stream.Stream<Path> walk = Files.walk(carbonExperiment)) {
+                walk.filter(f -> f.getFileName().toString().equals("result.manifest.json"))
+                        .forEach(carbonManifests::add);
+            }
+            if (carbonManifests.size() != 1) {
+                throw new IOException("Expected exactly one carbon run manifest, found " + carbonManifests.size());
+            }
+            Path carbonStandalone = output.resolve("carbon-intensity-standalone.html");
+            Workbench.main(new String[] {"report", carbonManifests.get(0).toString(), carbonStandalone.toString()});
+            Map<String, Object> carbonStandaloneSpec = new LinkedHashMap<>();
+            carbonStandaloneSpec.put("name", "carbon-intensity-standalone");
+            carbonStandaloneSpec.put("path", carbonStandalone.toString());
+            carbonStandaloneSpec.put("candidates", Arrays.asList("FCFS"));
+            carbonStandaloneSpec.put("seeds", Arrays.asList("42"));
+            carbonStandaloneSpec.put("statuses", Arrays.asList("COMPLETED_SUCCESSFULLY"));
+            reports.add(carbonStandaloneSpec);
+        }
+
         Map<String, Object> index = new LinkedHashMap<>();
         index.put("schema", "workflowsim-browser-fixtures-v1");
         index.put("reports", reports);

@@ -117,6 +117,19 @@ try {
       'function spoilEnergy(){document.getElementById("energy-total").textContent="CORRUPTED";}spoilEnergy();document.getElementById("run-select").addEventListener("change",spoilEnergy);'),
       /Exact energy text differs at energy-total/, energyFix);
   }
+  const carbonFix = fixtures && fixtures.reports.find(r => r.name === 'carbon-intensity');
+  if (carbonFix) {
+    const content = fs.readFileSync(carbonFix.path, 'utf8');
+    rejected('carbon-hidden-panel', inject(content,
+      'document.getElementById("carbon-section").style.display="none";'),
+      /must render a visible carbon panel/, carbonFix);
+    rejected('carbon-exact-text', inject(content,
+      'function spoilCarbon(){document.getElementById("carbon-total").textContent="CORRUPTED";}spoilCarbon();document.getElementById("run-select").addEventListener("change",spoilCarbon);'),
+      /Exact carbon text differs at totalCarbonGrams/, carbonFix);
+    rejected('carbon-model-badge', inject(content,
+      'function spoilModel(){document.getElementById("carbon-status").dataset.state="BUDGET";}spoilModel();document.getElementById("run-select").addEventListener("change",spoilModel);'),
+      /Carbon model badge differs/, carbonFix);
+  }
   const storage = fixtures && (fixtures.reports.find(r => r.name === 'storage-lifecycle-typed-stress')
     || fixtures.reports.find(r => r.storageLifecycle && r.storageLifecycle.some(e => e.state === 'COMPLETE')));
   if (storage) {

@@ -115,6 +115,40 @@ async function checkEnergy(page, run) {
   const exactTotal = String(metrics.totalEnergyJoules);
   assert.equal(await page.locator('#energy-total').textContent(), exactTotal, 'Exact energy text differs at energy-total');
 }
+// 2026-11-02 碳面板：清单 carbonMetrics 是唯一真源。强度模型给克数，预算模型给
+// 超额瓦秒；两者都缺（或与平台声明自相矛盾）时面板必须显式表态，绝不显示 0。
+function carbonModel(run) {
+  const manifest = run.manifest;
+  if (!manifest || !manifest.carbonMetrics) return 'NONE';
+  const platform = manifest.platform || {};
+  if ((platform.carbonWindows || []).length > 0) return 'BUDGET';
+  const vms = platform.vms || [];
+  return vms.some(vm => vm.carbonIntensityGramsPerKWh !== undefined && vm.carbonIntensityGramsPerKWh !== null)
+    ? 'INTENSITY' : 'INCONSISTENT';
+}
+function carbonShares(run) {
+  const manifest = run.manifest || {}, carbon = manifest.carbonMetrics || {};
+  const platform = manifest.platform || {};
+  return {
+    grams: Object.keys(carbon.perVmCarbonGrams || {}).length > 0,
+    excess: (platform.carbonWindows || []).length > 0,
+  };
+}
+async function checkCarbon(page, run) {
+  const state = carbonModel(run), visible = await page.locator('#carbon-section').isVisible();
+  if (state === 'NONE') {
+    assert.equal(visible, false, 'A run without carbonMetrics must keep the carbon panel hidden');
+    return;
+  }
+  assert.equal(visible, true, 'Manifests carrying carbonMetrics must render a visible carbon panel');
+  assert.equal(await page.locator('#carbon-status').getAttribute('data-state'), state, 'Carbon model badge differs from the manifest declaration');
+  const carbon = run.manifest.carbonMetrics, shares = carbonShares(run), absent = '—';
+  assert.equal(await page.locator('#carbon-total').textContent(), shares.grams ? String(carbon.totalCarbonGrams) : absent, 'Exact carbon text differs at totalCarbonGrams');
+  assert.equal(await page.locator('#carbon-mean').textContent(), shares.grams ? String(carbon.meanVmCarbonGrams) : absent, 'Exact carbon text differs at meanVmCarbonGrams');
+  assert.equal(await page.locator('#carbon-product').textContent(), shares.grams ? String(carbon.carbonMakespanProductGramSeconds) : absent, 'Exact carbon text differs at carbonMakespanProductGramSeconds');
+  assert.equal(await page.locator('#carbon-excess').textContent(), shares.excess ? String(carbon.totalCarbonExcessWattSeconds) : absent, 'Exact carbon text differs at totalCarbonExcessWattSeconds');
+  assert.equal(await page.locator('#carbon-vm-table tr').count(), Object.keys(carbon.perVmCarbonGrams || {}).length, 'Carbon per-VM rows differ from perVmCarbonGrams');
+}
 
 async function checkFileLifecycle(page, run, expected, hasPanel) {
   if (!hasPanel) { assert.equal(!!expected || fileLifecyclePanel(run), false, 'Expected V2 lifecycle panel is missing'); return; }
@@ -324,6 +358,7 @@ async function checkReport(browser, specification, screenshot) {
       await checkFileLifecycle(page, run, specification.fileLifecycle && specification.fileLifecycle[index], hasFileLifecyclePanel);
       await checkStorageLifecycle(page, run, specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
       await checkDataflowAssignment(page, run, specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
+      await checkCarbon(page, run);
       if (!run.manifest) {
         assert.equal(await page.locator('#failure').isVisible(), true);
         assert.ok((await page.locator('#failure').textContent()).length > 0);
@@ -381,6 +416,7 @@ async function checkReport(browser, specification, screenshot) {
       await checkStorageLifecycle(page, runs[index], specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
       await checkDataflowAssignment(page, runs[index], specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
       await checkEnergy(page, runs[index]);
+      await checkCarbon(page, runs[index]);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'Long network values must remain inside mobile layout');
     }
     assert.equal(await page.locator('img').count(), 0, 'Network labels must remain literal text after run switching');
