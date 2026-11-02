@@ -138,7 +138,8 @@
         <module name="RightCurly">
             <property name="severity" value="error"/>
         </module>
-        <!-- Tier-A promote（2026-10-22，二期 NB1-NB4 批）：1,718 处（三模块主+测试树）
+        <!-- Tier-A promote（2026-10-22，二期 NB1-NB4 批）：1,718 处（当时三模块主+测试树；
+             第三模块 grouped-workflows 已于 2026-11-02 移除，基线数字仅作历史留档）
              全量括号化清零，palantir 输出兼容；新裸体控制流即拦 -->
         <module name="NeedBraces">
             <property name="severity" value="error"/>
