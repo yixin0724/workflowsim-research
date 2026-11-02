@@ -1,0 +1,22 @@
+docs/experiments/REPRODUCIBILITY.md
+  h_adc77830afcf4d 74-79
+scripts/test-study-verifiers.py
+  h_adc77830afcf4d 401-428
+scripts/verify-study-evidence.py
+  h_adc77830afcf4d 274-284
+simulator/src/main/java/org/workflowsim/experiment/ExperimentArtifactValidator.java
+  h_adc77830afcf4d 71-72,77-82,467,471,487-489,509-522
+simulator/src/test/java/org/workflowsim/experiment/ExperimentArtifactValidatorTest.java
+  h_adc77830afcf4d 95-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8b598b407103b2ec909acba8779139d5fc8c3f29",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
