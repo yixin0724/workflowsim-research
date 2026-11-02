@@ -1,6 +1,7 @@
 # WorkflowSim
 
 [![CI](https://github.com/yixin0724/workflowsim-research/actions/workflows/ci.yml/badge.svg)](https://github.com/yixin0724/workflowsim-research/actions/workflows/ci.yml)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 
 WorkflowSim is a discrete-event simulator for research on scientific workflow scheduling. It covers task dependencies, compute resources, storage, data transfer, and scheduling decisions in a single declarative model, and emits auditable, replayable experiment results.
 
@@ -91,3 +92,9 @@ mvn -Pjavadoc clean verify
 ```
 
 The joint gate covers unit, semantic, and integration tests, coverage floors, and core-API Javadoc; independent Python and offline browser checks are described in the [build guide](<docs/getting-started/BUILD.md>). For performance comparisons, first check state, capture, and action-fingerprint equality, then report wall time and allocation deltas, following the [state-copy performance notes](<docs/advanced/DATAFLOW_STATE_COPY_PERFORMANCE.md>).
+
+## License and citation
+
+Released under the **GNU General Public License, version 2 or (at your option) any later version** ([LICENSE](LICENSE)). The simulator embeds the CloudSim 3 toolkit (`simulator/src/main/java/org/cloudbus/`), which is distributed under the GNU GPL by The University of Melbourne and is therefore the reason this project cannot be relicensed under a permissive license; its original notices are retained in every file.
+
+To cite this software, use the metadata in [CITATION.cff](CITATION.cff) — GitHub renders it through the "Cite this repository" button, and reference managers import it directly.

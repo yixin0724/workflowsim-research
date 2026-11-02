@@ -66,6 +66,8 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 | `config/` | 代码工具链台账（checkstyle 分级规则等） | 规则只增不减；与 CODE_STYLE.md 同步修订 |
 | `output/` | 运行产物（gitignored） | 只存 tar 正本 + 当前活跃实验；旧堆须清理 |
 | `AGENTS.md` | 编码代理守则 | 修改需人工评审 |
+| `LICENSE` | GPL-2.0 官方全文（338 行 gnu.org 正本，逐字不改） | 不可替换为宽松许可证：上游 CloudSim 3 为 GPL（`simulator/src/main/java/org/cloudbus/`，65/66 文件带 GPL 头） |
+| `CITATION.cff` | 软件引用元数据（GitHub "Cite this repository" 读取） | 改版本/日期/作者须同步实际发布；许可证字段固定 `GPL-2.0-or-later` |
 | `Makefile` | 便捷命令 | 与 pom.xml 目标同步维护 |
 
 **新增顶层目录/文件的纪律**：先问"为什么不放进已有 raise 的目录"；确定必须新增时同步更新本表 + `docs/README.md`（如涉及文档） + `check-docs.py` 结果。

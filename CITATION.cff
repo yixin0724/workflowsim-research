@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use WorkflowSim-yixin in research, please cite it using this metadata."
+title: "WorkflowSim-yixin: an auditable discrete-event simulator for scientific workflow scheduling research"
+type: software
+authors:
+  - name: "WorkflowSim-yixin contributors"
+version: "1.0"
+date-released: "2026-11-02"
+license: "GPL-2.0-or-later"
+repository-code: "https://github.com/yixin0724/workflowsim-research"
+url: "https://github.com/yixin0724/workflowsim-research"
+abstract: >-
+  A discrete-event simulator for research on scientific workflow scheduling that
+  treats evidence as a first-class product. Every run emits a manifest, metrics,
+  and an event stream whose numbers are independently recomputable by a Python
+  auditor; energy, carbon, and DVFS accounting follow declared conservation laws
+  and are locked by frozen benchmarks, mutation gates, and an offline report.
+keywords:
+  - scientific workflows
+  - workflow scheduling
+  - discrete-event simulation
+  - reproducibility
+  - energy accounting
+  - carbon accounting
+  - DVFS
+  - cloud computing
