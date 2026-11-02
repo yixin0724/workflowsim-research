@@ -1,0 +1,20 @@
+AGENTS.md
+  h_adc77830afcf4d 69-70
+CITATION.cff
+  h_adc77830afcf4d 1-26
+LICENSE
+  h_adc77830afcf4d 1-338
+README.md
+  h_adc77830afcf4d 4,95-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "53f5f61e6bc092c3ab6a839a6a5860116b958f0c",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
