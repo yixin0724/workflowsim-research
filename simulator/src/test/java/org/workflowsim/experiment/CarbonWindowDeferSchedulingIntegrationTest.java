@@ -245,6 +245,69 @@ class CarbonWindowDeferSchedulingIntegrationTest {
         }
     }
 
+    /**
+     * 变异补强（复核轮）：三窗阶梯上"每作业至多一次"的闸才有判别力，而且它约束的是
+     * <b>单个作业</b>，不是整条工作流——后继作业是新作业，各自仍可合法地再跳一跳。
+     *
+     * <p>观测事实（打点确认）：首作业 0.1 s 就绪 → 压到 100 s；它在 130 s 完成后，
+     * 新就绪的两个后继在第二窗（300 W）内合法地再压到第三窗（500 W，200 s）。因此
+     * 本测试断言的是"首作业恰好只跳一跳"（start=100），并给整条链一个终止上界。</p>
+     */
+    @Test
+    void theOneDeferralBoundAppliesPerJobNotPerWorkflow() throws Exception {
+        SimulationReport report = runLadder();
+        double earliestStart = report.getJobs().stream()
+                .mapToDouble(SimulationReport.JobOutcome::getStartTime)
+                .min()
+                .orElse(-1.0);
+        assertEquals(
+                0,
+                Double.compare(100.0, earliestStart),
+                "the earliest Job (the stage-in envelope) hops exactly once, into the 100 s window");
+        assertTrue(
+                report.getMakespan() < 300.0,
+                "without the per-Job bound every already-deferred Job would hop again at 100 s and the"
+                        + " chain would land past 300 s; observed " + report.getMakespan());
+    }
+
+    /** 三窗阶梯夹具：100 W（脏）→ 300 W → 500 W，单 VM。 */
+    private SimulationReport runLadder() throws Exception {
+        Path workflow = Paths.get(tempDir.toFile().getAbsolutePath(), "ladder.dax");
+        Files.write(
+                workflow,
+                ("<adag version=\"3.3\" count=\"2\">"
+                                + "<job id=\"a\" name=\"a\" runtime=\"30\"/>"
+                                + "<job id=\"b\" name=\"b\" runtime=\"20\"/></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config = SimulationConfig.builder(workflow.toString(), 1)
+                .planningAlgorithm(PlanningAlgorithm.INVALID)
+                .schedulingAlgorithm(SchedulingAlgorithm.CARBON_WINDOW_DEFER)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .randomSeed(20261106L)
+                .build();
+        PlatformProfile.Builder builder = PlatformProfile.builder("carbon-ladder-test");
+        builder.addHost(new PlatformProfile.HostSpec(0, 2, 2000, 2048, 10000L, 1000000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0,
+                        1000,
+                        1,
+                        512,
+                        1000L,
+                        10000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                        null,
+                        100.0,
+                        300.0,
+                        null))
+                .pinVmToHost(0, 0);
+        builder.carbonWindow(0.0, 100.0, 100.0);
+        builder.carbonWindow(100.0, 200.0, 300.0);
+        builder.carbonWindow(200.0, 400.0, 500.0);
+        return new SimulationRunner().run(config, builder.build());
+    }
+
     /** 运行夹具：单 VM（idle 100 / max 300），窗口 [0,100)=120W 脏、[100,400)=400W 干净。 */
     private SimulationReport run(SchedulingAlgorithm algorithm, boolean declareWindows) throws Exception {
         return run(algorithm, declareWindows, 120.0);

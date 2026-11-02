@@ -130,7 +130,12 @@ signs per layering discipline.
 standard scheduler label `CARBON_WINDOW_DEFER` now ships in the core: it reads the
 declared `carbonWindows`, finds the next window whose green power is *strictly* higher
 than the current one, and holds the entire ready batch until that window starts — each Job
-at most once, so starvation is bounded and the deferral is attributable per Job. The
+at most once. Note the bound is **per Job, not per workflow**: a Job that becomes ready after
+an earlier wave was deferred is a new Job and may hop once itself, so a dependency chain can
+shift once per wave until the ladder of cleaner windows runs out (measured on a
+three-window ladder: the stage-in envelope hops to 100 s, then the compute Jobs hop to 200 s
+and the chain stops there because no cleaner window remains). Deferral is therefore bounded
+by the window count, not by a single global hop. The
 scheduler arms a wake-up event for the window start; a deferral-aware policy that leaves
 ready Jobs unscheduled with no future wake time fails loudly rather than hanging.
 

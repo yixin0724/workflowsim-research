@@ -42,7 +42,7 @@ The table below is the complete set of labels accepted at the standard entry poi
 | `DATA` | chooses the idle compatible VM with the fewest non-local real input bytes; requires LOCAL |
 | `RL_POLICY` | the policy registered via `RlEnvironment.runEpisode(...)` selects the VM list index |
 | `STATIC` | executes an existing mapping/binding; with a full static plan it additionally enforces the per-VM order — it is not an independent optimization algorithm |
-| `CARBON_WINDOW_DEFER` | defers the whole ready batch to the next declared carbon window whose green power is strictly higher (each Job at most once), then dispatches FCFS to the smallest idle compatible VM; needs `carbonWindows`; a windowless platform is rejected rather than silently degraded (C1, 2026-11-02) |
+| `CARBON_WINDOW_DEFER` | defers the whole ready batch to the next declared carbon window whose green power is strictly higher (each Job at most once — a per-Job bound, so a later ready wave may hop once more), then dispatches FCFS to the smallest idle compatible VM; needs `carbonWindows`; a windowless platform is rejected rather than silently degraded (C1, 2026-11-02) |
 
 The ready-batch ECT comparison quantity is `length/MIPS`; it excludes future availability,
 input transfer, or contention. For fixed positive lengths and identical candidate sets, the
