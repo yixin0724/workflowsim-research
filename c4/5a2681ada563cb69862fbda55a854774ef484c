@@ -1,0 +1,24 @@
+experiments/src/main/java/org/workflowsim/experiments/rerun/ManifestConfigRebuilder.java
+  h_adc77830afcf4d 641-646
+experiments/src/test/java/org/workflowsim/experiments/rerun/DvfsRerunLoudRedIntegrationTest.java
+  h_adc77830afcf4d 205-209,275-281
+simulator/src/main/java/org/workflowsim/data/v2/CoherentDataflowRuntime.java
+  h_adc77830afcf4d 603,608-614,779
+simulator/src/main/java/org/workflowsim/experiment/CarbonAccounting.java
+  h_adc77830afcf4d 246,284-304
+simulator/src/test/java/org/workflowsim/experiment/CarbonAccountingTest.java
+  h_adc77830afcf4d 256-309
+simulator/src/test/java/org/workflowsim/experiment/CarbonWindowDeferSchedulingIntegrationTest.java
+  h_adc77830afcf4d 131-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c45a2681ada563cb69862fbda55a854774ef484c",
+  "prompts": {},
+  "humans": {
+    "h_adc77830afcf4d": {
+      "author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
