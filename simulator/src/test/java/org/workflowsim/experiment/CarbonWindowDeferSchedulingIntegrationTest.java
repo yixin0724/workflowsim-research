@@ -84,19 +84,23 @@ class CarbonWindowDeferSchedulingIntegrationTest {
                         + baselineExcess + ")");
     }
 
+    /**
+     * 复核轮（2026-11-02）：无窗口平台上的延后引擎必须<b>显式拒绝</b>，不得静默退化为
+     * 普通在线调度——标签写着碳感知而一个作业都没延后，正是 BAT-D2 对"静默失效策略"
+     * 的同族问题（以为在研究时间平移，实际在跑 FCFS）。
+     */
     @Test
-    void withoutDeclaredWindowsTheEngineBehavesLikePlainFcfs() throws Exception {
-        SimulationReport plain = run(SchedulingAlgorithm.FCFS, false);
-        SimulationReport engine = run(SchedulingAlgorithm.CARBON_WINDOW_DEFER, false);
+    void windowlessPlatformsAreRejectedInsteadOfSilentlyDegrading() throws Exception {
+        org.workflowsim.exception.SimulationConfigurationException rejected =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        org.workflowsim.exception.SimulationConfigurationException.class,
+                        () -> run(SchedulingAlgorithm.CARBON_WINDOW_DEFER, false));
+        assertTrue(
+                rejected.getMessage().contains("carbonWindows"),
+                "the refusal must name the missing declaration: " + rejected.getMessage());
 
-        assertEquals(
-                0,
-                Double.compare(plain.getMakespan(), engine.getMakespan()),
-                "with no window table the engine must not defer: makespan " + plain.getMakespan() + " vs "
-                        + engine.getMakespan());
-        assertNull(
-                engine.getCarbonAccounting(),
-                "with no window table there is no budget accounting (absence is legal, not zero excess)");
+        SimulationReport plain = run(SchedulingAlgorithm.FCFS, false);
+        assertNull(plain.getCarbonAccounting(), "plain FCFS without windows stays legal and accounting-free");
     }
 
     /**

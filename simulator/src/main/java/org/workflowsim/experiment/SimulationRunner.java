@@ -55,6 +55,10 @@ public final class SimulationRunner {
         }
         // BAT-D2（2026-10-29）：DVFS 频档维度前提（docs/advanced/DVFS_DIMENSION_DESIGN.md §2.2）。
         validateFrequencyDimension(config, platform);
+        // C1（2026-11-02 复核）：碳延后引擎的声明前提，与频档策略同族法则——
+        // 无窗口平台上的延后引擎会静默退化成 FCFS，"以为在测时间平移，实际在跑
+        // 普通在线调度"属于误导性证据，必须显式拒绝。
+        validateCarbonDeferralDimension(config, platform);
         // Fat-tree 链路争用模型：在会话外装配拓扑并校验模型与拓扑声明的双向契约
         // （配置异常在此直接以 SimulationConfigurationException 抛出，不被执行期
         // 包装；拓扑构造是纯配置计算，不触碰 CloudSim 状态）。
@@ -409,6 +413,25 @@ public final class SimulationRunner {
      * 会覆盖派发时的频档缩放长度、静默丢弃变频减速（与 R8 审计 P1-1 矩阵×规划器
      * 分叉同族）。两处都显式拒绝。</p>
      */
+    /**
+     * C1（2026-11-02）：碳感知延后引擎的声明前提。
+     *
+     * <p>{@code CARBON_WINDOW_DEFER} 的全部决策来自平台声明的 {@code carbonWindows}；
+     * 没有窗口时它会如实退化成普通在线调度，但标签仍写着"碳感知"——这正是 BAT-D2
+     * 对"静默失效策略"的同一类问题（以为在研究 X，实际在跑 v1）。因此显式拒绝，
+     * 让调用方补窗口或换标签，而不是产出一份名不副实的证据。</p>
+     */
+    private static void validateCarbonDeferralDimension(SimulationConfig config, PlatformProfile platform) {
+        if (config.getSchedulingAlgorithm() != SchedulingAlgorithm.CARBON_WINDOW_DEFER) {
+            return;
+        }
+        if (platform.getCarbonWindows() == null || platform.getCarbonWindows().isEmpty()) {
+            throw new SimulationConfigurationException("SchedulingAlgorithm.CARBON_WINDOW_DEFER requires a platform"
+                    + " with declared carbonWindows (the budget model); without them the deferral engine is"
+                    + " silently inert and would label an ordinary online run as carbon-aware (C1)");
+        }
+    }
+
     private static void validateFrequencyDimension(SimulationConfig config, PlatformProfile platform) {
         boolean anyTieredVm = false;
         for (PlatformProfile.VmSpec spec : platform.getVms()) {

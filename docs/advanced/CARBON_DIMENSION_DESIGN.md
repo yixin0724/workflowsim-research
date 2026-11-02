@@ -136,7 +136,10 @@ ready Jobs unscheduled with no future wake time fails loudly rather than hanging
 
 Honest scope: the rule is driven by the declared window table, not by a live fleet-load
 forecast, and it trades completion time for lower excess — the engine claims no
-superiority. It also cannot go below the **idle floor**: deferral removes the active
+superiority. Because the whole decision comes from that table, a platform without
+`carbonWindows` is **rejected** rather than degraded to plain FCFS: a label that says
+"carbon-aware" while deferring nothing is the same silently-inert-policy defect the
+frequency dimension refuses (BAT-D2). It also cannot go below the **idle floor**: deferral removes the active
 (dynamic) share from a dirty window, but a fleet whose parked power already exceeds that
 window's green budget keeps paying `Σ P_idle − green` for the whole window no matter what
 runs (pinned by `deferralCannotGoBelowTheIdleFloorOfADirtyWindow`, where two 100 W idle VMs
