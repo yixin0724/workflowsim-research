@@ -210,15 +210,18 @@ Honest boundaries recorded with the batch:
   per-tier law — the discriminator pair (a split-tier fixture passing at the
   per-tier value while an all-at-default forgery is killed) is pinned in the
   Python self-tests.
-- **Budget carbon under tiers is a forward contract**: the Java
-  `CarbonAccounting` models still require flat power fields, so a tiered
-  platform cannot yet reach a real `carbonMetrics` bundle; the Python tiered
-  budget branch (per-instant fleet power = Σ parked VMs at their default-tier
-  idle + each active Job at its tier's dynamic share) is implemented and
-  self-tested from the tier ledger, awaiting the Java-side tiering mirror.
-  The intensity model needs no change (it rides the verified energy).
-  (D4 follow-up, 2026-10-29: the intensity half of this gap is now closed —
-  see the as-built note in §2.6; the budget half remains a forward contract.)
+- **Budget carbon under tiers (closed 2026-11-02, A2)**: the Java
+  `CarbonAccounting.budgetModel` now mirrors the Python tiered branch —
+  per-instant fleet power = Σ parked VMs at their default-tier idle + each
+  active compute Job at `(P_max(its tier) − P_idle(default))`, with flat VMs
+  keeping their v1 `max−idle` contribution in a mixed fleet. The tiered branch
+  only engages when at least one VM declares a table, so the v1 budget path
+  stays bit-identical for the frozen carbon benchmark. Cross-language proof:
+  a Java-generated tiered+windows bundle audits clean under
+  `verify-study-evidence.py` (378 checks, 0 issues), and the Java-side
+  expectation is recomputed independently from the documented law in
+  `CarbonAccountingTest`. (D4 follow-up, 2026-10-29 closed the intensity half;
+  A2 closes the budget half.)
 - **Tiered manifests are rerunnable (closed 2026-11-02, A1)**: `ManifestConfigRebuilder`
   now round-trips `platform.vms[].frequencyTiers` and `configuration.frequencyPolicy`,
   so tiered and tri-dimensional bundles rebuild to the same platform and rerun

@@ -148,8 +148,10 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   tri-dimensional bundles rebuild to the recorded platform and rerun `IDENTICAL_CORE`;
   a malformed recorded table (non-descending, flat power alongside tiers, missing
   `mips`, unknown policy) is still refused loudly as `RECONSTRUCTION_REJECTED`.
-  Remaining follow-up from this batch: the budget-carbon model under tiers is still
-  Python-side only (A2 target).
+  Budget carbon under tiers is also closed (2026-11-02, A2): `CarbonAccounting.budgetModel`
+  uses the per-tier fleet-power curve (Σ default-tier idle + per-Job tier dynamic share,
+  flat VMs keeping their v1 contribution) whenever any VM declares a table, and a
+  Java-generated tiered+windows bundle audits clean under the Python auditor.
 
 ## Performance Optimizations Do Not Change the Semantics Above
 

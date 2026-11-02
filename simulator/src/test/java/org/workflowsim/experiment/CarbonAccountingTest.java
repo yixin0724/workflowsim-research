@@ -200,6 +200,237 @@ class CarbonAccountingTest {
         assertTrue(carbon.getTotalCarbonGrams() > 0.0, "tiered powered run must have positive grams");
     }
 
+    /**
+     * A2 红→绿锚（2026-11-02）：频档平台 + 碳窗口 = 预算碳。此前 {@code budgetModel}
+     * 只认平铺功率字段，频档 VM（平铺恒 0，BAT-D1）直接 fail-fast，所以"5 档 P-state
+     * × 绿色预算"这一维交叉无法产生真实 carbonMetrics；Python 审计器早已实现该分支
+     * （DVFS_DIMENSION_DESIGN §2.3 的前向契约）。
+     *
+     * <p>期望值合法性来源：契约律本身（Python 侧文档化口径的逐句镜像）——逐时刻舰队
+     * 功率 = Σ卡顿 VM 默认档 idle + Σ活跃 Job (P_max(其档) − P_idle(默认档))；本测试
+     * 在断言内按该律独立重算，不拷贝实现输出。</p>
+     */
+    @Test
+    void tieredPlatformBudgetCarbonUsesThePerTierFleetPowerCurve() throws Exception {
+        SimulationReport report = runTieredBudget();
+        CarbonAccounting carbon = report.getCarbonAccounting();
+        assertTrue(carbon != null, "tiered platform + declared windows must now produce an accounting");
+
+        // 契约律独立重算：端点折叠 ±dyn，段内舰队功率 = idle_sum + Σ活跃 dyn。
+        PlatformProfile profile = lastProfile;
+        double defaultIdle = 250.0;
+        double idleSum = 0.0;
+        for (PlatformProfile.VmSpec spec : profile.getVms()) {
+            idleSum += spec.hasFrequencyTiers()
+                    ? spec.getFrequencyTiers().get(0).getIdlePowerWatts()
+                    : spec.getIdlePowerWatts();
+        }
+        java.util.TreeMap<Double, Double> ends = new java.util.TreeMap<Double, Double>();
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            if (job.getClassType() != 2 || job.getFinishTime() <= job.getStartTime()) {
+                continue;
+            }
+            PlatformProfile.VmSpec spec = profile.getVms().get(job.getVmId());
+            double dyn;
+            if (spec.hasFrequencyTiers()) {
+                double tierMips = job.getTierMips() == null
+                        ? spec.getFrequencyTiers().get(0).getMips()
+                        : job.getTierMips().doubleValue();
+                dyn = tierMaxOf(spec, tierMips) - defaultIdle;
+            } else {
+                dyn = spec.getMaxPowerWatts() - spec.getIdlePowerWatts();
+            }
+            ends.merge(Double.valueOf(job.getStartTime()), Double.valueOf(dyn), Double::sum);
+            ends.merge(Double.valueOf(job.getFinishTime()), Double.valueOf(-dyn), Double::sum);
+        }
+        double expectedTotal = expectedTieredExcess(report, profile);
+        assertEquals(
+                0,
+                Double.compare(expectedTotal, carbon.getTotalCarbonExcessWattSeconds()),
+                "tiered budget law: expected=" + expectedTotal + " actual=" + carbon.getTotalCarbonExcessWattSeconds());
+        assertTrue(expectedTotal > 0.0, "the fixture must produce a positive excess (green below active power)");
+        // 预算族不产克数（两族互斥）：克数字段保持 0，与强度族区分。
+        assertEquals(0, Double.compare(0.0, carbon.getTotalCarbonGrams()));
+    }
+
+    /** 契约律重算：逐档舰队功率曲线的窗口超额（与实现独立走一遍文档化口径）。 */
+    private static double expectedTieredExcess(SimulationReport report, PlatformProfile profile) {
+        double defaultIdleOfTiered = 0.0;
+        double idleSum = 0.0;
+        for (PlatformProfile.VmSpec spec : profile.getVms()) {
+            if (spec.hasFrequencyTiers()) {
+                defaultIdleOfTiered = spec.getFrequencyTiers().get(0).getIdlePowerWatts();
+                idleSum += defaultIdleOfTiered;
+            } else {
+                idleSum += spec.getIdlePowerWatts();
+            }
+        }
+        java.util.TreeMap<Double, Double> ends = new java.util.TreeMap<Double, Double>();
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            if (job.getClassType() != 2 || job.getFinishTime() <= job.getStartTime()) {
+                continue;
+            }
+            PlatformProfile.VmSpec spec = profile.getVms().get(job.getVmId());
+            double dyn;
+            if (spec.hasFrequencyTiers()) {
+                double tierMips = job.getTierMips() == null
+                        ? spec.getFrequencyTiers().get(0).getMips()
+                        : job.getTierMips().doubleValue();
+                dyn = tierMaxOf(spec, tierMips)
+                        - spec.getFrequencyTiers().get(0).getIdlePowerWatts();
+            } else {
+                dyn = spec.getMaxPowerWatts() - spec.getIdlePowerWatts();
+            }
+            ends.merge(Double.valueOf(job.getStartTime()), Double.valueOf(dyn), Double::sum);
+            ends.merge(Double.valueOf(job.getFinishTime()), Double.valueOf(-dyn), Double::sum);
+        }
+        java.util.List<double[]> segments = new java.util.ArrayList<double[]>();
+        double active = 0.0;
+        double prev = 0.0;
+        for (java.util.Map.Entry<Double, Double> end : ends.entrySet()) {
+            double t = end.getKey().doubleValue();
+            if (t > prev) {
+                segments.add(new double[] {prev, t, idleSum + active});
+            }
+            active += end.getValue().doubleValue();
+            prev = t;
+        }
+        if (prev < report.getMakespan()) {
+            segments.add(new double[] {prev, report.getMakespan(), idleSum + active});
+        }
+        double total = 0.0;
+        for (PlatformProfile.CarbonWindow window : profile.getCarbonWindows()) {
+            double acc = 0.0;
+            for (double[] segment : segments) {
+                double lo = Math.max(segment[0], window.getStartSeconds());
+                double hi = Math.min(segment[1], window.getEndSeconds());
+                if (hi > lo) {
+                    acc += Math.max(0.0, segment[2] - window.getGreenWatts()) * (hi - lo);
+                }
+            }
+            total += acc;
+        }
+        return total;
+    }
+
+    /**
+     * A2 对抗面：混合舰队（一台分档 VM + 一台平铺 VM）在同一预算窗口下必须走同一
+     * 舰队功率曲线——分档贡献取默认档 idle + 逐档动态，平铺贡献保持 v1 的 max−idle。
+     */
+    @Test
+    void mixedFleetBudgetCarbonMixesTieredAndFlatContributions() throws Exception {
+        SimulationReport report = runMixedFleetBudget();
+        CarbonAccounting carbon = report.getCarbonAccounting();
+        assertTrue(carbon != null, "a mixed fleet with windows must produce an accounting");
+        double expected = expectedTieredExcess(report, lastProfile);
+        assertEquals(
+                0,
+                Double.compare(expected, carbon.getTotalCarbonExcessWattSeconds()),
+                "mixed-fleet law: expected=" + expected + " actual=" + carbon.getTotalCarbonExcessWattSeconds());
+        assertTrue(expected > 0.0, "the fixture must yield a positive excess");
+    }
+
+    /** 混合舰队夹具：VM0 分档（默认档 idle 250），VM1 平铺（idle 120 / max 300）。 */
+    private SimulationReport runMixedFleetBudget() throws Exception {
+        Path workflow = Paths.get(tempDir.toFile().getAbsolutePath(), "mixed.dax");
+        Files.write(
+                workflow,
+                ("<adag version=\"3.3\" count=\"2\">"
+                                + "<job id=\"a\" name=\"a\" runtime=\"10\"/>"
+                                + "<job id=\"b\" name=\"b\" runtime=\"30\"/></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config = SimulationConfig.builder(workflow.toString(), 2)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .frequencyPolicy(SimulationConfig.FrequencyPolicy.MIN_POWER)
+                .randomSeed(20261103L)
+                .build();
+        java.util.List<PlatformProfile.FrequencyTier> tiers = java.util.Arrays.asList(
+                new PlatformProfile.FrequencyTier(2000.0, 250.0, 4000.0),
+                new PlatformProfile.FrequencyTier(500.0, 100.0, 118.75));
+        PlatformProfile.Builder builder = PlatformProfile.builder("mixed-fleet-test");
+        builder.addHost(new PlatformProfile.HostSpec(0, 2, 4000, 2048, 10000L, 1000000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0,
+                        2000,
+                        1,
+                        512,
+                        1000L,
+                        10000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                        null,
+                        0.0,
+                        0.0,
+                        null,
+                        tiers))
+                .pinVmToHost(0, 0);
+        builder.addHost(new PlatformProfile.HostSpec(1, 2, 4000, 2048, 10000L, 1000000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        1,
+                        2000,
+                        1,
+                        512,
+                        1000L,
+                        10000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                        null,
+                        120.0,
+                        300.0,
+                        null,
+                        java.util.Collections.<PlatformProfile.FrequencyTier>emptyList()))
+                .pinVmToHost(1, 1);
+        builder.carbonWindow(0.0, 20000.0, 260.0);
+        lastProfile = builder.build();
+        return new SimulationRunner().run(config, lastProfile);
+    }
+
+    /** 频档平台 + 单窗口预算碳夹具：MIN_POWER 把作业压到低档，功率曲线沿档变化。 */
+    private SimulationReport runTieredBudget() throws Exception {
+        Path workflow = Paths.get(tempDir.toFile().getAbsolutePath(), "tiered-budget.dax");
+        Files.write(
+                workflow,
+                ("<adag version=\"3.3\" count=\"2\">"
+                                + "<job id=\"a\" name=\"a\" runtime=\"10\"/>"
+                                + "<job id=\"b\" name=\"b\" runtime=\"30\"/></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config = SimulationConfig.builder(workflow.toString(), 1)
+                .planningAlgorithm(PlanningAlgorithm.SHARED_STORAGE_HEFT)
+                .schedulingAlgorithm(SchedulingAlgorithm.STATIC)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .frequencyPolicy(SimulationConfig.FrequencyPolicy.MIN_POWER)
+                .randomSeed(20261102L)
+                .build();
+        java.util.List<PlatformProfile.FrequencyTier> tiers = java.util.Arrays.asList(
+                new PlatformProfile.FrequencyTier(2000.0, 250.0, 4000.0),
+                new PlatformProfile.FrequencyTier(1000.0, 250.0, 400.0),
+                new PlatformProfile.FrequencyTier(500.0, 100.0, 118.75));
+        PlatformProfile.Builder builder = PlatformProfile.builder("tiered-budget-test");
+        builder.addHost(new PlatformProfile.HostSpec(0, 2, 4000, 2048, 10000L, 1000000L))
+                .addVm(new PlatformProfile.VmSpec(
+                        0,
+                        2000,
+                        1,
+                        512,
+                        1000L,
+                        10000L,
+                        "Xen",
+                        PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                        null,
+                        0.0,
+                        0.0,
+                        null,
+                        tiers))
+                .pinVmToHost(0, 0);
+        builder.carbonWindow(0.0, 10000.0, 200.0);
+        lastProfile = builder.build();
+        return new SimulationRunner().run(config, lastProfile);
+    }
+
     /** BAT-D4：按 MIPS 精确身份查档功率（频档表降序唯一；同 VmSpec.tierByMips 契约）。 */
     private static double tierMaxOf(PlatformProfile.VmSpec spec, double mips) {
         for (PlatformProfile.FrequencyTier tier : spec.getFrequencyTiers()) {

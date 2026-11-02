@@ -126,6 +126,19 @@ public final class CarbonAccounting {
             throw new IllegalArgumentException("Budget carbon model requires declared carbonWindows (BAT-C1)");
         }
         double makespan = report.getMakespan();
+        // A2（2026-11-02）：频档平台 = 已声明功率（镜像 BAT-D2 的功率闸）。任一 VM 带档表
+        // 即走逐档舰队功率曲线；否则保持 v1 口径<b>逐位不变</b>（冻结碳基准的可重跑性
+        // 依赖这一点——两分支的功率代数不同，不能合并）。
+        boolean anyTiered = false;
+        for (PlatformProfile.VmSpec spec : profile.getVms()) {
+            if (spec.hasFrequencyTiers()) {
+                anyTiered = true;
+                break;
+            }
+        }
+        if (anyTiered) {
+            return budgetModelWithTiers(report, profile, windows);
+        }
         double idleSum = 0.0;
         double dynamicPerVm = 0.0;
         boolean firstVm = true;
@@ -190,6 +203,117 @@ public final class CarbonAccounting {
             }
         }
         return new CarbonAccounting(0.0, 0.0, 0.0, Collections.emptyMap(), total, windowExcess);
+    }
+
+    /**
+     * A2（2026-11-02）：频档平台的预算碳——逐档舰队功率曲线。
+     *
+     * <p>契约（DVFS_DIMENSION_DESIGN.md §1.5 “per-tier fleet-power curve” §2.3）：逐时刻
+     * {@code P_fleet(t) = Σ_卡顿VM P_idle(默认档) + Σ_活跃Job (P_max(其档) − P_idle(默认档))}。
+     * 频档 VM 的静态分量取<b>默认档（表首档）</b>怠速功率，与守恒律
+     * {@code E_vm = P_idle(默认)×T_sim + Σ(P_max(档)−P_idle(默认))×busy(档)} 同源；flat VM
+     * 保持 v1 的 {@code max−idle} 贡献（混合舰队合法）。档身份取 Job 携带的
+     * {@code tierMips}（逐档守恒链已校验的同一归因），缺档归默认档。</p>
+     *
+     * <p>逐句镜像 {@code scripts/verify-study-evidence.py} 的 tiered budget 分支——
+     * Java 与 Python 审计口径必须对齐（AGENTS.md 第 10 条）。</p>
+     */
+    private static CarbonAccounting budgetModelWithTiers(
+            SimulationReport report, PlatformProfile profile, List<PlatformProfile.CarbonWindow> windows) {
+        double makespan = report.getMakespan();
+        double idleSum = 0.0;
+        for (PlatformProfile.VmSpec spec : profile.getVms()) {
+            idleSum += spec.hasFrequencyTiers()
+                    ? spec.getFrequencyTiers().get(0).getIdlePowerWatts()
+                    : spec.getIdlePowerWatts();
+        }
+        // 端点折叠：±该 Job 的动态瓦特（不是 ±1 计数——档间动态分量不同）。
+        TreeMap<Double, Double> ends = new TreeMap<Double, Double>();
+        for (SimulationReport.JobOutcome job : report.getJobs()) {
+            if (job.getClassType() != 2) {
+                continue; // 仅计算 Job 定义忙区间（与 v1 分支同口径）
+            }
+            double a = job.getStartTime();
+            double b = job.getFinishTime();
+            if (b <= a) {
+                continue;
+            }
+            PlatformProfile.VmSpec spec = vmSpec(profile, job.getVmId());
+            if (spec == null) {
+                throw new IllegalArgumentException("Job " + job.getJobId() + " references undeclared VM "
+                        + job.getVmId() + ": the fleet-power curve cannot be built");
+            }
+            double dynamic;
+            if (spec.hasFrequencyTiers()) {
+                double defaultIdle = spec.getFrequencyTiers().get(0).getIdlePowerWatts();
+                double tierMips = job.getTierMips() == null
+                        ? spec.getFrequencyTiers().get(0).getMips()
+                        : job.getTierMips().doubleValue();
+                dynamic = tierMaxWatts(spec, tierMips) - defaultIdle;
+            } else {
+                dynamic = spec.getMaxPowerWatts() - spec.getIdlePowerWatts();
+            }
+            bumpDouble(ends, a, dynamic);
+            bumpDouble(ends, b, -dynamic);
+        }
+        List<double[]> segments = new ArrayList<double[]>();
+        double active = 0.0;
+        double prev = 0.0;
+        for (Map.Entry<Double, Double> entry : ends.entrySet()) {
+            double t = entry.getKey().doubleValue();
+            if (t > prev) {
+                segments.add(new double[] {prev, t, idleSum + active});
+            }
+            active += entry.getValue().doubleValue();
+            prev = t;
+        }
+        if (prev < makespan) {
+            segments.add(new double[] {prev, makespan, idleSum + active});
+        }
+        Map<Integer, Double> windowExcess = new LinkedHashMap<Integer, Double>();
+        double total = 0.0;
+        for (int index = 0; index < windows.size(); index++) {
+            PlatformProfile.CarbonWindow window = windows.get(index);
+            double acc = 0.0;
+            for (double[] segment : segments) {
+                double lo = Math.max(segment[0], window.getStartSeconds());
+                double hi = Math.min(segment[1], window.getEndSeconds());
+                if (hi > lo) {
+                    acc += Math.max(0.0, segment[2] - window.getGreenWatts()) * (hi - lo);
+                }
+            }
+            if (acc > 0.0) {
+                windowExcess.put(Integer.valueOf(index), Double.valueOf(acc));
+                total += acc;
+            }
+        }
+        return new CarbonAccounting(0.0, 0.0, 0.0, Collections.emptyMap(), total, windowExcess);
+    }
+
+    /** 按 MIPS 精确身份取档峰值功率（频档表降序唯一；与逐档守恒链同一身份规则）。 */
+    private static double tierMaxWatts(PlatformProfile.VmSpec spec, double tierMips) {
+        for (PlatformProfile.FrequencyTier tier : spec.getFrequencyTiers()) {
+            if (Double.compare(tier.getMips(), tierMips) == 0) {
+                return tier.getMaxPowerWatts();
+            }
+        }
+        throw new IllegalArgumentException("Job tier mips " + tierMips + " matches no declared tier of VM "
+                + spec.getId() + ": the per-Job tier evidence chain is broken (BAT-D2)");
+    }
+
+    private static PlatformProfile.VmSpec vmSpec(PlatformProfile profile, int vmId) {
+        for (PlatformProfile.VmSpec spec : profile.getVms()) {
+            if (spec.getId() == vmId) {
+                return spec;
+            }
+        }
+        return null;
+    }
+
+    private static void bumpDouble(TreeMap<Double, Double> map, double key, double delta) {
+        Double boxed = Double.valueOf(key);
+        Double current = map.get(boxed);
+        map.put(boxed, Double.valueOf((current == null ? 0.0 : current.doubleValue()) + delta));
     }
 
     private static PlatformProfile.VmSpec findSpec(PlatformProfile profile, int vmId) {
