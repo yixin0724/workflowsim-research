@@ -148,7 +148,11 @@ public final class ManifestConfigRebuilder {
                     optionalNonNegativeDouble(vm.get("idlePowerWatts"), "platform.vms[].idlePowerWatts"),
                     optionalNonNegativeDouble(vm.get("maxPowerWatts"), "platform.vms[].maxPowerWatts"),
                     optionalCarbonIntensity(
-                            vm.get("carbonIntensityGramsPerKWh"), "platform.vms[].carbonIntensityGramsPerKWh")));
+                            vm.get("carbonIntensityGramsPerKWh"), "platform.vms[].carbonIntensityGramsPerKWh"),
+                    // A1（2026-11-02）：频档表往返重建。缺键/空表 = v1 单档平台（合法缺省）；
+                    // 非空表由 VmSpec 构造器做"严格降序 + 与平铺功率互斥"校验——
+                    // 记录里表非法时重建必须拒收（RECONSTRUCTION_REJECTED），不得静默修正。
+                    rebuildFrequencyTiers(vm.get("frequencyTiers"))));
             Integer pinned = optionalInt(vm.get("pinnedHostId"));
             if (pinned != null) {
                 builder.pinVmToHost(id, pinned.intValue());
@@ -274,6 +278,9 @@ public final class ManifestConfigRebuilder {
                         CostModel.class,
                         requireString(config, "costModel", "configuration.costModel"),
                         "configuration.costModel"))
+                // A1（2026-11-02）：频档指派策略往返。键缺省 = pre-D4 形状/DEFAULT，
+                // 与"缺键 == 唯一合法 DEFAULT"的值语义一致；出现即按记录值重建。
+                .frequencyPolicy(rebuildFrequencyPolicy(config.get("frequencyPolicy")))
                 .overheadModel(
                         rebuildOverheadModel(requireObject(config, "overheadModel", "configuration.overheadModel")))
                 .clusteringParameters(
@@ -588,6 +595,51 @@ public final class ManifestConfigRebuilder {
 
     private static Double optionalDouble(JsonElement element) {
         return element == null || element.isJsonNull() ? null : Double.valueOf(element.getAsDouble());
+    }
+
+    /**
+     * A1（2026-11-02）：{@code platform.vms[].frequencyTiers} 往返重建。
+     *
+     * <p>缺键/空数组 = v1 单档平台（合法缺省，不做任何猜测）。表项按记录顺序重建；
+     * 严格降序、与平铺功率字段互斥、功率区间由
+     * {@link PlatformProfile.VmSpec} 的构造校验兜底——这里是忠实翻译，不是校验器。</p>
+     */
+    private static List<PlatformProfile.FrequencyTier> rebuildFrequencyTiers(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return java.util.Collections.emptyList();
+        }
+        if (!element.isJsonArray()) {
+            throw new IllegalArgumentException("platform.vms[].frequencyTiers must be an array when present");
+        }
+        List<PlatformProfile.FrequencyTier> tiers = new ArrayList<PlatformProfile.FrequencyTier>();
+        for (JsonElement item : element.getAsJsonArray()) {
+            if (!item.isJsonObject()) {
+                throw new IllegalArgumentException("platform.vms[].frequencyTiers entries must be objects");
+            }
+            JsonObject tier = item.getAsJsonObject();
+            tiers.add(new PlatformProfile.FrequencyTier(
+                    requireDouble(tier, "mips", "platform.vms[].frequencyTiers[].mips"),
+                    optionalNonNegativeDouble(
+                            tier.get("idlePowerWatts"), "platform.vms[].frequencyTiers[].idlePowerWatts"),
+                    optionalNonNegativeDouble(
+                            tier.get("maxPowerWatts"), "platform.vms[].frequencyTiers[].maxPowerWatts")));
+        }
+        return tiers;
+    }
+
+    /**
+     * A1（2026-11-02）：{@code configuration.frequencyPolicy} 往返重建。
+     *
+     * <p>键缺省/空值 → {@code DEFAULT}（pre-D4 冻结证据的唯一合法值；与
+     * ExperimentManifestWriter 的键缺省发射规则同源）。未知枚举名照旧由
+     * {@code enumValue} 拒收，不降级。</p>
+     */
+    private static SimulationConfig.FrequencyPolicy rebuildFrequencyPolicy(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return SimulationConfig.FrequencyPolicy.DEFAULT;
+        }
+        return enumValue(
+                SimulationConfig.FrequencyPolicy.class, element.getAsString(), "configuration.frequencyPolicy");
     }
 
     /**

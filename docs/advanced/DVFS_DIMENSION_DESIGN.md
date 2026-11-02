@@ -219,11 +219,13 @@ Honest boundaries recorded with the batch:
   The intensity model needs no change (it rides the verified energy).
   (D4 follow-up, 2026-10-29: the intensity half of this gap is now closed —
   see the as-built note in §2.6; the budget half remains a forward contract.)
-- **Tiered manifests are not yet rerunnable**: `ManifestConfigRebuilder`
-  rebuilds neither `frequencyTiers` nor `frequencyPolicy`, so rerunning a
-  tiered manifest degrades to a v1 platform today; the proper rebuild
-  belongs to a later batch and should fail fast until then. The failure
-  form is loud on both shapes (adversarial V4 round, 2026-10-29, as-built):
+- **Tiered manifests are rerunnable (closed 2026-11-02, A1)**: `ManifestConfigRebuilder`
+  now round-trips `platform.vms[].frequencyTiers` and `configuration.frequencyPolicy`,
+  so tiered and tri-dimensional bundles rebuild to the same platform and rerun
+  `IDENTICAL_CORE`; a malformed recorded table (non-descending mips, or flat power
+  fields alongside a table) is still refused loudly as `RECONSTRUCTION_REJECTED`.
+  The historical failure forms below are retained as the record of the V4 round
+  (2026-10-29, adversarial) that motivated the rebuild:
   a tiered bundle *without* carbon degrades to an unpowered v1 replay whose
   diff goes red on the evidence face (`/platform/vms/N/frequencyTiers`,
   per-job `tierMips`, and `/energyMetrics` are not whitelisted);

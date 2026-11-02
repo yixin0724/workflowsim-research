@@ -57,6 +57,12 @@ import com.google.gson.JsonParser;
  * DESIGN.md §2.4（"tiered manifest 复跑按记录的红差异失败，不静默"——无碳 tiered
  * 形态走 differ 大红；三维形态在重建后被当前代码运行期拒绝 → verdict 契约的
  * RECONSTRUCTION_REJECTED）。v1（无档平面功率）证据的复跑必须持续 IDENTICAL_CORE。</p>
+ *
+ * <p><b>A1（2026-11-02 用户裁决）：分档证据已可重跑。</b>{@code ManifestConfigRebuilder} 现在往返
+ * 重建 {@code platform.vms[].frequencyTiers} 与 {@code configuration.frequencyPolicy}，因此
+ * "tiered"与"tiered+carbon"两种证据从"运行期拒绝 / 档位证据面大红"变为 <b>IDENTICAL_CORE</b>。
+ * 旧契约（重建剥档 → 拒绝或逐叶大红）由本类前两条测试锚定，本轮按新契约改写；"重建失败仍须
+ * 大声"的义务没有消失——表非法（非严格降序）时重建器照旧拒收，由第三条测试锚定。</p>
  */
 class DvfsRerunLoudRedIntegrationTest {
 
@@ -77,66 +83,70 @@ class DvfsRerunLoudRedIntegrationTest {
     }
 
     /**
-     * 缺陷 #1 的红→绿主锚（修复前：IllegalArgumentException 冒泡，测试在此抛出——
-     * 无报告、无 verdict；修复后：RECONSTRUCTION_REJECTED 报告落盘）。
+     * A1 主锚（2026-11-02）：三维（tiered+carbon）证据复跑必须 IDENTICAL_CORE。
+     *
+     * <p>修复前：重建器剥离频档 → 重建平台"碳强度 + 无功率"违反 BAT-C1 半声明律 →
+     * 运行期拒绝（RECONSTRUCTION_REJECTED）。修复后：频档表与指派策略随 manifest
+     * 往返，重建平台与原运行同构，复跑逐叶子一致。</p>
      */
     @Test
-    void triDimensionalDvfsEvidenceRerunIsAnHonestReportedRejectionNotACrash() throws Exception {
+    void triDimensionalDvfsEvidenceRerunsIdenticallyOnceTiersRoundTrip() throws Exception {
         Path study = directory.resolve("tri");
         Path run = runAndWriteEvidence(study, "runs/tri", tieredCarbonPlatform(), FrequencyPolicy.DEFAULT);
 
         RerunReport report = assertDoesNotThrow(
                 () -> RerunDiffExecutor.execute(run, study.resolve("out")),
-                "run-time law rejection must be mapped into the verdict contract, not escape"
-                        + " as an uncaught usage-class exception (no report written)");
+                "the tier rebuild must not turn a legitimate rerun into a usage-class exception");
 
-        assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, report.getVerdict(), report.toJson());
-        assertEquals(4, report.getExitCode(), "contract exit code for a code-level rebuild/run refusal");
-        // 两份报告必须落盘（失败路径不产 rerun/ 三件套，但报告照写）。
-        Path json = study.resolve("out/rerun-report.json");
-        Path markdown = study.resolve("out/rerun-report.md");
-        assertTrue(Files.exists(json), "rerun-report.json must exist even on the rejection path");
-        assertTrue(Files.exists(markdown), "rerun-report.md must exist even on the rejection path");
-        assertFalse(Files.exists(study.resolve("out/rerun")), "failed reruns must not fabricate a rerun bundle");
-        String reason = report.toJson();
+        assertEquals(
+                RerunVerdict.IDENTICAL_CORE,
+                report.getVerdict(),
+                "a tiered+carbon bundle must rerun green once the tier table round-trips: " + report.toJson());
+        assertEquals(0, report.getExitCode(), "IDENTICAL_CORE exit code");
         assertTrue(
-                reason.contains("carbon") || reason.contains("碳") || reason.contains("BAT-C1"),
-                "the refusal reason must cite the actual law that rejected the rebuilt platform: " + reason);
-        assertTrue(
-                reason.contains("模拟执行阶段") || reason.contains("simulation") || reason.contains("execut"),
-                "the refusal must note the execution phase (contract wording): " + reason);
+                report.getCoreDivergences().isEmpty(),
+                "no core divergence may survive: " + pointers(report.getCoreDivergences()));
     }
 
     /**
-     * 文档化的"记录红差异"形态（§2.4）：无碳 tiered 证据复跑 → 重建出 v1 平台 →
-     * 复跑侧无 tierMips/频档表 → differ 对证据面逐叶子大红（DIVERGED，exit 1）——
-     * 不是静默通过（档表非白名单）、也不是崩溃。档速取 VM 基速，时钟本体重放全等，
-     * 分歧集恰为频档证据面（/platform/…/frequencyTiers、jobs[].tierMips、/energyMetrics）。
+     * A1 第二锚：无碳 tiered 证据复跑同样 IDENTICAL_CORE，且复跑侧必须<b>带上</b>
+     * 频档表与逐 Job 档身份——重建不是"降级成 v1 后恰好对上"，而是真的重建了档。
      */
     @Test
-    void tieredWithoutCarbonEvidenceRerunDivergesLoudlyOnTheTierEvidenceFace() throws Exception {
+    void tieredEvidenceRerunsIdenticallyAndTheRebuiltSideCarriesTheTierTable() throws Exception {
         Path study = directory.resolve("tiered");
-        Path run = runAndWriteEvidence(study, "runs/tiered", tieredPlatform(), FrequencyPolicy.DEFAULT);
+        Path run = runAndWriteEvidence(study, "runs/tiered", tieredPlatform(), FrequencyPolicy.MIN_POWER);
 
         RerunReport report = RerunDiffExecutor.execute(run, study.resolve("out"));
-        assertEquals(RerunVerdict.DIVERGED, report.getVerdict(), report.toJson());
-        assertEquals(1, report.getExitCode(), "DIVERGED exit code");
-        List<RerunReport.DivergenceEntry> core = report.getCoreDivergences();
-        assertFalse(core.isEmpty(), "the tier evidence face must produce core divergences");
-        assertTrue(
-                core.stream().anyMatch(d -> d.getPointer().contains("frequencyTiers")),
-                "platform tier table leaf must diverge: " + pointers(core));
-        assertTrue(
-                core.stream().anyMatch(d -> d.getPointer().contains("tierMips")),
-                "per-job tier attribution leaf must diverge: " + pointers(core));
-        assertTrue(
-                core.stream().anyMatch(d -> d.getPointer().startsWith("/energyMetrics")),
-                "the conserved energy face must diverge (tiered joules vs unpowered rerun): " + pointers(core));
-        // 根因可证：复跑侧 manifest（若产出）不含频档痕迹。DIVERGED 路径产出 rerun/ 三件套。
+        assertEquals(RerunVerdict.IDENTICAL_CORE, report.getVerdict(), report.toJson());
+        assertEquals(0, report.getExitCode(), "IDENTICAL_CORE exit code");
+
         String rerunManifest =
                 new String(Files.readAllBytes(study.resolve("out/rerun/result.manifest.json")), StandardCharsets.UTF_8);
-        assertFalse(rerunManifest.contains("frequencyTiers"), "the rebuilt v1 side carries no tier table");
-        assertFalse(rerunManifest.contains("tierMips"), "the rebuilt v1 side carries no per-job tier evidence");
+        assertTrue(rerunManifest.contains("frequencyTiers"), "the rebuilt side must carry the tier table");
+        assertTrue(rerunManifest.contains("tierMips"), "the rebuilt side must carry per-job tier evidence");
+        assertTrue(rerunManifest.contains("MIN_POWER"), "the rebuilt side must carry the frequency policy");
+    }
+
+    /**
+     * 大声拒收的义务没有消失：manifest 里的档表非法（非严格降序）时，重建器照旧
+     * 拒收并映射 RECONSTRUCTION_REJECTED（报告落盘，exit 4）。
+     */
+    @Test
+    void malformedTierTableInTheRecordedManifestIsStillRejectedLoudly() throws Exception {
+        Path study = directory.resolve("malformed");
+        Path run = runAndWriteEvidence(study, "runs/malformed", twoTierPlatform(), FrequencyPolicy.DEFAULT);
+        scrambleTierOrder(run);
+
+        RerunReport report = assertDoesNotThrow(() -> RerunDiffExecutor.execute(run, study.resolve("out")));
+        assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, report.getVerdict(), report.toJson());
+        assertEquals(4, report.getExitCode(), "contract exit code for a rebuild refusal");
+        assertTrue(Files.exists(study.resolve("out/rerun-report.json")), "the refusal report must be written");
+        assertFalse(Files.exists(study.resolve("out/rerun")), "a refused rerun must not fabricate a bundle");
+        String reason = report.toJson();
+        assertTrue(
+                reason.contains("frequency") || reason.contains("mips") || reason.contains("descending"),
+                "the refusal must cite the tier table as the cause: " + reason);
     }
 
     /** v1（无档平面功率）证据：复跑必须持续绿（BAT-E5 同款不变量在本轮的回归位）。 */
@@ -176,6 +186,120 @@ class DvfsRerunLoudRedIntegrationTest {
     // ------------------------------------------------------------------
 
     /** 把 run-manifest 的配置节 frequencyPolicy 成员抹去：pre-D4 冻结 bundle 的形状。 */
+    /**
+     * 对抗面（A1 轮）：重建器只做忠实翻译，任何"记录本身自相矛盾"的形态都必须
+     * 拒收为 RECONSTRUCTION_REJECTED，而不是挑一半照跑。四条形态各一个锚点：
+     * 表与平铺功率并存（单一真源）/ 档缺 mips（物理量缺失）/ 未知策略枚举 /
+     * 策略非 DEFAULT 但记录里没有档（运行期应在树 -> 策略静默失效）。
+     */
+    @Test
+    void manifestDeclaringBothTierTableAndFlatPowerIsRejected() throws Exception {
+        assertRejectedAfter(run -> addFlatPowerBesidesTiers(run), "one source of truth", "BOTH frequencyTiers");
+    }
+
+    @Test
+    void tierEntryWithoutMipsIsRejected() throws Exception {
+        assertRejectedAfter(run -> dropFirstTierMips(run), "mips", "missing");
+    }
+
+    @Test
+    void unknownFrequencyPolicyNameIsRejected() throws Exception {
+        assertRejectedAfter(run -> setFrequencyPolicy(run, "TURBO_MODE"), "frequencyPolicy", "TURBO_MODE");
+    }
+
+    @Test
+    void nonDefaultPolicyWithoutAnyTierTableIsRejected() throws Exception {
+        assertRejectedAfter(
+                run -> {
+                    stripTierTable(run);
+                    setFrequencyPolicy(run, "MIN_POWER");
+                },
+                "MIN_POWER",
+                "requires at least one VM");
+    }
+
+    private interface Tamper {
+        void apply(Path runDirectory) throws Exception;
+    }
+
+    private void assertRejectedAfter(Tamper tamper, String... expectedFragments) throws Exception {
+        Path study = directory.resolve("tamper-" + System.nanoTime());
+        Path run = runAndWriteEvidence(study, "runs/tamper", twoTierPlatform(), FrequencyPolicy.MIN_POWER);
+        tamper.apply(run);
+
+        RerunReport report = assertDoesNotThrow(() -> RerunDiffExecutor.execute(run, study.resolve("out")));
+        assertEquals(RerunVerdict.RECONSTRUCTION_REJECTED, report.getVerdict(), report.toJson());
+        assertEquals(4, report.getExitCode(), "rebuild refusals keep exit 4");
+        String reason = report.toJson();
+        for (String fragment : expectedFragments) {
+            assertTrue(reason.contains(fragment), "the refusal must cite '" + fragment + "': " + reason);
+        }
+    }
+
+    private static JsonObject readManifest(Path runDirectory) throws Exception {
+        Path manifest = runDirectory.resolve("result.manifest.json");
+        return JsonParser.parseString(new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+    }
+
+    private static void writeManifest(Path runDirectory, JsonObject doc) throws Exception {
+        Files.write(runDirectory.resolve("result.manifest.json"), doc.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static JsonObject firstVm(JsonObject doc) {
+        return doc.getAsJsonObject("platform").getAsJsonArray("vms").get(0).getAsJsonObject();
+    }
+
+    /** 档表 + 平铺功率并存：BAT-D1 单一真源律必须拒收。 */
+    private static void addFlatPowerBesidesTiers(Path runDirectory) throws Exception {
+        JsonObject doc = readManifest(runDirectory);
+        JsonObject vm = firstVm(doc);
+        vm.addProperty("idlePowerWatts", 250.0);
+        vm.addProperty("maxPowerWatts", 400.0);
+        writeManifest(runDirectory, doc);
+    }
+
+    /** 档缺 mips：物理量缺失，重建器必须显式失败而不是补默认。 */
+    private static void dropFirstTierMips(Path runDirectory) throws Exception {
+        JsonObject doc = readManifest(runDirectory);
+        com.google.gson.JsonArray tiers = firstVm(doc).getAsJsonArray("frequencyTiers");
+        tiers.get(0).getAsJsonObject().remove("mips");
+        writeManifest(runDirectory, doc);
+    }
+
+    /** 未知策略枚举：不降级为 DEFAULT。 */
+    private static void setFrequencyPolicy(Path runDirectory, String policy) throws Exception {
+        JsonObject doc = readManifest(runDirectory);
+        doc.getAsJsonObject("configuration").addProperty("frequencyPolicy", policy);
+        writeManifest(runDirectory, doc);
+    }
+
+    /** 抹掉档表，保留（或注入）非 DEFAULT 策略。 */
+    private static void stripTierTable(Path runDirectory) throws Exception {
+        JsonObject doc = readManifest(runDirectory);
+        for (com.google.gson.JsonElement element :
+                doc.getAsJsonObject("platform").getAsJsonArray("vms")) {
+            element.getAsJsonObject().remove("frequencyTiers");
+        }
+        writeManifest(runDirectory, doc);
+    }
+
+    /** 把记录在 manifest 里的档表顺序颠倒：mips 变为严格升序 = 重建器必须拒收的非法表。 */
+    private static void scrambleTierOrder(Path runDirectory) throws Exception {
+        Path manifest = runDirectory.resolve("result.manifest.json");
+        JsonObject doc = JsonParser.parseString(new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        JsonObject vm =
+                doc.getAsJsonObject("platform").getAsJsonArray("vms").get(0).getAsJsonObject();
+        com.google.gson.JsonArray tiers = vm.getAsJsonArray("frequencyTiers");
+        com.google.gson.JsonArray reversed = new com.google.gson.JsonArray();
+        for (int i = tiers.size() - 1; i >= 0; i--) {
+            reversed.add(tiers.get(i));
+        }
+        vm.add("frequencyTiers", reversed);
+        Files.write(manifest, doc.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
     private static void stripFrequencyPolicyKey(Path runDirectory) throws Exception {
         Path manifest = runDirectory.resolve("result.manifest.json");
         JsonObject doc = JsonParser.parseString(new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8))
@@ -234,6 +358,11 @@ class DvfsRerunLoudRedIntegrationTest {
     /** 单档平台：档速 = VM 基速 1000（时钟与 v1 全等），pair (250/400)。 */
     private static PlatformProfile tieredPlatform() {
         return tierPlatform(new double[][] {{1000.0, 250.0, 400.0}}, null);
+    }
+
+    /** 双档平台：仅用于"非法档表"对照测试（单档表无法构造顺序非法）。 */
+    private static PlatformProfile twoTierPlatform() {
+        return tierPlatform(new double[][] {{1000.0, 250.0, 400.0}, {500.0, 100.0, 118.75}}, null);
     }
 
     /** 三维平台：同表 + 均一碳强度 380（D5 冻结基准的 fleet 面）。 */

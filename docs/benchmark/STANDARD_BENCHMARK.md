@@ -286,9 +286,12 @@ and carbon benchmarks:
   *policies*, not schedulers — the registered DVFS-aware track (EDP_GREEDY, batch D6)
   is the demonstrator for real co-scheduling, and its fixture ledger is honest about
   trading time for energy.
-- No re-runnable tiered evidence yet: the manifest now records
-  `configuration.frequencyPolicy`, but a tiered bundle's rerun still fails loud on the
-  platform face (the tier-table rebuild is a documented forward contract, §2.6).
+- Tiered evidence is re-runnable (closed 2026-11-02, A1): `ManifestConfigRebuilder`
+  round-trips `platform.vms[].frequencyTiers` together with
+  `configuration.frequencyPolicy`, so a frozen DVFS bundle rebuilds to the same platform.
+  The 90-cell benchmark below was frozen *before* this rebuild existed and its tar is the
+  record of that run; a fresh run of the same protocol now also survives a rerun
+  comparison, which is what the frozen `benchmark-standard-dvfs-v1` copy could not do.
 
 ## Retention
 

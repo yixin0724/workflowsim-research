@@ -143,11 +143,13 @@ Regular Workbench and standalone reports use only the same verified snapshot. Th
   under the auditor's law and cross-checks the sums against `metrics.vmMetrics[].modeledBusyIntervalSeconds`;
   a mismatch renders `MISMATCH` instead of numbers. This also closed the tiered energy-panel gap
   noted under the energy dimension.
-- Known follow-up (BAT-D5/D6, 2026-10-29): tiered manifest bundles are not yet
-  re-runnable (the tier-table rebuild is a documented forward contract — the rerun
-  fails loud on the platform face); the budget-carbon model under tiers is implemented
-  and self-tested Python-side only; `configuration.frequencyPolicy` serializes in every
-  new manifest.
+- Rerun surface (closed 2026-11-02, A1): `ManifestConfigRebuilder` round-trips
+  `platform.vms[].frequencyTiers` and `configuration.frequencyPolicy`, so tiered and
+  tri-dimensional bundles rebuild to the recorded platform and rerun `IDENTICAL_CORE`;
+  a malformed recorded table (non-descending, flat power alongside tiers, missing
+  `mips`, unknown policy) is still refused loudly as `RECONSTRUCTION_REJECTED`.
+  Remaining follow-up from this batch: the budget-carbon model under tiers is still
+  Python-side only (A2 target).
 
 ## Performance Optimizations Do Not Change the Semantics Above
 
