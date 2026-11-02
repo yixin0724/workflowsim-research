@@ -253,6 +253,60 @@ class CarbonAccountingTest {
         assertEquals(0, Double.compare(0.0, carbon.getTotalCarbonGrams()));
     }
 
+    /**
+     * A2 跨语言对抗（2026-11-02）：平铺 VM 上的作业携带 tierMips 属于证据链断裂——
+     * Java 必须与 Python 审计器同律拒收，而不是静默按平铺功率算出一个"看起来正常"
+     * 的数值（那会让同一份证据在两侧给出不同结论）。
+     */
+    @Test
+    void flatVmJobCarryingTierIdentityIsRejectedLikeThePythonAuditor() {
+        PlatformProfile.VmSpec flat = new PlatformProfile.VmSpec(
+                7,
+                1000,
+                1,
+                512,
+                1000L,
+                10000L,
+                "Xen",
+                PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                null,
+                120.0,
+                300.0,
+                null);
+        assertEquals(
+                0,
+                Double.compare(180.0, CarbonAccounting.jobDynamicWatts(flat, 3, null)),
+                "a tierless Job on a flat VM contributes max−idle");
+        IllegalArgumentException rejected = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> CarbonAccounting.jobDynamicWatts(flat, 3, Double.valueOf(500.0)));
+        assertTrue(rejected.getMessage().contains("non-tiered VM"), rejected.getMessage());
+
+        PlatformProfile.VmSpec tiered = new PlatformProfile.VmSpec(
+                8,
+                1000,
+                1,
+                512,
+                1000L,
+                10000L,
+                "Xen",
+                PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                null,
+                0.0,
+                0.0,
+                null,
+                java.util.Arrays.asList(
+                        new PlatformProfile.FrequencyTier(1000.0, 250.0, 400.0),
+                        new PlatformProfile.FrequencyTier(500.0, 100.0, 118.75)));
+        assertEquals(
+                0,
+                Double.compare(150.0, CarbonAccounting.jobDynamicWatts(tiered, 4, null)),
+                "a tierless Job on a tiered VM is attributed to the default tier (400−250)");
+        assertEquals(
+                0,
+                Double.compare(-131.25, CarbonAccounting.jobDynamicWatts(tiered, 4, Double.valueOf(500.0))),
+                "a low tier may draw less than the default-tier idle (118.75−250)");
+    }
+
     /** 契约律重算：逐档舰队功率曲线的窗口超额（与实现独立走一遍文档化口径）。 */
     private static double expectedTieredExcess(SimulationReport report, PlatformProfile profile) {
         double defaultIdleOfTiered = 0.0;

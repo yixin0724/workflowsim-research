@@ -203,6 +203,11 @@ class DvfsRerunLoudRedIntegrationTest {
     }
 
     @Test
+    void nonStringFrequencyPolicyIsAReportedRejectionNotAUsageExit() throws Exception {
+        assertRejectedAfter(run -> setRawFrequencyPolicy(run, 42), "frequencyPolicy must be a JSON string");
+    }
+
+    @Test
     void unknownFrequencyPolicyNameIsRejected() throws Exception {
         assertRejectedAfter(run -> setFrequencyPolicy(run, "TURBO_MODE"), "frequencyPolicy", "TURBO_MODE");
     }
@@ -264,6 +269,13 @@ class DvfsRerunLoudRedIntegrationTest {
         JsonObject doc = readManifest(runDirectory);
         com.google.gson.JsonArray tiers = firstVm(doc).getAsJsonArray("frequencyTiers");
         tiers.get(0).getAsJsonObject().remove("mips");
+        writeManifest(runDirectory, doc);
+    }
+
+    /** 把策略字段写成非字符串（JSON 数字）：类型错误仍须走 verdict 契约。 */
+    private static void setRawFrequencyPolicy(Path runDirectory, int value) throws Exception {
+        JsonObject doc = readManifest(runDirectory);
+        doc.getAsJsonObject("configuration").addProperty("frequencyPolicy", value);
         writeManifest(runDirectory, doc);
     }
 

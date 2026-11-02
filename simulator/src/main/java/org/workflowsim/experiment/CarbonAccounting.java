@@ -243,16 +243,7 @@ public final class CarbonAccounting {
                 throw new IllegalArgumentException("Job " + job.getJobId() + " references undeclared VM "
                         + job.getVmId() + ": the fleet-power curve cannot be built");
             }
-            double dynamic;
-            if (spec.hasFrequencyTiers()) {
-                double defaultIdle = spec.getFrequencyTiers().get(0).getIdlePowerWatts();
-                double tierMips = job.getTierMips() == null
-                        ? spec.getFrequencyTiers().get(0).getMips()
-                        : job.getTierMips().doubleValue();
-                dynamic = tierMaxWatts(spec, tierMips) - defaultIdle;
-            } else {
-                dynamic = spec.getMaxPowerWatts() - spec.getIdlePowerWatts();
-            }
+            double dynamic = jobDynamicWatts(spec, job.getJobId(), job.getTierMips());
             bumpDouble(ends, a, dynamic);
             bumpDouble(ends, b, -dynamic);
         }
@@ -288,6 +279,27 @@ public final class CarbonAccounting {
             }
         }
         return new CarbonAccounting(0.0, 0.0, 0.0, Collections.emptyMap(), total, windowExcess);
+    }
+
+    /**
+     * A2（2026-11-02）：单个作业在舰队功率曲线上的动态份额。
+     *
+     * <p>频档 VM：{@code P_max(其档) − P_idle(默认档)}，缺档归默认档；平铺 VM：
+     * {@code max − idle}（v1 贡献）。<b>跨语言对齐</b>：平铺 VM 上的作业携带
+     * {@code tierMips} 属于证据链断裂——Python 审计器同样拒收（"job on non-tiered VM
+     * carries tierMips"），两侧不得在同一份证据上给出不同结论。</p>
+     */
+    static double jobDynamicWatts(PlatformProfile.VmSpec spec, int jobId, Double tierMips) {
+        if (spec.hasFrequencyTiers()) {
+            double defaultIdle = spec.getFrequencyTiers().get(0).getIdlePowerWatts();
+            double mips = tierMips == null ? spec.getFrequencyTiers().get(0).getMips() : tierMips.doubleValue();
+            return tierMaxWatts(spec, mips) - defaultIdle;
+        }
+        if (tierMips != null) {
+            throw new IllegalArgumentException("Job " + jobId + " on non-tiered VM " + spec.getId()
+                    + " carries tierMips " + tierMips + ": the per-Job tier evidence chain is broken (BAT-D3)");
+        }
+        return spec.getMaxPowerWatts() - spec.getIdlePowerWatts();
     }
 
     /** 按 MIPS 精确身份取档峰值功率（频档表降序唯一；与逐档守恒链同一身份规则）。 */

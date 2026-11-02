@@ -600,14 +600,19 @@ public final class CoherentDataflowRuntime {
                 p.addProperty("referenceCount", demand.getReferenceCount());
             }
         } else {
-            resolveStorageInput(staged, jobId, file, demand.getReferenceCount(), now, false);
+            resolveStorageInput(staged, job, jobId, file, demand.getReferenceCount(), now, false);
         }
     }
 
     private void resolveStorageInput(
-            Stage staged, int jobId, DataflowFilePlan.FileId file, long references, double now, boolean release) {
+            Stage staged,
+            JobState job,
+            int jobId,
+            DataflowFilePlan.FileId file,
+            long references,
+            double now,
+            boolean release) {
         Frame frame = staged.frame;
-        JobState job = frame.jobs.get(jobId);
         DataLocation destination = DataLocation.vm(job.vm);
         String resolution;
         Long ordinal = null;
@@ -771,7 +776,7 @@ public final class CoherentDataflowRuntime {
             if (count == null || !job.pending.contains(file)) {
                 throw new IllegalStateException("Deferred input index disagrees");
             }
-            resolveStorageInput(staged, id, file, count, now, true);
+            resolveStorageInput(staged, job, id, file, count, now, true);
         }
     }
     /** @param now actual outer completion-check observation */

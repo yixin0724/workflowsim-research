@@ -638,6 +638,12 @@ public final class ManifestConfigRebuilder {
         if (element == null || element.isJsonNull()) {
             return SimulationConfig.FrequencyPolicy.DEFAULT;
         }
+        // 类型错误必须是用法类重建失败（IllegalArgumentException → RECONSTRUCTION_REJECTED），
+        // 不能让它退化到 getAsString() 的 IllegalStateException——后者会被 CLI 映射成
+        // usage 退出码，绕过 verdict 契约（A1 复核轮）。
+        if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+            throw new IllegalArgumentException("configuration.frequencyPolicy must be a JSON string when present");
+        }
         return enumValue(
                 SimulationConfig.FrequencyPolicy.class, element.getAsString(), "configuration.frequencyPolicy");
     }

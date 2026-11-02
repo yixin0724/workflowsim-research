@@ -128,6 +128,28 @@ class CarbonWindowDeferSchedulingIntegrationTest {
                 "the first window is already the cleanest: nothing to gain, so no deferral");
     }
 
+    /**
+     * 残留污染（H-1/H-2 类、本仓库点名的陷阱）：同一 JVM 里先跑一次<b>带窗口</b>的
+     * 延后运行，再跑一次<b>不带窗口</b>的运行——窗口表不得越过会话边界残留。若残留，
+     * 第二次运行会莫名其妙地停到 100 秒（第二次平台根本没声明窗口）。
+     */
+    @Test
+    void carbonWindowsDoNotLeakIntoTheNextRun() throws Exception {
+        SimulationReport withWindows = run(SchedulingAlgorithm.CARBON_WINDOW_DEFER, true);
+        assertTrue(withWindows.getMakespan() >= 100.0, "the first run must defer (sanity)");
+
+        SimulationReport afterLeak = run(SchedulingAlgorithm.FCFS, false);
+        double firstStart = afterLeak.getJobs().stream()
+                .filter(job -> job.getClassType() == 2)
+                .mapToDouble(SimulationReport.JobOutcome::getStartTime)
+                .min()
+                .orElse(-1.0);
+        assertTrue(
+                firstStart >= 0.0 && firstStart < 1.0,
+                "the second run must start immediately: a leaked window table would push it to 100,"
+                        + " observed first start " + firstStart);
+    }
+
     /** 运行夹具：单 VM（idle 100 / max 300），窗口 [0,100)=120W 脏、[100,400)=400W 干净。 */
     private SimulationReport run(SchedulingAlgorithm algorithm, boolean declareWindows) throws Exception {
         return run(algorithm, declareWindows, 120.0);
