@@ -11,6 +11,29 @@ The coherent dataflow runners separate immutable history from the active working
 
 A history lookup inspects O(log W) blocks, assuming expected constant-time hash lookup within a block; an update amortized over a single history copies O(log W) entries, but one large merge can still be O(W), and the large merges of repeated forks do not share the amortization. Do not describe this as worst-case logarithmic updates.
 
+### Tier-1 copy-on-write for the active Job set (2026-11-02)
+
+The active Job map is now forked **shallowly**: a transaction frame shares the parent's
+`JobState` instances and forks one only when a write path asks for a mutable handle
+(`mutable(frame, jobId)`), which records ownership in the frame. A transaction that only
+advances timers therefore copies nothing; a rollback is safe by construction because an
+instance the transaction never claimed was never modified.
+
+Measured on `WIDE_V2`, capture `OFF`, min of two samples, same machine and JVM
+(`DataflowStateProfile`, 1000/500/250 tasks):
+
+| Tasks | Elapsed before → after | Allocated before → after |
+|---|---|---|
+| 250 | 21.6 ms → 11.7 ms | 45.8 MB → 20.8 MB |
+| 500 | 51.2 ms → 32.9 ms | 175.7 MB → 75.7 MB |
+| 1000 | 168.8 ms → 112.5 ms | 688.1 MB → 286.2 MB |
+
+Semantics were checked bit by bit, not by timing: all five scenarios (`FILELESS`,
+`FILES_V2`, `STORE_V3`, `ONLINE_V3`, `WIDE_V2`) under both `OFF` and `FULL` capture
+produce identical `stateSha256`, `captureSha256`, and `actionsSha256` before and after
+the change, and the full simulator suite (1093 tests, including the runtime isolation,
+structural-sharing, and rollback suites) stays green.
+
 The active Job set still requires isolation; large batches of wide tasks active at the same time can retain near-quadratic copy costs. Lifecycle logs use incremental appends after the transaction, and the checked services too still keep their own transactional copies. This structure promises no speedup for every DAG, parsing, solving, or reporting phase.
 
 ## Repeatable Benchmarks

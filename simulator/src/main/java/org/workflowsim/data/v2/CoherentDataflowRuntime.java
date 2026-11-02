@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -374,6 +375,7 @@ public final class CoherentDataflowRuntime {
         JobState job = new JobState(members, vmId);
         job.requestedAt = now;
         frame.jobs.put(jobId, job);
+        frame.ownedJobs.add(Integer.valueOf(jobId));
         JsonObject requested = staged.event(FileLifecycleEvent.Type.JOB_INPUT_REQUESTED, now);
         if (requested != null) {
             requested.addProperty("jobId", jobId);
@@ -540,6 +542,7 @@ public final class CoherentDataflowRuntime {
         JobState job = new JobState(members, vmId);
         job.requestedAt = now;
         frame.jobs.put(jobId, job);
+        frame.ownedJobs.add(Integer.valueOf(jobId));
         JsonObject requested = staged.event(FileLifecycleEvent.Type.JOB_INPUT_REQUESTED, now);
         if (requested != null) {
             requested.addProperty("jobId", jobId);
@@ -763,7 +766,7 @@ public final class CoherentDataflowRuntime {
             return;
         }
         for (int id : waiting) {
-            JobState job = staged.frame.jobs.get(id);
+            JobState job = mutable(staged.frame, id);
             Long count = job.unresolvedStore.remove(file);
             if (count == null || !job.pending.contains(file)) {
                 throw new IllegalStateException("Deferred input index disagrees");
@@ -790,6 +793,7 @@ public final class CoherentDataflowRuntime {
         }
         Stage staged = step(now);
         JobState job = job(jobId, taskIds, vmId, staged.frame);
+        job = mutable(staged.frame, jobId);
         for (DataflowFilePlan.InputDemand input : plan.demandsFor(job.tasks)) {
             if (staged.frame.replicas.getReplica(input.getFile().getId(), DataLocation.vm(vmId)) == null) {
                 throw new IllegalStateException("CPU input replica is not visible");
@@ -823,6 +827,7 @@ public final class CoherentDataflowRuntime {
         }
         Stage staged = step(now);
         JobState job = job(jobId, taskIds, vmId, staged.frame);
+        job = mutable(staged.frame, jobId);
         for (int i = 0; i < job.tasks.size(); i++) {
             int task = job.tasks.get(i);
             boolean success = successes.get(i);
@@ -942,7 +947,7 @@ public final class CoherentDataflowRuntime {
             return;
         }
         for (int id : waiters) {
-            JobState job = staged.frame.jobs.get(id);
+            JobState job = mutable(staged.frame, id);
             if (job == null || !job.pending.remove(file)) {
                 throw new IllegalStateException("File waiter is inconsistent");
             }
@@ -953,7 +958,7 @@ public final class CoherentDataflowRuntime {
     }
 
     private void ready(Stage staged, int id, double now) {
-        JobState job = staged.frame.jobs.get(id);
+        JobState job = mutable(staged.frame, id);
         if (job.readyAt != null) {
             throw new IllegalStateException("Job data-ready release duplicated");
         }
@@ -990,6 +995,23 @@ public final class CoherentDataflowRuntime {
         }
         plan.getInputReferences(ids.get(0));
         return Collections.unmodifiableList(new ArrayList<>(ids));
+    }
+
+    /**
+     * B1（2026-11-02）：取一个可安全写入的作业状态——若该条目仍与源帧共享，先复制再写。
+     * 所有会改变 JobState 的路径都必须经此取得对象；只读路径可继续用 {@code frame.jobs.get}。
+     */
+    private static JobState mutable(Frame frame, int jobId) {
+        JobState job = frame.jobs.get(jobId);
+        if (job == null) {
+            return null;
+        }
+        if (!frame.ownedJobs.contains(Integer.valueOf(jobId))) {
+            job = new JobState(job);
+            frame.jobs.put(Integer.valueOf(jobId), job);
+            frame.ownedJobs.add(Integer.valueOf(jobId));
+        }
+        return job;
     }
 
     private JobState job(int id, List<Integer> tasks, int vm, Frame frame) {
@@ -1172,6 +1194,10 @@ public final class CoherentDataflowRuntime {
         final Set<DataflowFilePlan.FileId> outputObligations = new TreeSet<>();
         // Mutable copies contain active work only; closed lookup histories share immutable roots.
         final Map<Integer, JobState> jobs = new LinkedHashMap<>();
+        // B1（2026-11-02）：写时复制所有权。fork 后 jobs 与源帧<b>共享</b> JobState 实例，
+        // 只有本集合里的 id 才允许就地修改；任何写路径先经 {@link #mutable} 取到私有副本。
+        // 这消灭了每个事务 O(活跃作业数) 的深拷贝（宽活跃集上的二次分配）。
+        final java.util.Set<Integer> ownedJobs = new HashSet<>();
         PersistentHistoryMap<Integer, CompletedJob> completedJobs = PersistentHistoryMap.empty();
         PersistentHistoryMap<Integer, Boolean> successfulTasks = PersistentHistoryMap.empty();
         final Map<Target, LinkedHashSet<Integer>> waiters = new HashMap<>();
@@ -1187,9 +1213,9 @@ public final class CoherentDataflowRuntime {
             replicas = from.replicas.fork();
             service = from.service == null ? null : from.service.fork();
             nextTime = from.nextTime;
-            for (Map.Entry<Integer, JobState> entry : from.jobs.entrySet()) {
-                jobs.put(entry.getKey(), new JobState(entry.getValue()));
-            }
+            // B1：浅拷贝活跃作业表——实例共享，写路径用 mutable() 按需分叉（rollback 安全：
+            // 未被 mutable() 取用的条目从未被修改）。
+            jobs.putAll(from.jobs);
             for (Map.Entry<Target, LinkedHashSet<Integer>> entry : from.waiters.entrySet()) {
                 waiters.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
             }
