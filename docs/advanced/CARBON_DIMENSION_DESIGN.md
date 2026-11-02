@@ -134,7 +134,7 @@ signs per layering discipline.
 | Marginal vs location-based accounting | Accounting-policy dispute; v1 is location-based only, stated in the metric contract |
 | Spatial multi-region execution | Our platform is single-fleet; per-VM intensity captures heterogeneity, not geo-routing (CASPER systems work, different layer) |
 | CWM-class DP mapping algorithm | v1 ships the accounting + registry hooks + a demonstrator label; the NP-hard joint mapping is the algorithm-research follow-up |
-| Carbon in grouped-workflows module | Independent lifecycle (unchanged) |
+| Carbon in grouped-workflows module | Module removed 2026-11-02 (user-directed: dormant second-paper code, zero platform references; snapshot archived at git 6db21f1 — no carbon semantics ever shipped there) |
 
 ## 4. Competitive positioning
 

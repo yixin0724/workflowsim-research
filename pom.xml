@@ -19,7 +19,6 @@
     <modules>
         <module>simulator</module>
         <module>experiments</module>
-        <module>grouped-workflows</module>
     </modules>
 
     <properties>

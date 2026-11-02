@@ -6,7 +6,7 @@
 
 ## 项目事实（代理最容易搞错的五件事）
 
-1. **Maven 多模块 reactor**：`simulator`（核心，无上游依赖）→ `experiments`（Workbench + 研究驱动器）→ `grouped-workflows`（第二篇论文模块，风格另见其目录内 AGENTS.md）。核心模块不得反向依赖实验模块。
+1. **Maven 多模块 reactor**：`simulator`（核心，无上游依赖）→ `experiments`（Workbench + 研究驱动器）。核心模块不得反向依赖实验模块。（第三模块 `grouped-workflows` 已于 2026-11-02 经用户裁决移除：经核查平台零引用；快照存于 git 6db21f1，研究契约归外部仓库管理。）
 2. **CloudSim 3 全局状态内核**：同一 JVM 严禁并发/并行仿真。一切运行必须经 `SimulationSession`（try-with-resources）建立会话边界。
 3. 需要 JDK 17+、Maven 3.6.3+；编译目标 Java 8 字节码（`maven.compiler.release=8`）。
 4. 工作流输入三源（Pegasus DAX / WfGen 合成 / WfInstances 真实派生）证据边界不同，**禁止混为同一 workload population**（见 `datasets/README.md`）。
@@ -52,7 +52,6 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 ## 风格与语言
 
 - 维护轨代码的 javadoc/注释/文档一律**中文**，保持既有"根因注释"风格（F-xxx / PLAT-x / R 轮次标记 + 修复日期）。
-- `grouped-workflows/` 例外：紧凑英文，规则见该目录内 AGENTS.md。
 - 数据集中英混合命名沿用现状；新文件名用 ASCII。
 
 ## 仓库结构约定（2026-10-20 审查工程新增）
@@ -61,7 +60,6 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 |---|---|---|
 | `simulator/` | 核心引擎（artifactId `workflowsim`，无上游依赖） | 算法/模型/证据类 |
 | `experiments/` | Workbench Maven 模块（artifactId `workflowsim-workbench`）：统一入口+研究驱动器+复现+示例 | 重组待有外部需求时再启动 |
-| `grouped-workflows/` | 执行包研究（第二篇论文） | 独立生命周期；不反向依赖 |
 | `datasets/` | 工作流输入（三类含 .gitignore 反选） | 不新增全量语料；先查 `datasets/INDEX.json` |
 | `docs/` | 契约文档体系 | 每新文档须入 `docs/README.md` 索引；`check-docs.py` 0 issues |
 | `scripts/` | Python 审计器（纯 stdlib） | 不引入 Node 依赖；自测成对 |
