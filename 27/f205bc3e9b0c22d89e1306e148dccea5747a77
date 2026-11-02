@@ -1,0 +1,21 @@
+simulator/src/main/java/org/workflowsim/experiment/SimulationRunner.java
+  s_dfd76f683cfd2c::t_f0eaff5fb8fd9d 58-61,416-434
+simulator/src/test/java/org/workflowsim/experiment/CarbonWindowDeferSchedulingIntegrationTest.java
+  s_dfd76f683cfd2c::t_73a1a791eab616 87-91,93-100,102-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "27f205bc3e9b0c22d89e1306e148dccea5747a77",
+  "prompts": {},
+  "sessions": {
+    "s_dfd76f683cfd2c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18a73-43db-7ad2-a5c7-a77ef2d51736",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
