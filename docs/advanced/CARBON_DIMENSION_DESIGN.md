@@ -136,7 +136,11 @@ ready Jobs unscheduled with no future wake time fails loudly rather than hanging
 
 Honest scope: the rule is driven by the declared window table, not by a live fleet-load
 forecast, and it trades completion time for lower excess — the engine claims no
-superiority. Hand-checked fixture (`CarbonWindowDeferSchedulingIntegrationTest`): with a
+superiority. It also cannot go below the **idle floor**: deferral removes the active
+(dynamic) share from a dirty window, but a fleet whose parked power already exceeds that
+window's green budget keeps paying `Σ P_idle − green` for the whole window no matter what
+runs (pinned by `deferralCannotGoBelowTheIdleFloorOfADirtyWindow`, where two 100 W idle VMs
+against a 120 W green window leave 80 W × 100 s of unavoidable excess). Hand-checked fixture (`CarbonWindowDeferSchedulingIntegrationTest`): with a
 dirty `[0,100)` window (120 W green) and a clean `[100,400)` window (400 W green) on a
 300 W active platform, plain FCFS incurs positive excess while the engine skips the dirty
 window entirely and leaves zero excess at a longer makespan; without a window table the

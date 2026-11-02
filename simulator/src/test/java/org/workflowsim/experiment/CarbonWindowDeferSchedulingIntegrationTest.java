@@ -150,6 +150,67 @@ class CarbonWindowDeferSchedulingIntegrationTest {
                         + " observed first start " + firstStart);
     }
 
+    /**
+     * 诚实边界（C1）：延后只削减<b>动态</b>份额，削不掉<b>怠速地板</b>。两台 VM 怠速合计
+     * 200 W 高于脏窗绿电 120 W 时，即使作业全部延后，脏窗超额仍等于怠速超额
+     * 80 W × 100 s = 8000 W·s——引擎不可能把已声明平台的静态功耗变没。
+     */
+    @Test
+    void deferralCannotGoBelowTheIdleFloorOfADirtyWindow() throws Exception {
+        SimulationReport deferred = runTwoVms(SchedulingAlgorithm.CARBON_WINDOW_DEFER);
+        SimulationReport baseline = runTwoVms(SchedulingAlgorithm.FCFS);
+
+        double floor = (2 * 100.0 - 120.0) * 100.0;
+        assertTrue(
+                deferred.getCarbonAccounting().getTotalCarbonExcessWattSeconds() >= floor - 1e-9,
+                "the idle floor of the dirty window is unavoidable: observed "
+                        + deferred.getCarbonAccounting().getTotalCarbonExcessWattSeconds());
+        assertTrue(
+                deferred.getCarbonAccounting().getTotalCarbonExcessWattSeconds()
+                        < baseline.getCarbonAccounting().getTotalCarbonExcessWattSeconds(),
+                "deferral must still remove the dynamic share that FCFS burns in the dirty window");
+    }
+
+    /** 两 VM 夹具：怠速合计 200 W > 首窗绿电 120 W（制造怠速地板）。 */
+    private SimulationReport runTwoVms(SchedulingAlgorithm algorithm) throws Exception {
+        Path workflow = Paths.get(tempDir.toFile().getAbsolutePath(), "floor-" + algorithm + ".dax");
+        Files.write(
+                workflow,
+                ("<adag version=\"3.3\" count=\"2\">"
+                                + "<job id=\"a\" name=\"a\" runtime=\"30\"/>"
+                                + "<job id=\"b\" name=\"b\" runtime=\"20\"/>"
+                                + "<child ref=\"b\"><parent ref=\"a\"/></child></adag>")
+                        .getBytes(StandardCharsets.UTF_8));
+        SimulationConfig config = SimulationConfig.builder(workflow.toString(), 2)
+                .planningAlgorithm(PlanningAlgorithm.INVALID)
+                .schedulingAlgorithm(algorithm)
+                .fileSystem(ReplicaCatalog.FileSystem.SHARED)
+                .dataMovementModel(DataMovementModel.legacyWorkflowsimV1())
+                .randomSeed(20261104L)
+                .build();
+        PlatformProfile.Builder builder = PlatformProfile.builder("carbon-floor-test");
+        for (int id = 0; id < 2; id++) {
+            builder.addHost(new PlatformProfile.HostSpec(id, 2, 2000, 2048, 10000L, 1000000L));
+            builder.addVm(new PlatformProfile.VmSpec(
+                    id,
+                    1000,
+                    1,
+                    512,
+                    1000L,
+                    10000L,
+                    "Xen",
+                    PlatformProfile.CloudletSchedulerMode.SPACE_SHARED,
+                    null,
+                    100.0,
+                    300.0,
+                    null));
+            builder.pinVmToHost(id, id);
+        }
+        builder.carbonWindow(0.0, 100.0, 120.0);
+        builder.carbonWindow(100.0, 400.0, 400.0);
+        return new SimulationRunner().run(config, builder.build());
+    }
+
     /** 运行夹具：单 VM（idle 100 / max 300），窗口 [0,100)=120W 脏、[100,400)=400W 干净。 */
     private SimulationReport run(SchedulingAlgorithm algorithm, boolean declareWindows) throws Exception {
         return run(algorithm, declareWindows, 120.0);

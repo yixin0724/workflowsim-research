@@ -15,6 +15,17 @@
         教学、参考基线和研究实验位于 experiments/ 模块。
     </description>
 
+    <!-- 许可证与仓库根 LICENSE / CITATION.cff 保持同一事实源：上游 CloudSim 3 为 GPL
+         （simulator/src/main/java/org/cloudbus/ 65/66 文件带 GPL 头），故整体只能是
+         GPL 兼容许可证，不得改为宽松许可证。 -->
+    <licenses>
+        <license>
+            <name>GNU General Public License v2.0 or later</name>
+            <url>https://www.gnu.org/licenses/old-licenses/gpl-2.0.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <!-- 默认构建模拟器和实验模块。 -->
     <modules>
         <module>simulator</module>
