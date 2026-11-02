@@ -130,6 +130,19 @@ try {
       'function spoilModel(){document.getElementById("carbon-status").dataset.state="BUDGET";}spoilModel();document.getElementById("run-select").addEventListener("change",spoilModel);'),
       /Carbon model badge differs/, carbonFix);
   }
+  const dvfsFix = fixtures && fixtures.reports.find(r => r.name === 'dvfs-tiered');
+  if (dvfsFix) {
+    const content = fs.readFileSync(dvfsFix.path, 'utf8');
+    rejected('dvfs-hidden-panel', inject(content,
+      'document.getElementById("dvfs-section").style.display="none";'),
+      /must render a visible dvfs panel/, dvfsFix);
+    rejected('dvfs-busy-tamper', inject(content,
+      'function spoilTier(){const row=document.querySelector("#dvfs-tier-table tr");if(row){row.children[4].textContent="CORRUPTED";}}spoilTier();document.getElementById("run-select").addEventListener("change",spoilTier);'),
+      /Busy seconds differ on VM/, dvfsFix);
+    rejected('dvfs-forged-mismatch', inject(content,
+      'function forgeBadge(){document.getElementById("dvfs-status").dataset.state="MISMATCH";}forgeBadge();document.getElementById("run-select").addEventListener("change",forgeBadge);'),
+      /must not present itself as MISMATCH/, dvfsFix);
+  }
   const storage = fixtures && (fixtures.reports.find(r => r.name === 'storage-lifecycle-typed-stress')
     || fixtures.reports.find(r => r.storageLifecycle && r.storageLifecycle.some(e => e.state === 'COMPLETE')));
   if (storage) {

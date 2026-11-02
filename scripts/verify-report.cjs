@@ -149,6 +149,86 @@ async function checkCarbon(page, run) {
   assert.equal(await page.locator('#carbon-excess').textContent(), shares.excess ? String(carbon.totalCarbonExcessWattSeconds) : absent, 'Exact carbon text differs at totalCarbonExcessWattSeconds');
   assert.equal(await page.locator('#carbon-vm-table tr').count(), Object.keys(carbon.perVmCarbonGrams || {}).length, 'Carbon per-VM rows differ from perVmCarbonGrams');
 }
+// 2026-11-02 DVFS 面板：逐档忙秒不在清单里（metrics 侧台账是 transient），面板由作业
+// 区间重导出。本检查用扫描线独立复算（面板用区间归并），两法必须同值；同时用清单自带的
+// vmMetrics.modeledBusyIntervalSeconds 兜底——面板亮 MISMATCH 即代表证据链断裂。
+function unionSeconds(intervals) {
+  if (!intervals.length) return 0;
+  const events = [];
+  for (const [start, finish] of intervals) events.push([start, 1], [finish, -1]);
+  events.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+  let depth = 0, previous = null, total = 0;
+  for (const [time, delta] of events) {
+    if (previous !== null && depth > 0 && time > previous) total += time - previous;
+    depth += delta;
+    previous = time;
+  }
+  return total;
+}
+function dvfsLedger(run) {
+  const manifest = run.manifest || {}, vms = (manifest.platform || {}).vms || [];
+  const tiered = vms.filter(vm => (vm.frequencyTiers || []).length > 0);
+  const jobs = (manifest.result || {}).jobs || [], buckets = new Map();
+  for (const job of jobs) {
+    const spec = vms.find(vm => String(vm.id) === String(job.vmId));
+    if (!spec || !(spec.frequencyTiers || []).length) continue;
+    const tier = job.tierMips === undefined || job.tierMips === null ? spec.frequencyTiers[0].mips : job.tierMips;
+    const key = `${job.vmId}/${tier}`;
+    const slot = buckets.get(key) || { intervals: [], count: 0 };
+    slot.intervals.push([job.startTime, job.finishTime]);
+    slot.count += 1;
+    buckets.set(key, slot);
+  }
+  return { tiered, buckets };
+}
+async function checkDvfs(page, run) {
+  const ledger = dvfsLedger(run), visible = await page.locator('#dvfs-section').isVisible();
+  if (!ledger.tiered.length) {
+    assert.equal(visible, false, 'A run without a frequency-tier table must keep the dvfs panel hidden');
+    return;
+  }
+  assert.equal(visible, true, 'Tiered platforms must render a visible dvfs panel');
+  assert.equal(await page.locator('#dvfs-status').getAttribute('data-state'), 'TIERED', 'A tiered run must not present itself as MISMATCH');
+  const manifest = run.manifest, first = ledger.tiered[0].frequencyTiers[0];
+  assert.equal(await page.locator('#dvfs-default-tier').textContent(), String(first.mips));
+  assert.equal(await page.locator('#dvfs-tier-count').textContent(), String(ledger.tiered[0].frequencyTiers.length));
+  const policy = (manifest.configuration || {}).frequencyPolicy;
+  assert.equal(await page.locator('#dvfs-policy').textContent(), policy ? String(policy) : 'DEFAULT');
+  const rows = await page.locator('#dvfs-tier-table tr').all();
+  const expected = ledger.tiered.reduce((sum, vm) => sum + vm.frequencyTiers.length, 0);
+  assert.equal(rows.length, expected, 'Dvfs tier rows differ from the declared tier tables');
+  let nonDefault = 0, totalBusy = 0, index = 0;
+  for (const vm of ledger.tiered) {
+    vm.frequencyTiers.forEach((tier, position) => {
+      const slot = ledger.buckets.get(`${vm.id}/${tier.mips}`) || { intervals: [], count: 0 };
+      const busy = unionSeconds(slot.intervals);
+      if (position > 0) nonDefault += busy;
+      totalBusy += busy;
+      index += 1;
+    });
+  }
+  const near = (actual, wanted, label) => {
+    const value = Number(actual);
+    assert.ok(Number.isFinite(value) && Math.abs(value - wanted) <= 1e-9 * Math.max(1, Math.abs(wanted)),
+      `${label}: rendered ${actual} but independently recomputed ${wanted}`);
+  };
+  near(await page.locator('#dvfs-nondefault-busy').textContent(), nonDefault, 'Non-default tier busy seconds differ');
+  near(await page.locator('#dvfs-total-busy').textContent(), totalBusy, 'Attributed busy seconds differ');
+  let row = 0;
+  for (const vm of ledger.tiered) {
+    for (const tier of vm.frequencyTiers) {
+      const cells = await rows[row].locator('td').allTextContents();
+      row += 1;
+      assert.equal(cells[0], `VM ${vm.id}`);
+      assert.equal(cells[1], String(tier.mips));
+      assert.equal(cells[2], String(tier.idlePowerWatts));
+      assert.equal(cells[3], String(tier.maxPowerWatts));
+      const slot = ledger.buckets.get(`${vm.id}/${tier.mips}`) || { intervals: [], count: 0 };
+      near(cells[4], unionSeconds(slot.intervals), `Busy seconds differ on VM ${vm.id} tier ${tier.mips}`);
+      assert.equal(cells[5], String(slot.count), `Job count differs on VM ${vm.id} tier ${tier.mips}`);
+    }
+  }
+}
 
 async function checkFileLifecycle(page, run, expected, hasPanel) {
   if (!hasPanel) { assert.equal(!!expected || fileLifecyclePanel(run), false, 'Expected V2 lifecycle panel is missing'); return; }
@@ -359,6 +439,7 @@ async function checkReport(browser, specification, screenshot) {
       await checkStorageLifecycle(page, run, specification.storageLifecycle && specification.storageLifecycle[index], hasStorageLifecyclePanel);
       await checkDataflowAssignment(page, run, specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
       await checkCarbon(page, run);
+      await checkDvfs(page, run);
       if (!run.manifest) {
         assert.equal(await page.locator('#failure').isVisible(), true);
         assert.ok((await page.locator('#failure').textContent()).length > 0);
@@ -417,6 +498,7 @@ async function checkReport(browser, specification, screenshot) {
       await checkDataflowAssignment(page, runs[index], specification.dataflowAssignment && specification.dataflowAssignment[index], hasAssignmentPanel);
       await checkEnergy(page, runs[index]);
       await checkCarbon(page, runs[index]);
+      await checkDvfs(page, runs[index]);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'Long network values must remain inside mobile layout');
     }
     assert.equal(await page.locator('img').count(), 0, 'Network labels must remain literal text after run switching');

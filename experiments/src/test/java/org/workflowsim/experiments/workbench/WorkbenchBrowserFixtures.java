@@ -183,11 +183,63 @@ public final class WorkbenchBrowserFixtures {
             reports.add(carbonStandaloneSpec);
         }
 
+        // DVFS 逐档面板夹具（2026-11-02）：三档平台 + EDP 启发式指派，让逐档归因真实
+        // 落到非默认档——面板的"Σ档忙秒 = VM 总忙并集"对账徽章才有判别力。
+        {
+            Path dvfsInput = output.resolve("dvfs-panel.dax");
+            Files.write(
+                    dvfsInput,
+                    ("<adag><job id=\"a\" name=\"a\" runtime=\"30\"/>"
+                                    + "<job id=\"b\" name=\"b\" runtime=\"55\"/>"
+                                    + "<child ref=\"b\"><parent ref=\"a\"/></child></adag>")
+                            .getBytes(StandardCharsets.UTF_8));
+            JsonObject dvfsConfig = configuration(dvfsInput, 2, "FCFS", false);
+            dvfsConfig.addProperty("name", "dvfs panel browser fixture");
+            JsonObject dvfsPlatform = dvfsConfig.getAsJsonObject("platform");
+            JsonArray tiers = new JsonArray();
+            tiers.add(tier(2000.0, 250.0, 4000.0));
+            tiers.add(tier(1000.0, 250.0, 400.0));
+            tiers.add(tier(500.0, 100.0, 118.75));
+            dvfsPlatform.add("frequencyTiers", tiers);
+            dvfsPlatform.addProperty("frequencyPolicy", "EDP_HEURISTIC");
+            Path dvfsConfigPath = output.resolve("dvfs-panel.json");
+            ExperimentArtifactWriter.writeJson(dvfsConfigPath, dvfsConfig);
+            Path dvfsExperiment = Workbench.run(dvfsConfigPath, output.resolve("dvfs"));
+            reports.add(describe("dvfs-tiered", dvfsExperiment));
+
+            java.util.List<Path> dvfsManifests = new ArrayList<>();
+            try (java.util.stream.Stream<Path> walk = Files.walk(dvfsExperiment)) {
+                walk.filter(f -> f.getFileName().toString().equals("result.manifest.json"))
+                        .forEach(dvfsManifests::add);
+            }
+            if (dvfsManifests.size() != 1) {
+                throw new IOException("Expected exactly one dvfs run manifest, found " + dvfsManifests.size());
+            }
+            Path dvfsStandalone = output.resolve("dvfs-tiered-standalone.html");
+            Workbench.main(new String[] {"report", dvfsManifests.get(0).toString(), dvfsStandalone.toString()});
+            Map<String, Object> dvfsStandaloneSpec = new LinkedHashMap<>();
+            dvfsStandaloneSpec.put("name", "dvfs-tiered-standalone");
+            dvfsStandaloneSpec.put("path", dvfsStandalone.toString());
+            dvfsStandaloneSpec.put("candidates", Arrays.asList("FCFS"));
+            dvfsStandaloneSpec.put("seeds", Arrays.asList("42"));
+            dvfsStandaloneSpec.put("statuses", Arrays.asList("COMPLETED_SUCCESSFULLY"));
+            reports.add(dvfsStandaloneSpec);
+        }
+
         Map<String, Object> index = new LinkedHashMap<>();
         index.put("schema", "workflowsim-browser-fixtures-v1");
         index.put("reports", reports);
         ExperimentArtifactWriter.writeJson(output.resolve("browser-fixtures.json"), index);
         System.out.println("BROWSER_FIXTURES " + output.resolve("browser-fixtures.json"));
+    }
+
+    /** DVFS 档三元组（mips / 空闲功率 / 峰值功率），严格降序由平台校验兜底。 */
+    private static JsonObject tier(double mips, double idle, double max) {
+        JsonObject tier = new JsonObject();
+        tier.addProperty("mips", mips);
+        tier.addProperty("idlePowerWatts", idle);
+        tier.addProperty("maxPowerWatts", max);
+        return tier;
     }
 
     private static JsonObject configuration(Path input, int count, String algorithm, boolean planner) {
