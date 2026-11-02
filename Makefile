@@ -56,10 +56,10 @@ package:
 # 清理并重新构建
 rebuild: clean build
 
-# 注册变异零存活门禁（约 3-5 分钟；需干净工作树，报告存入 review-workspace）
+# 注册变异零存活门禁（约 3-5 分钟；需干净工作树，报告存入 output/mutation-gate/）
 mutation-gate:
 	@echo "运行注册变异门禁（需干净工作树）..."
-	python3 -B scripts/mutation-gate.py --output review-workspace/mutation-gate-$$(date +%Y-%m-%d).json
+	python3 -B scripts/mutation-gate.py --output output/mutation-gate/mutation-gate-$$(date +%Y-%m-%d).json
 
 # 显示帮助信息
 help:

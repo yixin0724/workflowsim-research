@@ -10,7 +10,7 @@
 2. **CloudSim 3 全局状态内核**：同一 JVM 严禁并发/并行仿真。一切运行必须经 `SimulationSession`（try-with-resources）建立会话边界。
 3. 需要 JDK 17+、Maven 3.6.3+；编译目标 Java 8 字节码（`maven.compiler.release=8`）。
 4. 工作流输入三源（Pegasus DAX / WfGen 合成 / WfInstances 真实派生）证据边界不同，**禁止混为同一 workload population**（见 `datasets/README.md`）。
-5. Git 主分支工作流；`review-workspace/` 是审查工程临时目录（git-ignored），不代表产品状态。
+5. Git 主分支工作流；审查工程临时工作区已于 2026-11-02 整体清除（快照见 git 6db21f1），其结论已并入 `docs/`——不以已删除的临时目录代表产品状态。
 
 ## 常用命令（动手前先跑通读）
 
@@ -44,7 +44,7 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 4. **events v1 事件 schema 不得擅改**：新增事件类型或关键字段需用户裁决（F-006/F-007 提案在案即此例）。
 5. 聚类遗留区（`clustering/balancing` 家族、`ReclusteringEngine` 的 DC/DR/BLOCK/VERTICAL）是**历史兼容代码**：可修真实缺陷（先写红测试）；不得改语义、不得扩用。标准 `SimulationRunner` 只接受聚类 NONE——这是设计。
 6. 已弃用调度标签（`MINMIN`/`MAXMIN`/`MCT`/`ROUNDROBIN` 等）被标准运行器**拒绝是设计行为**，不是待修 bug。
-7. 一切可变全局静态（`Parameters`/`FailureMonitor`/`ReplicaCatalog`/`NetworkTopology` 等 67 个字段，清单见审查工程）必须在 `SimulationSession` 生命周期内访问；想新增全局静态，先自问为何不用会话注入。
+7. 一切可变全局静态（`Parameters`/`FailureMonitor`/`ReplicaCatalog`/`NetworkTopology` 等 67 个字段，清单固化在 `SessionResetMatrixTest.AUDIT_CLASSES`）必须在 `SimulationSession` 生命周期内访问；想新增全局静态，先自问为何不用会话注入。
 8. 随机性必须走 `SimulationRandom` 命名流；禁止裸 `new Random()` 或种子字面量。
 9. **浮点决定性纪律**：证据路径上的集合遍历与求和保持确定顺序（`LinkedHashMap`/`TreeMap`/ID 升序 tie-break）；改动前想清楚是否引入迭代序漂移。
 10. Java 与 Python 审计器**语义必须对齐**：改 Java 指标/事件计算，必须同步核对 `scripts/` 对应复算口径。
@@ -65,7 +65,6 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 | `scripts/` | Python 审计器（纯 stdlib） | 不引入 Node 依赖；自测成对 |
 | `config/` | 代码工具链台账（checkstyle 分级规则等） | 规则只增不减；与 CODE_STYLE.md 同步修订 |
 | `output/` | 运行产物（gitignored） | 只存 tar 正本 + 当前活跃实验；旧堆须清理 |
-| `review-workspace/` | 临时工作区（gitignored） | 工程收尾后整体清除 |
 | `AGENTS.md` | 编码代理守则 | 修改需人工评审 |
 | `Makefile` | 便捷命令 | 与 pom.xml 目标同步维护 |
 
@@ -87,4 +86,4 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 - 契约与边界：`docs/`（入口 `docs/README.md`）
 - 算法语义/组合矩阵：`docs/algorithms/CATALOG.md` + `CONTRACTS.md`
 - 数据集规则：`datasets/README.md`
-- 审查工程沉淀（缺陷账/方法论，临时）：`review-workspace/`
+- 历史沉淀（缺陷账/方法论）：`docs/history/`（临时审查区已清除，勿再建同名目录）

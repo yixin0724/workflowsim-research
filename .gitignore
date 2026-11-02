@@ -3,9 +3,6 @@ target/
 *.class
 node_modules/
 
-# 2026-10 审查工程专用临时工作区：只存中间文档与审查产物，完成后整体清理
-review-workspace/
-
 # Python 字节码缓存（本地跑检查器副作用）
 scripts/__pycache__/
 
@@ -75,6 +72,9 @@ output/benchmark-standard-carbon-v1/
 
 # D5 frozen DVFS tri-dimensional benchmark local evidence (tar original retained).
 output/benchmark-standard-dvfs-v1/
+
+# make mutation-gate 报告（可重生成，不入库）
+output/mutation-gate/
 
 # BAT-D3 DVFS tier-audit smoke bundle (one real 2-tier run; regenerable via a temporary
 # SimulationRunner driver — the smoke path is documented in DVFS_DIMENSION_DESIGN.md §2.4).

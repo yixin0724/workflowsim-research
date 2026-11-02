@@ -35,7 +35,8 @@ import org.workflowsim.utils.Parameters.SchedulingAlgorithm;
  * {@code Consts.MILLION}、{@code Parameters.SOURCE}——这些字段在两次运行前后
  * 必须保持<b>初始值</b>。</p>
  *
- * <p>审计类清单与字段全集来自 review-workspace/STATIC-FIELDS.md（机械扫描产出）；
+ * <p>审计类清单与字段全集来自 2026-10 审查工程的机械扫描产出（清单已固化为下方
+ * {@code AUDIT_CLASSES}；该临时工作区已整体清除，快照见 git 6db21f1）；
  * 快照值用确定性深度表示（Map 排序、identity 兜底），仅用于相等性判定。</p>
  */
 class SessionResetMatrixTest {
