@@ -1,0 +1,23 @@
+docs/advanced/CARBON_DIMENSION_DESIGN.md
+  s_24f59fb6b2f10b::t_359ce249010c10 129-144
+docs/advanced/DATAFLOW_CAPABILITY_MATRIX.md
+  s_24f59fb6b2f10b::t_417acabab6d7d8 95-99
+docs/algorithms/CATALOG.md
+  s_24f59fb6b2f10b::t_25b5778b384267 45,52-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5dd2178dfcb0cb65a3e04b0143bac11e3ab740a6",
+  "prompts": {},
+  "sessions": {
+    "s_24f59fb6b2f10b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15261-5714-7e81-a927-1927a8caa494",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "yixin0724 <yixin0724@users.noreply.github.com>"
+    }
+  }
+}
