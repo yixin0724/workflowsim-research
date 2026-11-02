@@ -44,7 +44,7 @@ mvn -q -pl :workflowsim-workbench -am compile exec:java \
 4. **events v1 事件 schema 不得擅改**：新增事件类型或关键字段需用户裁决（F-006/F-007 提案在案即此例）。
 5. 聚类遗留区（`clustering/balancing` 家族、`ReclusteringEngine` 的 DC/DR/BLOCK/VERTICAL）是**历史兼容代码**：可修真实缺陷（先写红测试）；不得改语义、不得扩用。标准 `SimulationRunner` 只接受聚类 NONE——这是设计。
 6. 已弃用调度标签（`MINMIN`/`MAXMIN`/`MCT`/`ROUNDROBIN` 等）被标准运行器**拒绝是设计行为**，不是待修 bug。
-7. 一切可变全局静态（`Parameters`/`FailureMonitor`/`ReplicaCatalog`/`NetworkTopology` 等 67 个字段，清单固化在 `SessionResetMatrixTest.AUDIT_CLASSES`）必须在 `SimulationSession` 生命周期内访问；想新增全局静态，先自问为何不用会话注入。
+7. 一切可变全局静态（`Parameters`/`FailureMonitor`/`ReplicaCatalog`/`NetworkTopology` 等 68 个字段，清单固化在 `SessionResetMatrixTest.AUDIT_CLASSES`）必须在 `SimulationSession` 生命周期内访问；想新增全局静态，先自问为何不用会话注入。
 8. 随机性必须走 `SimulationRandom` 命名流；禁止裸 `new Random()` 或种子字面量。
 9. **浮点决定性纪律**：证据路径上的集合遍历与求和保持确定顺序（`LinkedHashMap`/`TreeMap`/ID 升序 tie-break）；改动前想清楚是否引入迭代序漂移。
 10. Java 与 Python 审计器**语义必须对齐**：改 Java 指标/事件计算，必须同步核对 `scripts/` 对应复算口径。
